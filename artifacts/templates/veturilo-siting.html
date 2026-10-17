@@ -108,7 +108,7 @@ ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72
     <h1>Gdzie postawić nowe stacje Veturilo</h1>
     <p class="lead">Warszawa podzielona na heksagony o promieniu 175 m. Każdy dostaje koszt J: im niższy, tym lepsze miejsce.
       Stacje wybieramy po kolei: po każdym wyborze stawiamy tam stację i przeliczamy odległości, więc następna propozycja nie ląduje obok.</p>
-    <span class="mock">Ruch samochodowy (T) i hulajnogi (E) to dane przykładowe (atrapa)</span>
+    <span class="mock">Ruch samochodowy (T) i zatłoczenie hulajnóg (E) to dane przykładowe (atrapa)</span>
     <div class="meta" id="meta"></div>
   </header>
 
@@ -126,7 +126,7 @@ ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72
           <span class="lbl">Warstwa</span>
           <button class="chip" id="layer-j" data-layer="j" aria-pressed="true">J (koszt)</button>
           <button class="chip" id="layer-t" data-layer="t" aria-pressed="false">T ruch</button>
-          <button class="chip" id="layer-e" data-layer="e" aria-pressed="false">E hulajnogi</button>
+          <button class="chip" id="layer-e" data-layer="e" aria-pressed="false">E zatłoczenie hulajnóg</button>
           <button class="chip" id="layer-s" data-layer="s" aria-pressed="false">S bezpieczeństwo</button>
           <button class="chip" id="layer-d" data-layer="d" aria-pressed="false">d<sub>net</sub></button>
         </div>
@@ -134,7 +134,6 @@ ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72
           <span class="lbl">Punkty</span>
           <label class="check"><input type="checkbox" id="show-stations" checked> stacje Veturilo</label>
           <label class="check"><input type="checkbox" id="show-counters"> liczniki ruchu</label>
-          <label class="check"><input type="checkbox" id="show-scooters"> hulajnogi</label>
         </div>
       </div>
       <div class="stepper">
@@ -230,7 +229,6 @@ const CORN = [0, 1, 2, 3, 4, 5].map(k => [Math.cos((30 + 60 * k) * Math.PI / 180
 const B = D.boundary.map(ring => ring.map(([la, lo]) => [mx(lo), my(la)]));
 const ST = D.stations.map(([la, lo, nm]) => [mx(lo), my(la), nm]);
 const CO = D.counters.map(([la, lo, v, rd]) => [mx(lo), my(la), v, rd]);
-const SC = D.scooters.map(([la, lo, k]) => [mx(lo), my(la), k]);
 const xs = B.flat().map(p => p[0]), ys = B.flat().map(p => p[1]);
 const EXT = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
 
@@ -262,11 +260,11 @@ let layer = "j", step = D.steps.length, fills = new Array(N);
 const LAYERS = {
   j: { name: "J (koszt)", low: "wyższy koszt", high: "niższy koszt = lepsze miejsce" },
   t: { name: "T ruch samochodowy", low: "0", high: "1" },
-  e: { name: "E hulajnogi", low: "0", high: "1" },
+  e: { name: "E zatłoczenie hulajnóg (wskaźnik miasta, atrapa)", low: "0", high: "1" },
   s: { name: "S bezpieczeństwo", low: "0 = DDR / CPR", high: "1 = wielopasmówka bez DDR" },
   d: { name: "d<sub>net</sub>", low: "0 m", high: `≥ ${int(P.r * 2)} m` },
 };
-const show = { stations: true, counters: false, scooters: false };
+const show = { stations: true, counters: false };
 const isPicked = i => D.steps.slice(0, step).some(s => s.i === i);
 
 function draw() {
@@ -295,7 +293,6 @@ function draw() {
       if (edge) { ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke(); }
     }
   };
-  if (show.scooters) { ctx.globalAlpha = 0.7; dots(SC, view.s > 0.05 ? 2 : 1.3, "#0f9d8a"); ctx.globalAlpha = 1; }
   if (show.counters) dots(CO, 3.2, "#2f2a25", "#ffffff");
   if (show.stations) dots(ST, view.s > 0.05 ? 3.5 : 2.5, css("--station"), "#ffffff");
   if (selected >= 0) {
@@ -323,7 +320,7 @@ function info(i) {
   const d = dSteps[step][i];
   const why = H.st[i] ? `stacji w heksie: ${H.st[i]}` : H.cand[i] ? "kandydat" : "bez ulic, poza rankingiem";
   el.innerHTML = `<b>J ${fmt(cost(i, dSteps[step]), 3)}</b> <span>${why}</span>` +
-    `<span>T ${fmt(H.t[i])} (≈ ${int(H.tRaw[i])} aut/h)</span><span>E ${fmt(H.e[i])} (${H.eRaw[i]} zdarzeń)</span>` +
+    `<span>T ${fmt(H.t[i])} (≈ ${int(H.tRaw[i])} aut/h)</span><span>E ${fmt(H.e[i])}</span>` +
     `<span>S ${fmt(H.s[i])}</span><span>d<sub>net</sub> ${isFinite(d) ? int(d) + " m" : "> " + int(D.maxR) + " m"} · P ${fmt(pen(d), 3)}</span>` +
     `<span class="note">${H.lat[i].toFixed(5)}, ${H.lon[i].toFixed(5)}</span>`;
 }
@@ -346,8 +343,7 @@ function paint() {
     `<span><b>${L_.name}</b></span><span>${L_.low} <i class="ramp" style="background:${rampCss}"></i> ${L_.high}</span>` +
     (layer === "j" ? `<span><i class="sw" style="background:${none}"></i> stacja, bez ulic albo już wybrany</span>` : "") +
     `<span><i class="dot" style="background:${css("--station")}"></i> stacja Veturilo</span>` +
-    `<span><i class="dot" style="background:#2f2a25"></i> licznik ruchu (atrapa)</span>` +
-    `<span><i class="dot" style="background:#0f9d8a"></i> start / koniec hulajnogi (atrapa)</span>`;
+    `<span><i class="dot" style="background:#2f2a25"></i> licznik ruchu (atrapa)</span>`;
   const st = step ? D.steps[step - 1] : null;
   document.getElementById("step-label").innerHTML = step === 0
     ? "Stan obecny: tylko istniejące stacje"
@@ -427,7 +423,7 @@ document.querySelectorAll("#rows tr").forEach(tr => {
 // ---------- formula terms ----------
 document.getElementById("terms").innerHTML = [
   ["T", "natężenie ruchu samochodowego 0..1: średnia z liczników w heksie, puste heksy z interpolacji IDW. Duży ruch = dużo ludzi, którzy mogą przesiąść się na rower."],
-  ["E", "gęstość startów i końców przejazdów e-hulajnóg 0..1 (log liczby zdarzeń). Wzmacnia T o czynnik (1 + δ·E)."],
+  ["E", "wskaźnik zatłoczenia e-hulajnóg 0..1 dla heksagonu 175 m, w takiej postaci, w jakiej dostaje go miasto. Wzmacnia T o czynnik (1 + δ·E)."],
   ["d<sub>net</sub>", `odległość po sieci rowerowej OSM do najbliższej stacji (jeden przebieg Dijkstry z wielu źródeł, do ${int(D.maxR)} m).`],
   ["P", `kara za bliskość istniejącej stacji, (1 − d/R)² dla d &lt; R = ${int(P.r)} m.`],
   ["S", "bezpieczeństwo infrastruktury: 0 przy DDR / CPR, 0,3 spokojna ulica lub pas rowerowy, 0,6 jednopasmowa główna, 1 wielopasmówka bez DDR."],
@@ -451,8 +447,8 @@ document.getElementById("terms").innerHTML = [
 document.getElementById("method").innerHTML = [
   `Granica Warszawy z OpenStreetMap (Nominatim). Heksagony o promieniu ${D.hexSize} m, liczone od środka; w mieście ${int(S.hexes)}.`,
   `Atrapa T: ${int(S.counters)} sztucznych liczników na drogach OSM (więcej na trasach głównych), 24 odczyty godzinowe z szumem; licznik ma ${int(S.hexes_with_counter)} heksów.`,
-  `Atrapa E: ${int(S.scooter_events)} sztucznych startów i końców przejazdów: wzdłuż ulic, gęściej w centrum, plus ogniska (Centrum, Politechnika, Bulwary, Praga, Rondo Daszyńskiego…). Na mapie próbka.`,
-  "Pomiary w heksie są uśredniane: T to średnia z liczników, S to średnia ważona długością odcinków ulic.",
+  `Atrapa E: wskaźnik zatłoczenia e-hulajnóg 0..1 dla ${int(S.scooter_hexes)} heksagonów 175 m, bo w takiej postaci miasto dostaje dane od operatorów (bez położeń pojedynczych hulajnóg). Wyższy wzdłuż ulic, w centrum i w ogniskach (Centrum, Politechnika, Bulwary, Praga, Rondo Daszyńskiego…). Na mapie: warstwa E.`,
+  "Pomiary w heksie są uśredniane: T to średnia z liczników, E to średnia wskaźników miasta, które wpadają do heksa (działa też, gdy siatka miasta jest przesunięta względem naszej), S to średnia ważona długością odcinków ulic.",
   "d<sub>net</sub>: graf rowerowy OSM (jazda + prowadzenie roweru po chodniku), środek heksa przyklejony do najbliższego węzła. Heks ze stacją ma 0.",
   "Wybór zachłanny: najniższe J wśród kandydatów, stawiamy tam stację, Dijkstra od nowej stacji (do R), minimum z poprzednim d<sub>net</sub>, powtórka.",
   "Z rankingu wypadają heksy ze stacją i heksy bez ulic. To raport próbny: T i E trzeba zastąpić danymi miasta, zanim wyniki będą coś znaczyć.",

@@ -188,7 +188,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   (`data/geojson/warsaw.geojson`, Nominatim relation R336075) split into pointy-top axial hexes, radius 175 m (6476 hexes). Cost
   `J = -a*T*(1 + d*E) + b*P(d_net) + g*S`, `P = (1 - d/R)^2` below R; defaults a=1, b=1, g=0.5, d=0.5, R=1000 m (`DEFAULTS`).
   **T and E are mocks** (`data/mock/`, seed 20261017): T = mean of fake hourly counters per hex + IDW, normalised at p99; E = fake
-  scooter events per hex, normalised on log(1 + n). S = length-weighted mean of OSM segments (0 DDR/CPR, 0.3 quiet / painted lane,
+  e-scooter crowding index 0..1 per 175 m hexagon (`scooter_intensity.json`): the city only receives this index per hexagon,
+  never single scooter positions. E = mean of the index values whose hex centre falls in our hex, IDW for the rest.
+  S = length-weighted mean of OSM segments (0 DDR/CPR, 0.3 quiet / painted lane,
   0.6 single-lane main, 1 multi-lane or trunk without a path). d_net = one multi-source Dijkstra on the bike graph in metres (up to
   5000 m), 0 in a hex with a station. Greedy top-N: after each pick, Dijkstra from the new station (limit R) and min.
   Not proposed: hexes with a station or without streets. Built in `warm()` (~2.5 min first time, cache `data/derived/siting_*.npz`).

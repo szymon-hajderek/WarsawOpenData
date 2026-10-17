@@ -18,7 +18,6 @@ from sources import nextbike, siting
 from station_siting import DEFAULTS, HEX_SIZE_M
 
 N = 10
-SCOOTER_SAMPLE = 5000
 TEMPLATE = REPO / "artifacts" / "templates" / "veturilo-siting.html"
 OUT = REPO / "artifacts" / "veturilo-siting.html"
 
@@ -43,19 +42,19 @@ def main() -> None:
     options = [siting.option(h, k + 1, s, p) for k, s in enumerate(steps)]
 
     tc = load_json(siting.TRAFFIC)["counters"]
-    sc = siting.load_scooters()
+    sc = load_json(siting.SCOOTERS)
     stations = nextbike.stations()
-    stats = {k: pct(h[k]) for k in ("t_raw", "t", "e_raw", "e", "s")}
+    stats = {k: pct(h[k]) for k in ("t_raw", "t", "e", "s")}
     stats["d_net"] = pct(h["d_net"])
     summary = {"hexes": int(len(h["q"])), "candidates": int(h["candidate"].sum()),
                "station_hexes": int((h["stations"] > 0).sum()), "stations": len(stations),
                "no_streets": int(h["no_streets"].sum()), "beyond_max_r": int(np.isinf(h["d_net"]).sum()),
                "counters": len(tc), "hexes_with_counter": int((h["t_counters"] > 0).sum()),
-               "scooter_events": len(sc["lat"])}
+               "scooter_hexes": len(sc["value"]), "hexes_with_scooter_value": int((h["e_values"] > 0).sum())}
     save_json(DATA / "siting_report.json", {"mock": True, "params": p, "hex_size_m": HEX_SIZE_M,
                                             "summary": summary, "stats": stats, "options": options})
     write_markdown(p, summary, stats, options)
-    write_html(h, p, steps, options, tc, sc, stations, summary)
+    write_html(h, p, steps, options, tc, stations, summary)
     print(f"wrote data/SITING_REPORT.md, data/siting_report.json, {OUT.relative_to(REPO)}")
 
 
@@ -82,7 +81,8 @@ def write_markdown(p, summary, stats, options) -> None:
         f"{summary['no_streets']} have no street).",
         f"- T: {summary['counters']} mock counters in {summary['hexes_with_counter']} hexes; the rest by IDW "
         "(6 nearest, power 2); normalised to 0..1 at the 99th percentile.",
-        f"- E: {summary['scooter_events']} mock e-scooter trip starts / ends, count per hex, normalised on log(1 + n).",
+        f"- E: mock e-scooter crowding index 0..1 for {summary['scooter_hexes']} hexagons of 175 m (the format the city "
+        "receives from operators), averaged per our hex; our hexes without a value by IDW.",
         "- S: length-weighted mean of the OSM street segments in the hex: 0 bike path (DDR / CPR), 0.3 quiet street or "
         "painted bike lane, 0.6 single-lane main road, 1.0 multi-lane / trunk road without a bike path.",
         f"- d_net: bike network (ridden + pushed), multi-source Dijkstra from all stations, up to {siting.MAX_R_M:.0f} m "
@@ -91,10 +91,10 @@ def write_markdown(p, summary, stats, options) -> None:
         "| value | min | p25 | median | p75 | max | mean |",
         "|---|---|---|---|---|---|---|",
     ]
-    names = {"t_raw": "T raw (cars / h)", "t": "T", "e_raw": "E raw (events)", "e": "E", "s": "S", "d_net": "d_net (m)"}
+    names = {"t_raw": "T raw (cars / h)", "t": "T", "e": "E", "s": "S", "d_net": "d_net (m)"}
     for k, name in names.items():
         st = stats[k]
-        d = 0 if k in ("t_raw", "e_raw", "d_net") else 2
+        d = 0 if k in ("t_raw", "d_net") else 2
         lines.append(f"| {name} | " + " | ".join(f(st[c], d) for c in ("min", "p25", "median", "p75", "max", "mean")) + " |")
     lines += ["", "## Top proposals", "",
               "| # | hex | lat, lon | J | T | E | d_net (m) | P | S |", "|---|---|---|---|---|---|---|---|---|"]
@@ -107,9 +107,7 @@ def write_markdown(p, summary, stats, options) -> None:
     (DATA / "SITING_REPORT.md").write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
 
-def write_html(h, p, steps, options, tc, sc, stations, summary) -> None:
-    rng = np.random.default_rng(1)
-    pick = rng.choice(len(sc["lat"]), size=min(SCOOTER_SAMPLE, len(sc["lat"])), replace=False)
+def write_html(h, p, steps, options, tc, stations, summary) -> None:
     d0 = np.where(np.isinf(h["d_net"]), -1, np.round(h["d_net"])).astype(int)
     prev = h["d_net"]
     step_data = []
@@ -126,11 +124,10 @@ def write_html(h, p, steps, options, tc, sc, stations, summary) -> None:
         "hex": {"lat": np.round(h["lat"], 5).tolist(), "lon": np.round(h["lon"], 5).tolist(),
                 "t": np.round(h["t"], 3).tolist(), "e": np.round(h["e"], 3).tolist(), "s": np.round(h["s"], 3).tolist(),
                 "d": d0.tolist(), "cand": h["candidate"].astype(int).tolist(), "st": h["stations"].astype(int).tolist(),
-                "tRaw": np.round(h["t_raw"]).astype(int).tolist(), "eRaw": h["e_raw"].astype(int).tolist()},
+                "tRaw": np.round(h["t_raw"]).astype(int).tolist()},
         "steps": step_data,
         "stations": [[round(s["lat"], 5), round(s["lon"], 5), s["name"]] for s in stations],
         "counters": [[c["lat"], c["lon"], int(np.mean(c["hourly"])), c["road"]] for c in tc],
-        "scooters": [[sc["lat"][i], sc["lon"][i], sc["kind"][i]] for i in pick.tolist()],
     }
     html = TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/null",
                                                         json.dumps(data, ensure_ascii=False, separators=(",", ":")))
