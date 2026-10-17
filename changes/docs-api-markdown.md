@@ -7,4 +7,3 @@
   does not have, so `uvicorn main:app` failed. It now uses `lifespan`.
 - Fixed: `/api/osm/nearest` and `/api/osm/route` returned 500 for a `mode` other than `walk` / `bike`;
   they now return 400, like `/api/osm/graph/summary` (shared `check_mode` in `osm.py`).
-- The two bugs found while writing the examples (`add_event_handler` at startup, `500` for a bad OSM `mode`) were fixed on this branch.
