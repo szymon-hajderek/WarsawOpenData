@@ -33,7 +33,8 @@ export const ICON_PATH = {
 
 export const MODE_META: Record<TransportMode, ModeMeta> = {
   walk: { label: 'Pieszo', icon: DirectionsWalk, path: ICON_PATH.walk, light: '#607D8B', dark: '#90A4AE' },
-  bike: { label: 'Veturilo', icon: DirectionsBike, path: ICON_PATH.bike, light: '#00897B', dark: '#2EE0C4' },
+  bike: { label: 'Rower', icon: DirectionsBike, path: ICON_PATH.bike, light: '#2E7D32', dark: '#81C784' },
+  veturilo: { label: 'Veturilo', icon: DirectionsBike, path: ICON_PATH.bike, light: '#00897B', dark: '#2EE0C4' },
   bus: { label: 'Autobus', icon: DirectionsBus, path: ICON_PATH.bus, light: '#D84315', dark: '#FF8A65' },
   tram: { label: 'Tramwaj', icon: Tram, path: ICON_PATH.tram, light: '#F59E0B', dark: '#FBBF24' },
   metro: { label: 'Metro', icon: Subway, path: ICON_PATH.metro, light: '#7B1FA2', dark: '#CE93D8' },

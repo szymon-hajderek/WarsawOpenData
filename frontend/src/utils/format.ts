@@ -11,10 +11,6 @@ export function formatDistance(m: number): string {
   return `${(m / 1000).toFixed(1).replace('.', ',')} km`;
 }
 
-export function formatCost(pln: number): string {
-  return pln === 0 ? '0 zł' : `${pln.toFixed(2).replace('.', ',')} zł`;
-}
-
 export function formatTime(date: Date): string {
   return date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
 }

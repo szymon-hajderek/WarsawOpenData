@@ -6,15 +6,18 @@ FastAPI serializes responses by alias, so the output matches the TypeScript type
 """
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # [lat, lng] pair, same as the frontend `LatLng`.
 LatLng = tuple[float, float]
+# [lon, lat] pair (GPS / GeoJSON order) for the start and end of a leg.
+LonLat = tuple[float, float]
 
 # Most intermediate stops on one trip.
 MAX_VIA = 5
 
-TransportMode = Literal["walk", "bike", "bus", "tram", "metro", "rail"]
+# `bike` = the rider's own bike, `veturilo` = a rented Veturilo bike.
+TransportMode = Literal["walk", "bike", "veturilo", "bus", "tram", "metro", "rail"]
 Profile = Literal["standard", "slow", "accessible"]
 
 
@@ -36,8 +39,20 @@ class RouteLeg(BaseModel):
     durationMin: int
     distanceM: float
     path: list[LatLng]
+    # Where the leg starts and ends, `[lon, lat]`. Filled from `path` when not given.
+    start: Optional[LonLat] = None
+    end: Optional[LonLat] = None
     # 1-based number of the intermediate stop this leg ends at (multi-stop trips), else None.
     stop: Optional[int] = None
+
+    @model_validator(mode="after")
+    def _fill_ends(self) -> "RouteLeg":
+        if self.path:
+            if self.start is None:
+                self.start = (self.path[0][1], self.path[0][0])
+            if self.end is None:
+                self.end = (self.path[-1][1], self.path[-1][0])
+        return self
 
 
 class RouteOption(BaseModel):
@@ -48,10 +63,19 @@ class RouteOption(BaseModel):
     arrival: str
     durationMin: int
     distanceM: float
-    calories: int
+    # Metres on foot (`walk` legs) and by bike (`bike` + `veturilo` legs). Calories are worked out from the legs.
+    walkDistance: float = 0
+    bikeDistance: float = 0
     transfers: int
-    costPln: float
     tags: list[str]
+
+    @model_validator(mode="after")
+    def _fill_distances(self) -> "RouteOption":
+        if not self.walkDistance:
+            self.walkDistance = round(sum(l.distanceM for l in self.legs if l.mode == "walk"), 1)
+        if not self.bikeDistance:
+            self.bikeDistance = round(sum(l.distanceM for l in self.legs if l.mode in ("bike", "veturilo")), 1)
+        return self
     # Start, the intermediate stops in the order they are visited, destination (multi-stop trips only).
     waypoints: list[Place] = Field(default_factory=list)
 

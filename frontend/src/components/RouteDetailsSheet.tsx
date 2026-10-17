@@ -10,7 +10,7 @@ import { MODE_META, modeColor } from '../modes';
 import { useHistory } from '../history/HistoryProvider';
 import { usePreferences } from '../preferences/PreferencesProvider';
 import { routeKcal } from '../preferences/model';
-import { formatCost, formatDistance, formatDuration, stopsLabel, transfersLabel } from '../utils/format';
+import { formatDistance, formatDuration, stopsLabel, transfersLabel } from '../utils/format';
 import type { Place, RouteLeg, RouteOption } from '../types';
 import { RADIUS } from '../layout';
 
@@ -19,8 +19,10 @@ function instruction(leg: RouteLeg): string {
   switch (leg.mode) {
     case 'walk':
       return `Przejdź ${dist} do: ${leg.to}`;
-    case 'bike':
+    case 'veturilo':
       return `Jedź rowerem Veturilo ${dist} do: ${leg.to}`;
+    case 'bike':
+      return `Jedź własnym rowerem ${dist} do: ${leg.to}`;
     default:
       return `${MODE_META[leg.mode].label} ${leg.line ?? ''} do: ${leg.to}`.replace('  ', ' ');
   }
@@ -243,7 +245,6 @@ export default function RouteDetailsSheet({
             <Tile label="Czas" value={formatDuration(route.durationMin)} />
             <Tile label="Dystans" value={formatDistance(route.distanceM)} />
             <Tile label="Spalone kalorie" value={`${routeKcal(route, effective)} kcal`} />
-            <Tile label="Koszt (szac.)" value={`${route.costPln > 0 ? '~' : ''}${formatCost(route.costPln)}`} />
           </Box>
 
           <TripRecorder route={route} />
