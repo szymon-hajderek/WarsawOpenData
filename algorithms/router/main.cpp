@@ -62,38 +62,16 @@ double round_to(double v, int decimals) {
 json lonlat(double lon, double lat) { return {round_to(lon, 5), round_to(lat, 5)}; }
 json lonlat(const Graph& g, std::uint32_t v) { return lonlat(g.lon[v], g.lat[v]); }
 
-// Where a search starts or ends: a coordinate or a location, resolved to graph ends. Several starts, each with its
-// own start time (`at_s`, e.g. the arrival of a ride at that station), form one place with `sources`: the search
-// seeds every end of every source with its start time, and the cheapest of them wins.
+// Where a search starts or ends: a coordinate or a location, resolved to graph ends.
 struct Place {
     std::vector<End> ends;
-    double lat = 0, lon = 0, snap_m = 0, at_s = 0;
+    double lat = 0, lon = 0, snap_m = 0;
     const Location* location = nullptr;
-    std::vector<Place> sources;
-    std::vector<std::uint32_t> owner;  // per end: the index of its source (only with sources)
 };
 
 std::expected<Place, Error> resolve(const json& v, const Mode& mode, const Stations* stations, const Speeds& speeds,
                                     bool leaving, const char* what) {
     Place p;
-    if (v.is_array() && !v.empty() && v[0].is_object()) {  // [{"id" | "point", "at_s"}, ...]
-        for (const auto& item : v) {
-            const auto at = item.find("at_s");
-            const auto where = item.contains("id") ? item.find("id") : item.find("point");
-            if (!item.is_object() || where == item.end() || (at != item.end() && !at->is_number()))
-                return std::unexpected(Error{400, std::format("each item of {} must be {{\"id\" or \"point\", \"at_s\"}}", what)});
-            auto source = resolve(*where, mode, stations, speeds, leaving, what);
-            if (!source) return source;
-            source->at_s = at == item.end() ? 0.0 : at->get<double>();
-            for (auto e : source->ends) {
-                e.cost += source->at_s;
-                p.ends.push_back(e);
-                p.owner.push_back(static_cast<std::uint32_t>(p.sources.size()));
-            }
-            p.sources.push_back(std::move(*source));
-        }
-        return p;
-    }
     if (v.is_string()) {
         if (!stations || !(p.location = stations->find(v.get<std::string>())))
             return std::unexpected(Error{404, std::format("unknown location id {}", v.get<std::string>())});
@@ -120,19 +98,13 @@ std::expected<Place, Error> resolve(const json& v, const Mode& mode, const Stati
 }
 
 // The cheapest path between two places; totals, the path as [lon, lat], the elevators and steps on it.
-// With several sources: `seconds` includes the start time of the chosen one, given as from_index (+ start_s, from_id).
-std::expected<json, Error> route(const Mode& mode, Search& search, const Place& start_place, const Place& to,
-                                 const Speeds& speeds) {
+std::expected<json, Error> route(const Mode& mode, Search& search, const Place& from, const Place& to, const Speeds& speeds) {
     const Graph& g = mode.graph;
-    const auto hit = search.run(start_place.ends, speeds, to.ends);
+    const auto hit = search.run(from.ends, speeds, to.ends);
     if (!hit) return std::unexpected(Error{404, "no path"});
     const auto& t = to.ends[*hit];
     const auto edges = search.path_to(t.node);
     const auto start = edges.empty() ? t.node : edges.front().first;
-    std::optional<std::size_t> chosen;  // the source whose seed the path starts from (the cheapest seed at `start`)
-    for (std::size_t i = 0; i < start_place.owner.size(); ++i)
-        if (start_place.ends[i].node == start && (!chosen || start_place.ends[i].cost < start_place.ends[*chosen].cost)) chosen = i;
-    const Place& from = chosen ? start_place.sources[start_place.owner[*chosen]] : start_place;
     json path = json::array({lonlat(from.lon, from.lat), lonlat(g, start)}), elevators = json::array(), steps = json::array();
     bool on_steps = false;
     for (const auto& [u, e] : edges) {
@@ -150,7 +122,6 @@ std::expected<json, Error> route(const Mode& mode, Search& search, const Place& 
              {"path", path}, {"elevators", elevators}, {"steps", steps}};
     if (from.location) out["from_id"] = from.location->id;
     if (to.location) out["to_id"] = to.location->id;
-    if (chosen) out["from_index"] = start_place.owner[*chosen], out["start_s"] = from.at_s;
     return out;
 }
 
@@ -319,8 +290,6 @@ void serve(const std::filesystem::path& dir, int port, unsigned threads) {
         if (!parsed) return;
         const auto& [body, mode, speeds] = *parsed;
         const auto from = resolve(body.value("from", json()), *mode, st, speeds, true, "from");
-        if (const auto t = body.value("to", json()); t.is_array() && !t.empty() && t[0].is_object())
-            return reply(res, 400, {{"error", "to must be one place ([lat, lon] or a location id)"}});
         const auto to = resolve(body.value("to", json()), *mode, st, speeds, false, "to");
         if (!from) return reply(res, from.error().status, {{"error", from.error().message}});
         if (!to) return reply(res, to.error().status, {{"error", to.error().message}});

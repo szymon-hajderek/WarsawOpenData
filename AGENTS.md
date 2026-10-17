@@ -252,8 +252,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   the cost model (`osm.points_graph`, `preprocess_street.py --graph-only`); C++ does every street search.
   `street_router serve` (started by `main.py` via `backend/street_router.py`, port 8090, `ROUTER_URL` for an
   external one) answers `POST /route` {from, to, mode, speeds} between any coordinates (~1 ms nearby, ~0.4 s across
-  the city); `from` / `to` may be station ids, `from` may be several starts each with its own start time (`at_s`:
-  the egress after RAPTOR, one seeded search); `POST /access` = one Dijkstra from a point to every station within a
+  the city); `from` / `to` may be station ids; `POST /access` = one Dijkstra from a point to every station within a
   time limit (or to the point: direction "to", reversed graph), the RAPTOR glue; other keys get 501 "not
   implemented" (Veturilo, preferences come later). Router down = 503.
   Target architecture (user): OSM layer for own bike / walk / accessible + a simple station network for RAPTOR with

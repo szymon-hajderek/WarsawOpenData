@@ -422,33 +422,6 @@ def test_cpp_server_resolves_station_ids_and_metro_entrances(tmp_path):
 
 
 @needs_cpp
-def test_cpp_route_from_several_starts_each_with_its_own_start_time(tmp_path):
-    # the egress after RAPTOR: every station has its own arrival time; the cheapest start + walk wins
-    proc, port, _ = start_server(tmp_path)
-    lat, lon, *_ = grid_city()
-    try:
-        end = [lat[20], lon[20]]
-        post_s = post(port, {"from": "ztm:post24", "to": end, "mode": "walk"})[1]["seconds"]
-        metro_s = post(port, {"from": "ztm:M:P1", "to": end, "mode": "walk"})[1]["seconds"]
-        for at_post, at_metro in ((0, 1000), (1000, 0)):
-            status, got = post(port, {"from": [{"id": "ztm:post24", "at_s": at_post}, {"id": "ztm:M:P1", "at_s": at_metro}],
-                                      "to": end, "mode": "walk"})
-            assert status == 200
-            best = min((at_post + post_s, 0, "ztm:post24"), (at_metro + metro_s, 1, "ztm:M:P1"))
-            assert np.isclose(got["seconds"], best[0], atol=0.2)
-            assert got["from_index"] == best[1] and got["from_id"] == best[2]
-            assert got["start_s"] == (at_post, at_metro)[best[1]]
-        # a coordinate start works too; a list as "to" does not
-        status, got = post(port, {"from": [{"point": end, "at_s": 5}], "to": end, "mode": "walk"})
-        assert status == 200 and np.isclose(got["seconds"], 5, atol=0.2)
-        assert post(port, {"from": list(A), "to": [{"id": "ztm:post24"}], "mode": "walk"})[0] == 400
-        assert post(port, {"from": [{"at_s": 1}], "to": end, "mode": "walk"})[0] == 400
-    finally:
-        proc.terminate()
-        proc.wait()
-
-
-@needs_cpp
 def test_cpp_access_lists_stations_within_the_limit_both_ways(tmp_path):
     proc, port, _ = start_server(tmp_path)
     lat, lon, *_ = grid_city()

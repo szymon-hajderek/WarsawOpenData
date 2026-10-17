@@ -174,7 +174,6 @@ Body (JSON):
 | Key | Meaning |
 |---|---|
 | `from`, `to` | `[lat, lon]`, or a location id from `stations.json` (`"ztm:7014M:P1"`; the answer then has `from_id` / `to_id`) |
-| `from` (several starts) | `[{"id": ..., "at_s": 120}, {"point": [lat, lon], "at_s": 300}, ...]`: one search seeded from all of them, each with its own start time (the egress after RAPTOR: the arrival time at each station). `seconds` = the best start time + path; the answer adds `from_index`, `start_s` (and `from_id` for an id). `to` is always one place |
 | `mode` | `walk`, `bike`, `accessible` or `stroller` (the modes `/health` lists) |
 | `speeds` | optional `{"walk": m/s, "bike": m/s}`: the path is optimal for these speeds (default: the mode's) |
 | anything else | **501** `{"error": "not implemented", "unimplemented": [keys]}`: callers can relay options as they come; the router says which ones it does not support yet |

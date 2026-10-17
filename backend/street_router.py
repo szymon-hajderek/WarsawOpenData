@@ -40,9 +40,7 @@ def base_url() -> str:
 
 
 def _place(p):
-    if isinstance(p, str) or (isinstance(p, list) and p and isinstance(p[0], dict)):
-        return p  # a location id, or several starts [{"id" | "point", "at_s"}]
-    return [p[0], p[1]]
+    return p if isinstance(p, str) else [p[0], p[1]]
 
 
 def _post(path: str, body: dict) -> dict:
@@ -59,9 +57,7 @@ def _post(path: str, body: dict) -> dict:
 
 
 def route(a, b, mode: str = "walk", **options) -> dict:
-    """Path from a to b ((lat, lon) each, or a location id of stations.json). `a` may also be several starts,
-    each with its own start time: [{"id": ..., "at_s": ...} or {"point": [lat, lon], "at_s": ...}]; the cheapest
-    start + path wins (from_index, start_s; seconds includes start_s). Extra options are relayed as they
+    """Path from a to b ((lat, lon) each, or a location id of stations.json).  Extra options are relayed as they
     are; the router answers 501 (NotImplementedError here) for the ones it does not support yet. The answer has
     seconds, walk_m, bike_m, wait_s, snap_m, path ([lon, lat]), elevators and steps, plus length_m and geometry
     ([lat, lon]) for the callers."""

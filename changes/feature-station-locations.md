@@ -15,5 +15,3 @@ Builds on `feature/cpp-router` (PR #62). Building blocks for RAPTOR, not RAPTOR 
 - Matrices are computed on the overlay positions and carry the hash; a mismatch at start is reported, not recomputed.
 - Street model: steps with `ramp:wheelchair=yes` are step-free in `accessible`. New mode `stroller` (graph, matrix,
   router): also takes steps with `ramp:stroller=yes`; a bike is pushed along the stroller graph.
-- Router: `POST /route` accepts several starts, each with its own start time (`from: [{"id"|"point", "at_s"}]`),
-  one seeded search: the egress after RAPTOR. Answer adds `from_index`, `start_s`.
