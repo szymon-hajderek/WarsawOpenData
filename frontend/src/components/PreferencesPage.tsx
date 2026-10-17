@@ -5,9 +5,12 @@ import Delete from '@mui/icons-material/Delete';
 import Edit from '@mui/icons-material/Edit';
 import Schedule from '@mui/icons-material/Schedule';
 import RestartAlt from '@mui/icons-material/RestartAlt';
+import HistoryIcon from '@mui/icons-material/History';
 import PreferenceFields, { Section } from './preferences/PreferenceFields';
 import RuleDialog from './preferences/RuleDialog';
 import { usePreferences } from '../preferences/PreferencesProvider';
+import { useHistory } from '../history/HistoryProvider';
+import { tripsLabel } from './preferences/HistoryHint';
 import { DEFAULT_PREFERENCES, describeRule, type PreferenceOverrides, type TimeRule } from '../preferences/model';
 import { BOTTOM_NAV_HEIGHT, RADIUS } from '../layout';
 
@@ -21,7 +24,8 @@ const OVERRIDE_LABELS: Record<keyof PreferenceOverrides, string> = {
 
 /** Preferences tab: how the user moves, priorities and time rules. */
 export default function PreferencesPage() {
-  const { base, rules, activeRule, setBase, setRules, reset } = usePreferences();
+  const { base, rules, activeRule, autoUsed, setBase, setRules, reset } = usePreferences();
+  const { summary, records, clear } = useHistory();
   const [editing, setEditing] = useState<TimeRule | 'new' | null>(null);
 
   const saveRule = (rule: TimeRule) => {
@@ -60,7 +64,7 @@ export default function PreferencesPage() {
           </Box>
         )}
 
-        <PreferenceFields value={base} onChange={setBase} />
+        <PreferenceFields value={base} onChange={setBase} history={{ summary, used: autoUsed }} />
 
         <Box sx={{ mt: 1.5 }}>
           <Section
@@ -113,6 +117,39 @@ export default function PreferencesPage() {
             </Box>
             <Button variant="outlined" startIcon={<Add />} onClick={() => setEditing('new')}>
               Dodaj regułę
+            </Button>
+          </Section>
+        </Box>
+
+        <Box sx={{ mt: 1.5 }}>
+          <Section
+            icon={<HistoryIcon />}
+            title="Historia przejazdów"
+            hint="Z niej liczymy Twoją średnią prędkość. Zostaje tylko na tym urządzeniu."
+          >
+            {records.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Nie zapisano jeszcze żadnego przejazdu. W widoku trasy wybierz „Rozpocznij przejazd”.
+              </Typography>
+            ) : (
+              <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 1.5 }}>
+                {(['walking', 'cycling', 'wheelchair'] as const)
+                  .filter((m) => summary[m].trips > 0)
+                  .map((m) => (
+                    <Chip
+                      key={m}
+                      size="small"
+                      variant="outlined"
+                      label={`${{ walking: 'Pieszo', cycling: 'Rower', wheelchair: 'Wózek' }[m]}: ${tripsLabel(summary[m].trips)}`}
+                    />
+                  ))}
+              </Box>
+            )}
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+              Ślad GPS jest wysyłany do serwera tylko na chwilę zapisu i nie jest przechowywany. Zapisujemy wyłącznie dystans, czas ruchu i prędkość, bez współrzędnych.
+            </Typography>
+            <Button variant="outlined" color="inherit" disabled={records.length === 0} onClick={clear}>
+              Wyczyść historię przejazdów
             </Button>
           </Section>
         </Box>

@@ -5,10 +5,16 @@ import DirectionsBike from '@mui/icons-material/DirectionsBike';
 import Accessible from '@mui/icons-material/Accessible';
 import SwapHoriz from '@mui/icons-material/SwapHoriz';
 import LevelSelector from './LevelSelector';
+import HistoryHint, { type HistoryInfo } from './HistoryHint';
 import AreaPicker from './AreaPicker';
+import type { SpeedSummary } from '../../history/types';
 import {
   BIKE_LEVELS,
+  cyclingKmh,
   SPEED_RANGE,
+  walkingKmh,
+  wheelchairKmh,
+  type AutoSpeeds,
   WALK_LEVELS,
   WHEELCHAIR_LABEL,
   WHEELCHAIR_LEVELS,
@@ -44,7 +50,17 @@ export function Section({ icon, title, hint, children }: { icon: ReactNode; titl
   );
 }
 
-export function WalkingSection({ value, onChange }: { value: WalkingSetting; onChange: (v: WalkingSetting) => void }) {
+export function WalkingSection({
+  value,
+  onChange,
+  history,
+}: {
+  value: WalkingSetting;
+  onChange: (v: WalkingSetting) => void;
+  /** The trip history of this mode; shown on the Preferences page only. */
+  history?: HistoryInfo;
+}) {
+  const locked = history?.used != null;
   return (
     <Section icon={<DirectionsWalk />} title="Pieszo" hint="Twoje tempo marszu.">
       <LevelSelector
@@ -53,13 +69,33 @@ export function WalkingSection({ value, onChange }: { value: WalkingSetting; onC
         level={value.level}
         customKmh={value.customKmh}
         range={SPEED_RANGE.walking}
-        onChange={(level, customKmh) => onChange({ level, customKmh })}
+        disabled={locked}
+        onChange={(level, customKmh) => onChange({ ...value, level, customKmh })}
       />
+      {history && (
+        <HistoryHint
+          {...history}
+          currentKmh={walkingKmh(value)}
+          range={SPEED_RANGE.walking}
+          autoSpeed={value.autoSpeed}
+          onAutoChange={(autoSpeed) => onChange({ ...value, autoSpeed })}
+          onUse={(kmh) => onChange({ ...value, customKmh: kmh })}
+        />
+      )}
     </Section>
   );
 }
 
-export function CyclingSection({ value, onChange }: { value: CyclingSetting; onChange: (v: CyclingSetting) => void }) {
+export function CyclingSection({
+  value,
+  onChange,
+  history,
+}: {
+  value: CyclingSetting;
+  onChange: (v: CyclingSetting) => void;
+  history?: HistoryInfo;
+}) {
+  const locked = history?.used != null;
   return (
     <Section icon={<DirectionsBike />} title="Rower Veturilo" hint="Poziom jazdy na rowerze.">
       <FormControlLabel
@@ -68,14 +104,27 @@ export function CyclingSection({ value, onChange }: { value: CyclingSetting; onC
         sx={{ mb: 1 }}
       />
       {value.enabled && (
-        <LevelSelector
-          ariaLabel="Poziom jazdy na rowerze"
-          levels={BIKE_LEVELS}
-          level={value.level}
-          customKmh={value.customKmh}
-          range={SPEED_RANGE.cycling}
-          onChange={(level, customKmh) => onChange({ ...value, level, customKmh })}
-        />
+        <>
+          <LevelSelector
+            ariaLabel="Poziom jazdy na rowerze"
+            levels={BIKE_LEVELS}
+            level={value.level}
+            customKmh={value.customKmh}
+            range={SPEED_RANGE.cycling}
+            disabled={locked}
+            onChange={(level, customKmh) => onChange({ ...value, level, customKmh })}
+          />
+          {history && (
+            <HistoryHint
+              {...history}
+              currentKmh={cyclingKmh(value)}
+              range={SPEED_RANGE.cycling}
+              autoSpeed={value.autoSpeed}
+              onAutoChange={(autoSpeed) => onChange({ ...value, autoSpeed })}
+              onUse={(kmh) => onChange({ ...value, customKmh: kmh })}
+            />
+          )}
+        </>
       )}
     </Section>
   );
@@ -84,10 +133,13 @@ export function CyclingSection({ value, onChange }: { value: CyclingSetting; onC
 export function WheelchairSection({
   value,
   onChange,
+  history,
 }: {
   value: WheelchairSetting;
   onChange: (v: WheelchairSetting) => void;
+  history?: HistoryInfo;
 }) {
+  const locked = history?.used != null;
   return (
     <Section icon={<Accessible />} title="Wózek i dostępność" hint="Aplikacja ma działać dla każdego.">
       <ToggleButtonGroup
@@ -114,8 +166,19 @@ export function WheelchairSection({
             level={value.level}
             customKmh={value.customKmh}
             range={SPEED_RANGE.wheelchair}
+            disabled={locked}
             onChange={(level, customKmh) => onChange({ ...value, level, customKmh })}
           />
+          {history && (
+            <HistoryHint
+              {...history}
+              currentKmh={wheelchairKmh(value) ?? 3.6}
+              range={SPEED_RANGE.wheelchair}
+              autoSpeed={value.autoSpeed}
+              onAutoChange={(autoSpeed) => onChange({ ...value, autoSpeed })}
+              onUse={(kmh) => onChange({ ...value, customKmh: kmh })}
+            />
+          )}
         </Box>
       )}
 
@@ -191,12 +254,28 @@ export function PrioritiesSection({
 }
 
 /** All preference sections. Used on the Preferences page and (as overrides) in the trip filters. */
-export default function PreferenceFields({ value, onChange }: { value: Preferences; onChange: (next: Preferences) => void }) {
+export default function PreferenceFields({
+  value,
+  onChange,
+  history,
+}: {
+  value: Preferences;
+  onChange: (next: Preferences) => void;
+  /** Trip history of each mode; only the Preferences page passes it. */
+  history?: { summary: SpeedSummary; used: AutoSpeeds };
+}) {
+  const info = (mode: 'walking' | 'cycling' | 'wheelchair'): HistoryInfo | undefined =>
+    history && { summary: history.summary[mode], used: history.used[mode]?.kmh ?? null };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      <WalkingSection value={value.walking} onChange={(walking) => onChange({ ...value, walking })} />
-      <CyclingSection value={value.cycling} onChange={(cycling) => onChange({ ...value, cycling })} />
-      <WheelchairSection value={value.wheelchair} onChange={(wheelchair) => onChange({ ...value, wheelchair })} />
+      <WalkingSection value={value.walking} onChange={(walking) => onChange({ ...value, walking })} history={info('walking')} />
+      <CyclingSection value={value.cycling} onChange={(cycling) => onChange({ ...value, cycling })} history={info('cycling')} />
+      <WheelchairSection
+        value={value.wheelchair}
+        onChange={(wheelchair) => onChange({ ...value, wheelchair })}
+        history={value.wheelchair.type === 'none' ? undefined : info('wheelchair')}
+      />
       <PrioritiesSection value={value.priorities} onChange={(priorities) => onChange({ ...value, priorities })} />
     </Box>
   );

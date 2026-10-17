@@ -201,6 +201,15 @@ Everything in this repo (files, commits, PRs) is written in English.
   time, step-free, pace / wheelchair, excluded areas, and "Zaawansowane" = all preferences as overrides). Only list-like
   filters really change the (mock) list, client-side (`applyListFilters`); speeds, wheelchair and areas are stored only and
   not passed to `fetchRouteOptions` yet.
+- Speed history (device-side, privacy first): in the route view "Rozpocznij przejazd" / "Zakończ" records GPS points (memory only, one every 4 s,
+  Screen Wake Lock while recording) and sends the track once to `POST /api/history/records` (`backend/app/api/history.py`,
+  `algorithms/speed_history.py::split_track`: shares the moving distance between the route's legs by planned distance, ignores standing
+  still and GPS jumps, rejects implausible speeds, walking legs count as `walkAs` = walking or wheelchair). The response has no coordinates;
+  the device keeps only these records in localStorage `trip-history` (`src/history/HistoryProvider.tsx`, max 200). The backend stores and logs nothing.
+  `POST /api/history/summary` (`summarize`: moving speed = distance / moving time, latest 20 records per mode, outliers ignored, "enough" from 5 trips)
+  gives the average per mode; the frontend falls back to `localSummary` when the backend is down. Preferences: each of Pieszo / Rower / Wózek shows
+  "Twoja średnia z historii" with "Użyj X km/h" (when it differs by 10% or more) and the switch "Zawsze używaj średniej z historii" (`autoSpeed`; when on and
+  enough trips, `applyHistory` in `src/preferences/model.ts` replaces the level / typed speed and the selector is locked). History can be cleared on the Preferences page.
 - Vite proxies `/api` to the backend at http://localhost:8000.
 - Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with
