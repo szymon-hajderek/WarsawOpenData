@@ -235,6 +235,7 @@ export default function App() {
         {step === 'route' && chosen && origin && destination && (
           <RouteDetailsSheet
             route={chosen}
+            mock={routesMock}
             origin={origin}
             destination={destination}
             snap={detailsSnap}

@@ -19,8 +19,7 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 - No authentication on our side. The keys for City Hall endpoints live in `.env` on the server (`ACCESS.md`).
 - Examples below are real answers from a running server. Long lists are cut to 1-2 items and end with `"..."`.
 - Coordinates are WGS84 `lat` / `lon` in degrees. Times are Warsaw local time.
-- Endpoints: 27 (data API 24: meta 2, GTFS 8, live and City Hall 4, bus detection 2, Veturilo 5, OSM 3;
-  routing API 3), plus 6 simulation endpoints that exist only in simulation mode (`SIM_SCENARIO`).
+- Endpoint groups are listed below, plus 6 simulation endpoints that exist only in simulation mode (`SIM_SCENARIO`).
 
 | Group | Prefix | Source file |
 |---|---|---|
@@ -31,6 +30,7 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 | [Veturilo](#veturilo-city-bikes) | `/api/veturilo` | `backend/sources/nextbike.py`, `backend/sources/siting.py` (`/siting`) |
 | [OSM](#osm-street-graph) | `/api/osm` | `backend/sources/osm.py` |
 | [Routing API](#routing-api-backendapp) | `/api/routes`, `/api/geocode`, `/health` | `backend/app/` |
+| [Journey statistics](#journey-statistics) | `/api/journeys` | `backend/app/api/journeys.py` |
 | [Simulation](#simulation-only-with-sim_scenario) | `/api/sim` | `backend/sim/api.py` |
 
 ## IDs
@@ -40,6 +40,8 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 - Route ids: `ztm:131`. Group ids: `ztm:7009`. Veturilo station: `station_id` (`203610`), global id `vet:203610`.
 - `line` in live endpoints = GTFS `route_short_name`; `route_id` = `ztm:<line>`.
 - Veturilo and OSM have no shared ids with GTFS: join them by distance.
+- Geocoded places use OSM object references: `osm:node:123`, `osm:way:123` or `osm:relation:123`.
+  The former `osm-<place_id>` was a Nominatim database key, not a durable object reference.
 
 ---
 
@@ -572,14 +574,15 @@ Errors: `422` when the body is not valid, or when `when` is not `HH:MM` or an IS
 ### `GET /api/geocode`
 
 Place search: proxy to OpenStreetMap Nominatim, limited to Warsaw, up to 6 results, duplicates removed.
+Place IDs use `osm:<osm_type>:<osm_id>`. Results without an OSM object reference are omitted.
 
 | Query | Type | Default | Meaning |
 |---|---|---|---|
 | `q` | string, at least 1 character | required | search text |
 
 ```json
-[{"id": "osm-177963717", "label": "Dworzec Centralny", "sublabel": "Aleje Jerozolimskie 54, Śródmieście",
-  "position": [52.2288747, 21.0040358], "isCurrentLocation": null}, "..."]
+[{"id": "osm:way:126234965", "label": "Koneser", "sublabel": "Praga-Północ",
+  "position": [52.2555027, 21.0452825], "isCurrentLocation": null}, "..."]
 ```
 
 Errors: `422` for an empty `q` or a `q` longer than 200 characters; `502 {"detail": "Geocoding service failed"}`
@@ -590,6 +593,50 @@ when Nominatim fails. The server keeps answers for 10 minutes, so a repeated sea
 Liveness check: `{"status": "ok"}`.
 
 ---
+
+## Journey statistics
+
+### `POST /api/journeys`
+
+Records one explicitly completed GPS recording, only when the user has opted in (off by default).
+The frontend snapshots the selected whole-trip start and destination at recording start. Searches,
+previews, mock routes, interrupted recordings and recordings without usable GPS are not submitted.
+This is independent of the stateless speed-history endpoints.
+
+Body: `token` (UUID, generated once per recording), `from` and `to` (each has `id`, `position`
+as `[lat, lon]`, and optional `isCurrentLocation`, default false). No labels, full tracks,
+user/device identifiers or personal preferences are accepted. Unknown fields are rejected.
+
+- GTFS IDs (`ztm:...`, `wkd:...`, `pkp:...`) and Veturilo IDs (`vet:...`) resolve to catalog coordinates.
+- OSM object references (`osm:node:...`, `osm:way:...`, `osm:relation:...`) retain the selected object's coordinates.
+- `id: "current-location"` with `isCurrentLocation: true` resolves to the nearest boarding stop/platform
+  or Veturilo station, by geographic distance (ties by ID). Only that anchor's ID and exact coordinates
+  are persisted; the supplied GPS point is not stored. There is no distance cutoff or spatial grid.
+
+SQLite stores places and daily Warsaw-time origin-destination counts in `db/journey_stats.sqlite`
+(override with `JOURNEY_STATS_DB`). A token-only receipt makes retries atomic and idempotent:
+the first submission returns `200 {"recorded": true}`, and repeats return `200 {"recorded": false}`.
+There are no individual journey timestamps or links between different recordings or users.
+Counters and receipts are retained until the operator clears the database. There is no public read/export API.
+Counts represent completed recordings with selected endpoints, not verified arrival at the destination.
+
+The database and anchor catalog are initialized at server startup from local GTFS and GBFS files.
+Requests never download data or build caches. Statistics failures do not block the frontend's local
+speed-history saving; it makes at most one retry with the same token while sharing remains enabled.
+
+Errors: `422` for malformed input or unknown catalog IDs; `503 {"detail": "journey statistics unavailable"}`
+when initialization/data is unavailable or a database write fails. New statistics logs contain no
+coordinates, labels, request bodies, tokens or user identifiers.
+
+Verified against a running local server (isolated temporary database):
+
+```json
+{"token": "c1b57903-37b5-418d-8e75-cde286eb5a11",
+ "from": {"id": "current-location", "position": [52.248455, 21.044827], "isCurrentLocation": true},
+ "to": {"id": "vet:203610", "position": [52.25602, 21.046219]}}
+```
+
+First answer: `{"recorded": true}`. Repeating that exact request: `{"recorded": false}`.
 
 ## Simulation (only with `SIM_SCENARIO`)
 
