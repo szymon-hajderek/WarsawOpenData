@@ -157,7 +157,7 @@ class RealRouteEngine(RouteEngine):
         if street is None or street["seconds"] > 50 * 60:
             return None
         leg = _leg("walk", frm.label, to.label, None, street)
-        return _option("walk", "Pieszo", [leg], now, 0)
+        return _option("walk", "Pieszo", [leg], now)
 
     def _bike_option(self, frm, to, origin, dest, profile, now) -> Optional[RouteOption]:
         stations = _stations()

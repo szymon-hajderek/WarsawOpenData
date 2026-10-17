@@ -214,6 +214,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   tests send the simulated time as `when`.
 - Engine bugs found so far: #63 (options leave hours after the query, night buses for 08:30), #64 (no option or no
   transit option at all), #65 (direct bus / tram options dropped after PR #56), #66 (`lateness.py` shows 4 min as 3).
+- Walking-only route totals and arrival times come from the walking leg; never pass a zero-second total override
+  to `_option`. Regression tests: `backend/tests/test_walk_duration.py` (including arrival after midnight; #72).
 - `/api/osm/route` returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`) from the graph;
   `osm.route()` / `osm.nearest()` in Python have no limit (`report.py` snaps far stops).
 - Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
