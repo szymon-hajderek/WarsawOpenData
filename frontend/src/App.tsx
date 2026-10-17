@@ -4,7 +4,7 @@ import MapView, { type MapPadding } from './components/MapView';
 import SearchCard from './components/SearchCard';
 import RouteOptionsSheet from './components/RouteOptionsSheet';
 import RouteDetailsSheet from './components/RouteDetailsSheet';
-import VehicleSheet from './components/VehicleSheet';
+import VehicleSheet, { type VehicleSnap } from './components/VehicleSheet';
 import BottomNav, { type Tab } from './components/BottomNav';
 import PreferencesPage from './components/PreferencesPage';
 import FilterSheet from './components/FilterSheet';
@@ -52,7 +52,7 @@ export default function App() {
   const [vehicleLines, setVehicleLines] = useState<string[]>([]);
   const [manualVehicle, setManualVehicle] = useState<VehicleCandidate | null>(null);
   const [vehiclesLoading, setVehiclesLoading] = useState(true);
-  const [vehicleOpen, setVehicleOpen] = useState(true);
+  const [vehicleSnap, setVehicleSnap] = useState<VehicleSnap>('middle');
   const [vehicleDismissed, setVehicleDismissed] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [confirmedVehicle, setConfirmedVehicle] = useState<VehicleCandidate | null>(null);
@@ -93,7 +93,7 @@ export default function App() {
     const onRequest = () => {
       setDetectRun((n) => n + 1);
       setVehicleDismissed(false);
-      setVehicleOpen(true);
+      setVehicleSnap('middle');
     };
     window.addEventListener(BUS_POPUP_REQUEST_EVENT, onRequest);
     return () => window.removeEventListener(BUS_POPUP_REQUEST_EVENT, onRequest);
@@ -212,10 +212,10 @@ export default function App() {
           lines={vehicleLines}
           manual={manualVehicle}
           loading={vehiclesLoading}
-          open={vehicleOpen}
+          snap={vehicleSnap}
           selectedId={selectedVehicleId}
           confirmed={confirmedVehicle}
-          onOpenChange={setVehicleOpen}
+          onSnapChange={setVehicleSnap}
           onSelect={setSelectedVehicleId}
           onManualLine={(line) => {
             const v = manualCandidate(line);
@@ -230,7 +230,7 @@ export default function App() {
           onConfirm={() => {
             const all = manualVehicle ? [...vehicles, manualVehicle] : vehicles;
             setConfirmedVehicle(all.find((v) => v.id === selectedVehicleId) ?? null);
-            setVehicleOpen(false);
+            setVehicleSnap('bar');
           }}
           onDismiss={() => setVehicleDismissed(true)}
         />
