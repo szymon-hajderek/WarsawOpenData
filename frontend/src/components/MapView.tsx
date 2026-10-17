@@ -36,6 +36,10 @@ interface Props {
   /** The chosen route: also draw markers at transfers. */
   detailed: boolean;
   padding: MapPadding;
+  /** Intermediate stops as added (numbered markers; the route's own order wins once it is known). */
+  stops?: PlaceT[];
+  /** Extra top offset (px) of the map buttons on phones, when the search card grows with stops. */
+  controlsOffset?: number;
   /** Shows a button that detects the vehicle the user is in (and reopens the vehicle window). */
   onDetectVehicle?: () => void;
 }
@@ -173,6 +177,16 @@ function RouteLayer({
   );
 }
 
+/** Numbered round marker of an intermediate stop. */
+function stopIcon(n: number, colors: (typeof PALETTE)['light']): L.DivIcon {
+  return L.divIcon({
+    className: 'app-div-icon',
+    html: `<div style="width:30px;height:30px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;border:3px solid ${colors.surface};background:${colors.accent};color:${colors.theme.primary.contrastText};font:700 13px/1 Roboto,sans-serif;box-shadow:${colors.shadow}">${n}</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+  });
+}
+
 export default function MapView({
   paletteMode,
   onToggleMode,
@@ -183,6 +197,8 @@ export default function MapView({
   route,
   detailed,
   padding,
+  stops = [],
+  controlsOffset = 0,
   onDetectVehicle,
 }: Props) {
   const [map, setMap] = useState<L.Map | null>(null);
@@ -261,6 +277,9 @@ export default function MapView({
             <Marker position={origin.position} icon={icons.origin} interactive={false} />
           )}
           {destination && <Marker position={destination.position} icon={icons.destination} interactive={false} />}
+          {(route?.waypoints?.length ? route.waypoints.slice(1, -1) : stops).map((p, i) => (
+            <Marker key={`${p.id}-${i}`} position={p.position} icon={stopIcon(i + 1, colors)} interactive={false} />
+          ))}
         </MapContainer>
       </Box>
 
@@ -270,7 +289,7 @@ export default function MapView({
           position: 'absolute',
           zIndex: 900,
           right: { xs: 12, sm: 16 },
-          top: { xs: 'calc(env(safe-area-inset-top) + 156px)', sm: 'calc(env(safe-area-inset-top) + 16px)' },
+          top: { xs: `calc(env(safe-area-inset-top) + ${156 + controlsOffset}px)`, sm: 'calc(env(safe-area-inset-top) + 16px)' },
           display: 'flex',
           flexDirection: 'column',
           gap: 1.25,

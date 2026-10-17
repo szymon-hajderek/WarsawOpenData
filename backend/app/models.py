@@ -11,6 +11,9 @@ from pydantic import BaseModel, ConfigDict, Field
 # [lat, lng] pair, same as the frontend `LatLng`.
 LatLng = tuple[float, float]
 
+# Most intermediate stops on one trip.
+MAX_VIA = 5
+
 TransportMode = Literal["walk", "bike", "bus", "tram", "metro", "rail"]
 Profile = Literal["standard", "slow", "accessible"]
 
@@ -33,6 +36,8 @@ class RouteLeg(BaseModel):
     durationMin: int
     distanceM: float
     path: list[LatLng]
+    # 1-based number of the intermediate stop this leg ends at (multi-stop trips), else None.
+    stop: Optional[int] = None
 
 
 class RouteOption(BaseModel):
@@ -47,6 +52,8 @@ class RouteOption(BaseModel):
     transfers: int
     costPln: float
     tags: list[str]
+    # Start, the intermediate stops in the order they are visited, destination (multi-stop trips only).
+    waypoints: list[Place] = Field(default_factory=list)
 
 
 class RouteRequest(BaseModel):
@@ -59,3 +66,7 @@ class RouteRequest(BaseModel):
     from_: Place = Field(alias="from")
     to: Place
     profile: Profile = "standard"
+    # Intermediate stops (at most MAX_VIA). `order` says whether to keep them as given or reorder
+    # them for the shortest trip (start and destination stay fixed).
+    via: list[Place] = Field(default_factory=list, max_length=MAX_VIA)
+    order: Literal["given", "optimal"] = "given"

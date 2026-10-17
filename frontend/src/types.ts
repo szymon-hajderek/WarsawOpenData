@@ -22,7 +22,12 @@ export interface RouteLeg {
   durationMin: number;
   distanceM: number;
   path: LatLng[];
+  /** 1-based number of the intermediate stop this leg ends at (trips with stops). */
+  stop?: number;
 }
+
+/** Keep the intermediate stops as added, or let the backend reorder them for the shortest trip. */
+export type StopOrder = 'given' | 'optimal';
 
 export interface RouteOption {
   id: string;
@@ -36,6 +41,8 @@ export interface RouteOption {
   transfers: number;
   costPln: number;
   tags: string[];
+  /** Start, the intermediate stops in the order they are visited, destination (trips with stops only). */
+  waypoints?: Place[];
 }
 
 /** Public transport vehicles the user can be inside of (no walking / Veturilo). */

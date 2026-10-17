@@ -22,7 +22,7 @@ import {
   type TripFilters,
 } from './preferences/model';
 import { BOTTOM_NAV_HEIGHT } from './layout';
-import type { LatLng, Place, RouteOption, VehicleCandidate } from './types';
+import type { LatLng, Place, RouteOption, StopOrder, VehicleCandidate } from './types';
 
 type Step = 'search' | 'options' | 'route';
 
@@ -35,6 +35,9 @@ export default function App() {
   const [geoError, setGeoError] = useState(false);
   const [origin, setOrigin] = useState<Place | null>(null);
   const [destination, setDestination] = useState<Place | null>(null);
+  // Intermediate stops (`null` = an empty field the user has just added) and how they are ordered.
+  const [stopFields, setStopFields] = useState<(Place | null)[]>([]);
+  const [stopOrder, setStopOrder] = useState<StopOrder>('given');
   const [tab, setTab] = useState<Tab>('map');
   const { effective, activeRule } = usePreferences();
   // Filters apply to the current search only; they start from the saved preferences.
@@ -124,6 +127,11 @@ export default function App() {
     if (currentLocation) setOrigin((prev) => prev ?? currentLocation);
   }, [currentLocation]);
 
+  // Only the stops that are filled in go into the search; the key keeps empty fields from refetching.
+  const viaKey = stopFields.map((p) => p?.id ?? '').join('|');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const via = useMemo(() => stopFields.filter((p): p is Place => p !== null), [viaKey]);
+
   // Fetch connections as soon as both points are set.
   useEffect(() => {
     setFilters(DEFAULT_FILTERS);
@@ -138,7 +146,7 @@ export default function App() {
     setStep('options');
     setChosenId(null);
     setLoading(true);
-    fetchRouteOptions(origin, destination, 'standard')
+    fetchRouteOptions({ from: origin, to: destination, profile: 'standard', via, order: stopOrder })
       .then((result) => {
         if (cancelled) return;
         setOptions(result);
@@ -148,16 +156,18 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [origin, destination]);
+  }, [origin, destination, via, stopOrder]);
 
   const handleLocateOrigin = () => {
     if (currentLocation) setOrigin(currentLocation);
     else locate();
   };
 
+  // Reverses the whole trip: start <-> destination and the stops in reverse order.
   const swap = () => {
     setOrigin(destination);
     setDestination(origin);
+    setStopFields((prev) => [...prev].reverse());
   };
 
   // Preferences of this search = the ones valid now + this search's overrides.
@@ -191,6 +201,8 @@ export default function App() {
         route={preview}
         detailed={step === 'route'}
         padding={padding}
+        stops={via}
+        controlsOffset={step === 'route' ? 0 : 40 + stopFields.length * 56}
         onDetectVehicle={step === 'search' ? requestLinePopup : undefined}
       />
 
@@ -198,9 +210,13 @@ export default function App() {
         <SearchCard
           origin={origin}
           destination={destination}
+          stops={stopFields}
+          order={stopOrder}
           currentLocation={currentLocation}
           onOriginChange={setOrigin}
           onDestinationChange={setDestination}
+          onStopsChange={setStopFields}
+          onOrderChange={setStopOrder}
           onSwap={swap}
           onLocate={handleLocateOrigin}
         />

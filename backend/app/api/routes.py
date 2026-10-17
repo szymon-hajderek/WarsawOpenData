@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException
 
 from ..models import RouteOption, RouteRequest
 from ..routing.engine import RouteEngine
+from ..routing.multi import query_multi
 from ..routing.real_engine import RealRouteEngine
 
 router = APIRouter(prefix="/api", tags=["routes"])
@@ -14,6 +15,8 @@ engine: RouteEngine = RealRouteEngine()
 @router.post("/routes", response_model=list[RouteOption])
 def get_routes(req: RouteRequest) -> list[RouteOption]:
     try:
+        if req.via:
+            return query_multi(engine, req.from_, req.to, req.via, req.order, req.profile)
         return engine.query_routes(req.from_, req.to, req.profile)
     except FileNotFoundError as exc:
         raise HTTPException(503, f"timetable data is missing: {exc}")
