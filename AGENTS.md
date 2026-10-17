@@ -162,6 +162,12 @@ Everything in this repo (files, commits, PRs) is written in English.
   Delay = time closest to K-1 within `DELAY_RADIUS_M` (default 30 m) - scheduled departure at K-1, shown at stop K; may be negative.
   Not found -> `available: false`. **Pitfall:** `shape_dist_traveled` in `warsaw.zip` is in km and `mkuran._shape_dist` keeps
   whole units only, so the cached `shape_dist` is useless at stop level; `mkuran._trip_static` computes metres from coordinates. Tuning: `algorithms/simulation/tune_delay_radius.py`, results in `DELAY_RESULTS.md`.
+  Delay simulation: `record_delay_sample.py` records all live vehicles + `/api/live/delay` answers from a local server into
+  `data/live/delay_sample.json.gz` (t = seconds since local midnight of `date`); `simulate_delay.py` (`evaluate(sample, radius_m,
+  drop, noise_m)`, for future R searches) compares the replayed estimate with the full-track reference (stop crossing on the shape);
+  `export_delay_viz.py` builds `artifacts/delay-simulation.html`. `search_delay_radius.py`: R 20..200 m every 10 m, then every 1 m
+  between the two best neighbours; score = share of passes shown within 30 s. On the 2026-10-17 recording: 30 m 95.0%, best 80 m 96.5%
+  (flat from 80 m); default still 30 m.
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
 - `/api/osm/route` returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`) from the graph;
   `osm.route()` / `osm.nearest()` in Python have no limit (`report.py` snaps far stops).
