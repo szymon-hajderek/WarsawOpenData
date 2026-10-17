@@ -8,7 +8,7 @@ from datetime import datetime
 import numpy as np
 from scipy.spatial import cKDTree
 
-from config import DATA, save_json, to_xy
+from config import DATA, DERIVED, load_json, save_json, to_xy
 from sources import mkuran, nextbike, osm, um_warszawa
 from sources.registry import SOURCES
 
@@ -71,6 +71,65 @@ def compatibility(ref_date: str) -> dict:
     }
 
 
+def street_matrix(sample: int = 100, seed: int = 1) -> dict | None:
+    """Junction counts, matrix stats and a check against osm.route() on random pairs (needs preprocess_street.py)."""
+    out_dir = DERIVED / "street"
+    if not (out_dir / "meta.json").exists():
+        return None
+    meta = load_json(out_dir / "meta.json")
+    import csv
+    with open(out_dir / "points.csv") as f:
+        pts = list(csv.DictReader(f))
+    n = len(pts)
+    rng = np.random.default_rng(seed)
+    out = {"points": n, "modes": {}}
+    for mode in ("walk", "bike", "accessible"):
+        if mode not in meta:
+            continue
+        mm = np.memmap(out_dir / f"{mode}.bin", dtype=np.float32, mode="r", shape=(2, n, n))
+        rows = rng.choice(n, size=200, replace=False)
+        dist, wait = np.asarray(mm[0, rows]), np.asarray(mm[1, rows])
+        s, d, _, _, jid = osm.edges(mode)
+        nw = osm.node_wait(mode)
+        signal = np.isin(osm.graph()["kind"], (1, 3)) & (nw > 0)
+        diffs = []
+        plain = np.array([i for i, p in enumerate(pts) if int(p["entrances"]) == 0])  # osm.route() has no metro entrances
+        for a, b in rng.choice(plain, size=(sample, 2)):
+            if a == b:
+                continue
+            r = osm.route(float(pts[a]["lat"]), float(pts[a]["lon"]), float(pts[b]["lat"]), float(pts[b]["lon"]),
+                          mode, limit_s=np.inf)
+            diffs.append((abs(float(mm[0, a, b]) - r["length_m"]), abs(float(mm[1, a, b]) - r["wait_s"])))
+        diffs = np.array(diffs)
+        # sanity: path >= straight line, detour factor, walk symmetry (end points outside junctions)
+        lat = np.array([float(p["lat"]) for p in pts])
+        lon = np.array([float(p["lon"]) for p in pts])
+        x, y = to_xy(lat, lon)
+        air = np.hypot(x[rows, None] - x[None, :], y[rows, None] - y[None, :])
+        far = (air > 500) & np.isfinite(dist)
+        ratio = dist[far] / air[far]
+        sym = None
+        if mode != "bike":
+            node = osm.nearest_many(lat[rows], lon[rows], mode)[0]
+            ok = rows[jid[node] < 0]
+            cost = mm[0][np.ix_(ok, ok)] / osm.SPEED[mode] + mm[1][np.ix_(ok, ok)]
+            sym = round(float(np.nanmax(np.abs(cost - cost.T))), 2)
+        out["modes"][mode] = {
+            "shorter_than_straight_line": int((dist < air - 1).sum()),
+            "detour_median": round(float(np.median(ratio)), 2), "detour_p99": round(float(np.percentile(ratio, 99)), 2),
+            "walk_symmetry_max_diff_s": sym,
+            **meta[mode],
+            "signal_nodes": int(signal.sum()), "junctions": int(len(np.unique(jid[signal]))),
+            "junction_interior_nodes": int(((jid >= 0) & ~signal).sum()),
+            "nan_share_sampled_rows": round(float(np.isnan(dist).mean()), 4),
+            "median_distance_m": round(float(np.nanmedian(dist))), "median_wait_s": round(float(np.nanmedian(wait))),
+            "check_pairs": len(diffs), "check_max_distance_diff_m": round(float(diffs[:, 0].max()), 2),
+            "check_max_wait_diff_s": round(float(diffs[:, 1].max()), 2),
+        }
+    out["threads"] = meta.get("threads")
+    return out
+
+
 def build() -> dict:
     t0 = time.time()
     ref = mkuran.reference_date()
@@ -117,6 +176,7 @@ def build() -> dict:
             "benchmarks": bench,
         },
         "compatibility": compatibility(ref),
+        "street_matrix": street_matrix(),
         "seconds_to_build": round(time.time() - t0, 1),
     }
     return report
@@ -143,14 +203,14 @@ flowchart LR
     DUM["dane.um.warszawa.pl<br/>live vehicles"]
     AUM["api.um.warszawa.pl<br/>lines + times at stop, route variants"]
     NB["Nextbike GBFS<br/>nextbike_vw"]
-    OSM["BBBike OSM<br/>Warsaw.osm.pbf"]
+    OSM["Geofabrik OSM<br/>mazowieckie, cut to ZTM area"]
     PLK["PKP PLK API<br/>listed, key pending"]
   end
   subgraph Files["data/"]
     FG["gtfs/*.zip"]
     FL["live/*.json snapshots"]
     FB["gbfs/veturilo_*.json"]
-    FO["osm/Warsaw.osm.pbf"]
+    FO["osm/warsaw_ztm.osm.pbf"]
   end
   subgraph Parsers["backend/sources/"]
     PM["mkuran.py"]
@@ -255,8 +315,9 @@ def write_md(r: dict, eps) -> str:
         L.append(f"| {label} | {fmt(o['walk'][key])} | {fmt(o['bike'][key])} |")
     w = f["waits_s"]
     L += ["", "### 4. Feasibility: precompute street time for every pair of stops / stations", "",
-          "Cost of a street path in seconds = length / speed + expected wait at each node on the path "
-          "(\"EV wait time\").",
+          "Cost of a street path in seconds = length / speed + expected wait at crossings and signals on the path "
+          "(\"EV wait time\"). Signal nodes closer than 30 m to each other (by path) form one junction "
+          "and its wait is paid once; nodes on the short path between them (e.g. a traffic island) belong to it.",
           f"Speeds: walk {f['speeds_m_s']['walk']} m/s, bike {f['speeds_m_s']['bike']} m/s.",
           "OSM has no adopted tag for signal timings (only proposals `phases=*`, `timing=*`); "
           f"{f['nodes_with_signal_timing_tags']} signal / crossing nodes in the extract carry such a tag.",
@@ -267,7 +328,7 @@ def write_md(r: dict, eps) -> str:
           "The constants live in `backend/sources/osm.py` (`WAIT`, `SPEED`).", "",
           f"Snap of stops / stations to the walk graph: median {f['snap_to_walk_graph_m']['median']} m, "
           f"p99 {f['snap_to_walk_graph_m']['p99']} m, {f['snap_to_walk_graph_m']['over_200m']} points over 200 m "
-          "(outside the BBBike box or with no footway).", "",
+          "(no footway nearby).", "",
           "Measured: one-to-all Dijkstra (scipy, 1 core) from random sample sources, extrapolated to all points.", "",
           "| Mode | Limit | s / source | All sources, 1 core (min) | Avg points reached | Pairs to store | Dense matrix (float32) |",
           "|---|---|---|---|---|---|---|"]
@@ -275,11 +336,36 @@ def write_md(r: dict, eps) -> str:
         lim = f"{int(b['limit_s'] / 60)} min" if b["limit_s"] else "none"
         L.append(f"| {b['mode']} | {lim} | {b['seconds_per_source']} | {round(b['all_pairs_hours_1_core'] * 60, 1)} | "
                  f"{fmt(int(b['avg_points_reached']))} | {fmt(b['pairs_to_store'])} | {fmt(b['dense_matrix_mb_float32'])} MB |")
-    L += ["", "Conclusion: full precomputation is feasible offline. A time limit (15 min walk, 20 min bike) "
-          "keeps the stored pairs small enough for a sparse table; the dense all-pairs matrix also fits in memory. "
+    L += ["", "Conclusion: full precomputation is feasible offline (done in section 5). "
           "The street paths for the first / last mile from an arbitrary address still need an online Dijkstra "
-          "with a limit (one call to `/api/osm/route` style code).", "",
-          "## Endpoints", "",
+          "with a limit (one call to `/api/osm/route` style code).", ""]
+    sm = r.get("street_matrix")
+    if sm:
+        L += ["### 5. Street matrix: every pair of stops / stations", "",
+              "Built by `cd backend && uv run python preprocess_street.py` into `data/derived/street/` (git-ignored): "
+              "`points.csv` (index, id, kind, lat, lon, snap per mode) and `walk.bin` / `bike.bin` "
+              "(float32, shape (2, N, N): `[0]` distance_m, `[1]` wait_s; row = from, col = to; NaN = no path). "
+              "Each point joins the graph through up to 6 nearest nodes (at most 30 m farther than the nearest), "
+              "a multi-source Dijkstra via virtual nodes; these access segments are walked (a bike is pushed, "
+              "the extra time is in wait_s). Time with the default speeds = distance_m / speed + wait_s.", "",
+              f"Points: {fmt(sm['points'])}. Threads (C++): {sm['threads']}.", "",
+              "| Mode | Build (min) | File | Far points (> 1000 m) | Signal nodes | Junctions | Island nodes | "
+              "Median distance | Median wait | Check vs `osm.route()` (max diff) |",
+              "|---|---|---|---|---|---|---|---|---|---|"]
+        checks = []
+        for mode, m in sm["modes"].items():
+            L.append(f"| {mode} | {round(m['seconds'] / 60, 1)} | {fmt(m['file_mb'])} MB | {m['far_points']} | "
+                     f"{fmt(m['signal_nodes'])} | {fmt(m['junctions'])} | {fmt(m['junction_interior_nodes'])} | "
+                     f"{fmt(m['median_distance_m'])} m | {m['median_wait_s']} s | "
+                     f"{m['check_pairs']} pairs: {m['check_max_distance_diff_m']} m, {m['check_max_wait_diff_s']} s |")
+            checks.append(f"- {mode}: paths shorter than the straight line: {m['shorter_than_straight_line']}; "
+                          f"detour factor (pairs > 500 m apart) median {m['detour_median']}, p99 {m['detour_p99']}"
+                          + (f"; A -> B vs B -> A time, max diff {m['walk_symmetry_max_diff_s']} s"
+                             if m["walk_symmetry_max_diff_s"] is not None else "") + ".")
+        L += ["", "Checks on 200 random rows (all columns):", ""] + checks
+        L += ["", "Known limit: an L-shaped walk across two legs of the same junction pays its wait only once "
+              "(an underestimate). Waits are averages (no signal timing data, no green wave).", ""]
+    L += ["## Endpoints", "",
           "Run: `cd backend && uv run uvicorn main:app --reload`, docs at http://localhost:8000/docs.", "",
           "| Method | Path | What it does |", "|---|---|---|"]
     for m, path, doc in eps:

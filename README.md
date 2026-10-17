@@ -61,7 +61,7 @@ cd backend && uv sync && uv run uvicorn main:app --reload   # http://localhost:8
 - [Warsaw city API portal](https://api.um.warszawa.pl/) — live vehicle positions and timetables
 - GTFS from [mkuran.pl](https://mkuran.pl/gtfs/) — ZTM, WKD and other trains
 - Veturilo stations and bikes (Nextbike GBFS)
-- OpenStreetMap street graph (BBBike extract)
+- OpenStreetMap street graph (Geofabrik `mazowieckie`, cut to the ZTM area)
 
 Details, ID links and graph sizes: `data/REPORT.md`.
 
@@ -79,14 +79,21 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
      (default `http://localhost:8000`; set `VITE_API_URL=""` to force the in-browser mock)
 3. **Data** (`data/`). GTFS zips and the OSM extract are stored with Git LFS.
    - install Git LFS once: `brew install git-lfs && git lfs install`, then `git lfs pull`
-   - or download fresh copies: `cd backend && uv run python download.py` (about 250 MB)
+   - or download fresh copies: `cd backend && uv run python download.py` (the OSM step fetches Geofabrik
+     `mazowieckie` (300 MB) and keeps a 31 MB cut, `data/osm/warsaw_ztm.osm.pbf`)
 4. **Backend** (`backend/`, Python + FastAPI, managed with [uv](https://docs.astral.sh/uv/)).
    - install uv: `brew install uv` (or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
    - `cd backend && uv sync` installs Python 3.12 and all dependencies (`osmium`, `scipy`, `fastapi` ...)
    - run every backend command from `backend/`
    - `uv run uvicorn main:app --reload` starts the API at http://localhost:8000 (docs at `/docs`)
    - `uv run python report.py` rebuilds `data/REPORT.md` (sources, ID links, graph sizes, endpoints)
-   - the first request that needs GTFS / OSM builds caches in `data/derived/` (~25 s / ~45 s)
+   - the first request that needs GTFS / OSM builds caches in `data/derived/` (~25 s / ~17 s)
+   - after a new OSM file, delete `data/derived/osm_graph.npz` so the graph is rebuilt
+   - street matrix (walk / bike / accessible, every pair of stops): needs CMake and a C++23 compiler
+     (GCC 14+ or Clang 19+). Build once: `cmake -S ../algorithms/router/preprocess -B ../algorithms/router/preprocess/build
+     -DCMAKE_BUILD_TYPE=Release && cmake --build ../algorithms/router/preprocess/build`, then
+     `uv run python preprocess_street.py` (~10 min on 16 threads, ~1.6 GB in `data/derived/street/`).
+     Details: `algorithms/router/preprocess/README.md`
    - `uv run pytest ../algorithms` runs the algorithm tests (pytest is in the `dev` group, installed by `uv sync`)
    - optional `.env` setting `LIVE_BUSES_URL`: where bus detection reads live bus positions (default: this backend)
 5. **Routing API** (`backend/app/`, serves the frontend: routes + geocode). Separate from the data

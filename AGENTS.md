@@ -118,9 +118,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   (walk / bike graph). `sources/registry.py` lists every source, also the ones we only list.
 - Commands: `uv run python download.py [source]`, `uv run uvicorn main:app --reload`
   (docs at `/docs`), `uv run python report.py` (writes `data/REPORT.md` + `data/report.json`).
-- Raw data: GTFS zips and `Warsaw.osm.pbf` are in Git LFS (`.gitattributes`); run `git lfs install`
+- Raw data: GTFS zips and `warsaw_ztm.osm.pbf` are in Git LFS (`.gitattributes`); run `git lfs install`
   once after cloning. `data/derived/` holds parsed caches (git-ignored, rebuilt on first use, ~25 s
-  for GTFS, ~45 s for OSM).
+  for GTFS, ~17 s for OSM; delete `osm_graph.npz` after a new OSM file or a parser change).
 - Dedup: stops only from GTFS. ZTM (bus, tram, metro, SKM) from `warsaw.zip`, WKD from `wkd.zip`,
   other trains from `polish_trains.zip` without SKM and only inside the ZTM bbox. Rail stations merge
   across feeds only rail-to-rail (same name, < 150 m, field `same_as`); never with bus / tram stops.
@@ -131,8 +131,10 @@ Everything in this repo (files, commits, PRs) is written in English.
 - City Hall APIs: `api.um.warszawa.pl` URLs need the trailing slash (`dbtimetable_get/`), else 301.
   The stop dictionary (`dbstore_get`) returns an error; GTFS covers it. The live vehicle feed
   also returns positions that are years old: filter by time (`max_age_s`).
-- The BBBike OSM box (52.041-52.451 N, 20.653-21.408 E) is smaller than the ZTM area; ~400 outer
-  stops snap far. Geofabrik `mazowieckie` + `osmium extract` is the fix if needed.
+- OSM map: `osm.download()` fetches Geofabrik `mazowieckie` (300 MB) once and `osm._clip()` keeps a 31 MB cut
+  (`data/osm/warsaw_ztm.osm.pbf`): `BBOX` (ZTM area, 62 x 67 km) and only highway / crossing / railway /
+  public_transport / entrance objects. 1.85 M nodes. Every stop / Veturilo station is < 100 m from the graph.
+  (The older BBBike extract missed ~400 outer zone-2 stops.)
 - Bus detection (`backend/bus_detect.py`): a thread polls `LIVE_BUSES_URL` (default our
   `/api/live/vehicles?type=bus`) every 10 s and keeps the last 3 positions per vehicle in memory.
   `POST /api/live/nearest-buses` ranks buses by MSE (m^2) between the user's 1-3 points and each bus track
@@ -142,7 +144,31 @@ Everything in this repo (files, commits, PRs) is written in English.
 - `/api/osm/route` returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`) from the graph;
   `osm.route()` / `osm.nearest()` in Python have no limit (`report.py` snaps far stops).
 - Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
-  `WAIT` in `osm.py`). OSM has no signal timing tags in Warsaw.
+  `WAIT` in `osm.py`). OSM has no signal timing tags in Warsaw. The wait is per edge (`osm.edges()`):
+  signal nodes < 30 m apart by path form one junction (plus the nodes between them, e.g. islands),
+  paid once (`algorithms/street_matrix.py`).
+- A point (stop, address) joins the street graph through up to 6 nearest nodes (<= 30 m farther than the
+  nearest; `osm.access`, `osm.graph_with_points`): virtual out / in nodes = multi-source Dijkstra with start
+  costs. Access segments are walked; on a bike pushed (extra time in `wait_s`). Used by `osm.route()` and the matrix.
+  Known gap: a pedestrian crosses a road only where OSM connects the two sidewalks (e.g. Wolica 01 / 02: 59 m apart, 695 m walk).
+- ZTM posts in OSM: `public_transport=platform` nodes with `ref` = ZTM stop_id (`Grójecka 02` = `ref=435102`);
+  90% of posts match, median 7 m from the GTFS point.
+- Street modes (`osm.SPEED`): `walk`, `bike` (riding + pushing along the accessible graph where riding is not
+  allowed, pushing time in the wait), `accessible` (walk without steps, with `highway=elevator` ways; every
+  elevator 60 s). Points join only the largest strongly connected component of the mode (`osm._mode_tree`):
+  islands (1-2% of nodes) cannot reach anything, so no NaN pairs.
+- Metro platforms (`ztm:7014M:P1`) join the graph through all GTFS entrances of their station
+  (`location_type=2`, `7014M:E1..E9`) with 120 s + the mode's elevator wait (every entrance has an elevator).
+  GTFS entrances match OSM `railway=subway_entrance` (251/253 within 30 m). GTFS `trips.txt` has
+  `wheelchair_accessible` per trip (1 = yes for 96%).
+- Street matrix: `backend/preprocess_street.py` prepares points + `graph_<mode>.bin`, the C++ program
+  `algorithms/router/preprocess/street_matrix` (C++23, CMake) runs all-pairs Dijkstra (~3.5 min / mode, 16 threads)
+  into `data/derived/street/<mode>.bin` (float32 (2, N, N): distance_m, wait_s; row = from).
+  Full docs (deliverable, formats, model): `algorithms/router/preprocess/README.md` (keep it current).
+- Rail platforms: ZTM `warsaw.zip` has one stop per rail station (no platforms); `polish_trains.zip` has
+  stations with children per platform + track (`33506_RAIL_2_20` = "2 t. 20"), also for SKM. The rail merge
+  collapses them to the ZTM stop, so platform info is lost (possible follow-up). Platform coordinates in
+  GTFS look synthetic (evenly spaced); OSM `railway=platform` + `ref` would give real positions.
 
 ### Frontend (`frontend/`)
 
