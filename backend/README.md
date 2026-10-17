@@ -27,6 +27,8 @@ uv run python report.py              # write ../data/REPORT.md and ../data/repor
 - The first call that needs GTFS or OSM builds caches in `../data/derived/` (~25 s and ~45 s).
 - Endpoints: `/api/sources`, `/api/stats`, plus one router per source.
 - See `../data/REPORT.md` for sources, ID compatibility, graph sizes and the full endpoint list.
+- The API reference of both parts is `../data/API.md`. It is the contract: code must match it, and every PR
+  keeps it up to date.
 
 ## 2. Routing API (venv)
 

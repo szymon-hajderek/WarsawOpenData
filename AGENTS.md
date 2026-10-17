@@ -34,6 +34,16 @@ Everything in this repo (files, commits, PRs) is written in English.
   If the branch adds or changes a dependency, a tool, a command, an env variable or a data download,
   write the exact install steps there (e.g. `uv sync`, `npm install`). If nothing changed, leave it as is.
   A new agent must be able to build the full environment from that section alone.
+- **Before every PR, check `data/API.md`** (the API reference). If the branch adds, removes or changes an
+  endpoint, a parameter, an answer field or an error, update `data/API.md` in the same PR. If the API did not
+  change, leave the file as is.
+
+## API contract
+
+- **`data/API.md` is the contract of the backend API.** Backend and frontend code must follow it:
+  use only the endpoints, parameters and answer fields written there.
+- To change the API, edit `data/API.md` first, then the code, in the same PR. Never let code and `data/API.md` differ.
+- Before you call or add an endpoint, read `data/API.md`. Use real answers from a running server for the examples.
 
 ## Feature Branches
 
@@ -96,7 +106,8 @@ Everything in this repo (files, commits, PRs) is written in English.
 - `algorithms/` — algorithms (mandatory folder): pure functions + their pytest files (`nearest_buses.py`)
 - `db/` — database files and setup
 - `routing/` — OpenTripPlanner config
-- `data/` — datasets, one subfolder per data type: `gtfs/`, `gbfs/`, `osm/`, `geojson/`
+- `data/` — datasets, one subfolder per data type: `gtfs/`, `gbfs/`, `osm/`, `geojson/`;
+  `data/API.md` is the API reference (the contract), `data/REPORT.md` the data report
 
 ### Backend and data (`backend/`, `data/`)
 
