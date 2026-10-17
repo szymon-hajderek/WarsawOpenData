@@ -1,10 +1,10 @@
 import { Fragment } from 'react';
-import { Alert, alpha, Box, Button, Chip, CircularProgress, Collapse, IconButton, Paper, Typography, useTheme } from '@mui/material';
+import { Alert, alpha, Box, Button, Chip, CircularProgress, IconButton, Paper, Typography, useTheme } from '@mui/material';
 import FiberManualRecord from '@mui/icons-material/FiberManualRecord';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
-import Sheet from './Sheet';
+import SnapSheet, { type SheetSnap } from './SnapSheet';
 import LegChain from './LegChain';
 import { MODE_META, modeColor } from '../modes';
 import { useHistory } from '../history/HistoryProvider';
@@ -104,9 +104,8 @@ interface Props {
   route: RouteOption;
   origin: Place;
   destination: Place;
-  /** Whether the list of steps is expanded (the parent adjusts the map padding to it). */
-  expanded: boolean;
-  onExpandedChange: (expanded: boolean) => void;
+  snap: SheetSnap;
+  onSnapChange: (snap: SheetSnap) => void;
   onBack: () => void;
 }
 
@@ -115,8 +114,8 @@ export default function RouteDetailsSheet({
   route,
   origin,
   destination,
-  expanded,
-  onExpandedChange,
+  snap,
+  onSnapChange,
   onBack,
 }: Props) {
   const theme = useTheme();
@@ -161,8 +160,26 @@ export default function RouteDetailsSheet({
         </Paper>
       </Box>
 
-      <Sheet onHandleClick={() => onExpandedChange(!expanded)} maxHeight={{ xs: '52vh', sm: 'calc(100vh - 120px)' }}>
-        <Box sx={{ overflowY: 'auto', px: 2, pb: 2 }}>
+      <SnapSheet
+        snap={snap}
+        onSnapChange={onSnapChange}
+        middleHeight={292}
+        ariaLabel="Szczegóły trasy"
+        header={({ barLike, full }) => (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="h6" noWrap sx={{ fontWeight: 700, lineHeight: 1.25 }}>
+                {barLike ? route.title : 'Szczegóły trasy'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" noWrap>
+                {formatDuration(route.durationMin)} · {formatDistance(route.distanceM)} · {route.departure} – {route.arrival}
+              </Typography>
+            </Box>
+            {barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />}
+          </Box>
+        )}
+      >
+        <Box>
           {/* start -> finish */}
           <Box sx={{ display: 'flex', alignItems: 'stretch', position: 'relative', gap: 1 }}>
             <Box sx={(t) => ({ flex: 1, minWidth: 0, p: 1.5, borderRadius: RADIUS.tile, bgcolor: alpha(t.palette.primary.main, 0.08), pr: 4 })}>
@@ -230,17 +247,10 @@ export default function RouteDetailsSheet({
           <TripRecorder route={route} />
 
           {/* steps */}
-          <Button
-            fullWidth
-            color="inherit"
-            onClick={() => onExpandedChange(!expanded)}
-            endIcon={expanded ? <ExpandLess /> : <ExpandMore />}
-            sx={{ mt: 1.5, justifyContent: 'space-between', fontWeight: 700 }}
-          >
+          <Typography variant="subtitle2" sx={{ mt: 2.5, mb: 1, fontWeight: 700 }}>
             Przebieg trasy
-          </Button>
-          <Collapse in={expanded}>
-            <Box sx={{ height: 8 }} />
+          </Typography>
+          <Box>
             {route.legs.map((leg, i) => {
               const color = modeColor(leg.mode, palette);
               const Icon = MODE_META[leg.mode].icon;
@@ -304,9 +314,9 @@ export default function RouteDetailsSheet({
                 </Fragment>
               );
             })}
-          </Collapse>
+          </Box>
         </Box>
-      </Sheet>
+      </SnapSheet>
     </>
   );
 }

@@ -185,9 +185,12 @@ Everything in this repo (files, commits, PRs) is written in English.
   pill 999). **Pitfall:** in MUI `sx` a numeric `borderRadius` is multiplied by `theme.shape.borderRadius` (12), so
   `borderRadius: 4` is 48 px and swallows the content. Nested corners: inner radius = outer radius - padding.
 - The line in the search card (start -> destination) is a gradient from `routeStart` to `routeEnd` of the palette.
-- "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): shown on the start screen. It follows the finger and
-  settles on 3 heights (`VehicleSnap`: `bar`, `middle` = suggested vehicle + confirm, about 1/3 of the screen and the start
-  state, `full` = everything); a quick flick skips a level, a tap steps up (full -> middle), Enter / arrow keys work too.
+- Draggable sheets: `src/components/SnapSheet.tsx` is the shared panel (floating above the bottom bar) that follows the finger and settles on 3 heights
+  (`SheetSnap`: `bar` 76 px, `middle`, `full` = 62% of the screen / screen minus 200 px when wide; a quick flick skips a level, a tap steps up and from full back to
+  the middle, Enter / arrow keys work too). Props: `header` (drag zone), `toolbar` and `footer` (pinned), scrolling `children`, per-sheet `middleHeight`; `useSnapHeights`
+  gives the heights so `App.tsx` can keep the map visible above the sheet. Used by the vehicle popup (middle 258 px), the route list (352 px: header, filters, the selected
+  route, pinned "Wybierz tę trasę") and the route details (292 px: start / destination, leg bar, time and distance; full = tiles, trip recorder, steps).
+- "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): shown on the start screen, starts in the middle (suggested vehicle + confirm), about 1/3 of the screen.
   Content below the visible height is `inert`. Shows the suggested vehicle (mode + line, direction and distance when known)
   and 3 others; "Inna linia" (autocomplete over all live lines) adds a hand-picked card; "Wykryj ponownie" (in the window)
   and the bus button on the map (start screen only, also brings the window back after "Nie jadę komunikacją") detect again;
