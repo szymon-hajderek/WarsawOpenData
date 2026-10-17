@@ -89,14 +89,15 @@ Boarding points (posts / platforms). Merged rail duplicates are hidden unless `i
 | `include_merged` | bool | `false` | also return stops merged into another station |
 
 Answer: list of stops. Fields: `id`, `feed`, `raw_id`, `name`, `code`, `lat`, `lon`, `location_type`,
-`parent`, `wheelchair` (`"0"` unknown, `"1"` yes, `"2"` no), `group`, `modes` (list), `served` (bool),
+`parent`, `wheelchair` (`"0"` unknown, `"1"` yes, `"2"` no), `zone` (`"1"`, `"2"` or `"1+2"`),
+`group`, `modes` (list), `served` (bool),
 `same_as` (id of the station this stop is merged into, or `null`).
 
 ```json
 [
  {"id": "ztm:100101", "feed": "ztm", "raw_id": "100101", "name": "Kijowska", "code": "01",
   "lat": 52.248455, "lon": 21.044827, "location_type": 0, "parent": null, "wheelchair": "1",
-  "group": "ztm:1001", "modes": ["bus"], "served": true, "same_as": null},
+  "zone": "1", "group": "ztm:1001", "modes": ["bus"], "served": true, "same_as": null},
  "..."
 ]
 ```
@@ -108,7 +109,7 @@ One stop. Same fields as above. `404` for an unknown id.
 ```json
 {"id": "ztm:700901", "feed": "ztm", "raw_id": "700901", "name": "Marszałkowska", "code": "01",
  "lat": 52.217931, "lon": 21.020112, "location_type": 0, "parent": null, "wheelchair": "2",
- "group": "ztm:7009", "modes": ["bus"], "served": true, "same_as": null}
+ "zone": "1", "group": "ztm:7009", "modes": ["bus"], "served": true, "same_as": null}
 ```
 
 Error: `404 {"detail": "unknown stop_id (use the feed prefix, e.g. ztm:700901)"}`.
@@ -163,7 +164,8 @@ Next departures from a stop. A merged rail station also lists the trains of the 
 
 ```json
 [{"time": "15:47:00", "sec": 56820, "line": "182", "mode": "bus", "route_id": "ztm:182",
-  "trip_id": "ztm:2026-10-17:182:SbS:621:1535", "brigade": "621"}, "..."]
+  "trip_id": "ztm:2026-10-17:182:SbS:621:1535", "brigade": "621",
+  "headsign": "Okęcie", "wheelchair": "1", "feed": "ztm"}, "..."]
 ```
 
 Error: `404 {"detail": "unknown stop_id"}`.
@@ -252,9 +254,9 @@ Error: `404 {"detail": "unknown line"}`.
 
 ## Bus detection
 
-Answers "which bus is the user on?". The server polls live bus positions every 10 s and keeps the last 3
-positions of each bus. It ranks buses by the error against the last 1-3 user positions
-(`algorithms/nearest_buses.py`).
+Answers "which vehicle is the user on?". The server polls live bus and tram positions every 10 s and keeps
+the last 3 positions of each vehicle. It ranks them by the error against the last 1-3 user positions
+(`algorithms/nearest_buses.py`). `direction` is the GTFS headsign of the trip with the same line and brigade.
 
 ### `POST /api/live/nearest-buses`
 
@@ -270,13 +272,13 @@ Answer:
 
 | Field | Meaning |
 |---|---|
-| `candidates` | up to 4 buses, lowest error first: `id`, `vehicle`, `line`, `brigade`, `mode` (`"bus"`), `direction` (empty for now), `rmse_m` |
+| `candidates` | up to 4 vehicles, lowest error first: `id`, `vehicle`, `line`, `brigade`, `mode` (`"bus"` or `"tram"`), `direction` (GTFS headsign, empty when no trip matches), `rmse_m` |
 | `lines` | all lines seen in the live feed, sorted |
 | `updated_at` | Unix time (seconds) of the last poll |
 
 ```json
 {"candidates": [{"id": "bus-5914", "vehicle": "5914", "line": "175", "brigade": "405",
-                 "mode": "bus", "direction": "", "rmse_m": 54.3}, "..."],
+                 "mode": "bus", "direction": "Lotnisko Chopina", "rmse_m": 54.3}, "..."],
  "lines": ["102", "103", "104", "..."],
  "updated_at": 1760712345.6}
 ```
@@ -403,12 +405,11 @@ Errors:
 
 ---
 
-## Routing API (`backend/app/`)
+## Routing
 
-Second FastAPI app: serves the frontend. Start: `cd backend && uvicorn app.main:app --reload`
-(venv + `requirements.txt`, see `backend/README.md`). It is a separate app from the data API above and both
-default to port 8000: run one at a time or give one a different `--port`. CORS allows the origins in
-`CORS_ORIGINS` (default the Vite dev server). JSON keys are camelCase and match `frontend/src/types.ts`.
+`POST /api/routes` and `GET /api/geocode` are served by the same process as the data API
+(`cd backend && uv run uvicorn main:app --reload`). CORS allows the origins in `CORS_ORIGINS`
+(default the Vite dev server). JSON keys are camelCase and match `frontend/src/types.ts`.
 
 Types:
 
@@ -421,23 +422,29 @@ Types:
 
 ### `POST /api/routes`
 
-Route options between two places. Today a stub engine answers (the ported frontend mock, rough estimates);
-the real engine comes later behind the same endpoint.
+Route options between two places, from the GTFS timetable, OSM walk/bike paths and live Veturilo
+availability. Up to 6 options: a walk, a Veturilo ride, direct rides and one transfer.
+`profile` `accessible` drops Veturilo and stops or trips marked wheelchair-inaccessible (`"2"`).
+A line that appears in the current ZTM alerts gets the tag `Zmiana na trasie`.
 
 Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow` or `accessible`, default `standard`).
 
-Answer: list of `RouteOption`.
+Answer: list of `RouteOption`. Public-transport geometry follows the GTFS shape between the stops
+boarded and alighted. Walk and bike geometry follows the OSM graph (a straight line only when the
+graph has no path).
 
 ```json
-[{"id": "bike", "title": "Veturilo",
-  "legs": [{"mode": "walk", "from": "Start", "to": "Stacja Veturilo", "line": null,
-            "durationMin": 1, "distanceM": 83.4,
-            "path": [[52.2297, 21.0122], [52.22994, 21.01252], "..."]}, "..."],
-  "departure": "15:59", "arrival": "16:10", "durationMin": 11, "distanceM": 2084.6,
-  "calories": 71, "transfers": 0, "costPln": 0.0, "tags": ["Najszybsza"]}, "..."]
+[{"id": "pt-ztm:trip", "title": "175",
+  "legs": [{"mode": "walk", "from": "Start", "to": "Marszałkowska", "line": null,
+            "durationMin": 4, "distanceM": 280,
+            "path": [[52.2297, 21.0122], [52.231, 21.015], "..."]},
+           {"mode": "bus", "from": "Marszałkowska", "to": "Metro Politechnika", "line": "175",
+            "durationMin": 12, "distanceM": 2400, "path": [[52.231, 21.015], "..."]}],
+  "departure": "15:59", "arrival": "16:18", "durationMin": 19, "distanceM": 2800,
+  "calories": 15, "transfers": 0, "costPln": 3.4, "tags": ["Najszybsza"]}, "..."]
 ```
 
-Error: `422` when the body is not valid.
+Errors: `422` when the body is not valid. `503` when the GTFS zip is not on disk.
 
 ### `GET /api/geocode`
 

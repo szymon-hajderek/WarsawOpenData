@@ -47,6 +47,8 @@ Everything in this repo (files, commits, PRs) is written in English.
 
 ## Feature Branches
 
+- **One feature, one branch.** Do not add a second feature onto a branch that already has another.
+  Finish that branch or leave it, update `main`, then start a new branch for the next feature.
 - **Before you create any new branch, run the `deep-planning` skill** (`.claude/skills/deep-planning/SKILL.md`).
   Plan the change with the user first. Create the branch only after the user approves the plan.
   If your tool cannot run skills, read that file and follow its steps.
@@ -81,10 +83,10 @@ Everything in this repo (files, commits, PRs) is written in English.
 - **Jury criteria (design for them):** inclusivity / accessibility / diversity, scalability to
   other cities, safety, privacy, evidence-based, technical correctness, business model.
 - **Time frame:** 24h hackathon, so keep everything simple.
-- **Status:** the frontend UI exists. The backend has two parts: a **data layer** (download,
-  parsers and FastAPI endpoints for all sources, `backend/`, report in `data/REPORT.md`) and a
-  **routing API** (`backend/app/`) with a stub routing engine (ported mock) + a geocode proxy.
-  The real C++ routing engine is not built yet.
+- **Status:** the frontend UI exists. `uv run uvicorn main:app` serves the data and
+  `POST /api/routes`. The route engine (`backend/app/routing/real_engine.py`) builds options from
+  GTFS departures, OSM walk/bike paths and live Veturilo docks. A C++ engine is still the later plan;
+  `StubRouteEngine` remains only as the old mock.
 
 ### Tech stack
 
@@ -176,8 +178,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   one every 10 s) to `POST /api/live/nearest-buses` and returns `{ candidates, lines }` (candidates carry `distanceM` =
   `rmse_m`, `vehicleNo`, `brigade`); falls back to mock data when the backend is down or there is no location.
   Detection runs once after start and on `requestLinePopup()`. Each detection also sends a `bus-popup` event on `window`
-  (`{ candidates, lines, points }`). Live buses have no direction yet (`direction: ""`): the UI hides "kier." when it is empty.
-  Concept: `ui/concept-art/current-line-popup.paint`.
+  (`{ candidates, lines, points }`). Direction is the GTFS `trip_headsign` for that line and brigade.
+  The poller reads buses and trams. Concept: `ui/concept-art/current-line-popup.paint`.
 - Navigation: bottom bar (`src/components/BottomNav.tsx`) with tabs Mapa and Preferencje; floating panels sit above it
   (`src/layout.ts`: `BOTTOM_NAV_HEIGHT`, `PANEL_BOTTOM`). The Preferences page is an overlay, the map stays mounted below.
 - Preferences + filters are UI only (route selection is the backend's job). Model, level tables (default speeds), time
@@ -197,17 +199,15 @@ Everything in this repo (files, commits, PRs) is written in English.
 
 ### Backend — routing API (`backend/app/`)
 
-- Separate from the data layer above: the data layer serves raw sources; this part serves the
-  frontend (routes + geocode). They live side by side in `backend/` and today run as two apps.
-- Stack: Python + FastAPI, run with `uvicorn app.main:app --reload`. Deps in `requirements.txt`
-  (fastapi, uvicorn, httpx); use a `venv`. No database. See `backend/README.md`.
+- Separate package `backend/app/` holds the route models and `RealRouteEngine`. `backend/main.py`
+  mounts it, so one uv process serves data, geocode and `POST /api/routes`.
 - Models (`app/models.py`) mirror `frontend/src/types.ts` exactly (camelCase JSON keys; `from`
   via a Pydantic alias). FastAPI serializes responses by alias, so the output matches the UI types.
 - Endpoints: `POST /api/routes` -> `RouteOption[]` (backend side of `fetchRouteOptions`),
-  `GET /api/geocode?q=` -> `Place[]` (Nominatim proxy, Warsaw-limited), `GET /health`.
+  `GET /api/geocode?q=` -> `Place[]` (Nominatim proxy, Warsaw-limited), `GET /health` on `app.main`.
 - Routing is behind a `RouteEngine` seam (`app/routing/engine.py`): `query_routes(...)` and
-  `update_state(...)`. Current impl is `StubRouteEngine` (`app/routing/stub_engine.py`), a 1:1
-  port of the frontend mock. Swap it for a `CppRouteEngine` later; nothing else changes.
+  `update_state(...)`. Current impl is `RealRouteEngine` (GTFS + OSM + Veturilo). `StubRouteEngine`
+  is the old mock. A `CppRouteEngine` can replace the real engine later; nothing else changes.
 - The Python<->C++ wire format is owned by the C++ team (not defined yet). Python will keep the
   C++ service current via `update_state` (live data) and delegate routing via `query_routes`.
 - Config via env vars (all optional): `CORS_ORIGINS`, `NOMINATIM_URL`, `NOMINATIM_USER_AGENT`.

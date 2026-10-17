@@ -85,6 +85,6 @@ def api_free_bikes():
 
 
 @router.get("/vehicle-types")
-def api_vehicle_types():
+def vehicle_types() -> list[dict]:
     """Bike types (classic, e-bike ...)."""
     return _get("vehicle_types", False)["data"]["vehicle_types"]

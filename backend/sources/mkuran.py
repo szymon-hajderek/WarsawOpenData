@@ -66,6 +66,13 @@ def _sec(t: str) -> int:
     return int(h) * 3600 + int(m) * 60 + int(s)
 
 
+def _shape_dist(value) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return -1
+
+
 def _norm_name(name: str) -> str:
     return " ".join(name.lower().replace("-", " ").split())
 
@@ -129,6 +136,7 @@ def _raw_stops(feed: str) -> list[dict]:
             "location_type": lt,
             "parent": f"{feed}:{s['parent_station']}" if s.get("parent_station") else None,
             "wheelchair": s.get("wheelchair_boarding", ""),
+            "zone": s.get("zone_id", ""),
         })
     return out
 
@@ -166,10 +174,13 @@ def _build() -> None:
                 continue  # dropped agency
             tid = f"{feed}:{t['trip_id']}"
             trip_index[tid] = len(trips)
-            trips.append((tid, rid, f"{feed}:{t['service_id']}", t.get("block_short_name", "")))
+            shape = t.get("shape_id") or ""
+            trips.append((tid, rid, f"{feed}:{t['service_id']}", t.get("block_short_name", ""),
+                          t.get("trip_headsign", ""), t.get("wheelchair_accessible", ""),
+                          f"{feed}:{shape}" if shape else ""))
 
     # stop_times -> arrays. pos = position in the original trip (to know which rows were adjacent).
-    trip_col, pos_col, stop_col, arr_col, dep_col = [], [], [], [], []
+    trip_col, pos_col, stop_col, arr_col, dep_col, dist_col = [], [], [], [], [], []
     for feed in FEEDS:
         last_trip, pos = None, -1
         for r in _rows(feed, "stop_times.txt"):
@@ -187,6 +198,7 @@ def _build() -> None:
             stop_col.append(si)
             arr_col.append(_sec(r["arrival_time"] or r["departure_time"]))
             dep_col.append(_sec(r["departure_time"] or r["arrival_time"]))
+            dist_col.append(_shape_dist(r.get("shape_dist_traveled")))
 
     st = {
         "trip": np.array(trip_col, dtype=np.int32),
@@ -194,6 +206,7 @@ def _build() -> None:
         "stop": np.array(stop_col, dtype=np.int32),
         "arr": np.array(arr_col, dtype=np.int32),
         "dep": np.array(dep_col, dtype=np.int32),
+        "shape_dist": np.array(dist_col, dtype=np.int32),
     }
     order = np.lexsort((st["pos"], st["trip"]))
     st = {k: v[order] for k, v in st.items()}
@@ -264,8 +277,20 @@ def _build() -> None:
 
 
 def _ensure_built():
-    if not (DERIVED / "gtfs_stop_times.npz").exists():
+    npz = DERIVED / "gtfs_stop_times.npz"
+    stops_path = DERIVED / "gtfs_stops.json"
+    trips_path = DERIVED / "gtfs_trips.json"
+    if not npz.exists() or not stops_path.exists() or not trips_path.exists():
         _build()
+        return
+    with np.load(npz) as z:
+        has_dist = "shape_dist" in z.files
+    if not has_dist:
+        _build()
+        return
+    with open(stops_path, encoding="utf-8") as f:
+        if '"zone"' not in f.read(800):
+            _build()
 
 
 @lru_cache
@@ -357,6 +382,49 @@ def edges(date_str: str | None = None) -> dict:
     return result
 
 
+@lru_cache
+def _stop_ids() -> list[str]:
+    return [s["id"] for s in stops()]
+
+
+@lru_cache
+def _trip_ids() -> dict[str, int]:
+    return {t[0]: i for i, t in enumerate(trips())}
+
+
+@lru_cache
+def _trip_bounds() -> np.ndarray:
+    """Row span [start, end) of each trip inside stop_times, which are grouped by trip."""
+    trip = stop_times()["trip"]
+    bounds = np.full((len(trips()), 2), -1, dtype=np.int32)
+    if len(trip) == 0:
+        return bounds
+    cuts = np.flatnonzero(trip[1:] != trip[:-1]) + 1
+    starts = np.r_[0, cuts]
+    ends = np.r_[cuts, len(trip)]
+    bounds[trip[starts]] = np.column_stack((starts, ends))
+    return bounds
+
+
+@lru_cache
+def _rows_by_stop() -> dict[int, np.ndarray]:
+    """Stop-array index -> row numbers in stop_times. Built once so departures are not a full scan."""
+    st = stop_times()["stop"]
+    if len(st) == 0:
+        return {}
+    order = np.argsort(st, kind="mergesort")
+    ordered = st[order]
+    cuts = np.flatnonzero(ordered[1:] != ordered[:-1]) + 1
+    starts = np.r_[0, cuts]
+    ends = np.r_[cuts, len(st)]
+    return {int(ordered[a]): order[a:b] for a, b in zip(starts, ends)}
+
+
+def _targets(stop_id: str) -> list[int]:
+    """Array indexes of a stop and of the platforms merged into it."""
+    return [i for i, s in enumerate(stops()) if s["id"] == stop_id or s["same_as"] == stop_id]
+
+
 def departures(stop_id: str, date_str: str, after_sec: int, limit: int = 20) -> list[dict]:
     st = stop_times()
     tr = trips()
@@ -364,29 +432,184 @@ def departures(stop_id: str, date_str: str, after_sec: int, limit: int = 20) -> 
     svc = services()
     if stop_id not in stops_by_id():
         raise KeyError(stop_id)
-    # a merged rail station also gets the departures of the platforms merged into it
-    targets = [i for i, s in enumerate(stops()) if s["id"] == stop_id or s["same_as"] == stop_id]
-    rows = np.nonzero(np.isin(st["stop"], targets))[0]
+    chunks = [_rows_by_stop().get(i, np.array([], dtype=np.int64)) for i in _targets(stop_id)]
+    rows = np.concatenate(chunks) if chunks else np.array([], dtype=np.int64)
     freq = frequencies()
+    bounds = _trip_bounds()
     out = []
     for r in rows:
         ti = int(st["trip"][r])
-        trip_id, route_id, service_id, block = tr[ti]
+        trip_id, route_id, service_id, block = tr[ti][:4]
         if date_str not in svc.get(service_id, ()):
             continue
         offsets = [0]
         if ti in freq:  # frequency-based template (metro): expand runs
-            base = int(st["dep"][np.nonzero(st["trip"] == ti)[0][0]])
+            base = int(st["dep"][bounds[ti, 0]])
             offsets = [s - base + k * hw for s, e, hw in freq[ti] for k in range(max(1, (e - s) // hw))]
+        headsign = tr[ti][4] if len(tr[ti]) > 4 else ""
+        wheelchair = tr[ti][5] if len(tr[ti]) > 5 else ""
         for off in offsets:
             dep = int(st["dep"][r]) + off
             if dep >= after_sec:
                 route = rts[route_id]
                 out.append({"time": f"{dep // 3600:02d}:{dep % 3600 // 60:02d}:{dep % 60:02d}",
                             "sec": dep, "line": route["short_name"], "mode": route["mode"],
-                            "route_id": route_id, "trip_id": trip_id, "brigade": block})
+                            "route_id": route_id, "trip_id": trip_id, "brigade": block,
+                            "headsign": headsign, "wheelchair": wheelchair, "feed": route["feed"]})
     out.sort(key=lambda d: d["sec"])
     return out[:limit]
+
+
+def trip_onward(trip_id: str, board_stop: str, board_sec: int) -> list[dict]:
+    """Stops of one trip from the boarding call onward, times shifted to `board_sec`.
+
+    The first item is the boarding stop. Stop ids are canonical (merged rail platforms
+    point at the station they were merged into).
+    """
+    ti = _trip_ids().get(trip_id)
+    if ti is None:
+        return []
+    start, end = (int(x) for x in _trip_bounds()[ti])
+    if start < 0:
+        return []
+    st = stop_times()
+    ids = _stop_ids()
+    by_id = stops_by_id()
+    best = None
+    for r in range(start, end):
+        sid = ids[int(st["stop"][r])]
+        stop = by_id[sid]
+        if sid == board_stop or stop.get("same_as") == board_stop:
+            dep = int(st["dep"][r])
+            if dep <= board_sec and (best is None or dep > best[0]):
+                best = (dep, r)
+    if best is None:
+        return []
+    offset = board_sec - best[0]
+    out = []
+    for r in range(best[1], end):
+        sid = ids[int(st["stop"][r])]
+        stop = by_id[sid]
+        out.append({
+            "stop_id": stop["same_as"] or sid,
+            "name": stop["name"],
+            "lat": stop["lat"],
+            "lon": stop["lon"],
+            "arr": int(st["arr"][r]) + offset,
+            "dep": int(st["dep"][r]) + offset,
+            "zone": stop.get("zone") or "",
+            "shape_dist": int(st["shape_dist"][r]),
+            "wheelchair": stop.get("wheelchair") or "",
+        })
+    return out
+
+
+def trip_shape_id(trip_id: str) -> str:
+    ti = _trip_ids().get(trip_id)
+    if ti is None:
+        return ""
+    trip = trips()[ti]
+    return trip[6] if len(trip) > 6 else ""
+
+
+@lru_cache
+def _shapes() -> dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """shape id (feed prefix) -> (distance m, lat, lon), sorted by distance."""
+    out: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+    for feed in FEEDS:
+        try:
+            rows = list(_rows(feed, "shapes.txt"))
+        except KeyError:
+            continue
+        current = None
+        bucket_d, bucket_lat, bucket_lon = [], [], []
+
+        def flush():
+            if current and bucket_d:
+                order = np.argsort(np.array(bucket_d))
+                out[current] = (np.array(bucket_d, dtype=np.float64)[order],
+                                np.array(bucket_lat, dtype=np.float64)[order],
+                                np.array(bucket_lon, dtype=np.float64)[order])
+
+        for row in rows:
+            key = f"{feed}:{row['shape_id']}"
+            if key != current:
+                flush()
+                current = key
+                bucket_d, bucket_lat, bucket_lon = [], [], []
+            bucket_d.append(float(_shape_dist(row.get("shape_dist_traveled"))))
+            bucket_lat.append(float(row["shape_pt_lat"]))
+            bucket_lon.append(float(row["shape_pt_lon"]))
+        flush()
+    return out
+
+
+def shape_slice(shape_id: str, dist_from: int, dist_to: int) -> list[list[float]]:
+    """Shape points between two distances along a trip. Empty when the shape or the distances are missing."""
+    if not shape_id or dist_from < 0 or dist_to <= dist_from:
+        return []
+    pack = _shapes().get(shape_id)
+    if pack is None:
+        return []
+    dist, lat, lon = pack
+    i = int(np.searchsorted(dist, dist_from, side="left"))
+    j = int(np.searchsorted(dist, dist_to, side="right"))
+    i = min(max(i, 0), len(dist) - 1)
+    j = min(max(j, i + 1), len(dist))
+    return [[round(float(lat[k]), 6), round(float(lon[k]), 6)] for k in range(i, j)]
+
+
+@lru_cache
+def fare_table() -> list[dict]:
+    """ZTM fares from warsaw.zip: price, max duration, zones the fare contains, routes it is limited to."""
+    rules_zones: dict[str, set] = defaultdict(set)
+    rules_routes: dict[str, set] = defaultdict(set)
+    for rule in _rows("ztm", "fare_rules.txt"):
+        if rule.get("contains_id"):
+            rules_zones[rule["fare_id"]].add(rule["contains_id"])
+        if rule.get("route_id"):
+            rules_routes[rule["fare_id"]].add(rule["route_id"])
+    out = []
+    for fare in _rows("ztm", "fare_attributes.txt"):
+        duration = fare.get("transfer_duration") or ""
+        transfers = fare.get("transfers") or ""
+        out.append({
+            "id": fare["fare_id"],
+            "price": float(fare["price"]),
+            "duration_s": int(duration) if duration else None,
+            "transfers": int(transfers) if transfers else None,
+            "zones": rules_zones.get(fare["fare_id"], set()),
+            "routes": rules_routes.get(fare["fare_id"], set()),
+        })
+    return out
+
+
+@lru_cache
+def _brigades() -> dict[tuple[str, str], list[int]]:
+    rts = routes()
+    out: dict[tuple[str, str], list[int]] = defaultdict(list)
+    for i, trip in enumerate(trips()):
+        out[(rts[trip[1]]["short_name"], trip[3])].append(i)
+    return out
+
+
+def headsign_for(line: str, brigade: str, date_str: str, at_sec: int) -> str:
+    """Headsign of the GTFS trip with this line and brigade running at `at_sec`. Empty when none matches."""
+    svc = services()
+    st = stop_times()
+    bounds = _trip_bounds()
+    found = ""
+    for ti in _brigades().get((line, brigade), ()):
+        trip = trips()[ti]
+        if date_str not in svc.get(trip[2], ()):
+            continue
+        start, end = (int(x) for x in bounds[ti])
+        if start < 0:
+            continue
+        if int(st["dep"][start]) <= at_sec <= int(st["arr"][end - 1]):
+            return trip[4] if len(trip) > 4 else ""
+        found = trip[4] if len(trip) > 4 else found
+    return found
 
 
 def route_stops(route_id: str) -> list[list[str]]:

@@ -84,16 +84,14 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - install uv: `brew install uv` (or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
    - `cd backend && uv sync` installs Python 3.12 and all dependencies (`osmium`, `scipy`, `fastapi` ...)
    - run every backend command from `backend/`
-   - `uv run uvicorn main:app --reload` starts the API at http://localhost:8000 (docs at `/docs`)
+   - `uv run uvicorn main:app --reload` starts the API at http://localhost:8000 (docs at `/docs`).
+     This one process serves the data, geocode and `POST /api/routes` (real GTFS + OSM + Veturilo).
    - `uv run python report.py` rebuilds `data/REPORT.md` (sources, ID links, graph sizes, endpoints)
    - the first request that needs GTFS / OSM builds caches in `data/derived/` (~25 s / ~45 s)
    - `uv run pytest ../algorithms` runs the algorithm tests (pytest is in the `dev` group, installed by `uv sync`)
    - optional `.env` setting `LIVE_BUSES_URL`: where bus detection reads live bus positions (default: this backend)
-5. **Routing API** (`backend/app/`, serves the frontend: routes + geocode). Separate from the data
-   layer, uses venv + `requirements.txt` (not uv).
-   - `cd backend && py -m venv .venv` (use `py`; on Windows `python` is a Microsoft Store alias)
-   - activate: `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (macOS / Linux)
-   - `pip install -r requirements.txt`, then `uvicorn app.main:app --reload` (http://localhost:8000)
-   - both apps default to port 8000; run one at a time or pass a different `--port`
+5. **Routes** are part of the uv app in step 4. Do not start a second server on port 8000.
+   The package `backend/app/` is the route engine imported by `main.py`. `requirements.txt` is only
+   the old slim app and cannot load the timetable (it has no numpy/scipy).
 6. **Database, Docker.** Not set up yet (PostgreSQL + PostGIS, Docker). The C++ routing engine is
    planned (a long-running service that keeps the graph + live state in memory).
