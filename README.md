@@ -42,7 +42,7 @@ Planned:
 
 - `frontend/` — React app
 - `backend/` — FastAPI app, data download and parsers (see `backend/README.md`)
-- `data/` — datasets and the data report `data/REPORT.md`
+- `data/` — datasets, the API reference `data/API.md` and the data report `data/REPORT.md`
 - `algorithms/`, `db/`, `routing/` — placeholders for the next steps
 - `ui/` — UI concept art
 - `changes/` — one change note per branch
