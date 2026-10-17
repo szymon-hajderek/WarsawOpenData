@@ -30,6 +30,10 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Whenever we want to add something, we create a new branch and open a Pull Request.
 - Nothing is committed directly to `main` — changes land on `main` only via a merged PR.
 - PRs are created with the GitHub CLI (`gh pr create`) and need a short title and description.
+- **Before every PR, update the "Environment setup (for agents)" section in `README.md`.**
+  If the branch adds or changes a dependency, a tool, a command, an env variable or a data download,
+  write the exact install steps there (e.g. `uv sync`, `npm install`). If nothing changed, leave it as is.
+  A new agent must be able to build the full environment from that section alone.
 
 ## Feature Branches
 
@@ -132,3 +136,5 @@ Everything in this repo (files, commits, PRs) is written in English.
   Cursor reads it (a plain `CLAUDE.md` may not be loaded).
 - Change notes live in `changes/` (one file per branch), not in a single shared
   `CHANGES.md`, so parallel branches do not create merge conflicts in change notes.
+- `README.md` has an "Environment setup (for agents)" section: how to install the full environment
+  (keys, frontend with npm, backend with uv). It is updated in every PR that changes setup.
