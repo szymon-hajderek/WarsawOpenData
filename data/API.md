@@ -571,19 +571,24 @@ Errors: `422` when the body is not valid, or when `when` is not `HH:MM` or an IS
 
 ### `GET /api/geocode`
 
-Place search: proxy to OpenStreetMap Nominatim, limited to Warsaw, up to 6 results, duplicates removed.
+Place search for the start and destination fields, limited to Warsaw. The answer lists our own places first: up to 4 stops
+(one per stop name, at the centre of its posts, `sublabel` `Przystanek`, `id` `stop-<gtfs id>`) and Veturilo stations
+(`sublabel` `Stacja Veturilo`, `id` `veturilo-<station id>`), matched on the start of any word without regard to case or Polish
+accents (`marszalk` finds `Marszałkowska`). Then come OpenStreetMap Nominatim results (addresses and other places, up to 6, duplicates
+and places already listed removed), only for texts of 3 or more characters.
 
 | Query | Type | Default | Meaning |
 |---|---|---|---|
 | `q` | string, at least 1 character | required | search text |
+| `lat`, `lon` | number | none | the user's position; equally good local matches are ordered by distance from it |
 
 ```json
 [{"id": "osm-177963717", "label": "Dworzec Centralny", "sublabel": "Aleje Jerozolimskie 54, Śródmieście",
   "position": [52.2288747, 21.0040358], "isCurrentLocation": null}, "..."]
 ```
 
-Errors: `422` for an empty `q` or a `q` longer than 200 characters; `502 {"detail": "Geocoding service failed"}`
-when Nominatim fails. The server keeps answers for 10 minutes, so a repeated search does not reach Nominatim.
+Errors: `422` for an empty `q`, a `q` longer than 200 characters or a position out of range; `502 {"detail": "Geocoding service failed"}`
+when Nominatim fails and no stop or station matched (when some matched, they are returned alone). The server keeps answers for 10 minutes, so a repeated search does not reach Nominatim.
 
 ### `GET /health`
 
