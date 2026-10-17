@@ -3,5 +3,6 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  server: { host: true, port: 5173 },
+  // /api goes to the FastAPI backend (no CORS needed).
+  server: { host: true, port: 5173, proxy: { '/api': 'http://localhost:8000' } },
 });

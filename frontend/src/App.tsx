@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Box, Snackbar, useMediaQuery, useTheme } from '@mui/material';
 import MapView, { type MapPadding } from './components/MapView';
 import SearchCard from './components/SearchCard';
@@ -7,7 +7,7 @@ import RouteDetailsSheet from './components/RouteDetailsSheet';
 import VehicleSheet from './components/VehicleSheet';
 import { useColorMode } from './colorMode';
 import { fetchRouteOptions } from './api/routes';
-import { detectVehicle } from './api/vehicle';
+import { BUS_POPUP_REQUEST_EVENT, detectVehicle } from './api/vehicle';
 import type { LatLng, Place, Profile, RouteOption, VehicleCandidate } from './types';
 
 type Step = 'search' | 'options' | 'route';
@@ -59,11 +59,31 @@ export default function App() {
 
   useEffect(() => locate(), [locate]);
 
-  // Detect the vehicle again whenever the location changes (the first call may come without a location).
+  // Detect the vehicle once after start (first location, or none after a geolocation error),
+  // then only when asked through requestLinePopup().
+  const [detectRun, setDetectRun] = useState(0);
+  const userPositionRef = useRef(userPosition);
+  userPositionRef.current = userPosition;
+
   useEffect(() => {
+    if (userPosition || geoError) setDetectRun((n) => n || 1);
+  }, [userPosition, geoError]);
+
+  useEffect(() => {
+    const onRequest = () => {
+      setDetectRun((n) => n + 1);
+      setVehicleDismissed(false);
+      setVehicleOpen(true);
+    };
+    window.addEventListener(BUS_POPUP_REQUEST_EVENT, onRequest);
+    return () => window.removeEventListener(BUS_POPUP_REQUEST_EVENT, onRequest);
+  }, []);
+
+  useEffect(() => {
+    if (detectRun === 0) return;
     let cancelled = false;
     setVehiclesLoading(true);
-    detectVehicle(userPosition)
+    detectVehicle(userPositionRef.current)
       .then((found) => {
         if (cancelled) return;
         setVehicles(found);
@@ -73,7 +93,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [userPosition]);
+  }, [detectRun]);
 
   // The start defaults to the user's location.
   useEffect(() => {

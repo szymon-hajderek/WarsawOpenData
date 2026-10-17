@@ -89,7 +89,7 @@ Everything in this repo (files, commits, PRs) is written in English.
 - `frontend/` — React + TypeScript + Vite app
 - `ui/` — UI feature work; `ui/concept-art/` holds concept graphics
 - `backend/` — FastAPI app
-- `algorithms/` — algorithms (mandatory folder)
+- `algorithms/` — algorithms (mandatory folder): pure functions + their pytest files (`nearest_buses.py`)
 - `db/` — database files and setup
 - `routing/` — OpenTripPlanner config
 - `data/` — datasets, one subfolder per data type: `gtfs/`, `gbfs/`, `osm/`, `geojson/`
@@ -118,6 +118,12 @@ Everything in this repo (files, commits, PRs) is written in English.
   also returns positions that are years old: filter by time (`max_age_s`).
 - The BBBike OSM box (52.041-52.451 N, 20.653-21.408 E) is smaller than the ZTM area; ~400 outer
   stops snap far. Geofabrik `mazowieckie` + `osmium extract` is the fix if needed.
+- Bus detection (`backend/bus_detect.py`): a thread polls `LIVE_BUSES_URL` (default our
+  `/api/live/vehicles?type=bus`) every 10 s and keeps the last 3 positions per vehicle in memory.
+  `POST /api/live/nearest-buses` ranks buses by MSE (m^2) between the user's 1-3 points and each bus track
+  (each user point paired with the bus point closest in time), `algorithms/nearest_buses.py`. Returns 4
+  (1 + 3 for the popup), no distance cut-off. Feed time is read as server local time (Warsaw).
+- Tests: `cd backend && uv run pytest ../algorithms`.
 - Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
   `WAIT` in `osm.py`). OSM has no signal timing tags in Warsaw.
 
@@ -145,9 +151,13 @@ Everything in this repo (files, commits, PRs) is written in English.
     OpenFreeMap has no SLA; there is no fallback.
 - "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): open on the start screen, swipe down / tap to hide
   into a bar, swipe up / tap to bring it back. Shows the suggested vehicle (mode + line + direction) and 3 others;
-  "Jadę tą linią" confirms, "Nie jadę komunikacją" closes it until reload. **Data is a mock:** `src/api/vehicle.ts`
-  (`detectVehicle`) is the seam for the backend (location + bus history). A teammate's concept for it is
-  `ui/concept-art/current-line-popup.paint` (a HEIF image; the window was designed without opening it).
+  "Jadę tą linią" confirms, "Nie jadę komunikacją" closes it until reload. Data: `src/api/vehicle.ts`
+  (`detectVehicle`) sends the user's last 1-3 positions (memory only, one every 10 s) to
+  `POST /api/live/nearest-buses`; falls back to mock data when the backend is down. Detection runs once
+  after start and again on `requestLinePopup()` (for a "choose my line" button). Each detection sends a
+  `bus-popup` event on `window` (`{ candidates, lines, points }`; `lines` = all live lines, for manual choice).
+  Live buses have no direction yet (`direction: ""`). Concept: `ui/concept-art/current-line-popup.paint`.
+- Vite proxies `/api` to the backend at http://localhost:8000.
 - Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with
   a clean route and round stop markers, light map with a bottom sheet.
