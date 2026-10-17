@@ -10,6 +10,12 @@ The street router of the project: walk, bike, accessible and stroller paths on t
   starts the server and calls it through `backend/street_router.py`.
 - **StationLocations** (`data/derived/stations.json`, built by `backend/stations.py`) is the one list of transport
   nodes all of this shares: GTFS decides what exists, OSM gives the exact position where the match is exact.
+- **The router returns raw values only.** For one street segment it returns: `seconds`, `walk_m`, `bike_m`,
+  `wait_s`, `length_m`, `path` / `geometry`, `elevators`, `steps`, `snap_m`, and `from_id` / `to_id` when it was
+  called with ids. For `/access` it returns per-station times.
+  - It does not build `RouteLeg` / `RouteOption`, knows no timetable and no live data.
+  - The backend planner (`backend/app/routing/real_engine.py`) builds the legs and options from these values, the
+    GTFS departures and live data. It passes station ids for stop ends, so legs meet at the mapped positions.
 
 Every path has three parts:
 

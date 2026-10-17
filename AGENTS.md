@@ -255,6 +255,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   the city); `from` / `to` may be station ids; `POST /access` = one Dijkstra from a point to every station within a
   time limit (or to the point: direction "to", reversed graph), the RAPTOR glue; other keys get 501 "not
   implemented" (Veturilo, preferences come later). Router down = 503.
+  The router returns **raw segment values only**: seconds, walk_m / bike_m / wait_s, path, elevators, steps, ids.
+  `real_engine` builds every `RouteLeg` / `RouteOption` from them, plus GTFS and live data (issue #79: move
+  `real_engine` to station ids, mapped positions and `fromId` / `toId` on legs).
   Target architecture (user): OSM layer for own bike / walk / accessible + a simple station network for RAPTOR with
   precomputed foot / bike paths; query = access Dijkstra → RAPTOR → egress Dijkstra.
   `street_router matrix` builds the stop-to-stop matrices (float32 (3, N, N): walk_m, bike_m, wait_s).
