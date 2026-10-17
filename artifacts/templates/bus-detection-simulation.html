@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Którym autobusem jadę?</title>
+<title>__TITLE__</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -92,6 +92,12 @@ td { font-variant-numeric: tabular-nums; }
 .method ol, .method ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--ink-2); }
 .method h3 { margin: 0 0 8px; font: 700 16px var(--f-body); }
 
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.steps > div { background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; padding: 14px 16px; color: var(--ink-2); font-size: 15px; min-width: 0; }
+.steps b { color: var(--ink); }
+code { font: 13px var(--f-mono); }
+table.cx td, table.cx th { white-space: normal; text-align: left; vertical-align: top; }
+table.cx td:nth-child(2) { font-family: var(--f-mono); font-size: 13px; white-space: nowrap; }
 #tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--grid);
   border-radius: 8px; padding: 10px 12px; font-size: 13px; box-shadow: 0 6px 24px rgba(0,0,0,.18); min-width: 180px; max-width: 260px; }
 #tip .t { font-weight: 700; margin-bottom: 6px; }
@@ -106,9 +112,9 @@ body { margin: 0; }
 
 <div class="wrap">
   <header>
-    <span class="eyebrow">WarsawOpenData · wykrywanie linii · symulacja</span>
-    <h1>Którym autobusem jadę?</h1>
-    <p class="lead">Sprawdzamy, czy algorytm MSE rozpozna autobus, którym jedzie użytkownik. Na trasach prawdziwych autobusów stawiamy symulowanych pasażerów z błędem GPS i patrzymy, który autobus algorytm podsunie jako pierwszy.</p>
+    <span class="eyebrow" id="eyebrow">WarsawOpenData · wykrywanie linii · symulacja</span>
+    <h1>__TITLE__</h1>
+    <p class="lead" id="lead"></p>
     <div class="meta" id="meta"></div>
   </header>
 
@@ -124,7 +130,7 @@ body { margin: 0; }
         <h3>Pierwsza propozycja w popupie jest trafna</h3>
         <div class="legend"><span><i class="sw" style="background:var(--s1)"></i>1 punkt (popup przy starcie)</span><span><i class="sw" style="background:var(--s2)"></i>3 punkty (ręczny wybór)</span></div>
         <div class="chart" id="c-top1"></div>
-        <span class="note">Odsetek prób, w których autobus użytkownika był na 1. miejscu. 75 prób na słupek.</span>
+        <span class="note">Odsetek prób, w których autobus użytkownika był na 1. miejscu. <span id="n-bar"></span> prób na słupek.</span>
       </div>
       <div class="panel">
         <h3>Mediana RMSE do własnego autobusu</h3>
@@ -152,6 +158,16 @@ body { margin: 0; }
     <div class="multiples" id="multiples"></div>
   </section>
 
+  <section aria-labelledby="h-u" id="sec-u" hidden>
+    <h2 id="h-u">Trafność według położenia na trasie (u)</h2>
+    <p style="color:var(--ink-2)">Każdy punkt leży w odległości u·L od początku nagranej trasy (L = długość łamanej, u losowane z przedziału 0–1). Słupki dzielą próby na 5 przedziałów u i pokazują, jak często pierwsza propozycja była trafna przy promieniu i liczbie punktów wybranych wyżej.</p>
+    <div class="panel">
+      <h3>1. miejsce według u</h3>
+      <div class="chart" id="c-u"></div>
+      <span class="note" id="n-u"></span>
+    </div>
+  </section>
+
   <section aria-labelledby="h-tbl">
     <h2 id="h-tbl">Tabela wyników</h2>
     <div class="tbl"><table>
@@ -160,13 +176,51 @@ body { margin: 0; }
     </table></div>
   </section>
 
+  <section aria-labelledby="h-time">
+    <h2 id="h-time">Jak symulacja traktuje czas</h2>
+    <div class="steps">
+      <div><b>1. Raporty autobusów.</b> Nagranie odpytuje API co 10 s przez 2 minuty (13 odpytań). Każdy raport ma czas t<sub>i</sub> z danych miasta; ten sam raport podany drugi raz (feed odświeża się co ok. 10–20 s) jest usuwany. Łamana autobusu to jego raporty posortowane po czasie, maks. <span id="max-rep"></span> punktów.</div>
+      <div><b>2. Punkt na łamanej.</b> <span id="time-point"></span> Czas punktu t<sub>p</sub> liczymy liniowo między dwoma sąsiednimi raportami, tak jakby autobus jechał między nimi ze stałą prędkością.</div>
+      <div><b>3. Ślad pasażera.</b> 1 punkt: pozycja w chwili t<sub>p</sub>. 3 punkty: chwile t<sub>p</sub> − 20 s, t<sub>p</sub> − 10 s i t<sub>p</sub>, tak jak bufor w aplikacji (próbka co 10 s). Pozycję w każdej chwili bierzemy z łamanej (przed pierwszym raportem: pierwszy raport), a potem przesuwamy losowo w kole o promieniu R.</div>
+      <div><b>4. Co wie backend w chwili t<sub>p</sub>.</b> Dla każdego z <span id="n-bus"></span> autobusów tylko raporty z czasem t ≤ t<sub>p</sub>, z nich 3 ostatnie. Symulacja nigdy nie zagląda w przyszłość, tak jak <code>backend/bus_detect.py</code>.</div>
+      <div><b>5. Parowanie po czasie.</b> Każdy punkt pasażera łączymy z raportem autobusu najbliższym w czasie (min |t<sub>u</sub> − t<sub>b</sub>|). MSE to średnia kwadratów odległości (haversine, metry) z tych par; ranking rośnie po MSE.</div>
+      <div><b>6. Opóźnienie raportów.</b> Ostatni raport autobusu jest starszy od t<sub>p</sub> o 0–20 s, a autobus w tym czasie jedzie dalej. Dlatego nawet przy promieniu 10 m RMSE do własnego autobusu wynosi ok. 40 m. Pomogłoby przesunięcie autobusu do chwili t<sub>u</sub> według prędkości z dwóch ostatnich raportów.</div>
+      <div><b>7. Strefa czasowa.</b> Czasy z API są w czasie warszawskim. Symulacja jest spójna, bo wszystkie czasy pochodzą z tego samego źródła. Backend na serwerze w UTC przesunąłby jednak czasy autobusów o 2 h względem telefonu (znany błąd w <code>_epoch</code>).</div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-cx">
+    <h2 id="h-cx">Złożoność obliczeniowa</h2>
+    <div class="charts">
+      <div class="panel">
+        <h3>Analiza</h3>
+        <div class="tbl" style="border:0"><table class="cx">
+          <thead><tr><th>Krok</th><th>Złożoność</th><th>Przy naszych danych</th></tr></thead>
+          <tbody>
+            <tr><td>Zapytanie <code>POST /api/live/nearest-buses</code> (<code>rank_buses</code>)</td><td>O(V·K·H + V log V)</td><td id="cx-req"></td></tr>
+            <tr><td>Odpytanie feedu co 10 s (<code>poll_once</code>)</td><td>O(V)</td><td id="cx-poll"></td></tr>
+            <tr><td>Pamięć historii w backendzie</td><td>O(V·H)</td><td id="cx-mem"></td></tr>
+            <tr><td>Jedna próba symulacji (widok backendu + ranking)</td><td>O(V·T + V·K·H + V log V)</td><td id="cx-trial"></td></tr>
+            <tr><td>Cała symulacja</td><td>O(R·2·N·V·(T + K·H + log V))</td><td id="cx-all"></td></tr>
+          </tbody>
+        </table></div>
+        <span class="note">V = liczba autobusów, K = punkty pasażera (1–3), H = raporty na autobus w backendzie (3), T = raporty autobusu w nagraniu (≤ 13), N = liczba prób, R = liczba promieni (4). K i H są stałe, więc zapytanie rośnie liniowo z V; sortowanie wszystkich autobusów można zastąpić wyborem 4 najlepszych (heapq.nsmallest, O(V log 4)).</span>
+      </div>
+      <div class="panel">
+        <h3>Zmierzony czas jednego zapytania</h3>
+        <div class="chart" id="c-bench"></div>
+        <span class="note" id="n-bench"></span>
+      </div>
+    </div>
+  </section>
+
   <section class="method" aria-label="Metoda i ograniczenia">
     <div>
       <h3>Jak liczyliśmy</h3>
       <ol>
         <li>Pozycje autobusów ZTM z API Urzędu Miasta, co 10 s przez 2 minuty.</li>
         <li>15 losowych linii, po jednym jadącym autobusie (min. 5 raportów i 300 m).</li>
-        <li>5 losowych punktów na trasie każdego autobusu, czyli 75 prób.</li>
+        <li id="m-points"></li>
         <li>Pasażer ma 1 punkt albo 3 punkty co 10 s; każdy przesunięty losowo w kole o danym promieniu.</li>
         <li>Algorytm widzi tylko to, co backend: 3 ostatnie raporty każdego z ~880 autobusów.</li>
       </ol>
@@ -178,7 +232,7 @@ body { margin: 0; }
         <li>Pasażer zawsze jest w autobusie. Nie testujemy osoby stojącej na przystanku.</li>
         <li>Między raportami trasa jest prostą; prawdziwe ulice skręcają.</li>
       </ul>
-      <p style="margin-top:12px;color:var(--muted);font-size:13px">Źródło: <span style="font-family:var(--f-mono)">algorithms/simulation/</span>, ziarno 42.</p>
+      <p style="margin-top:12px;color:var(--muted);font-size:13px">Źródło: <span style="font-family:var(--f-mono)">algorithms/simulation/</span>, ziarno <span id="seed"></span>.</p>
     </div>
   </section>
 </div>
@@ -204,12 +258,29 @@ $('meta').innerHTML = [
   `<span>nagranie: <b>${D.recorded}</b></span>`,
   `<span>autobusów w danych: <b>${D.buses}</b></span>`,
   `<span>linii w teście: <b>${D.lines.length}</b></span>`,
-  `<span>prób na wariant: <b>${D.lines.length * 5}</b></span>`,
+  `<span>prób na wariant: <b>${D.lines.length * D.per}</b></span>`,
 ].join('');
+const FR = D.mode === 'fraction', NT = D.lines.length * D.per;
+$('lead').textContent = FR
+  ? `Ten sam test co wcześniej, ale położenie pasażera losujemy jawnie: liczba u z przedziału 0–1 wyznacza punkt w odległości u·L od początku trasy autobusu (L = długość łamanej). ${D.per} takich punktów na każdą z ${D.lines.length} linii, czyli ${NT} prób na wariant.`
+  : 'Sprawdzamy, czy algorytm MSE rozpozna autobus, którym jedzie użytkownik. Na trasach prawdziwych autobusów stawiamy symulowanych pasażerów z błędem GPS i patrzymy, który autobus algorytm podsunie jako pierwszy.';
+if (FR) $('eyebrow').textContent = 'WarsawOpenData · wykrywanie linii · losowanie u·L';
+$('n-bar').textContent = NT;
+$('m-points').textContent = FR
+  ? `Na każdej trasie ${D.per} punktów: u ~ U(0, 1), punkt w odległości u·L od początku łamanej; ${NT} prób.`
+  : `${D.per} losowych punktów na trasie każdego autobusu (równomiernie po długości), czyli ${NT} prób.`;
+$('time-point').textContent = FR
+  ? 'Losujemy u z przedziału 0–1 i idziemy wzdłuż łamanej na odległość d = u·L; znajdujemy odcinek, na którym wypada d.'
+  : 'Losujemy odległość d z przedziału 0–L wzdłuż łamanej (to samo co u·L dla u z przedziału 0–1) i znajdujemy odcinek, na którym wypada d.';
+$('seed').textContent = FR ? '2026 (punkty) i 2027 (promień)' : '42';
+$('max-rep').textContent = D.max_reports;
+$('n-bus').textContent = D.buses;
+const allTop4 = [Math.min(...D.summary.map((s) => s.top4)), Math.max(...D.summary.map((s) => s.top4))];
+const miss1 = range(1, (s) => 100 - s.top1);
 const tiles = [
-  { big: fmtRange(range(1, (s) => s.top4)), lbl: 'autobus jest w popupie', sub: 'W każdej próbie i przy każdym promieniu (10–100 m) autobus użytkownika był wśród 4 propozycji.' },
+  { big: fmtRange(allTop4), lbl: 'autobus jest w popupie', sub: allTop4[0] === 100 ? 'W każdej próbie i przy każdym promieniu (10–100 m) autobus użytkownika był wśród 4 propozycji.' : 'Odsetek prób, w których autobus użytkownika był wśród 4 propozycji.' },
   { big: fmtRange(range(3, (s) => s.top1)), lbl: 'trafna 1. propozycja, 3 punkty', sub: 'Ręczny wybór linii (requestLinePopup) po ok. 20 s jazdy.' },
-  { big: fmtRange(range(1, (s) => s.top1)), lbl: 'trafna 1. propozycja, 1 punkt', sub: 'Automatyczny popup przy starcie: mniej więcej co 8. raz pierwszy autobus jest zły.' },
+  { big: fmtRange(range(1, (s) => s.top1)), lbl: 'trafna 1. propozycja, 1 punkt', sub: `Automatyczny popup przy starcie: w ${fmtRange(miss1)} prób pierwszy autobus jest zły.` },
 ];
 $('tiles').innerHTML = tiles.map((t) => `<div class="tile"><span class="big">${t.big}</span><span class="lbl">${t.lbl}</span><span class="sub">${t.sub}</span></div>`).join('');
 
@@ -340,7 +411,7 @@ function drawTrials() {
   let hits = 0;
   panels.forEach(({ li, ln, px, sc, layer }) => {
     layer.replaceChildren();
-    const mine = rows.filter((t) => Math.floor(t.i / 5) === li);
+    const mine = rows.filter((t) => Math.floor(t.i / D.per) === li);
     const ok = mine.filter((t) => t.rank === 1).length; hits += ok;
     $(`st-${li}`).textContent = `${ok}/${mine.length} na 1. miejscu`;
     mine.forEach((t) => {
@@ -356,6 +427,7 @@ function drawTrials() {
         el('text', { x: ux + 8, y: uy - 4, style: 'font-size:10px;font-weight:500;fill:var(--warn-ink)' }, g).textContent = t.rank;
       }
       const html = `<div class="t">Linia ${t.line} · ${t.rank === 1 ? 'trafiony' : `miejsce ${t.rank}`}</div>` +
+        (t.u !== null ? `<div style="font:12px var(--f-mono);color:var(--muted);margin-bottom:4px">u = ${t.u.toFixed(3)}</div>` : '') +
         `<ol>${t.top.map((c) => `<li class="${c.own ? 'own' : ''}">${c.line}${c.own ? ' (ten autobus)' : ''} · ${c.rmse} m</li>`).join('')}</ol>`;
       g.addEventListener('pointermove', (e) => showTip(html, e.clientX, e.clientY));
       g.addEventListener('pointerleave', hideTip);
@@ -364,11 +436,81 @@ function drawTrials() {
     });
   });
   $('score').textContent = `${hits}/${rows.length} na 1. miejscu · ${row(R, K).top4}% w popupie`;
+  if (FR) uChart(rows);
 }
 
 // ---------------- table
 $('tbody').innerHTML = D.summary.map((s) => `<tr><td>${s.r} m</td><td>${s.k}</td><td>${s.top1}%</td><td>${s.top4}%</td><td>${s.line4}%</td><td>${s.rmse} m</td></tr>`).join('');
 
+
+// ---------------- fraction page: hit rate by u bin
+function uChart(rows) {
+  const W = 460, H = 220, m = { l: 40, r: 8, t: 22, b: 30 }, B = 5;
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, y = (v) => m.t + ih - (v / 100) * ih;
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Trafność według u' });
+  for (const v of [0, 50, 100]) {
+    el('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: 'var(--grid)', 'stroke-width': v ? 1 : 1.5 }, svg);
+    el('text', { x: m.l - 8, y: y(v) + 4, 'text-anchor': 'end' }, svg).textContent = v + '%';
+  }
+  const gw = iw / B, bw = gw * 0.55, c = K === 1 ? 'var(--s1)' : 'var(--s2)';
+  for (let b = 0; b < B; b++) {
+    const inBin = rows.filter((t) => Math.min(B - 1, Math.floor(t.u * B)) === b);
+    const pct = inBin.length ? Math.round((100 * inBin.filter((t) => t.rank === 1).length) / inBin.length) : 0;
+    const x = m.l + gw * b + (gw - bw) / 2, h = (pct / 100) * ih, r4 = Math.min(4, h / 2);
+    const g = el('g', { tabindex: 0 }, svg);
+    if (h > 0) el('path', { d: `M${x} ${y(0)} V${y(pct) + r4} q0 -${r4} ${r4} -${r4} H${x + bw - r4} q${r4} 0 ${r4} ${r4} V${y(0)} Z`, fill: c }, g);
+    el('rect', { x: x - 6, y: m.t, width: bw + 12, height: ih, fill: 'transparent' }, g);
+    el('text', { x: x + bw / 2, y: y(pct) - 6, 'text-anchor': 'middle', class: 'val' }, svg).textContent = pct + '%';
+    el('text', { x: x + bw / 2, y: H - 8, 'text-anchor': 'middle' }, svg).textContent = `${(b / B).toFixed(1)}–${((b + 1) / B).toFixed(1)}`;
+    const html = `<div class="t">u od ${(b / B).toFixed(1)} do ${((b + 1) / B).toFixed(1)}</div>${inBin.length} prób, 1. miejsce: <b>${pct}%</b>`;
+    g.addEventListener('pointermove', (e) => showTip(html, e.clientX, e.clientY));
+    g.addEventListener('pointerleave', hideTip);
+  }
+  $('c-u').replaceChildren(svg);
+  $('n-u').textContent = `Promień ${R} m, ${K === 1 ? '1 punkt' : '3 punkty'}. Przy małym u ślad 3 punktów sięga przed pierwszy raport, więc wcześniejsze punkty pasażera stoją w miejscu startu.`;
+}
+
+// ---------------- complexity: numbers + benchmark chart
+function complexity() {
+  const V = D.buses, T = D.max_reports, fmt = (n) => n.toLocaleString('pl-PL');
+  $('cx-req').textContent = `V = ${V}, K ≤ 3, H = 3: do ${fmt(V * 9)} odległości + sortowanie; mediana ${D.req_ms} ms`;
+  $('cx-poll').textContent = `${V} raportów co 10 s`;
+  $('cx-mem').textContent = `${fmt(V * 3)} pozycji w pamięci`;
+  $('cx-trial').textContent = `do ${fmt(V * T)} raportów do przefiltrowania + ranking`;
+  $('cx-all').textContent = `${4 * 2 * NT} prób (4 promienie × 2 warianty × ${NT})`;
+  const W = 460, H = 230, m = { l: 52, r: 16, t: 18, b: 36 };
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Czas zapytania od liczby autobusów' });
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const vmax = Math.max(...D.bench.map((b) => b.v)), raw = Math.max(...D.bench.map((b) => b.ms));
+  const step = raw > 40 ? 20 : raw > 20 ? 10 : raw > 8 ? 5 : raw > 4 ? 2 : 1, msmax = Math.ceil(raw / step) * step;
+  const x = (v) => m.l + (v / vmax) * iw, y = (v) => m.t + ih - (v / msmax) * ih;
+  for (let v = 0; v <= msmax + 1e-9; v += step) {
+    el('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: 'var(--grid)', 'stroke-width': v ? 1 : 1.5 }, svg);
+    el('text', { x: m.l - 8, y: y(v) + 4, 'text-anchor': 'end' }, svg).textContent = v + ' ms';
+  }
+  for (const v of [0, vmax / 2, vmax]) {
+    el('text', { x: x(v), y: H - 18, 'text-anchor': v === 0 ? 'start' : v === vmax ? 'end' : 'middle' }, svg).textContent = fmt(v);
+  }
+  el('text', { x: m.l + iw / 2, y: H - 2, 'text-anchor': 'middle', style: 'font-size:11px' }, svg).textContent = 'liczba autobusów V';
+  el('line', { x1: x(V), x2: x(V), y1: m.t, y2: m.t + ih, stroke: 'var(--muted)', 'stroke-dasharray': '3 3' }, svg);
+  el('text', { x: x(V) + 4, y: m.t + 10, style: 'font-size:11px' }, svg).textContent = `Warszawa: ${V}`;
+  el('polyline', { points: D.bench.map((b) => `${x(b.v)},${y(b.ms)}`).join(' '), fill: 'none', stroke: 'var(--s1)', 'stroke-width': 2, 'stroke-linejoin': 'round' }, svg);
+  D.bench.forEach((b) => {
+    const g = el('g', { tabindex: 0 }, svg);
+    el('circle', { cx: x(b.v), cy: y(b.ms), r: 4, fill: 'var(--s1)', stroke: 'var(--surface)', 'stroke-width': 2 }, g);
+    el('circle', { cx: x(b.v), cy: y(b.ms), r: 12, fill: 'transparent' }, g);
+    const html = `<div class="t">${fmt(b.v)} autobusów</div>mediana: <b>${b.ms} ms</b> na zapytanie`;
+    g.addEventListener('pointermove', (e) => showTip(html, e.clientX, e.clientY));
+    g.addEventListener('pointerleave', hideTip);
+  });
+  const last = D.bench[D.bench.length - 1];
+  el('text', { x: x(last.v) - 8, y: y(last.ms) - 8, 'text-anchor': 'end', class: 'val' }, svg).textContent = last.ms + ' ms';
+  $('c-bench').appendChild(svg);
+  $('n-bench').textContent = `Mediana z 15 wywołań rank_buses (3 punkty pasażera, 3 raporty na autobus) na losowych autobusach; laptop deweloperski, Python. Czas rośnie liniowo z V. W symulacji na prawdziwych danych (V = ${V}) mediana to ${D.req_ms} ms.`;
+}
+
+if (FR) $('sec-u').hidden = false;
+complexity();
 barChart();
 lineChart();
 makeSeg('seg-r', RADII, () => R, (v) => { R = v; }, (v) => `${v} m`);

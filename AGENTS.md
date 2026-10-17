@@ -146,6 +146,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   `data/live/bus_track_sample.json` (committed); `simulate_nearest_buses.py` puts users on bus polylines with a GPS
   radius (10-100 m). Results in `algorithms/simulation/RESULTS.md`: own bus always in top-4, top-1 96-100% with
   3 points, 80-89% with 1 point.
+- Second run (`artifacts/bus-detection-fraction.html`): point at u * L, u ~ U(0, 1), 10 points per line; same results.
+  `rank_buses` is O(V*K*H + V log V), ~2 ms per request for ~880 buses.
 - Visualization: `artifacts/bus-detection-simulation.html` (charts, one mini map per line, table), rebuilt with
   `uv run python ../algorithms/simulation/export_viz.py` (same seed, so the same numbers as RESULTS.md).
 - Known issue: `bus_detect._epoch` reads feed times in the server's time zone. On a machine in UTC (this dev
