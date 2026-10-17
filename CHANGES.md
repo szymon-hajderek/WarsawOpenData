@@ -1,3 +1,9 @@
+# Changes on `feature/ui`
+
+- Add the `ui/` folder for the UI feature.
+- Add `ui/concept-art/` for concept graphics.
+- `AGENTS.md`: add `ui/` to the folder structure.
+
 # Changes on `feature/update-claude-md`
 
 - `CLAUDE.md`: added a "Keep It Simple" rule.

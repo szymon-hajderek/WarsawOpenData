@@ -65,6 +65,7 @@ Everything in this repo (files, commits, PRs) is written in English.
 ### Folder structure
 
 - `frontend/` — React + TypeScript + Vite app
+- `ui/` — UI feature work; `ui/concept-art/` holds concept graphics
 - `backend/` — FastAPI app
 - `algorithms/` — algorithms (mandatory folder)
 - `db/` — database files and setup
