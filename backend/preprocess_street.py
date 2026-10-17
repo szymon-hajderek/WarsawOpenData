@@ -1,9 +1,10 @@
 """Street matrix: walk / bike / accessible paths between every pair of points (stops + Veturilo stations).
 
 Usage (from backend/): uv run python preprocess_street.py [walk|bike|accessible] [--threads N] [--graph-only]
-Docs (deliverable, formats, model): algorithms/router/preprocess/README.md.
+Docs (deliverable, formats, model): algorithms/router/README.md.
 
-Python builds the graph (osm.points_graph), the C++ program runs the all-pairs Dijkstra.
+Python builds the graph (osm.points_graph), the C++ router (street_router matrix) runs the all-pairs Dijkstra.
+The same graph files serve point-to-point routes (street_router serve, started by the backend).
 Output in data/derived/street/ (git-ignored):
 - points.csv: index,id,kind,lat,lon,snap_walk_m,snap_bike_m,entrances
 - graph_<mode>.bin: the graph with the points, input of the C++ program (also for --route)
@@ -17,11 +18,11 @@ import subprocess
 import time
 from collections import defaultdict
 
-from config import DERIVED, REPO, load_json, save_json
+from config import DERIVED, GTFS_DIR, REPO, load_json, save_json
 from sources import mkuran, nextbike, osm
 
 OUT = DERIVED / "street"
-CPP = REPO / "algorithms" / "router" / "preprocess" / "build" / "street_matrix"
+CPP = REPO / "algorithms" / "router" / "build" / "street_router"
 
 
 def points() -> list[dict]:
@@ -49,6 +50,23 @@ def write_points(pts: list[dict]) -> None:
                         round(float(snaps["bike"][i]), 1), len(p["entrances"])])
 
 
+def graphs_stale() -> bool:
+    """A graph file is missing, or older than the OSM graph cache or a GTFS zip (it depends on both)."""
+    sources = [DERIVED / "osm_graph.npz", osm.PBF, *GTFS_DIR.glob("*.zip")]
+    newest = max((f.stat().st_mtime for f in sources if f.exists()), default=0)
+    files = [OUT / f"graph_{m}.bin" for m in osm.SPEED]
+    return not all(f.exists() for f in files) or min(f.stat().st_mtime for f in files) < newest
+
+
+def write_graphs(modes=None) -> None:
+    """points.csv + graph_<mode>.bin for every mode (enough for the router's serve and route)."""
+    OUT.mkdir(parents=True, exist_ok=True)
+    pts = points()
+    write_points(pts)
+    for mode in modes or osm.SPEED:
+        build(mode, pts, 0, graph_only=True)
+
+
 def build(mode: str, pts: list[dict], threads: int, graph_only: bool) -> dict:
     t0 = time.time()
     g = osm.points_graph([p["lat"] for p in pts], [p["lon"] for p in pts], mode, [p["entrances"] for p in pts])
@@ -57,7 +75,7 @@ def build(mode: str, pts: list[dict], threads: int, graph_only: bool) -> dict:
     print(f"{mode}: {len(pts)} points, {g.nodes} nodes, {len(g.src)} edges")
     if graph_only:
         return {"mode": mode, "graph": graph_file.name, "seconds": round(time.time() - t0)}
-    subprocess.run([str(CPP), str(graph_file), str(out), "--threads", str(threads)], check=True)
+    subprocess.run([str(CPP), "matrix", str(graph_file), str(out), "--threads", str(threads)], check=True)
     return {"mode": mode, "points": len(pts), "far_points": int((~g.active).sum()),
             "seconds": round(time.time() - t0), "file_mb": round(out.stat().st_size / 1e6)}
 
@@ -73,7 +91,7 @@ def main() -> None:
     if set(args.modes) - set(osm.SPEED):
         ap.error("modes must be walk, bike or accessible")
     if not args.graph_only and not CPP.exists():
-        ap.error(f"{CPP} not built, see algorithms/router/preprocess/README.md")
+        ap.error(f"{CPP} not built, see algorithms/router/README.md")
     OUT.mkdir(parents=True, exist_ok=True)
     pts = points()
     write_points(pts)

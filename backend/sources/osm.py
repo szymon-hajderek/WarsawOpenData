@@ -219,8 +219,9 @@ _G = {}
 
 def graph() -> dict:
     if not _G:
-        if not (DERIVED / "osm_graph.npz").exists():
-            _build()
+        cache = DERIVED / "osm_graph.npz"
+        if not cache.exists() or (PBF.exists() and PBF.stat().st_mtime > cache.stat().st_mtime):
+            _build()  # no cache yet, or a newer .pbf than the cache
         with np.load(DERIVED / "osm_graph.npz") as z:
             _G.update({k: z[k] for k in z.files})
         x, y = to_xy(_G["lat"], _G["lon"])
@@ -377,12 +378,15 @@ def points_graph(lat, lon, mode: str, entrances=None) -> StreetGraph:
         n, an, ad, owner=owner.astype(int), fixed_m=metro * METRO_ACCESS_M, fixed_s=metro * lift * ELEVATOR_S,
         n_points=p, node_entry=entry_wait(node_wait(mode), jid))
     site_flags = np.where(metro, FLAG_METRO | (FLAG_ELEVATOR if lift else 0), 0)
-    walk, bike, wait = np.r_[wm, vw_m], np.r_[bm, np.zeros(len(vs))], np.r_[w, vwait]
-    return StreetGraph(src=np.r_[s, vs], dst=np.r_[d, vd], cost=seconds(mode, walk, bike, wait), walk=walk,
-                       bike=bike, wait=wait, flags=np.r_[edge_flags(mode), access_flags(ad, site_flags)],
-                       lon=np.r_[graph()["lon"], lon, lon], lat=np.r_[graph()["lat"], lat, lat],
-                       out_node=out_node, in_node=in_node,
-                       active=nearest_many(lat, lon, mode)[1] <= MAX_SNAP_M)
+    usable = np.zeros(n + 2 * p, dtype=bool)
+    usable[_mode_tree(mode)[0]] = True
+    return StreetGraph(walk_speed=WALK_SPEED[mode], bike_speed=BIKE_SPEED, access_k=ACCESS_K,
+                       access_extra_m=ACCESS_EXTRA_M, max_snap_m=MAX_SNAP_M,
+                       src=np.r_[s, vs], dst=np.r_[d, vd], walk=np.r_[wm, vw_m], bike=np.r_[bm, np.zeros(len(vs))],
+                       wait=np.r_[w, vwait], flags=np.r_[edge_flags(mode), access_flags(ad, site_flags)],
+                       lon=np.r_[graph()["lon"], lon, lon], lat=np.r_[graph()["lat"], lat, lat], usable=usable,
+                       entry_wait=np.r_[entry_wait(node_wait(mode), jid), np.zeros(2 * p)],
+                       out_node=out_node, in_node=in_node, active=nearest_many(lat, lon, mode)[1] <= MAX_SNAP_M)
 
 
 _USABLE = {}
@@ -396,31 +400,6 @@ def _mode_tree(mode: str):
         x, y = to_xy(graph()["lat"][nodes], graph()["lon"][nodes])
         _USABLE[mode] = (nodes, cKDTree(np.c_[x, y]))
     return _USABLE[mode]
-
-
-def route(lat1, lon1, lat2, lon2, mode: str = "walk", limit_s: float = 7200) -> dict:
-    """Street path between two points on points_graph() (scipy; the same model as the C++ program).
-    walk_m / bike_m / wait_s include the access segments (see ACCESS_K); length_m = walk_m + bike_m."""
-    g = points_graph([lat1, lat2], [lon1, lon2], mode)
-    shape = (g.nodes, g.nodes)
-    a, b = int(g.out_node[0]), int(g.in_node[1])
-    dist, pred = dijkstra(csr_matrix((g.cost + EPS, (g.src, g.dst)), shape=shape), indices=a,
-                          return_predecessors=True, limit=limit_s)
-    if not np.isfinite(dist[b]):
-        raise ValueError("no path within the limit")
-    path = [b]
-    while path[-1] != a:
-        path.append(int(pred[path[-1]]))
-    path.reverse()
-    edge_id = csr_matrix((np.arange(1, len(g.src) + 1), (g.src, g.dst)), shape=shape)  # (u, v) -> edge + 1
-    used = np.array([edge_id[u, v] for u, v in zip(path, path[1:])]) - 1
-    snap = access([lat1, lat2], [lon1, lon2], mode)[1][:, 0]
-    street = path[1:-1]
-    walk, bike = float(g.walk[used].sum()), float(g.bike[used].sum())
-    return {"mode": mode, "seconds": round(float(g.cost[used].sum()), 1), "length_m": round(walk + bike, 1),
-            "walk_m": round(walk, 1), "bike_m": round(bike, 1), "wait_s": round(float(g.wait[used].sum()), 1),
-            "nodes": len(street), "snap_m": [round(float(snap[0]), 1), round(float(snap[1]), 1)],
-            "geometry": [[lat1, lon1]] + [[float(g.lat[v]), float(g.lon[v])] for v in street] + [[lat2, lon2]]}
 
 
 def benchmark(points: list[tuple[float, float]], mode: str, sample: int = 50, limit_s: float | None = None,
@@ -475,18 +454,14 @@ def api_nearest(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., 
 def api_route(from_lat: float = Query(..., ge=-90, le=90), from_lon: float = Query(..., ge=-180, le=180),
               to_lat: float = Query(..., ge=-90, le=90), to_lon: float = Query(..., ge=-180, le=180),
               mode: str = "walk"):
-    """Street path with length, expected waits and total seconds (walk, bike or accessible: walk without stairs).
-    422 when the start or the end is more than MAX_SNAP_M from the graph (e.g. outside Warsaw)."""
+    """Street path (walk, bike or accessible) from the C++ street router: walk_m, bike_m, wait_s, seconds,
+    geometry. 422 when the start or the end is more than MAX_SNAP_M from the graph (e.g. outside Warsaw)."""
     check_mode(mode)
-    far = [(name, d) for name, (lat, lon) in (("start", (from_lat, from_lon)), ("end", (to_lat, to_lon)))
-           if (d := nearest(lat, lon, mode)[1]) > MAX_SNAP_M]
-    if far:
-        raise HTTPException(422, " and ".join(f"{n} is {d:.0f} m" for n, d in far)
-                            + f" from the street graph (max {MAX_SNAP_M} m)")
+    import street_router  # backend/street_router.py; imported here so the data side does not depend on it
     try:
-        return route(from_lat, from_lon, to_lat, to_lon, mode)
-    except ValueError as e:
-        raise HTTPException(404, str(e))
+        return street_router.route((from_lat, from_lon), (to_lat, to_lon), mode)
+    except street_router.RouteError as e:
+        raise HTTPException(e.status, str(e))
 
 
 def warm() -> None:

@@ -45,6 +45,18 @@ Everything in this repo (files, commits, PRs) is written in English.
 - To change the API, edit `data/API.md` first, then the code, in the same PR. Never let code and `data/API.md` differ.
 - Before you call or add an endpoint, read `data/API.md`. Use real answers from a running server for the examples.
 
+## Street routing and the route engine: report only
+
+- **The street routing code and the route engine have their own maintainers. Do not change them.**
+  - Street routing: `backend/sources/osm.py`, `algorithms/street_model.py`, `algorithms/street_graph.py`,
+    `algorithms/test_street_model.py`, `algorithms/router/` and `backend/preprocess_street.py`.
+  - Route engine: `backend/app/routing/`, `algorithms/plan_trip.py` and `algorithms/lateness.py`.
+- When you find a problem there (bug, slowdown, stale cache, wrong result), only report it:
+  1. Open a GitHub issue (`gh issue create`) with the symptom, how to reproduce it, measurements,
+     the cause if known and a suggested fix.
+  2. Tell the user about the problem and give the issue link.
+- Do not fix it, and do not work around it in other code, unless the user asks for it.
+
 ## Feature Branches
 
 - **One feature, one branch.** Do not add a second feature onto a branch that already has another.
@@ -96,6 +108,8 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Database: none for now. Raw files in `data/`, parsed by Python modules on first use.
   PostgreSQL + PostGIS (or SQLite) later if needed.
 - Routing: a long-running **C++ engine** builds its own graph at startup and keeps it in memory.
+  Today the street part runs (`algorithms/router/`, see Backend notes); transit routing is still Python
+  (`backend/app/routing/real_engine.py`).
   After that, Python pushes only live data and values derived from it (vehicle positions, Veturilo
   availability, alerts, delays), then asks the engine for routes. Python does not send the graph.
   (OpenTripPlanner was the earlier idea; the team chose a custom C++ engine instead.)
@@ -170,6 +184,17 @@ Everything in this repo (files, commits, PRs) is written in English.
   `export_delay_viz.py` builds `artifacts/delay-simulation.html`. `search_delay_radius.py`: R 20..200 m every 10 m, then every 1 m
   between the two best neighbours; score = share of passes shown within 30 s. On the 2026-10-17 recording: 30 m 95.0%, best 80 m 96.5%
   (flat from 80 m); default still 30 m.
+- Veturilo siting (`backend/sources/siting.py`, `algorithms/station_siting.py`, `GET /api/veturilo/siting`): Warsaw boundary
+  (`data/geojson/warsaw.geojson`, Nominatim relation R336075) split into pointy-top axial hexes, radius 175 m (6476 hexes). Cost
+  `J = -a*T*(1 + d*E) + b*P(d_net) + g*S`, `P = (1 - d/R)^2` below R; defaults a=1, b=1, g=0.5, d=0.5, R=1000 m (`DEFAULTS`).
+  **T and E are mocks** (`data/mock/`, seed 20261017): T = mean of fake hourly counters per hex + IDW, normalised at p99; E = fake
+  scooter events per hex, normalised on log(1 + n). S = length-weighted mean of OSM segments (0 DDR/CPR, 0.3 quiet / painted lane,
+  0.6 single-lane main, 1 multi-lane or trunk without a path). d_net = one multi-source Dijkstra on the bike graph in metres (up to
+  5000 m), 0 in a hex with a station. Greedy top-N: after each pick, Dijkstra from the new station (limit R) and min.
+  Not proposed: hexes with a station or without streets. Built in `warm()` (~2.5 min first time, cache `data/derived/siting_*.npz`).
+  With these defaults T saturates at 1 in many hexes, so picks are mostly ranked by E and P; a weak quadratic P lets picks sit
+  ~750 m (network) apart. Report: `uv run python siting_report.py` -> `data/SITING_REPORT.md`, `artifacts/veturilo-siting.html`
+  (Leaflet + OSM tiles; the tiles do not load when published as a claude.ai artifact, its CSP blocks images from other hosts).
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
 - **Ride demo** (`./demo.sh [scenario]`): Demo tab in the frontend, shown only when `GET /api/sim/state` answers (backend in
   simulation mode). `POST /api/sim/ride` (`backend/sim/api.py`, `backend/sim/journey.py`) computes the whole ride (30-60 s), the page
@@ -210,10 +235,14 @@ Everything in this repo (files, commits, PRs) is written in English.
   elevator every entrance is assumed to have (+60 s).
   GTFS entrances match OSM `railway=subway_entrance` (251/253 within 30 m). GTFS `trips.txt` has
   `wheelchair_accessible` per trip (1 = yes for 96%).
-- Street matrix: `backend/preprocess_street.py` prepares points + `graph_<mode>.bin`, the C++ program
-  `algorithms/router/preprocess/street_matrix` (C++23, CMake) runs all-pairs Dijkstra (~3.5 min / mode, 16 threads)
-  into `data/derived/street/<mode>.bin` (float32 (2, N, N): distance_m, wait_s; row = from).
-  Full docs (deliverable, formats, model): `algorithms/router/preprocess/README.md` (keep it current).
+- Street router (C++, `algorithms/router/`, binary `street_router`): Python builds `graph_<mode>.bin` (SMG4) with
+  the cost model (`osm.points_graph`, `preprocess_street.py --graph-only`); C++ does every street search.
+  `street_router serve` (started by `main.py` via `backend/street_router.py`, port 8090, `ROUTER_URL` for an
+  external one) answers `POST /route` {from, to, mode, speeds} between any coordinates (~1 ms nearby, ~0.4 s across
+  the city); other keys get 501 "not implemented" (Veturilo, preferences come later). Router down = 503.
+  `street_router matrix` builds the stop-to-stop matrices (float32 (3, N, N): walk_m, bike_m, wait_s).
+  `osm.route()` is gone; `/api/osm/route` and `real_engine._street()` call the router. Full docs:
+  `algorithms/router/README.md` (keep it current).
 - Rail platforms: ZTM `warsaw.zip` has one stop per rail station (no platforms); `polish_trains.zip` has
   stations with children per platform + track (`33506_RAIL_2_20` = "2 t. 20"), also for SKM. The rail merge
   collapses them to the ZTM stop, so platform info is lost (possible follow-up). Platform coordinates in
@@ -288,8 +317,12 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Calories (device-side): `Preferences.body` (weight, height, age, sex; all optional, defaults 70 kg / 170 cm / 35 y) is edited in the "Kalorie" section of the
   Preferences page only (`components/preferences/BodySection.tsx`); rules and filters never override it (`applyOverrides` keeps it). `routeKcal(route, prefs)` in
   `src/preferences/model.ts` computes NET kcal of the walk / bike legs (MET from the Compendium of Physical Activities interpolated by the user's km/h x weight x hours
-  minus resting energy (Mifflin-St Jeor); manual wheelchair uses a rough table from Conger and Bassett 2011, electric = 0; transit legs count as resting). It replaces
-  `RouteOption.calories` in the route list, details and the "most active" sort. The backend uses the same formula when `body` is sent. Not modelled yet: slope, carried load, bike type, wind.
+  minus resting energy (Mifflin-St Jeor); manual wheelchair uses a rough table from Conger and Bassett 2011, electric = 0; transit legs count as resting). The speed of a leg is its distance over its time
+  (the pace from the preferences is the fallback). Routes carry no `calories` or `costPln` any more; kcal is worked out from the legs in the route list, details and the "most active"
+  sort. `algorithms/calories.py` (`net_kcal`) is the same formula for any consumer of the route format. Not modelled yet: slope, carried load, bike type, wind.
+- Route format (`data/API.md`): `RouteLeg.mode` is `walk`, `bike` (own bike, nothing produces it yet), `veturilo` (rented), `bus`, `tram`, `metro`, `rail`; a leg also has
+  `start` / `end` as `[lon, lat]` (the `path` stays `[lat, lng]`). `RouteOption` has `walkDistance` and `bikeDistance` (m) and no price: the backend's fare code
+  (`algorithms/fares.py`) is not used by the route engine any more. Only "Najszybsza" is a backend tag; the frontend sort "Najaktywniejsze" uses `routeKcal`.
 - Speed history (device-side, privacy first): in the route view "Rozpocznij przejazd" / "Zakończ" records GPS points (memory only, one every 4 s,
   Screen Wake Lock while recording) and sends the track once to `POST /api/history/records` (`backend/app/api/history.py`,
   `algorithms/speed_history.py::split_track`: shares the moving distance between the route's legs by planned distance, ignores standing
@@ -310,6 +343,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   layer; the light / dark switch calls `setStyle`. Leaflet marker icons are plain SVG from `ICON_PATH` in `modes.tsx` (no `react-dom/server`).
 - Checks: `npm run lint` (ESLint 8, `.eslintrc.cjs`), `npm test` (Vitest 1 + Testing Library), `npm run build`.
 - Vite proxies `/api` to the backend at http://localhost:8000.
+- Geolocation works only on HTTPS or `localhost`. On a phone the plain `http://<laptop-ip>:5173` fails, so use `npm run dev:https` (vite `--mode https`, self-signed
+  certificate from `@vitejs/plugin-basic-ssl`, accept the warning once). The app then shows a specific message (`geoErrorText`) when the page is not secure.
 - Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with
   a clean route and round stop markers, light map with a bottom sheet.

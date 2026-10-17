@@ -175,8 +175,8 @@ def follow(option: dict, speeds: dict, noise: GpsNoise, step_s: float = 5, on_st
         if walker.trip.fixes:  # start each leg where the user is (a vehicle can stop a bit off the path)
             last = walker.trip.fixes[-1]
             path = [[last.true_lat, last.true_lon], *path]
-        if leg["mode"] in ("walk", "bike"):
-            walker.move(path, speeds[leg["mode"]], i)
+        if leg["mode"] in ("walk", "bike", "veturilo"):
+            walker.move(path, speeds["walk" if leg["mode"] == "walk" else "bike"], i)
         elif leg["mode"] in ("bus", "tram"):
             if not walker.ride(leg["path"], leg["line"], leg["mode"], i, delays or {}):
                 break

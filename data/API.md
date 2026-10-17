@@ -28,7 +28,7 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 | [GTFS](#gtfs-timetables-and-stops) | `/api/gtfs` | `backend/sources/mkuran.py` |
 | [Live vehicles](#live-vehicles-and-city-hall) | `/api/live`, `/api/ztm` | `backend/sources/um_warszawa.py` |
 | [Bus detection](#bus-detection) | `/api/live` | `backend/bus_detect.py` |
-| [Veturilo](#veturilo-city-bikes) | `/api/veturilo` | `backend/sources/nextbike.py` |
+| [Veturilo](#veturilo-city-bikes) | `/api/veturilo` | `backend/sources/nextbike.py`, `backend/sources/siting.py` (`/siting`) |
 | [OSM](#osm-street-graph) | `/api/osm` | `backend/sources/osm.py` |
 | [Routing API](#routing-api-backendapp) | `/api/routes`, `/api/geocode`, `/health` | `backend/app/` |
 | [Simulation](#simulation-only-with-sim_scenario) | `/api/sim` | `backend/sim/api.py` |
@@ -402,6 +402,34 @@ Bike types (classic, e-bike, ...). Match `vehicle_type_id` from the endpoints ab
   "rider_capacity": 1, "propulsion_type": "human"}, "..."]
 ```
 
+### `GET /api/veturilo/siting`
+
+Best hexes for **new** Veturilo stations, picked one by one (`backend/sources/siting.py`,
+`algorithms/station_siting.py`). Warsaw is split into hexagons (radius 175 m); each gets
+`J = -alpha*T*(1 + delta*E) + beta*P(dNet) + gamma*S`, `P(d) = (1 - d/r)^2` for `d < r`, else 0. Lowest `J` wins;
+then a station is placed there and `dNet` is updated before the next pick. **`t` and `e` come from MOCK data**
+(`data/mock/`). Hexes that already have a station or have no street are never proposed.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `n` | 10 | number of proposals, 1..50 |
+| `alpha` | 1 | weight of car traffic `T`, 0..100 |
+| `beta` | 1 | weight of the penalty `P` for being near a station, 0..100 |
+| `gamma` | 0.5 | weight of the safety value `S`, 0..100 |
+| `delta` | 0.5 | how much e-scooters `E` boost `T`, 0..100 |
+| `r` | 1000 | penalty radius `R` in metres, 50..5000 |
+
+Answer fields: `rank`, `hex` (axial `q:r`), `lat`, `lon` (hex centre), `j`, `t` (0..1), `e` (0..1), `dNet` (bike-network
+metres to the nearest station at the moment of the pick, `null` = more than 5000 m), `p`, `s` (0 = bike path, 1 = multi-lane
+road without one). Out-of-range parameter -> 422. While the hex grid is built at server start -> 503.
+
+```json
+[{"rank": 1, "hex": "-6331:22123", "lat": 52.226191, "lon": 21.053264, "j": -1.1654, "t": 1.0, "e": 0.7389,
+  "dNet": 1241.4, "p": 0.0, "s": 0.4082},
+ {"rank": 2, "hex": "-6352:22121", "lat": 52.22147, "lon": 20.955353, "j": -1.1533, "t": 1.0, "e": 0.6526,
+  "dNet": 848.4, "p": 0.023, "s": 0.3}]
+```
+
 ---
 
 ## OSM street graph
@@ -450,26 +478,30 @@ Street path between two points.
 | `from_lat`, `from_lon`, `to_lat`, `to_lon` | number | required | start and end (same ranges as above) |
 | `mode` | string | `walk` | `walk`, `bike` or `accessible` |
 
-The start and the end join the street graph through up to 6 nearest nodes (at most 30 m farther than the
-nearest one); these short access segments are walked (on a bike: pushed).
+Answered by the C++ street router (`algorithms/router/README.md`, `POST /route`). The start and the end join the
+street graph through up to 6 nearest nodes (at most 30 m farther than the nearest one); these short access segments
+are walked.
 
-Answer: `mode`, `seconds` (total time with the default speeds), `length_m` (= `walk_m` + `bike_m`, incl. the access
-segments), `walk_m` (metres walked, also a pushed bike), `bike_m` (metres ridden), `wait_s` (expected waits that do
-not depend on speed: crossings and signals, where signal nodes closer than 30 m by path form one junction paid
-once, and 60 s per elevator), `nodes` (graph nodes on the path),
-`snap_m` (distance from start and end to the nearest graph node, in metres), `geometry` (list of `[lat, lon]`,
-from the start point to the end point).
+Answer: `seconds` (total time with the mode's default speeds), `walk_m` (metres walked, also a pushed bike),
+`bike_m` (metres ridden), `wait_s` (expected waits that do not depend on speed: crossings and signals, where signal
+nodes closer than 30 m by path form one junction paid once, and 60 s per elevator), `length_m` (= `walk_m` +
+`bike_m`), `snap_m` (distance from start and end to the nearest usable graph node, in metres), `path` (list of
+`[lon, lat]`, 5 decimals), `geometry` (the same as `[lat, lon]`), `elevators` (`[lon, lat]` where the path boards
+an elevator).
 
 ```json
-{"mode": "bike", "seconds": 765.7, "length_m": 2452.6, "walk_m": 12.3, "bike_m": 2440.3, "wait_s": 181.7, "nodes": 154,
- "snap_m": [4.0, 4.2], "geometry": [[52.2296943, 21.0122579], [52.229818, 21.0122376], "..."]}
+{"seconds": 1268.5, "walk_m": 88.7, "bike_m": 3988.8, "wait_s": 250.6, "length_m": 4077.5, "snap_m": [4.0, 7.9],
+ "path": [[21.0122, 52.2297], [21.01226, 52.22969], "..."], "geometry": [[52.2297, 21.0122], [52.22969, 21.01226], "..."],
+ "elevators": []}
 ```
 
 Errors:
 - `400 {"detail": "mode must be walk, bike or accessible"}` for a `mode` other than `walk`, `bike` or `accessible`.
 - `422` when the start or the end is more than 1000 m from the street graph (e.g. outside Warsaw):
-  `{"detail": "start is 224509 m from the street graph (max 1000 m)"}` (`start`, `end`, or both).
+  `{"detail": "start is more than 1000 m from the street graph"}` (the first of `start`, `end` that is too far).
 - `404` with a message when no path exists.
+- `503` when the street router is not running (`{"detail": "street router not reachable at ..."}`), and while the
+  server is still starting.
 
 ---
 
@@ -483,10 +515,14 @@ Types:
 
 | Type | Fields |
 |---|---|
-| `LatLng` | `[lat, lon]` |
+| `LatLng` | `[lat, lon]` (used in `path` and `Place.position`) |
+| `LonLat` | `[lon, lat]` (GPS / GeoJSON order, used in a leg's `start` and `end`) |
 | `Place` | `id`, `label`, `sublabel` (optional), `position` (`LatLng`), `isCurrentLocation` (optional bool) |
-| `RouteLeg` | `mode` (`walk`, `bike`, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names), `line` (or `null`), `durationMin`, `distanceM`, `path` (list of `LatLng`) |
-| `RouteOption` | `id`, `title`, `legs`, `departure`, `arrival` (`HH:MM`), `durationMin`, `distanceM`, `calories`, `transfers`, `costPln`, `tags` |
+| `RouteLeg` | `mode` (`walk`, `bike` = own bike, `veturilo` = rented Veturilo bike, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names of the start and end stop or place), `line` (or `null`), `durationMin`, `distanceM`, `start`, `end` (`LonLat`, the first and last point of `path`), `path` (list of `LatLng`), `stop` (optional, 1-based number of the intermediate stop the leg ends at) |
+| `RouteOption` | `id`, `title`, `legs`, `departure`, `arrival` (`HH:MM`), `durationMin`, `distanceM`, `walkDistance`, `bikeDistance`, `transfers`, `tags`, `waypoints` (optional, trips with stops) |
+
+`walkDistance` is the sum of the `walk` legs and `bikeDistance` the sum of the `bike` and `veturilo` legs, in metres; `distanceM` is the whole trip.
+There are no `costPln` and `calories` any more: calories are worked out from the legs (`mode`, `distanceM`, `durationMin`; see `algorithms/calories.py`).
 
 ### `POST /api/routes`
 
@@ -499,7 +535,6 @@ timetable, a GTFS-RT trip update, or a PKP PLK delay (when `PLK_KEY` is set) add
 `opóźnienie N min` tag and shifts departure and arrival. Shape distances in the GTFS file are
 kilometers and are stored as meters. Boarding stops are one post per stop group, so a big node does not fill the whole list.
 Changes between platforms use `transfers.txt` and `pathways.txt` when a feed has them, and posts of the same stop group otherwise.
-WKD price comes from its GTFS fare file. SKM uses the ZTM ticket. KM has no fare file, so a KM ride is 7 zł.
 The clock is Europe/Warsaw. Before 04:00 the search uses the previous GTFS service day
 (times at 24:00 and later).
 `profile` `accessible` drops Veturilo and stops or trips marked wheelchair-inaccessible (`"2"`).
@@ -510,8 +545,8 @@ Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow` or 
 `via` (optional list of `Place`, at most 5) and `order` (`given` or `optimal`).
 Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Veturilo), `stepFree` (bool),
 `maxTransfers` (`0`, `1`, `2` or `null` = up to two), `excludedDistricts` (Warsaw district names),
-`excludedPoints` (`position`, `radiusM`) and `body` (`weightKg`, `heightCm`, `age`, `sex`, `wheelchair`
-`none` | `manual` | `electric`) for net calories. A trip with stops plans the next leg from the
+`excludedPoints` (`position`, `radiusM`) and `body` (`wheelchair` `none` | `manual` | `electric`; a wheelchair
+implies `accessible` routing and no Veturilo; `weightKg`, `heightCm`, `age` and `sex` are accepted but not used by the route search). A trip with stops plans the next leg from the
 previous arrival plus 2 minutes at the stop. `order` `optimal` minimises a time estimate, not straight-line distance.
 
 Answer: list of `RouteOption`. Public-transport geometry follows the GTFS shape between the stops
@@ -522,11 +557,13 @@ graph has no path).
 [{"id": "pt-ztm:trip", "title": "175",
   "legs": [{"mode": "walk", "from": "Start", "to": "Marszałkowska", "line": null,
             "durationMin": 4, "distanceM": 280,
+            "start": [21.0122, 52.2297], "end": [21.015, 52.231],
             "path": [[52.2297, 21.0122], [52.231, 21.015], "..."]},
            {"mode": "bus", "from": "Marszałkowska", "to": "Metro Politechnika", "line": "175",
-            "durationMin": 12, "distanceM": 2400, "path": [[52.231, 21.015], "..."]}],
+            "durationMin": 12, "distanceM": 2400,
+            "start": [21.015, 52.231], "end": [21.0054, 52.2194], "path": [[52.231, 21.015], "..."]}],
   "departure": "15:59", "arrival": "16:18", "durationMin": 19, "distanceM": 2800,
-  "calories": 15, "transfers": 0, "costPln": 3.4, "tags": ["Najszybsza"]}, "..."]
+  "walkDistance": 280, "bikeDistance": 0, "transfers": 0, "tags": ["Najszybsza"]}, "..."]
 ```
 
 Errors: `422` when the body is not valid, or when `when` is not `HH:MM` or an ISO datetime.

@@ -1,20 +1,24 @@
-# Street matrix preprocess
+# Street router
 
-For **every ordered pair** of points (GTFS boarding points + Veturilo stations) and for each of three
-modes (**walk**, **bike**, **accessible**), this step finds the cheapest street path on the OSM graph.
-For each pair it stores three parts of the trip:
+The street router of the project: walk, bike and accessible paths on the OSM graph of Warsaw.
+
+- **Python (`backend/`) prepares the data:** download and clip OSM, build the walk / bike / accessible graphs
+  with the cost model (numpy), and write them as `graph_<mode>.bin`.
+- **The C++ program `street_router` (this folder) does every search.** It answers point-to-point routes between
+  any two coordinates (`serve`, HTTP, the graphs stay in memory) and builds the all-pairs matrices between stops
+  (`matrix`). The backend starts the server and calls it through `backend/street_router.py`.
+
+Every path has three parts:
 
 - `walk_m`: metres walked: footways, access to the graph, a **pushed bike**, the walk down to a metro platform;
 - `bike_m`: metres ridden on a bike (0 in walk and accessible);
 - `wait_s`: seconds that do not depend on speed: signals, crossings and **elevators (60 s each)**.
 
-Travel time = `walk_m / walk speed + bike_m / bike speed + wait_s`. The search minimises this with the default
-speeds (walk 1.3 m/s, bike 4.2 m/s, accessible 1.3 m/s); for another profile put its own speeds in the same
-formula (it is then the time of the same path).
+Travel time = `walk_m / walk speed + bike_m / bike speed + wait_s`. The router minimises exactly this, with the
+speeds of the query (`speeds` in `POST /route`) or the mode's defaults (walk 1.3 m/s, bike 4.2 m/s, accessible
+1.3 m/s). The matrices use the defaults.
 
-Python (`backend/`) prepares the graph. The C++ program in this folder runs the all-pairs Dijkstra.
-
-## Deliverable of a run
+## Files
 
 All files are in `data/derived/street/` (git-ignored, about 2.4 GB):
 
@@ -22,7 +26,7 @@ All files are in `data/derived/street/` (git-ignored, about 2.4 GB):
 |---|---|
 | `points.csv` | One row per point: `index,id,kind,lat,lon,snap_walk_m,snap_bike_m,entrances`. `index` is the row / column in the matrices. `id` is the GTFS stop id (`ztm:700901`, `ztm:7014M:P1`, `pkp:…`, `wkd:…`) or the Veturilo id (`vet:…`). `kind` is `stop` or `veturilo`. `snap_*_m` is the distance to the nearest usable graph node. `entrances` is the number of metro entrances (0 for other points). |
 | `walk.bin`, `bike.bin`, `accessible.bin` | **The result.** Little-endian `float32`, shape `(3, N, N)`, row-major. From point `i` to point `j`: `[0][i][j]` = `walk_m`, `[1][i][j]` = `bike_m`, `[2][i][j]` = `wait_s`. Self pairs = 0. `NaN` = no path or no data (a point more than 1000 m from the graph). |
-| `graph_<mode>.bin` | Input of the C++ program (see below). An intermediate file that is kept so a run can be repeated. |
+| `graph_<mode>.bin` | The graph the router loads (format below). The backend rewrites it when it is older than the OSM cache or the GTFS zips. |
 | `meta.json` | Per mode: number of points, far points, seconds, file size. Also the thread count. |
 
 Reading the result in C++: `mmap` / `fread` the file into a `float[3][N][N]`. In numpy:
@@ -32,15 +36,16 @@ Reading the result in C++: `mmap` / `fread` the file into a `float[3][N][N]`. In
 
 | File | Role |
 |---|---|
-| `backend/sources/osm.py` | OSM -> street graph per mode (edge rules, waits, bike pushing, elevators), the main component, `points_graph()` = the graph + virtual nodes for points, returned as a `StreetGraph`. `route()` = one path between two coordinates in scipy (API). |
+| `backend/sources/osm.py` | Data side: download + clip OSM, parse into `osm_graph.npz` (rebuilt when the `.pbf` is newer), the edges of each mode (rules, waits, bike pushing, elevators), the main component, and `points_graph()` = a mode's graph as a `StreetGraph`. `/api/osm/route` relays to the router. |
 | `algorithms/street_model.py` | Pure cost-model functions used by `osm.py`: signal junctions, waits, joining points (`access_edges`). |
-| `algorithms/street_graph.py` | `StreetGraph` (the graph handed to C++) and its file format, `save()`. |
-| `backend/preprocess_street.py` | Orchestration: points -> `points_graph` -> `graph_<mode>.bin` -> C++ -> `<mode>.bin`. |
-| `algorithms/router/preprocess/street_matrix.cpp` | The search only: all-pairs Dijkstra, `--route` paths and the `--serve` HTTP server (cpp-httplib, fetched by CMake). |
-| `algorithms/test_street_model.py` | Unit tests of the cost model and of the C++ program against a small scipy oracle. |
-
-The graph is built only in Python and searched only in C++. The one other search is `osm.route()`,
-for a path between two arbitrary coordinates (the C++ program only knows the points of a graph file).
+| `algorithms/street_graph.py` | `StreetGraph` and its file format (`save()`). |
+| `backend/preprocess_street.py` | Writes `points.csv` + `graph_<mode>.bin` (`--graph-only`, `write_graphs()`), and runs `street_router matrix`. |
+| `backend/street_router.py` | Python client: `route(a, b, mode, **options)`, plus `start()` / `stop()` of the server (used by `main.py`). |
+| `algorithms/router/graph.hpp` | Loads a graph file; `Speeds::cost()` = the edge cost for the query's speeds. |
+| `algorithms/router/snap.hpp` | Joins a coordinate to the graph (a 100 m grid over usable nodes; the rule of `osm.access`). |
+| `algorithms/router/search.hpp` | Dijkstra from seeds to targets (point to point) or to every node (matrix); path recording. |
+| `algorithms/router/main.cpp` | `matrix`, `route`, `serve` (cpp-httplib + nlohmann/json, fetched by CMake). |
+| `algorithms/test_street_model.py` | Tests of the cost model, and of `street_router` (matrix, coordinate routes, the server) against a scipy oracle. |
 
 ## Modes
 
@@ -99,95 +104,90 @@ A metro transfer inside one station (Świętokrzyska M1 ↔ M2) goes out and in 
 
 ## Build and run
 
-You need a C++23 compiler (GCC 14+ or Clang 19+, for `<print>`) and CMake 3.20+. The first CMake configure
-downloads cpp-httplib v0.61.0 (one header) for the server.
+You need a C++23 compiler (GCC 14+ or Clang 19+, for `<print>`) and CMake 3.20+. The first configure downloads
+cpp-httplib v0.61.0 and nlohmann/json v3.12.0 (single headers).
 
 ```sh
-cmake -S algorithms/router/preprocess -B algorithms/router/preprocess/build -DCMAKE_BUILD_TYPE=Release
-cmake --build algorithms/router/preprocess/build
-cd backend && uv run python preprocess_street.py            # all modes; or: walk / bike / accessible
+cmake -S algorithms/router -B algorithms/router/build -DCMAKE_BUILD_TYPE=Release
+cmake --build algorithms/router/build
 ```
 
-`preprocess_street.py` builds `points.csv` and `graph_<mode>.bin`, runs the C++ program and writes
-`meta.json`. The program can also be run by hand:
+**With the backend** nothing else is needed. At startup (`backend/main.py`, warm-up thread) `street_router.start()`
+rewrites the graph files if they are stale (~30 s), starts `street_router serve data/derived/street --port 8090`
+(log: `data/derived/street/router.log`) and waits for `/health`. While that runs, `/api/osm` and `/api/routes`
+answer 503. It is stopped with the backend. Environment: `ROUTER_URL` = use a router that runs elsewhere (nothing
+is started); `ROUTER_PORT` = port of the started one (default 8090).
+
+**By hand:**
 
 ```sh
-algorithms/router/preprocess/build/street_matrix data/derived/street/graph_walk.bin data/derived/street/walk.bin [--threads N]
+cd backend && uv run python preprocess_street.py --graph-only        # graph files only (~30 s)
+algorithms/router/build/street_router serve data/derived/street       # [--port 8090] [--threads 4]
+algorithms/router/build/street_router route data/derived/street/graph_walk.bin 52.2297,21.0122 52.2196,20.9652
+cd backend && uv run python preprocess_street.py                     # graphs + the three matrices (~18 min, 16 threads)
 ```
 
-`--graph-only` writes only `points.csv` and `graph_<mode>.bin` (about 10 s), enough for path queries.
-
-### Paths (`--route`)
-
-The matrix stores no paths. To get the path of one or more pairs (points by their `points.csv` index):
+### `POST /route`
 
 ```sh
-algorithms/router/preprocess/build/street_matrix data/derived/street/graph_accessible.bin --route 6639 6632 [--route I J ...]
+curl -s localhost:8090/route -d '{"from": [52.2297, 21.0122], "to": [52.2196, 20.9652], "mode": "walk"}'
 ```
 
-The output is one JSON line per route on stdout:
+Body (JSON):
+
+| Key | Meaning |
+|---|---|
+| `from`, `to` | `[lat, lon]` |
+| `mode` | `walk`, `bike` or `accessible` (the modes `/health` lists) |
+| `speeds` | optional `{"walk": m/s, "bike": m/s}`: the path is optimal for these speeds (default: the mode's) |
+| anything else | **501** `{"error": "not implemented", "unimplemented": [keys]}`: callers can relay options as they come; the router says which ones it does not support yet |
+
+Answer:
 
 ```json
-{"from":6639,"to":6632,"seconds":215.7,"walk_m":202.4,"bike_m":0.0,"wait_s":60.0,
- "path":[[21.01019,52.23106],[21.01045,52.23126],...],"elevators":[[21.01045,52.23126]],"metro_entrances":[[21.01045,52.23126]]}
+{"seconds": 2870.5, "walk_m": 3634.9, "bike_m": 0.0, "wait_s": 74.4, "snap_m": [7.0, 4.5],
+ "path": [[21.0122, 52.2297], [21.01228, 52.22966], "..."], "elevators": []}
 ```
 
-- `seconds` = the cost with the default speeds; `walk_m`, `bike_m`, `wait_s` as in the matrix.
-- `path`: `[lon, lat]` with 5 decimals (about 1 m), from the point to the point, repeated points dropped. Ready for a map.
-- `elevators`: where the path boards an elevator (an OSM elevator, or the elevator assumed at a metro entrance).
-- `metro_entrances`: the street end of the segment between a metro platform and its entrance.
-- `{"from":I,"to":J,"error":"no path"}` when there is no path.
+- `path`: `[lon, lat]`, 5 decimals (about 1 m), from `from` to `to`. `elevators`: where the path boards one.
+- `snap_m`: distance from each point to its nearest usable graph node.
+- Errors: `400` bad body / unknown mode / bad speeds, `422` a point is more than 1000 m from the graph, `404` no path.
+- A coordinate joins up to 6 nearest usable nodes, at most 30 m farther than the nearest. The access segment is
+  walked, and entering the graph pays the node's entry wait (a signal junction). This is the same rule as the
+  stops in the matrix, so the same coordinates give the same result.
+- Speed: ~1 ms between nearby points, ~0.4 s across the city (the search stops at the target).
 
-Path recording is only on in this mode, so the matrix run does not pay for it.
-
-### Server (`--serve`)
-
-To query paths without loading the graphs for every call, run the program as a small local HTTP server.
-It loads `graph_<mode>.bin` of every mode found in the folder once and keeps them in memory:
-
-```sh
-algorithms/router/preprocess/build/street_matrix --serve data/derived/street [--port 8090] [--threads 4]
-curl "http://127.0.0.1:8090/route?mode=accessible&from=6639&to=6632"
-curl "http://127.0.0.1:8090/health"        # {"modes":["accessible","bike","walk"],"points":7494}
-```
-
-- `GET /route?mode=<walk|bike|accessible>&from=I&to=J` (point indices from `points.csv`) returns the same JSON as
-  `--route`. A bad mode or index returns `400`; no path returns `404`. Both have an `error` field.
-- The search stops as soon as the target is reached: a transfer between nearby stops takes about 1 ms, a random
-  pair across the city about 0.4 s.
-- It listens on `127.0.0.1` only. Each worker thread keeps one search buffer per mode (about 75 MB), so
-  `--threads` sets the memory too. The three graphs take about 800 MB.
-- After a new `preprocess_street.py` run, restart the server to load the new graphs.
+`GET /health` → `{"modes": {"walk": {"nodes": …, "edges": …}, …}}`.
 
 ## Graph file (`graph_<mode>.bin`)
 
-Little-endian. P = points, n = graph nodes incl. 2 virtual nodes per point, m = directed edges.
+Little-endian, written by `StreetGraph.save()`. P = fixed points (stops, Veturilo; used by `matrix`), n = graph
+nodes incl. 2 virtual nodes per fixed point, m = directed edges.
 
 | Field | Type | Count | Meaning |
 |---|---|---|---|
-| magic | `char` | 4 | `SMG3` |
-| n, m, p | `uint32` | 3 | sizes |
+| magic | `char` | 4 | `SMG4` |
+| n, m, p, access_k | `uint32` | 4 | sizes; access_k = how many nodes a coordinate joins (6) |
+| walk_speed, bike_speed, access_extra_m, max_snap_m | `float32` | 4 | the mode's default speeds (m/s); +30 m; 1000 m |
 | offset | `uint32` | n + 1 | CSR: the edges of node `u` are `offset[u] .. offset[u+1]` |
 | target | `uint32` | m | edge target node |
-| cost | `float64` | m | seconds with the default speeds: `walk / walk speed + bike / bike speed + wait` |
-| walk | `float32` | m | metres walked |
-| bike | `float32` | m | metres ridden |
-| wait | `float32` | m | seconds (signals, crossings, elevators) |
+| walk, bike, wait | `float32` | m each | metres walked, metres ridden, seconds of wait |
 | flags | `uint8` | m | 1 = elevator, 2 = pushed bike, 4 = a point's access segment, 8 = metro entrance segment |
-| out_node | `uint32` | p | virtual out node of each point |
-| in_node | `uint32` | p | virtual in node of each point |
+| out_node, in_node | `uint32` | p each | virtual nodes of each fixed point |
 | active | `uint8` | p | 1 = point is on the graph (≤ 1000 m), 0 = its row and column are `NaN` |
-| lon, lat | `float32` | n, n | node coordinates (a point's virtual nodes get the point's position) |
+| lon, lat | `float64` | n each | node coordinates (a fixed point's virtual nodes get the point's position) |
+| usable | `uint8` | n | 1 = a coordinate may join here (the mode's largest strongly connected component) |
+| entry_wait | `float32` | n | seconds paid when the graph is entered at this node |
 
 ## Checks
 
 - `cd backend && uv run pytest ../algorithms` runs the Python unit tests: junctions, islands, oneway,
-  access, a metro platform with many entrances. It also checks the C++ matrix and `--route` against a small
-  scipy oracle (skipped if the program is not built).
-- `cd backend && uv run python ../algorithms/router/preprocess/check_pairs.py` runs 100 stop-level pairs
+  access, a metro platform with many entrances. It also checks `street_router` against a scipy oracle: the matrix,
+  routes between coordinates (snapping like Python), query speeds, and the server's answers (400 / 422 / 501).
+- `cd backend && uv run python ../algorithms/router/check_pairs.py` runs 100 stop-level pairs
   (`Grójecka 02 → Centrum 03`, 20 pairs of posts of the same stop, 79 random pairs 0.2–5 km apart).
-  For walk and bike it compares the C++ matrix with `osm.route()`, and the GTFS stop position with
-  the OSM platform node of the same post (`ref` = ZTM stop id). Output: `check_pairs.csv`.
+  For walk and bike it compares the server's coordinate route with the matrix value of the same stops, and the GTFS
+  stop position with the OSM platform node of the same post (`ref` = ZTM stop id). Output: `check_pairs.csv`.
 - `uv run python report.py` adds section 5 to `data/REPORT.md`: sizes, medians, a check against
   `osm.route()`, the detour factor and symmetry.
 

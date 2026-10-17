@@ -61,6 +61,16 @@ SOURCES = [
      "content": "Voivodeship extract (300 MB), cut on download to the ZTM bbox and to highway / crossing / railway / "
                 "public_transport / entrance objects (31 MB): walk, bike and accessible graphs, stop platforms",
      "license": "ODbL", "attribution": "© OpenStreetMap contributors"},
+    {"id": "warsaw_boundary", "module": "siting", "status": "downloaded", "file": "data/geojson/warsaw.geojson",
+     "url": "https://nominatim.openstreetmap.org/lookup?osm_ids=R336075&polygon_geojson=1&polygon_threshold=0.0003"
+            "&format=json", "key": None,
+     "content": "Warsaw city boundary (simplified polygon), the area of the Veturilo siting hex grid",
+     "license": "ODbL", "attribution": "© OpenStreetMap contributors"},
+    {"id": "mock_siting", "module": "siting", "status": "MOCK (generated)",
+     "file": "data/mock/traffic_counts.json ; data/mock/scooter_events.json.gz", "key": None,
+     "content": "Fake car traffic counters and e-scooter trip starts / ends for /api/veturilo/siting (T and E). "
+                "Not real data: replace with the city's counters and scooter-operator data.",
+     "how_to_use": "uv run python siting_report.py --mocks regenerates them (fixed seed)."},
     {"id": "osm_bbbike_warsaw", "module": None, "status": "listed",
      "url": "https://download.bbbike.org/osm/bbbike/Warsaw/Warsaw.osm.pbf", "key": None,
      "content": "Smaller extract (bbox 52.041-52.451 N, 20.653-21.408 E); misses ~400 outer ZTM stops",

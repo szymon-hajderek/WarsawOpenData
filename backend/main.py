@@ -14,11 +14,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 import bus_detect
+import street_router
 from app.api import geocode, history
 from app.api import routes as route_api
 from app.config import settings
 from config import DATA, MissingKey, UpstreamError, load_json
-from sources import mkuran, nextbike, osm, um_warszawa
+from sources import mkuran, nextbike, osm, siting, um_warszawa
 from sim import api as sim_api
 from sources.registry import SOURCES
 
@@ -30,15 +31,17 @@ log = logging.getLogger("main")
 # set, so scripts and tests that import the app (without the lifespan) are not blocked.
 READY = threading.Event()
 READY.set()
-NEEDS_CACHES = ("/api/gtfs", "/api/osm", "/api/routes", "/api/live/nearest-buses")
+NEEDS_CACHES = ("/api/gtfs", "/api/osm", "/api/routes", "/api/live/nearest-buses", "/api/veturilo/siting")
 
 
 def _warm_up() -> None:
     try:
         mkuran.warm()
         osm.warm()
+        siting.warm()  # hex grid for /api/veturilo/siting (first run ~2.5 min, then cached)
+        street_router.start()  # the C++ street router (writes its graph files first if they are stale)
     except Exception:
-        log.exception("cache warm-up failed; endpoints will try to build the caches on demand")
+        log.exception("warm-up failed; endpoints will try to build the caches on demand")
     finally:
         READY.set()
 
@@ -49,6 +52,7 @@ async def lifespan(app: FastAPI):
     threading.Thread(target=_warm_up, daemon=True, name="cache-warmup").start()
     bus_detect.start_poller()
     yield
+    street_router.stop()
 
 
 app = FastAPI(lifespan=lifespan, title="WarsawOpenData data API",
@@ -73,7 +77,8 @@ async def upstream_failed(request: Request, exc: Exception):
 
 
 @app.exception_handler(MissingKey)
-async def key_missing(request: Request, exc: MissingKey):
+@app.exception_handler(street_router.RouterUnavailable)
+async def key_missing(request: Request, exc: Exception):
     return JSONResponse({"detail": str(exc)}, status_code=503)
 
 
@@ -90,7 +95,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-for module in (mkuran, um_warszawa, nextbike, osm):
+for module in (mkuran, um_warszawa, nextbike, osm, siting):
     app.include_router(module.router)
 app.include_router(bus_detect.router)
 app.include_router(route_api.router)
