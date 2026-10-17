@@ -100,6 +100,29 @@ algorithms/router/preprocess/build/street_matrix data/derived/street/graph_walk.
 ```
 
 `--engine python` in `preprocess_street.py` uses the slow Python reference (scipy) instead of C++.
+`--graph-only` writes only `points.csv` and `graph_<mode>.bin` (about 10 s), enough for path queries.
+
+### Paths (`--route`)
+
+The matrix stores no paths. To get the path of one or more pairs (points by their `points.csv` index):
+
+```sh
+algorithms/router/preprocess/build/street_matrix data/derived/street/graph_accessible.bin --route 6639 6632 [--route I J ...]
+```
+
+The output is one JSON line per route on stdout:
+
+```json
+{"from":6639,"to":6632,"seconds":220.3,"distance_m":52.4,"wait_s":180.0,
+ "path":[[21.01019,52.23106],[21.01045,52.23126],...],"elevators":[[21.01045,52.23126]],"metro_entrances":[[21.01045,52.23126]]}
+```
+
+- `path`: `[lon, lat]` with 5 decimals (about 1 m), from the point to the point, repeated points dropped. Ready for a map.
+- `elevators`: where the path boards an elevator (an OSM elevator, or the elevator assumed at a metro entrance).
+- `metro_entrances`: the street end of the segment between a metro platform and its entrance.
+- `{"from":I,"to":J,"error":"no path"}` when there is no path.
+
+Path recording is only on in this mode, so the matrix run does not pay for it.
 
 ## Graph file (`graph_<mode>.bin`)
 
@@ -107,16 +130,18 @@ Little-endian. P = points, n = graph nodes incl. 2 virtual nodes per point, m = 
 
 | Field | Type | Count | Meaning |
 |---|---|---|---|
-| magic | `char` | 4 | `SMG1` |
+| magic | `char` | 4 | `SMG2` |
 | n, m, p | `uint32` | 3 | sizes |
 | offset | `uint32` | n + 1 | CSR: the edges of node `u` are `offset[u] .. offset[u+1]` |
 | target | `uint32` | m | edge target node |
 | cost | `float64` | m | seconds: `length / speed + wait` |
 | length | `float32` | m | metres |
 | wait | `float32` | m | seconds |
+| flags | `uint8` | m | 1 = elevator, 2 = pushed bike, 4 = a point's access segment, 8 = metro entrance segment |
 | out_node | `uint32` | p | virtual out node of each point |
 | in_node | `uint32` | p | virtual in node of each point |
 | active | `uint8` | p | 1 = point is on the graph (≤ 1000 m), 0 = its row and column are `NaN` |
+| lon, lat | `float32` | n, n | node coordinates (a point's virtual nodes get the point's position) |
 
 ## Checks
 

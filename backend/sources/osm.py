@@ -22,7 +22,10 @@ from scipy.spatial import cKDTree
 from config import BBOX, DERIVED, OSM_DIR, REPO, in_bbox, to_xy
 
 sys.path.insert(0, str(REPO / "algorithms"))
-from street_matrix import EPS, EdgeLookup, access_edges, edge_wait, entry_wait, junctions  # noqa: E402
+from street_matrix import (  # noqa: E402
+    EPS, FLAG_ELEVATOR, FLAG_METRO, FLAG_PUSH, EdgeLookup, access_edges, access_flags, edge_wait, entry_wait,
+    junctions,
+)
 
 # download() fetches the Geofabrik region (300 MB) once and keeps a small cut of it: the ZTM area (config.BBOX)
 # and only the objects we use (see _clip).
@@ -227,6 +230,7 @@ def node_wait(mode: str) -> np.ndarray:
 
 _CSR = {}
 _EDGES = {}
+_FLAGS = {}
 
 
 def directed_edges(mode: str):
@@ -269,8 +273,20 @@ def edges(mode: str):
             ride = np.isin(s.astype(np.int64) * n + d, np.r_[a * n + b, b * n + a])
             w = np.where(ride, np.maximum(w, WAIT[mode]["elevator"]), w).astype(np.float32)
         w = (w + push * ln * (1 / SPEED["walk"] - 1 / SPEED[mode])).astype(np.float32)
+        lift_ways = ((graph()["mode"] & 8) > 0) & ((graph()["mode"] & 1) == 0)
+        n = len(graph()["ids"])
+        lw = np.r_[graph()["u"][lift_ways].astype(np.int64) * n + graph()["v"][lift_ways],
+                   graph()["v"][lift_ways].astype(np.int64) * n + graph()["u"][lift_ways]]
+        elevator = (graph()["kind"][d] == 4) | np.isin(s.astype(np.int64) * n + d, lw)
+        _FLAGS[mode] = (elevator * FLAG_ELEVATOR | push * FLAG_PUSH).astype(np.uint8)
         _EDGES[mode] = (s, d, ln, w, jid)
     return _EDGES[mode]
+
+
+def edge_flags(mode: str) -> np.ndarray:
+    """Per edge of edges(mode): FLAG_ELEVATOR (an elevator node or way), FLAG_PUSH (a pushed bike)."""
+    edges(mode)
+    return _FLAGS[mode]
 
 
 def csr(mode: str):
@@ -340,7 +356,7 @@ def points_graph(lat, lon, mode: str, entrances=None):
     """Street graph + a virtual out-node and in-node per point (see street_matrix.access_edges).
     `entrances[i]`: a list of (lat, lon) for a metro platform (it joins through all of them, + METRO_ACCESS_S
     + the elevator wait of the mode),
-    empty for any other point. Returns (nodes, src, dst, cost, length, wait, out_ids, in_ids). On a bike the
+    empty for any other point. Returns (nodes, src, dst, cost, length, wait, out_ids, in_ids, flags). On a bike the
     access segments cost walking time: the extra time over riding is in their wait, so
     time = length / SPEED[mode] + wait still holds."""
     s, d, ln, w, jid = edges(mode)
@@ -354,13 +370,22 @@ def points_graph(lat, lon, mode: str, entrances=None):
     vs, vd, vl, vw, out_ids, in_ids = access_edges(n, an, ad, 1 / SPEED["walk"] - 1 / SPEED[mode],
                                                    owner=owner.astype(int), fixed_s=fixed, n_points=p,
                                                    node_entry=entry_wait(node_wait(mode), jid))
+    metro = FLAG_METRO | (FLAG_ELEVATOR if WAIT[mode]["elevator"] else 0)  # every entrance has an elevator
+    vf = access_flags(ad, np.where(fixed > 0, metro, 0))
     src, dst, length, wait = np.r_[s, vs], np.r_[d, vd], np.r_[ln, vl], np.r_[w, vw]
-    return n + 2 * len(out_ids), src, dst, length / SPEED[mode] + wait, length, wait, out_ids, in_ids
+    return (n + 2 * len(out_ids), src, dst, length / SPEED[mode] + wait, length, wait, out_ids, in_ids,
+            np.r_[edge_flags(mode), vf])
+
+
+def points_lonlat(lat, lon) -> tuple[np.ndarray, np.ndarray]:
+    """lon / lat of every node of points_graph(): the street nodes, then the out and in node of each point."""
+    g = graph()
+    return np.r_[g["lon"], lon, lon], np.r_[g["lat"], lat, lat]
 
 
 def graph_with_points(lat, lon, mode: str):
     """points_graph() as (cost csr, EdgeLookup, out_ids, in_ids) for scipy."""
-    m, src, dst, cost, length, wait, out_ids, in_ids = points_graph(lat, lon, mode)
+    m, src, dst, cost, length, wait, out_ids, in_ids, _ = points_graph(lat, lon, mode)
     return (csr_matrix((cost + EPS, (src, dst)), shape=(m, m)), EdgeLookup(src, dst, length, wait, cost, m),
             out_ids, in_ids)
 

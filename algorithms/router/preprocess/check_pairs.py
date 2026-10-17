@@ -57,9 +57,10 @@ def pick_pairs(posts: list[dict], seed: int = 11) -> list[tuple[dict, dict]]:
 
 
 def cpp_matrix(points: list[dict], mode: str, tmp: Path) -> np.ndarray:
-    m, src, dst, cost, length, wait, out_ids, in_ids = osm.points_graph(
-        [p["lat"] for p in points], [p["lon"] for p in points], mode)
-    save_graph(tmp / "graph.bin", m, src, dst, cost, length, wait, out_ids, in_ids, np.ones(len(points), bool))
+    lat, lon = [p["lat"] for p in points], [p["lon"] for p in points]
+    m, src, dst, cost, length, wait, out_ids, in_ids, flags = osm.points_graph(lat, lon, mode)
+    save_graph(tmp / "graph.bin", m, src, dst, cost, length, wait, out_ids, in_ids, np.ones(len(points), bool),
+               *osm.points_lonlat(lat, lon), flags)
     subprocess.run([str(CPP), str(tmp / "graph.bin"), str(tmp / "out.bin")], check=True, capture_output=True)
     return np.fromfile(tmp / "out.bin", dtype="<f4").reshape(2, len(points), len(points))
 
