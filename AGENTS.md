@@ -178,11 +178,13 @@ Everything in this repo (files, commits, PRs) is written in English.
 - ZTM posts in OSM: `public_transport=platform` nodes with `ref` = ZTM stop_id (`Grójecka 02` = `ref=435102`);
   90% of posts match, median 7 m from the GTFS point.
 - Street modes (`osm.SPEED`): `walk`, `bike` (riding + pushing along the accessible graph where riding is not
-  allowed, pushing time in the wait), `accessible` (walk without steps, with `highway=elevator` ways; every
-  elevator 60 s). Points join only the largest strongly connected component of the mode (`osm._mode_tree`):
+  allowed), `accessible` (walk without steps, with `highway=elevator` ways). Every trip splits into `walk_m`
+  (also a pushed bike, access, metro stairs), `bike_m` and `wait_s` (signals, crossings, 60 s per elevator in
+  every mode); time = walk_m / walk speed + bike_m / bike speed + wait_s. Points join only the largest strongly connected component of the mode (`osm._mode_tree`):
   islands (1-2% of nodes) cannot reach anything, so no NaN pairs.
 - Metro platforms (`ztm:7014M:P1`) join the graph through all GTFS entrances of their station
-  (`location_type=2`, `7014M:E1..E9`) with 120 s + the mode's elevator wait (every entrance has an elevator).
+  (`location_type=2`, `7014M:E1..E9`): a 150 m walk; modes without steps (bike, accessible) also take the
+  elevator every entrance is assumed to have (+60 s).
   GTFS entrances match OSM `railway=subway_entrance` (251/253 within 30 m). GTFS `trips.txt` has
   `wheelchair_accessible` per trip (1 = yes for 96%).
 - Street matrix: `backend/preprocess_street.py` prepares points + `graph_<mode>.bin`, the C++ program

@@ -60,7 +60,7 @@ def cpp_matrix(points: list[dict], mode: str) -> np.ndarray:
     with tempfile.TemporaryDirectory() as tmp:
         osm.points_graph([p["lat"] for p in points], [p["lon"] for p in points], mode).save(Path(tmp) / "graph.bin")
         subprocess.run([str(CPP), f"{tmp}/graph.bin", f"{tmp}/out.bin"], check=True, capture_output=True)
-        return np.fromfile(f"{tmp}/out.bin", dtype="<f4").reshape(2, len(points), len(points))
+        return np.fromfile(f"{tmp}/out.bin", dtype="<f4").reshape(3, len(points), len(points))  # walk, bike, wait
 
 
 def main() -> None:
@@ -74,15 +74,16 @@ def main() -> None:
              "air_m": round(float(np.hypot(*np.subtract(to_xy(a["lat"], a["lon"]), to_xy(b["lat"], b["lon"])))))}
             for a, b in pairs]
     for mode in ("walk", "bike"):
-        mat = cpp_matrix(points, mode)
+        walk, bike, wait = cpp_matrix(points, mode)
+        dist = walk + bike
         for i, ((a, b), row) in enumerate(zip(pairs, rows)):
             r = osm.route(a["lat"], a["lon"], b["lat"], b["lon"], mode, limit_s=np.inf)
             g, o = (4 * i, 4 * i + 1), (4 * i + 2, 4 * i + 3)
-            row |= {f"{mode}_m": round(float(mat[0][g])), f"{mode}_wait_s": round(float(mat[1][g]), 1),
-                    f"{mode}_min": round((float(mat[0][g]) / osm.SPEED[mode] + float(mat[1][g])) / 60, 1),
-                    f"{mode}_osm_m": round(float(mat[0][o])), f"{mode}_osm_wait_s": round(float(mat[1][o]), 1),
-                    f"{mode}_route_diff_m": abs(float(mat[0][g]) - r["length_m"]),
-                    f"{mode}_route_diff_s": abs(float(mat[1][g]) - r["wait_s"])}
+            row |= {f"{mode}_m": round(float(dist[g])), f"{mode}_wait_s": round(float(wait[g]), 1),
+                    f"{mode}_min": round(float(osm.seconds(mode, walk[g], bike[g], wait[g])) / 60, 1),
+                    f"{mode}_osm_m": round(float(dist[o])), f"{mode}_osm_wait_s": round(float(wait[o]), 1),
+                    f"{mode}_route_diff_m": abs(float(dist[g]) - r["length_m"]),
+                    f"{mode}_route_diff_s": abs(float(wait[g]) - r["wait_s"])}
     with open(OUT / "check_pairs.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
         w.writeheader()

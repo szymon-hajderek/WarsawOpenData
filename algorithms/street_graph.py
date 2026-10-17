@@ -1,4 +1,4 @@
-"""The street graph handed to the C++ program, and its file format (SMG2).
+"""The street graph handed to the C++ program, and its file format (SMG3).
 
 Format and meaning: algorithms/router/preprocess/README.md ("Graph file").
 """
@@ -15,9 +15,10 @@ class StreetGraph:
     # one entry per edge
     src: np.ndarray
     dst: np.ndarray
-    cost: np.ndarray    # s: length / speed + wait, what Dijkstra minimises
-    length: np.ndarray  # m
-    wait: np.ndarray    # s
+    cost: np.ndarray    # s: walk / walk speed + bike / bike speed + wait, what Dijkstra minimises
+    walk: np.ndarray    # m walked (also a pushed bike, access segments, metro stairs)
+    bike: np.ndarray    # m ridden
+    wait: np.ndarray    # s that do not scale with speed (signals, crossings, elevators)
     flags: np.ndarray   # street_model.FLAG_*
     # one entry per node
     lon: np.ndarray
@@ -35,10 +36,11 @@ class StreetGraph:
         order = np.argsort(self.src, kind="stable")
         offset = np.r_[0, np.cumsum(np.bincount(self.src, minlength=self.nodes))]
         with open(path, "wb") as f:
-            f.write(b"SMG2")
+            f.write(b"SMG3")
             np.array([self.nodes, len(self.src), len(self.out_node)], dtype="<u4").tofile(f)
             for arr, dtype in ((offset, "<u4"), (self.dst[order], "<u4"), (self.cost[order], "<f8"),
-                               (self.length[order], "<f4"), (self.wait[order], "<f4"), (self.flags[order], "u1"),
+                               (self.walk[order], "<f4"), (self.bike[order], "<f4"), (self.wait[order], "<f4"),
+                               (self.flags[order], "u1"),
                                (self.out_node, "<u4"), (self.in_node, "<u4"), (self.active, "u1"),
                                (self.lon, "<f4"), (self.lat, "<f4")):
                 np.asarray(arr).astype(dtype).tofile(f)

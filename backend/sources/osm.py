@@ -35,17 +35,22 @@ PBF = OSM_DIR / "warsaw_ztm.osm.pbf"
 URL = "https://download.geofabrik.de/europe/poland/mazowieckie-latest.osm.pbf"
 CLIP_KEYS = ("highway", "crossing", "railway", "public_transport", "entrance")
 
-# "unit" speeds in m/s. Change here for travel profiles (stroller, slow walker, e-bike).
+# Default speeds in m/s; the path is chosen with them. A trip has three parts: walk_m / WALK_SPEED[mode]
+# + bike_m / BIKE_SPEED + wait_s (a pushed bike walks). Change here for travel profiles.
 # accessible: walk without stairs (uses elevators), e.g. a wheelchair or a stroller.
 SPEED = {"walk": 1.3, "bike": 4.2, "accessible": 1.3}
+WALK_SPEED = {"walk": SPEED["walk"], "bike": SPEED["walk"], "accessible": SPEED["accessible"]}
+BIKE_SPEED = SPEED["bike"]
+# Modes that cannot use steps (a bike is pushed along the accessible graph): they take elevators.
+NO_STEPS = {"bike", "accessible"}
 # A point (stop, address) joins the graph through up to ACCESS_K nearest nodes that are at most
 # ACCESS_EXTRA_M farther than the nearest one. These short segments are walked (a bike is pushed).
 ACCESS_K = 6
 ACCESS_EXTRA_M = 30
 # A metro platform joins the graph through all entrances of its station (GTFS location_type 2);
-# going from an entrance down to the platform costs this fixed time (stairs, corridors), added to the wait.
-# Every entrance is assumed to have an elevator: it adds the elevator wait of the mode (WAIT[mode]["elevator"]).
-METRO_ACCESS_S = 120
+# entrance <-> platform is a walk of METRO_ACCESS_M (stairs, corridors). Every entrance is assumed to have
+# an elevator, which a NO_STEPS mode takes (+ ELEVATOR_S).
+METRO_ACCESS_M = 150
 # /api/osm/route fails (422) when the start or the end is farther than this from the graph (m).
 MAX_SNAP_M = 1000
 
@@ -55,15 +60,15 @@ def hcm_delay(cycle_s: float, green_s: float) -> float:
 
 
 # Expected wait (s) when a path enters a node of this kind. Assumed signal plan: 90 s cycle,
-# 20 s pedestrian green, 30 s green for vehicles / bikes on the road. In accessible mode an elevator
-# (a highway=elevator node or way, and every metro entrance) costs ELEVATOR_S: waiting + the ride.
+# 20 s pedestrian green, 30 s green for vehicles / bikes on the road. An elevator (a highway=elevator node
+# or way) costs ELEVATOR_S in every mode: waiting + the ride.
 ELEVATOR_S = 60.0
 WAIT = {
-    "walk": {"crossing_signals": hcm_delay(90, 20), "crossing": 2.0, "traffic_signals": 0.0, "elevator": 0.0},
+    "walk": {"crossing_signals": hcm_delay(90, 20), "crossing": 2.0, "traffic_signals": 0.0, "elevator": ELEVATOR_S},
     "bike": {"crossing_signals": hcm_delay(90, 20), "crossing": 0.0, "traffic_signals": hcm_delay(90, 30),
-             "elevator": ELEVATOR_S},  # an elevator is reached only when the bike is pushed
+             "elevator": ELEVATOR_S},
 }
-WAIT["accessible"] = WAIT["walk"] | {"elevator": ELEVATOR_S}
+WAIT["accessible"] = WAIT["walk"]
 TIMING_TAGS = ("phases", "timing", "cycle_time", "duration", "traffic_signals:phases")
 
 WALK_EXCLUDE = {"abandoned", "bus_guideway", "construction", "motor", "no", "planned", "platform",
@@ -249,11 +254,13 @@ def directed_edges(mode: str):
 
 
 def edges(mode: str):
-    """Directed edges of a mode without parallel duplicates: (src, dst, length_m, wait_s, junction id per node).
-    A signal wait is paid once per junction (see algorithms/street_model.py).
-    Bike: where riding is not allowed (oneway against, footways, elevators) the bike can be pushed along the
-    accessible walk graph (no stairs) at walking speed; the extra time over riding is in the wait."""
+    """Directed edges of a mode without parallel duplicates: (src, dst, walk_m, bike_m, wait_s, junction id
+    per node). Each edge is either walked or ridden. A signal wait is paid once per junction
+    (algorithms/street_model.py); an elevator costs ELEVATOR_S.
+    Bike: where riding is not allowed (oneway against, footways, elevators) the bike is pushed along the
+    accessible walk graph (no stairs): those edges are walked."""
     if mode not in _EDGES:
+        g, n = graph(), len(graph()["ids"])
         s, d, ln = directed_edges(mode)
         push = np.zeros(len(s), dtype=bool)
         if mode == "bike":
@@ -265,23 +272,18 @@ def edges(mode: str):
         first = np.r_[True, (s[1:] != s[:-1]) | (d[1:] != d[:-1])]
         s, d, ln, push = s[first], d[first], ln[first], push[first]
         nw = node_wait(mode)
-        signal = np.isin(graph()["kind"], (1, 3)) & (nw > 0)
+        signal = np.isin(g["kind"], (1, 3)) & (nw > 0)
         jid = junctions(s, d, ln, signal)
         w = edge_wait(s, d, nw, jid)
-        lift = ((graph()["mode"] & 8) > 0) & ((graph()["mode"] & 1) == 0)  # highway=elevator ways (accessible only)
-        if lift.any() and WAIT[mode]["elevator"]:
-            g, n = graph(), len(graph()["ids"])
-            a, b = g["u"][lift].astype(np.int64), g["v"][lift].astype(np.int64)
-            ride = np.isin(s.astype(np.int64) * n + d, np.r_[a * n + b, b * n + a])
-            w = np.where(ride, np.maximum(w, WAIT[mode]["elevator"]), w).astype(np.float32)
-        w = (w + push * ln * (1 / SPEED["walk"] - 1 / SPEED[mode])).astype(np.float32)
-        lift_ways = ((graph()["mode"] & 8) > 0) & ((graph()["mode"] & 1) == 0)
-        n = len(graph()["ids"])
-        lw = np.r_[graph()["u"][lift_ways].astype(np.int64) * n + graph()["v"][lift_ways],
-                   graph()["v"][lift_ways].astype(np.int64) * n + graph()["u"][lift_ways]]
-        elevator = (graph()["kind"][d] == 4) | np.isin(s.astype(np.int64) * n + d, lw)
+        lift_way = ((g["mode"] & 8) > 0) & ((g["mode"] & 1) == 0)  # highway=elevator ways (accessible bit only)
+        a, b = g["u"][lift_way].astype(np.int64), g["v"][lift_way].astype(np.int64)
+        ride = np.isin(s.astype(np.int64) * n + d, np.r_[a * n + b, b * n + a])
+        w = np.where(ride, np.maximum(w, WAIT[mode]["elevator"]), w).astype(np.float32)
+        elevator = ride | (g["kind"][d] == 4)
+        walked = push if mode == "bike" else np.ones(len(s), dtype=bool)
         _FLAGS[mode] = (elevator * FLAG_ELEVATOR | push * FLAG_PUSH).astype(np.uint8)
-        _EDGES[mode] = (s, d, ln, w, jid)
+        _EDGES[mode] = (s, d, np.where(walked, ln, 0).astype(np.float32), np.where(walked, 0, ln).astype(np.float32),
+                        w, jid)
     return _EDGES[mode]
 
 
@@ -291,12 +293,17 @@ def edge_flags(mode: str) -> np.ndarray:
     return _FLAGS[mode]
 
 
+def seconds(mode: str, walk_m, bike_m, wait_s):
+    """Time with the default speeds of the mode."""
+    return walk_m / WALK_SPEED[mode] + bike_m / BIKE_SPEED + wait_s
+
+
 def csr(mode: str):
-    """Sparse cost graph of the street edges (s = length / speed + wait), for scipy."""
+    """Sparse cost graph of the street edges (seconds), for scipy."""
     if mode not in _CSR:
-        s, d, ln, w, _ = edges(mode)
+        s, d, wm, bm, w, _ = edges(mode)
         n = len(graph()["ids"])
-        _CSR[mode] = csr_matrix((ln / SPEED[mode] + w + EPS, (s, d)), shape=(n, n))
+        _CSR[mode] = csr_matrix((seconds(mode, wm, bm, w) + EPS, (s, d)), shape=(n, n))
     return _CSR[mode]
 
 
@@ -355,25 +362,24 @@ def access(lat, lon, mode: str) -> tuple[np.ndarray, np.ndarray]:
 
 def points_graph(lat, lon, mode: str, entrances=None) -> StreetGraph:
     """The street graph of a mode + a virtual out node and in node per point (see street_model.access_edges).
-    `entrances[i]`: a list of (lat, lon) for a metro platform (it joins through all of them, + METRO_ACCESS_S
-    + the elevator wait of the mode), empty for any other point. On a bike the access segments cost walking
-    time: the extra time over riding is in their wait, so time = length / SPEED[mode] + wait still holds.
+    The access segments are walked. `entrances[i]`: a list of (lat, lon) for a metro platform; it joins through
+    all of them, + METRO_ACCESS_M walked (+ an elevator in a NO_STEPS mode); empty for any other point.
     A point farther than MAX_SNAP_M from the graph is not active."""
-    s, d, ln, w, jid = edges(mode)
+    s, d, wm, bm, w, jid = edges(mode)
     n, p = len(graph()["ids"]), len(lat)
     entrances = entrances or [[]] * p
-    sites = [(i, la, lo, 0.0) for i, (la, lo, ent) in enumerate(zip(lat, lon, entrances)) if not ent]
-    down = METRO_ACCESS_S + WAIT[mode]["elevator"]
-    sites += [(i, la, lo, down) for i, ent in enumerate(entrances) for la, lo in ent]
-    owner, slat, slon, fixed = (np.array(x) for x in zip(*sites))
+    sites = [(i, la, lo, False) for i, (la, lo, ent) in enumerate(zip(lat, lon, entrances)) if not ent]
+    sites += [(i, la, lo, True) for i, ent in enumerate(entrances) for la, lo in ent]
+    owner, slat, slon, metro = (np.array(x) for x in zip(*sites))
+    lift = mode in NO_STEPS  # every metro entrance is assumed to have an elevator
     an, ad = access(slat, slon, mode)
-    vs, vd, vl, vw, out_node, in_node = access_edges(n, an, ad, 1 / SPEED["walk"] - 1 / SPEED[mode],
-                                                     owner=owner.astype(int), fixed_s=fixed, n_points=p,
-                                                     node_entry=entry_wait(node_wait(mode), jid))
-    metro = FLAG_METRO | (FLAG_ELEVATOR if WAIT[mode]["elevator"] else 0)  # every entrance has an elevator
-    length, wait = np.r_[ln, vl], np.r_[w, vw]
-    return StreetGraph(src=np.r_[s, vs], dst=np.r_[d, vd], cost=length / SPEED[mode] + wait, length=length,
-                       wait=wait, flags=np.r_[edge_flags(mode), access_flags(ad, np.where(fixed > 0, metro, 0))],
+    vs, vd, vw_m, vwait, out_node, in_node = access_edges(
+        n, an, ad, owner=owner.astype(int), fixed_m=metro * METRO_ACCESS_M, fixed_s=metro * lift * ELEVATOR_S,
+        n_points=p, node_entry=entry_wait(node_wait(mode), jid))
+    site_flags = np.where(metro, FLAG_METRO | (FLAG_ELEVATOR if lift else 0), 0)
+    walk, bike, wait = np.r_[wm, vw_m], np.r_[bm, np.zeros(len(vs))], np.r_[w, vwait]
+    return StreetGraph(src=np.r_[s, vs], dst=np.r_[d, vd], cost=seconds(mode, walk, bike, wait), walk=walk,
+                       bike=bike, wait=wait, flags=np.r_[edge_flags(mode), access_flags(ad, site_flags)],
                        lon=np.r_[graph()["lon"], lon, lon], lat=np.r_[graph()["lat"], lat, lat],
                        out_node=out_node, in_node=in_node,
                        active=nearest_many(lat, lon, mode)[1] <= MAX_SNAP_M)
@@ -394,7 +400,7 @@ def _mode_tree(mode: str):
 
 def route(lat1, lon1, lat2, lon2, mode: str = "walk", limit_s: float = 7200) -> dict:
     """Street path between two points on points_graph() (scipy; the same model as the C++ program).
-    Length and wait include the access segments (see ACCESS_K)."""
+    walk_m / bike_m / wait_s include the access segments (see ACCESS_K); length_m = walk_m + bike_m."""
     g = points_graph([lat1, lat2], [lon1, lon2], mode)
     shape = (g.nodes, g.nodes)
     a, b = int(g.out_node[0]), int(g.in_node[1])
@@ -410,8 +416,9 @@ def route(lat1, lon1, lat2, lon2, mode: str = "walk", limit_s: float = 7200) -> 
     used = np.array([edge_id[u, v] for u, v in zip(path, path[1:])]) - 1
     snap = access([lat1, lat2], [lon1, lon2], mode)[1][:, 0]
     street = path[1:-1]
-    return {"mode": mode, "seconds": round(float(g.cost[used].sum()), 1),
-            "length_m": round(float(g.length[used].sum()), 1), "wait_s": round(float(g.wait[used].sum()), 1),
+    walk, bike = float(g.walk[used].sum()), float(g.bike[used].sum())
+    return {"mode": mode, "seconds": round(float(g.cost[used].sum()), 1), "length_m": round(walk + bike, 1),
+            "walk_m": round(walk, 1), "bike_m": round(bike, 1), "wait_s": round(float(g.wait[used].sum()), 1),
             "nodes": len(street), "snap_m": [round(float(snap[0]), 1), round(float(snap[1]), 1)],
             "geometry": [[lat1, lon1]] + [[float(g.lat[v]), float(g.lon[v])] for v in street] + [[lat2, lon2]]}
 
