@@ -55,4 +55,10 @@ describe('RouteOptionsSheet', () => {
     render(<RouteOptionsSheet {...props} options={[]} foundCount={0} error />);
     expect(screen.getByText(/Nie udało się pobrać tras/)).toBeInTheDocument();
   });
+
+  it('says the server is not connected instead of showing routes', () => {
+    render(<RouteOptionsSheet {...props} options={[]} foundCount={0} error offline />);
+    expect(screen.getByText(/Nie połączono z serwerem/)).toBeInTheDocument();
+    expect(screen.queryByText(/Nie udało się pobrać tras/)).not.toBeInTheDocument();
+  });
 });

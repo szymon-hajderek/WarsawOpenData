@@ -86,7 +86,7 @@ export default function App() {
   const trip = useMemo(() => applyOverrides(effective, filters.overrides), [effective, filters.overrides]);
   const search = useMemo(() => routeSearchBody(trip), [trip]);
 
-  const { options, loading, error: searchError, mock: routesMock } = useRouteSearch({
+  const { options, loading, error: searchError, offline: routesOffline, mock: routesMock } = useRouteSearch({
     origin,
     destination,
     via,
@@ -111,6 +111,13 @@ export default function App() {
       setMockNoticeDone(true);
     }
   }, [mockShown, mockNoticeDone]);
+
+  // The backend is switched on but could not be reached: say so each time it happens (no made-up data is shown).
+  const offlineShown = routesOffline || vehicle.offline;
+  const [offlineNoticeOpen, setOfflineNoticeOpen] = useState(false);
+  useEffect(() => {
+    if (offlineShown) setOfflineNoticeOpen(true);
+  }, [offlineShown]);
 
 
   const handleLocateOrigin = () => {
@@ -198,6 +205,7 @@ export default function App() {
             manual={vehicle.manual}
             loading={vehicle.loading}
             mock={vehicle.mock}
+            offline={vehicle.offline}
             snap={vehicle.snap}
             selectedId={vehicle.selectedId}
             confirmed={vehicle.confirmed}
@@ -217,6 +225,7 @@ export default function App() {
             foundCount={options.length}
             loading={loading}
             error={searchError}
+            offline={routesOffline}
             mock={routesMock}
             selectedId={selectedId}
             summary={summarize(trip)}
@@ -302,6 +311,18 @@ export default function App() {
       </Snackbar>
 
       <Snackbar
+        open={offlineNoticeOpen}
+        autoHideDuration={8000}
+        onClose={() => setOfflineNoticeOpen(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{ top: { xs: 150 } }}
+      >
+        <Alert severity="error" variant="filled" onClose={() => setOfflineNoticeOpen(false)}>
+          Nie połączono z serwerem. Sprawdź, czy backend działa.
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
         open={mockNoticeOpen}
         autoHideDuration={8000}
         onClose={() => setMockNoticeOpen(false)}
@@ -309,7 +330,7 @@ export default function App() {
         sx={{ top: { xs: 150 } }}
       >
         <Alert severity="warning" variant="filled" onClose={() => setMockNoticeOpen(false)}>
-          Serwer jest niedostępny lub odpowiedział błędnie. Pokazuję dane przykładowe.
+          Serwer jest wyłączony. Pokazuję dane przykładowe.
         </Alert>
       </Snackbar>
     </Box>

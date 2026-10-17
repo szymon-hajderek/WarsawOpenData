@@ -58,8 +58,10 @@ function mockCandidates(position: LatLng | null): VehicleCandidate[] {
 // ---------------------------------------------------------------- API
 
 export interface DetectionResult {
-  /** True when the candidates are made-up example data (the backend is off or sent a bad answer). */
+  /** True when the candidates are made-up example data (only when the backend is switched off on purpose). */
   mock: boolean;
+  /** The backend is switched on but could not be reached (or sent a bad answer): nothing was detected. */
+  offline: boolean;
   /** The most likely vehicle first, then up to 3 other possible ones. */
   candidates: VehicleCandidate[];
   /** All lines in the live data, for choosing the line by hand. */
@@ -79,40 +81,45 @@ export async function detectVehicle(
   const points = trackOrPosition(track, position);
   let detail: BusPopupDetail;
   let mock = false;
-  try {
-    if (!API_URL) throw new Error('backend disabled');
-    if (points.length === 0) throw new Error('no location');
-    const r = await fetch(apiUrl('/api/live/nearest-buses'), {
-      signal,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ points }),
-    });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data: unknown = await r.json();
-    if (!isNearestBuses(data)) throw new Error('Unexpected answer shape');
-    detail = {
-      candidates: data.candidates.map(({ id, mode, line, direction, vehicle, brigade, rmse_m }) => ({
-        id,
-        mode,
-        line,
-        direction,
-        vehicleNo: vehicle,
-        brigade,
-        distanceM: rmse_m,
-      })),
-      lines: data.lines,
-      points,
-    };
-  } catch (e) {
-    if (signal?.aborted) throw e;
+  if (!API_URL) {
+    // The backend is switched off on purpose: example data.
     mock = true;
-    console.warn('Bus detection unavailable, using mock data:', e);
     const candidates = mockCandidates(position);
     detail = { candidates, lines: candidates.map((c) => c.line), points };
+  } else if (points.length === 0) {
+    return { candidates: [], lines: [], mock: false, offline: false }; // no location, nothing to detect
+  } else {
+    try {
+      const r = await fetch(apiUrl('/api/live/nearest-buses'), {
+        signal,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ points }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data: unknown = await r.json();
+      if (!isNearestBuses(data)) throw new Error('Unexpected answer shape');
+      detail = {
+        candidates: data.candidates.map(({ id, mode, line, direction, vehicle, brigade, rmse_m }) => ({
+          id,
+          mode,
+          line,
+          direction,
+          vehicleNo: vehicle,
+          brigade,
+          distanceM: rmse_m,
+        })),
+        lines: data.lines,
+        points,
+      };
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      console.warn('Bus detection unavailable:', e);
+      return { candidates: [], lines: [], mock: false, offline: true };
+    }
   }
   window.dispatchEvent(new CustomEvent<BusPopupDetail>(BUS_POPUP_EVENT, { detail }));
-  return { candidates: detail.candidates, lines: detail.lines, mock };
+  return { candidates: detail.candidates, lines: detail.lines, mock, offline: false };
 }
 
 /** Detect again with the last 1-3 positions and reopen the popup (wire a "choose my line" button to it). */

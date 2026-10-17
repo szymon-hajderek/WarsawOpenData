@@ -64,6 +64,8 @@ interface Props {
   loading: boolean;
   /** The candidates are made-up example data. */
   mock: boolean;
+  /** The backend could not be reached, so nothing was detected. */
+  offline?: boolean;
   snap: VehicleSnap;
   selectedId: string | null;
   /** The vehicle the user confirmed (shown in the hidden bar). */
@@ -89,6 +91,7 @@ export default function VehicleSheet({
   manual,
   loading,
   mock,
+  offline = false,
   snap,
   selectedId,
   confirmed,
@@ -163,7 +166,7 @@ export default function VehicleSheet({
               </>
             ) : (
               <>
-                <Typography sx={{ flex: 1 }}>Nie wykryto pojazdu</Typography>
+                <Typography sx={{ flex: 1 }}>{offline ? 'Nie połączono z serwerem' : 'Nie wykryto pojazdu'}</Typography>
                 <ExpandLess color="action" />
               </>
             )}
@@ -178,6 +181,15 @@ export default function VehicleSheet({
           {loading && candidates.length === 0 && (
             <Box sx={{ display: 'grid', placeItems: 'center', py: 3 }}>
               <CircularProgress size={32} />
+            </Box>
+          )}
+
+          {offline && !loading && candidates.length === 0 && (
+            <Box sx={{ py: 2, textAlign: 'center' }}>
+              <Typography color="text.secondary">Nie połączono z serwerem, więc nie wykryję pojazdu.</Typography>
+              <Button onClick={onRedetect} sx={{ mt: 1 }}>
+                Spróbuj ponownie
+              </Button>
             </Box>
           )}
 
