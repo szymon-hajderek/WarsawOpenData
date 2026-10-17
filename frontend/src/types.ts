@@ -31,6 +31,12 @@ export interface RouteLeg {
   path: LatLng[];
   /** 1-based number of the intermediate stop this leg ends at (trips with stops). */
   stop?: number;
+  /** `GET /api/stations` id of the stop / station at each end (`ztm:435102`, `vet:14083304`), `null` for a place that is not one. */
+  fromId?: string | null;
+  toId?: string | null;
+  /** `[lon, lat]` where a street route boards an elevator / starts a flight of steps (street-only routes). */
+  elevators?: LonLat[];
+  steps?: LonLat[];
 }
 
 /** Keep the intermediate stops as added, or let the backend reorder them for the shortest trip. */

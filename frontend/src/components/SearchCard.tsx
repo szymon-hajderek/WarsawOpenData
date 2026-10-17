@@ -6,7 +6,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
-import { Box, Button, IconButton, Paper, ToggleButton, ToggleButtonGroup, useTheme } from '@mui/material';
+import { Box, Button, Chip, IconButton, Paper, ToggleButton, ToggleButtonGroup, useTheme } from '@mui/material';
 import SwapVert from '@mui/icons-material/SwapVert';
 import TripOriginIcon from '@mui/icons-material/TripOrigin';
 import PlaceIcon from '@mui/icons-material/Place';
@@ -17,6 +17,7 @@ import PlaceField from './PlaceField';
 import { MAX_STOPS } from '../api/multiStop';
 import type { Place, StopOrder } from '../types';
 import { RADIUS } from '../layout';
+import { TRAVEL_LABELS, TRAVEL_MODES, type TravelMode } from '../travel';
 import { PALETTE } from '../map/palette';
 
 /** Colour between `a` and `b` (hex), `t` in 0..1. */
@@ -33,6 +34,10 @@ interface Props {
   /** Intermediate stops; `null` = an empty field the user has just added. */
   stops: (Place | null)[];
   order: StopOrder;
+  /** How the user wants to travel (public transport or a street-only trip). */
+  travel?: TravelMode;
+  /** Without it the row of travel modes is not shown (the ride demo). */
+  onTravelChange?: (mode: TravelMode) => void;
   currentLocation: Place | null;
   onOriginChange: (p: Place | null) => void;
   onDestinationChange: (p: Place | null) => void;
@@ -89,6 +94,8 @@ export default function SearchCard({
   destination,
   stops,
   order,
+  travel = 'transit',
+  onTravelChange,
   currentLocation,
   onOriginChange,
   onDestinationChange,
@@ -347,6 +354,27 @@ export default function SearchCard({
             </ToggleButtonGroup>
           )}
         </Box>
+
+        {onTravelChange && (
+        <Box
+          role="group"
+          aria-label="Sposób podróży"
+          sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, pt: 1, pb: 0.25 }}
+        >
+          {TRAVEL_MODES.map((m) => (
+            <Chip
+              key={m}
+              label={TRAVEL_LABELS[m]}
+              size="small"
+              clickable
+              color={travel === m ? 'primary' : 'default'}
+              variant={travel === m ? 'filled' : 'outlined'}
+              aria-pressed={travel === m}
+              onClick={() => onTravelChange(m)}
+            />
+          ))}
+        </Box>
+        )}
       </Box>
 
       <Box sx={{ display: 'flex', alignItems: 'center' }}>

@@ -13,6 +13,8 @@ import { ICON_PATH, MODE_META, iconHtml, modeColor } from '../modes';
 import { GLASS, PALETTE } from '../map/palette';
 import { MAP_ATTRIBUTION } from '../map/mapStyle';
 import { createLookStyle, useMapLook, type MapLook } from '../map/mapLook';
+import { useRouteStations } from '../hooks/useRouteStations';
+import { buildOverlay, type Overlay } from '../utils/overlay';
 import { glassCss, glassStyle } from '../map/glass';
 import '../map/glass.css';
 import type { LatLng, Place as PlaceT, RouteOption } from '../types';
@@ -160,13 +162,42 @@ function RouteLayer({
   palette,
   detailed,
   look,
+  overlay,
 }: {
   route: RouteOption;
   palette: PaletteMode;
   detailed: boolean;
   look: MapLook;
+  /** Stops of the route (from `GET /api/stations`); `null` until the server has answered or when it has none. */
+  overlay: Overlay | null;
 }) {
   const colors = PALETTE[palette];
+  // Metro platforms are underground: their ride is drawn muted and dashed.
+  const underground = !!overlay?.markers.some((m) => m.underground);
+
+  const detailMarkers = useMemo(() => {
+    const dot = (size: number, html: string, border: string, opacity = 1) =>
+      L.divIcon({
+        className: 'app-div-icon',
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        html: `<div style="width:${size}px;height:${size}px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;border:2px solid ${border};background:${colors.surface};opacity:${opacity}">${html}</div>`,
+      });
+    const swap = (p: [number, number]): [number, number] => [p[1], p[0]];
+    const out: { key: string; position: [number, number]; icon: L.DivIcon }[] = [];
+    overlay?.markers.forEach((m) => {
+      const color = m.station.kind === 'metro_platform' ? MODE_META.metro[palette] : m.station.kind === 'tram_post' ? MODE_META.tram[palette] : m.station.kind === 'veturilo' ? MODE_META.veturilo[palette] : m.station.kind.startsWith('rail') ? MODE_META.rail[palette] : MODE_META.bus[palette];
+      out.push({ key: `stop-${m.station.id}`, position: m.station.position, icon: dot(16, '', color, m.underground ? 0.6 : 1) });
+    });
+    overlay?.entrances.forEach((e, i) => {
+      out.push({ key: `entrance-${i}`, position: e, icon: dot(22, iconHtml(ICON_PATH.stairs, 14, MODE_META.metro[palette]), MODE_META.metro[palette]) });
+    });
+    route.legs.forEach((leg, i) => {
+      leg.elevators?.forEach((p, k) => out.push({ key: `lift-${i}-${k}`, position: swap(p), icon: dot(24, iconHtml(ICON_PATH.elevator, 16, colors.accent), colors.accent) }));
+      leg.steps?.forEach((p, k) => out.push({ key: `steps-${i}-${k}`, position: swap(p), icon: dot(24, iconHtml(ICON_PATH.stairs, 16, colors.accent), colors.accent) }));
+    });
+    return out;
+  }, [overlay, route, colors, palette]);
 
   // Icons are rebuilt only when the route or the colours change, not on every render of the app.
   const transferIcons = useMemo(
@@ -201,22 +232,25 @@ function RouteLayer({
       {route.legs.map((leg, i) => {
         const walk = leg.mode === 'walk';
         const color = walk ? colors.accent : modeColor(leg.mode, palette);
+        const positions = overlay?.paths[i] ?? leg.path;
+        const buried = underground && leg.mode === 'metro';
         return (
           <Fragment key={`${i}-${leg.mode}`}>
-            {!walk && (
+            {!walk && !buried && (
               <Polyline
-                positions={leg.path}
+                positions={positions}
                 interactive={false}
                 pathOptions={{ color: colors.surface, weight: 12, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }}
               />
             )}
             <Polyline
-              positions={leg.path}
+              positions={positions}
               interactive={false}
               pathOptions={{
                 color,
                 weight: walk ? 5 : 6,
-                dashArray: walk ? '1 10' : undefined,
+                dashArray: walk ? '1 10' : buried ? '8 8' : undefined,
+                opacity: buried ? 0.55 : 1,
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
@@ -227,6 +261,10 @@ function RouteLayer({
 
       {transferIcons.map(({ position, icon }, i) => (
         <Marker key={`transfer-${i}`} position={position} interactive={false} icon={icon} />
+      ))}
+
+      {detailMarkers.map(({ key, position, icon }) => (
+        <Marker key={key} position={position} interactive={false} icon={icon} />
       ))}
     </>
   );
@@ -264,6 +302,8 @@ export default function MapView({
   const [map, setMap] = useState<L.Map | null>(null);
   const colors = PALETTE[paletteMode];
   const [look, toggleLook] = useMapLook();
+  const stations = useRouteStations(route);
+  const overlay = useMemo(() => (route && stations.size > 0 ? buildOverlay(route, stations) : null), [route, stations]);
   const glass = look === 'glass';
   const g = GLASS[paletteMode];
 
@@ -366,7 +406,7 @@ export default function MapView({
             userPosition={userPosition}
             padding={padding}
           />
-          {route && <RouteLayer route={route} palette={paletteMode} detailed={detailed} look={look} />}
+          {route && <RouteLayer route={route} palette={paletteMode} detailed={detailed} look={look} overlay={overlay} />}
           {gpsPosition && (
             <CircleMarker
               center={gpsPosition}

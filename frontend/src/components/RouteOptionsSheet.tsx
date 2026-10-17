@@ -24,6 +24,8 @@ interface Props {
   error: boolean;
   /** The backend could not be reached (no routes were made up). */
   offline?: boolean;
+  /** A specific, readable reason of the failure (street routes: "Brak trasy", ...). */
+  errorMessage?: string | null;
   /** The routes are made-up example data. */
   mock: boolean;
   selectedId: string | null;
@@ -49,6 +51,7 @@ export default function RouteOptionsSheet({
   loading,
   error,
   offline = false,
+  errorMessage = null,
   mock,
   selectedId,
   summary,
@@ -158,7 +161,7 @@ export default function RouteOptionsSheet({
               {offline
                 ? 'Nie połączono z serwerem, więc nie mogę wyznaczyć tras. Sprawdź, czy backend działa.'
                 : error
-                ? 'Nie udało się pobrać tras. Spróbuj zmienić punkty.'
+                ? errorMessage ?? 'Nie udało się pobrać tras. Spróbuj zmienić punkty.'
                 : foundCount > 0
                   ? 'Żadna trasa nie spełnia wybranych filtrów.'
                   : 'Nie znaleziono połączeń.'}
