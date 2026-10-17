@@ -17,6 +17,17 @@ import { glassCss, glassStyle } from '../map/glass';
 import '../map/glass.css';
 import type { LatLng, Place as PlaceT, RouteOption } from '../types';
 
+/** Positions (%) and delays (s) of the twinkling glints on the glass map. */
+const GLINTS: [number, number, number][] = [
+  [12, 20, 0],
+  [78, 14, 1.6],
+  [44, 38, 3.1],
+  [88, 56, 0.9],
+  [22, 66, 2.4],
+  [60, 82, 4],
+  [8, 88, 1.2],
+];
+
 const WARSAW: LatLng = [52.2297, 21.0122];
 
 export interface MapPadding {
@@ -117,6 +128,27 @@ function VectorBasemap({ mode, look }: { mode: PaletteMode; look: MapLook }) {
     styleRef.current = createLookStyle(look, mode);
     layerRef.current?.getMaplibreMap().setStyle(styleRef.current);
   }, [mode, look]);
+
+  // "Breathing" of the glass glow: the glow layers slowly pulse (about 20 frames a second).
+  useEffect(() => {
+    if (look !== 'glass' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    let frame = 0;
+    let last = 0;
+    const tick = (t: number) => {
+      frame = requestAnimationFrame(tick);
+      if (t - last < 50) return;
+      last = t;
+      const m = layerRef.current?.getMaplibreMap();
+      if (!m || !m.isStyleLoaded()) return;
+      const wave = (period: number, phase = 0) => 0.65 + 0.35 * Math.sin((t / period) * Math.PI * 2 + phase);
+      const set = (id: string, v: number) => m.getLayer(id) && m.setPaintProperty(id, 'line-opacity', v);
+      set('minor-glow', wave(5200));
+      set('major-glow', wave(6800, 1.6));
+      set('water-shore-glow', wave(4300, 3));
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [look]);
 
   return null;
 }
@@ -240,7 +272,7 @@ export default function MapView({
       return {
         user: L.divIcon({
           className: 'app-div-icon',
-          html: `<div class="glass-pulse" style="--pulse-color:${accent};position:relative;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;${gl()}">${iconHtml(
+          html: `<div class="glass-pulse glass-rim" style="--pulse-color:${accent};position:relative;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;${gl()}">${iconHtml(
             ICON_PATH.navigation,
             24,
             accent,
@@ -256,7 +288,7 @@ export default function MapView({
         }),
         destination: L.divIcon({
           className: 'app-div-icon',
-          html: `<div class="glass-pulse" style="--pulse-color:${accent};position:relative;width:44px;height:44px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${gl(red)}">${iconHtml(
+          html: `<div class="glass-pulse glass-rim" style="--pulse-color:${accent};position:relative;width:44px;height:44px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${gl(red)}">${iconHtml(
             ICON_PATH.place,
             24,
             colors.theme.primary.contrastText,
@@ -301,6 +333,7 @@ export default function MapView({
   // Round floating button
   const fab = (child: ReactNode) => (
     <Box
+      className={glass ? 'glass-rim' : undefined}
       sx={{
         borderRadius: '50%',
         ...(glass ? glassStyle(paletteMode) : { bgcolor: colors.surface, boxShadow: colors.shadow }),
@@ -351,7 +384,12 @@ export default function MapView({
                 '--sheen-band': g.sheenBand,
               } as React.CSSProperties
             }
-          />
+          >
+            <i />
+            {GLINTS.map(([x, y, delay], n) => (
+              <span key={n} className="glass-glint" style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${delay}s` }} />
+            ))}
+          </div>
         )}
       </Box>
 

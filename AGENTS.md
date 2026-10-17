@@ -187,7 +187,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   A layers button on the map switches them (`src/map/mapLook.ts`, `useMapLook`, localStorage `map-look`). Glass = glowing blurred roads, glass building tiles with a
   bright edge and a soft red shadow (`fill-translate`, no 3D: the Leaflet + MapLibre layer cannot tilt), light shores on water. Round buttons and markers get frosted glass
   (`src/map/glass.ts`, `backdrop-filter`); `src/map/glass.css` has the slowly drifting light over the map (`.glass-sheen`) and the pulse of the "me" / destination markers
-  (both off with `prefers-reduced-motion`). Cards, sheets and the rest of the UI are not glass. Labels are shared (`labelLayers`).
+  (both off with `prefers-reduced-motion`), plus bright sweeping bands, twinkling glints, a light running around the rim of round glass (`.glass-rim`) and a breathing glow of the road / shore layers (`VectorBasemap` animates `line-opacity`). Cards, sheets and the rest of the UI are not glass. Labels are shared (`labelLayers`).
 - Corner radii: use the `RADIUS` tokens from `src/layout.ts` (sheet 28 px, card 20, tile / row / input 16, control 12,
   pill 999). **Pitfall:** in MUI `sx` a numeric `borderRadius` is multiplied by `theme.shape.borderRadius` (12), so
   `borderRadius: 4` is 48 px and swallows the content. Nested corners: inner radius = outer radius - padding.

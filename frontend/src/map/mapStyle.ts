@@ -135,7 +135,7 @@ export function createGlassStyle(mode: StyleMode): StyleSpecification {
   /** The same road with a blur: a glow that spreads wider than the road itself. */
   const glow = (id: string, classes: string[], minzoom: number, width: number[], color: string): Layer => {
     const layer = road(id, classes, minzoom, width, color);
-    (layer.paint as Layer)['line-blur'] = 6;
+    (layer.paint as Layer)['line-blur'] = 9;
     return layer;
   };
   const MAJOR = ['secondary', 'primary', 'trunk', 'motorway'];
@@ -160,7 +160,7 @@ export function createGlassStyle(mode: StyleMode): StyleSpecification {
       type: 'line',
       source: 'openmaptiles',
       'source-layer': 'water',
-      paint: { 'line-color': g.edge, 'line-opacity': 0.7, 'line-width': zoomWidth(8, 3, 16, 12), 'line-blur': 5 },
+      paint: { 'line-color': g.edge, 'line-opacity': 0.9, 'line-width': zoomWidth(8, 5, 16, 20), 'line-blur': 7 },
     },
     {
       id: 'water-shore',
@@ -179,8 +179,8 @@ export function createGlassStyle(mode: StyleMode): StyleSpecification {
 
     // Roads: glow, casing, then the bright core
     road('path', ['path', 'pedestrian', 'track'], 15, [15, 0.8, 19, 3], g.path),
-    glow('minor-glow', ['minor', 'service'], 13, [13, 2, 16, 12, 19, 40], g.roadGlow),
-    glow('major-glow', ['tertiary', ...MAJOR], 9, [9, 2.4, 16, 16, 19, 48], g.roadMajorGlow),
+    glow('minor-glow', ['minor', 'service'], 13, [13, 3, 16, 18, 19, 56], g.roadGlow),
+    glow('major-glow', ['tertiary', ...MAJOR], 9, [9, 4, 16, 24, 19, 70], g.roadMajorGlow),
     road('minor-casing', ['minor', 'service'], 13, [13, 1.2, 16, 7, 19, 26], g.roadMinorCasing),
     road('major-casing', ['tertiary', ...MAJOR], 9, [9, 1.6, 16, 11, 19, 34], g.roadMajorCasing),
     road('minor', ['minor', 'service'], 13, [13, 0.6, 16, 5, 19, 22], g.roadMinor),
@@ -220,13 +220,21 @@ export function createGlassStyle(mode: StyleMode): StyleSpecification {
       },
     },
     {
+      id: 'building-highlight',
+      type: 'line',
+      source: 'openmaptiles',
+      'source-layer': 'building',
+      minzoom: 16,
+      paint: { 'line-color': '#FFFFFF', 'line-width': 0.8, 'line-translate': [-1, -1], 'line-opacity': 0.55, 'line-blur': 0.6 },
+    },
+    {
       id: 'rail',
       type: 'line',
       source: 'openmaptiles',
       'source-layer': 'transportation',
       minzoom: 12,
       filter: classIn('rail', 'transit'),
-      paint: { 'line-color': g.rail, 'line-width': zoomWidth(12, 0.8, 18, 2.6), 'line-dasharray': [3, 2] },
+      paint: { 'line-color': g.rail, 'line-width': zoomWidth(12, 1, 18, 3), 'line-dasharray': [3, 2] },
     },
     ...labelLayers(g),
   ];
