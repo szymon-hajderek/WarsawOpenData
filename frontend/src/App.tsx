@@ -5,6 +5,7 @@ import SearchCard from './components/SearchCard';
 import RouteOptionsSheet from './components/RouteOptionsSheet';
 import RouteDetailsSheet from './components/RouteDetailsSheet';
 import VehicleSheet, { type VehicleSnap } from './components/VehicleSheet';
+import { useSnapHeights, type SheetSnap } from './components/SnapSheet';
 import BottomNav, { type Tab } from './components/BottomNav';
 import PreferencesPage from './components/PreferencesPage';
 import FilterSheet from './components/FilterSheet';
@@ -50,7 +51,11 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [chosenId, setChosenId] = useState<string | null>(null);
-  const [stepsExpanded, setStepsExpanded] = useState(false);
+  // Heights of the route list and of the route details (bar / middle / full), reset when the screen changes.
+  const [optionsSnap, setOptionsSnap] = useState<SheetSnap>('middle');
+  const [detailsSnap, setDetailsSnap] = useState<SheetSnap>('middle');
+  const optionsHeights = useSnapHeights(352);
+  const detailsHeights = useSnapHeights(292);
 
   // "Which vehicle am I in?" window: open from the start, can be hidden and brought back.
   const [vehicles, setVehicles] = useState<VehicleCandidate[]>([]);
@@ -160,6 +165,11 @@ export default function App() {
     };
   }, [origin, destination, via, stopOrder]);
 
+  useEffect(() => {
+    if (step === 'options') setOptionsSnap('middle');
+    if (step === 'route') setDetailsSnap('middle');
+  }, [step]);
+
   const handleLocateOrigin = () => {
     if (currentLocation) setOrigin(currentLocation);
     else locate();
@@ -189,7 +199,13 @@ export default function App() {
   // Parts of the map covered by the panels, so the route stays in the visible area.
   const padding: MapPadding = desktop
     ? { top: 60, left: 500, bottom: 60, right: 90 }
-    : { top: step === 'route' ? 100 : 190, left: 40, bottom: BOTTOM_NAV_HEIGHT + (step === 'route' ? (stepsExpanded ? 450 : 380) : 430), right: 70 };
+    : {
+        top: step === 'route' ? 100 : 190,
+        left: 40,
+        // keep the route visible above the sheet at its current height
+        bottom: BOTTOM_NAV_HEIGHT + 40 + (step === 'route' ? detailsHeights[detailsSnap] : step === 'options' ? optionsHeights[optionsSnap] : 260),
+        right: 70,
+      };
 
   return (
     <Box sx={{ position: 'fixed', inset: 0, bgcolor: 'background.default' }}>
@@ -263,6 +279,8 @@ export default function App() {
           summary={summarize(trip)}
           activeRule={activeRule}
           chips={chips}
+          snap={optionsSnap}
+          onSnapChange={setOptionsSnap}
           onSelect={setSelectedId}
           onOpenFilters={() => setFiltersOpen(true)}
           onClearChip={(id) => setFilters((f) => clearFilter(f, id))}
@@ -279,8 +297,8 @@ export default function App() {
           route={chosen}
           origin={origin}
           destination={destination}
-          expanded={stepsExpanded}
-          onExpandedChange={setStepsExpanded}
+          snap={detailsSnap}
+          onSnapChange={setDetailsSnap}
           onBack={() => setStep('options')}
         />
       )}
