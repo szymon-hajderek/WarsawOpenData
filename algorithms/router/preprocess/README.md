@@ -22,10 +22,24 @@ All files are in `data/derived/street/` (git-ignored, about 1.6 GB):
 | `points.csv` | One row per point: `index,id,kind,lat,lon,snap_walk_m,snap_bike_m,entrances`. `index` is the row / column in the matrices. `id` is the GTFS stop id (`ztm:700901`, `ztm:7014M:P1`, `pkp:…`, `wkd:…`) or the Veturilo id (`vet:…`). `kind` is `stop` or `veturilo`. `snap_*_m` is the distance to the nearest usable graph node. `entrances` is the number of metro entrances (0 for other points). |
 | `walk.bin`, `bike.bin`, `accessible.bin` | **The result.** Little-endian `float32`, shape `(2, N, N)`, row-major. `[0][i][j]` = `distance_m` from point `i` to point `j`, `[1][i][j]` = `wait_s`. Self pairs = 0. `NaN` = no path or no data (a point more than 1000 m from the graph). |
 | `graph_<mode>.bin` | Input of the C++ program (see below). An intermediate file that is kept so a run can be repeated. |
-| `meta.json` | Per mode: number of points, far points, seconds, file size, engine. Also the thread count. |
+| `meta.json` | Per mode: number of points, far points, seconds, file size. Also the thread count. |
 
 Reading the result in C++: `mmap` / `fread` the file into a `float[2][N][N]`. In numpy:
 `np.memmap(path, np.float32, "r", shape=(2, N, N))`.
+
+## Code map
+
+| File | Role |
+|---|---|
+| `backend/sources/osm.py` | OSM -> street graph per mode (edge rules, waits, bike pushing, elevators), the main component, `points_graph()` = the graph + virtual nodes for points, returned as a `StreetGraph`. `route()` = one path between two coordinates in scipy (API). |
+| `algorithms/street_model.py` | Pure cost-model functions used by `osm.py`: signal junctions, waits, joining points (`access_edges`). |
+| `algorithms/street_graph.py` | `StreetGraph` (the graph handed to C++) and its file format, `save()`. |
+| `backend/preprocess_street.py` | Orchestration: points -> `points_graph` -> `graph_<mode>.bin` -> C++ -> `<mode>.bin`. |
+| `algorithms/router/preprocess/street_matrix.cpp` | The search only: all-pairs Dijkstra, and `--route` paths. |
+| `algorithms/test_street_model.py` | Unit tests of the cost model and of the C++ program against a small scipy oracle. |
+
+The graph is built only in Python and searched only in C++. The one other search is `osm.route()`,
+for a path between two arbitrary coordinates (the C++ program only knows the points of a graph file).
 
 ## Modes
 
@@ -57,7 +71,7 @@ Reading the result in C++: `mmap` / `fread` the file into a `float[2][N][N]`. In
   Signals use the HCM formula `(C − g)² / 2C` with a 90 s cycle; OSM has no signal timings for Warsaw.
   Signal nodes closer than 30 m to each other (by path) form one **junction**, and so do the nodes
   between them (e.g. a traffic island). Entering a junction pays its largest wait once; moving inside it is free.
-  Code: `algorithms/street_matrix.py` (`junctions`, `edge_wait`).
+  Code: `algorithms/street_model.py` (`junctions`, `edge_wait`).
 - **Joining a point to the graph.** A point connects to up to 6 nearest usable nodes, at most 30 m
   farther than the nearest one. Each point has a virtual *out* node (edges to those nodes) and a virtual
   *in* node (edges from them). This makes it a multi-source Dijkstra with start costs, and no path can
@@ -99,7 +113,6 @@ cd backend && uv run python preprocess_street.py            # all modes; or: wal
 algorithms/router/preprocess/build/street_matrix data/derived/street/graph_walk.bin data/derived/street/walk.bin [--threads N]
 ```
 
-`--engine python` in `preprocess_street.py` uses the slow Python reference (scipy) instead of C++.
 `--graph-only` writes only `points.csv` and `graph_<mode>.bin` (about 10 s), enough for path queries.
 
 ### Paths (`--route`)
@@ -146,8 +159,8 @@ Little-endian. P = points, n = graph nodes incl. 2 virtual nodes per point, m = 
 ## Checks
 
 - `cd backend && uv run pytest ../algorithms` runs the Python unit tests: junctions, islands, oneway,
-  access, a metro platform with many entrances. It also compares the C++ program with the Python reference
-  on a small graph (skipped if the program is not built).
+  access, a metro platform with many entrances. It also checks the C++ matrix and `--route` against a small
+  scipy oracle (skipped if the program is not built).
 - `cd backend && uv run python ../algorithms/router/preprocess/check_pairs.py` runs 100 stop-level pairs
   (`Grójecka 02 → Centrum 03`, 20 pairs of posts of the same stop, 79 random pairs 0.2–5 km apart).
   For walk and bike it compares the C++ matrix with `osm.route()`, and the GTFS stop position with
