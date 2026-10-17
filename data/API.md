@@ -28,7 +28,7 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 | [GTFS](#gtfs-timetables-and-stops) | `/api/gtfs` | `backend/sources/mkuran.py` |
 | [Live vehicles](#live-vehicles-and-city-hall) | `/api/live`, `/api/ztm` | `backend/sources/um_warszawa.py` |
 | [Bus detection](#bus-detection) | `/api/live` | `backend/bus_detect.py` |
-| [Veturilo](#veturilo-city-bikes) | `/api/veturilo` | `backend/sources/nextbike.py` |
+| [Veturilo](#veturilo-city-bikes) | `/api/veturilo` | `backend/sources/nextbike.py`, `backend/sources/siting.py` (`/siting`) |
 | [OSM](#osm-street-graph) | `/api/osm` | `backend/sources/osm.py` |
 | [Routing API](#routing-api-backendapp) | `/api/routes`, `/api/geocode`, `/health` | `backend/app/` |
 | [Simulation](#simulation-only-with-sim_scenario) | `/api/sim` | `backend/sim/api.py` |
@@ -400,6 +400,34 @@ Bike types (classic, e-bike, ...). Match `vehicle_type_id` from the endpoints ab
 [{"vehicle_type_id": "71", "vehicle_image": "https://static.nextbike.net/app/biketypes-v5/type/vw/71/h500.png",
   "name": "Rower standardowy", "_description": "", "form_factor": "bicycle",
   "rider_capacity": 1, "propulsion_type": "human"}, "..."]
+```
+
+### `GET /api/veturilo/siting`
+
+Best hexes for **new** Veturilo stations, picked one by one (`backend/sources/siting.py`,
+`algorithms/station_siting.py`). Warsaw is split into hexagons (radius 175 m); each gets
+`J = -alpha*T*(1 + delta*E) + beta*P(dNet) + gamma*S`, `P(d) = (1 - d/r)^2` for `d < r`, else 0. Lowest `J` wins;
+then a station is placed there and `dNet` is updated before the next pick. **`t` and `e` come from MOCK data**
+(`data/mock/`). Hexes that already have a station or have no street are never proposed.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `n` | 10 | number of proposals, 1..50 |
+| `alpha` | 1 | weight of car traffic `T`, 0..100 |
+| `beta` | 1 | weight of the penalty `P` for being near a station, 0..100 |
+| `gamma` | 0.5 | weight of the safety value `S`, 0..100 |
+| `delta` | 0.5 | how much e-scooters `E` boost `T`, 0..100 |
+| `r` | 1000 | penalty radius `R` in metres, 50..5000 |
+
+Answer fields: `rank`, `hex` (axial `q:r`), `lat`, `lon` (hex centre), `j`, `t` (0..1), `e` (0..1), `dNet` (bike-network
+metres to the nearest station at the moment of the pick, `null` = more than 5000 m), `p`, `s` (0 = bike path, 1 = multi-lane
+road without one). Out-of-range parameter -> 422. While the hex grid is built at server start -> 503.
+
+```json
+[{"rank": 1, "hex": "-6331:22123", "lat": 52.226191, "lon": 21.053264, "j": -1.1654, "t": 1.0, "e": 0.7389,
+  "dNet": 1241.4, "p": 0.0, "s": 0.4082},
+ {"rank": 2, "hex": "-6352:22121", "lat": 52.22147, "lon": 20.955353, "j": -1.1533, "t": 1.0, "e": 0.6526,
+  "dNet": 848.4, "p": 0.023, "s": 0.3}]
 ```
 
 ---

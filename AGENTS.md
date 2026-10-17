@@ -184,6 +184,17 @@ Everything in this repo (files, commits, PRs) is written in English.
   `export_delay_viz.py` builds `artifacts/delay-simulation.html`. `search_delay_radius.py`: R 20..200 m every 10 m, then every 1 m
   between the two best neighbours; score = share of passes shown within 30 s. On the 2026-10-17 recording: 30 m 95.0%, best 80 m 96.5%
   (flat from 80 m); default still 30 m.
+- Veturilo siting (`backend/sources/siting.py`, `algorithms/station_siting.py`, `GET /api/veturilo/siting`): Warsaw boundary
+  (`data/geojson/warsaw.geojson`, Nominatim relation R336075) split into pointy-top axial hexes, radius 175 m (6476 hexes). Cost
+  `J = -a*T*(1 + d*E) + b*P(d_net) + g*S`, `P = (1 - d/R)^2` below R; defaults a=1, b=1, g=0.5, d=0.5, R=1000 m (`DEFAULTS`).
+  **T and E are mocks** (`data/mock/`, seed 20261017): T = mean of fake hourly counters per hex + IDW, normalised at p99; E = fake
+  scooter events per hex, normalised on log(1 + n). S = length-weighted mean of OSM segments (0 DDR/CPR, 0.3 quiet / painted lane,
+  0.6 single-lane main, 1 multi-lane or trunk without a path). d_net = one multi-source Dijkstra on the bike graph in metres (up to
+  5000 m), 0 in a hex with a station. Greedy top-N: after each pick, Dijkstra from the new station (limit R) and min.
+  Not proposed: hexes with a station or without streets. Built in `warm()` (~2.5 min first time, cache `data/derived/siting_*.npz`).
+  With these defaults T saturates at 1 in many hexes, so picks are mostly ranked by E and P; a weak quadratic P lets picks sit
+  ~750 m (network) apart. Report: `uv run python siting_report.py` -> `data/SITING_REPORT.md`, `artifacts/veturilo-siting.html`
+  (Leaflet + OSM tiles; the tiles do not load when published as a claude.ai artifact, its CSP blocks images from other hosts).
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
 - **Integration tests** (`integration/`, see its README): `uv run pytest ../integration` from `backend/`, ~6 min.
   Simulation mode (`backend/sim/`): one clock (`sim.clock.now()`; live data code reads time there, never

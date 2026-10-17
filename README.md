@@ -112,6 +112,11 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
      (uses the committed sample; record a new one with `uv run python ../algorithms/simulation/record_buses.py`, needs `PORTAL_KEY`)
    - rebuild the results page `artifacts/bus-detection-simulation.html`: `uv run python ../algorithms/simulation/export_viz.py`
    - optional `.env` setting `LIVE_BUSES_URL`: where bus detection reads live bus positions (default: the City Hall feed via `PORTAL_KEY`). Without `PORTAL_KEY` the live-vehicle poller stays off and `GET /api/live/vehicles` returns 503.
+   - Veturilo station siting (`GET /api/veturilo/siting`): the server builds the hex grid at start (first run ~2.5 min:
+     one extra OSM pass, cached in `data/derived/siting_*.npz`). Trial report + map page:
+     `uv run python siting_report.py` (writes `data/SITING_REPORT.md`, `data/siting_report.json`, `artifacts/veturilo-siting.html`;
+     `--rebuild` recomputes the grid, `--mocks` regenerates the mock data in `data/mock/`). The Warsaw boundary
+     `data/geojson/warsaw.geojson` is committed; `uv run python download.py siting` fetches it again from Nominatim
    - optional `.env` setting `DELAY_RADIUS_M`: radius for the delay estimate `GET /api/live/delay` (default `30`)
    - delay simulation on the committed recording `data/live/delay_sample.json.gz`: `uv run python ../algorithms/simulation/simulate_delay.py --radius 30`;
      rebuild the report `artifacts/delay-simulation.html`: `uv run python ../algorithms/simulation/export_delay_viz.py`;

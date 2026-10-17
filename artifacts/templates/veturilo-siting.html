@@ -1,0 +1,421 @@
+<title>Nowe stacje Veturilo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: same system as the other pages in artifacts/. One reading column: verdict -> map with layers and the
+   greedy step slider -> top-10 table -> cost formula + P(d) chart -> data and method. Accent = Warsaw red. */
+:root {
+  --bg: #f5f4f2; --surface: #ffffff; --ink: #17130f; --ink-2: #4f4740; --muted: #7a7068;
+  --grid: #e5e0da; --accent: #b3123b; --accent-ink: #ffffff; --yellow: #f2b400;
+  --good: #0c8f2e; --warn: #c98a00; --bad: #c8322b; --none: #c9c3bc; --station: #1d5fa8;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12100e; --surface: #1b1815; --ink: #f3efea; --ink-2: #c4bbb2; --muted: #93897f;
+  --grid: #302b26; --accent: #ff5577; --accent-ink: #1b0a0f; --yellow: #ffc933;
+  --good: #3cc160; --warn: #f0b429; --bad: #ef5a52; --none: #4a443e; --station: #6aa8f0; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12100e; --surface: #1b1815; --ink: #f3efea; --ink-2: #c4bbb2; --muted: #93897f;
+  --grid: #302b26; --accent: #ff5577; --accent-ink: #1b0a0f; --yellow: #ffc933;
+  --good: #3cc160; --warn: #f0b429; --bad: #ef5a52; --none: #4a443e; --station: #6aa8f0; color-scheme: dark }
+
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--f-body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 44px; }
+h1, h2 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(30px, 5vw, 46px); }
+h2 { font-size: 22px; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font: 500 12px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.lead { color: var(--ink-2); font-size: 18px; }
+header { display: grid; gap: 14px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font: 13px/1.4 var(--f-mono); color: var(--ink-2); }
+.meta b { color: var(--ink); font-weight: 500; }
+.mock { display: inline-flex; align-items: center; gap: 8px; width: fit-content; padding: 6px 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--yellow) 22%, transparent); color: var(--ink); font: 500 13px/1.3 var(--f-mono); }
+section { display: grid; gap: 16px; min-width: 0; }
+.sub-lead { color: var(--ink-2); }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 16px; }
+.tile { background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; padding: 18px 20px; display: grid; gap: 6px; align-content: start; }
+.tile .big { font: 700 40px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.tile .lbl { font-weight: 700; }
+.tile .sub { color: var(--ink-2); font-size: 14px; }
+
+.panel { background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.group > .lbl { font: 500 12px/1 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.chip { font: 500 14px/1 var(--f-body); padding: 8px 12px; border-radius: 999px; border: 1px solid var(--grid);
+  background: var(--bg); color: var(--ink); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.chip:focus-visible, button:focus-visible, input:focus-visible, tr:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.check { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; color: var(--ink-2); cursor: pointer; }
+.stepper { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.stepper input[type=range] { flex: 1 1 220px; accent-color: var(--accent); min-width: 0; }
+.btn { font: 700 14px/1 var(--f-body); padding: 10px 16px; border-radius: 8px; border: 0; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+.step-label { font: 500 14px/1.3 var(--f-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+#map { height: min(72vh, 640px); min-height: 380px; border-radius: 8px; overflow: hidden; background: var(--grid); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 13px; color: var(--ink-2); }
+.ramp { width: 180px; max-width: 40vw; height: 10px; border-radius: 3px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.note { color: var(--muted); font-size: 13px; }
+
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { padding: 9px 12px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { font: 500 12px/1.2 var(--f-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+tr.done td:first-child b { color: var(--accent); }
+.num { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font: 700 12px/1 var(--f-mono); }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 16px; }
+.formula { font: 500 clamp(14px, 2.4vw, 18px)/1.6 var(--f-mono); background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; padding: 16px 18px; overflow-x: auto; }
+.terms { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.terms li { display: grid; grid-template-columns: 64px 1fr; gap: 10px; }
+.terms code { font: 500 14px var(--f-mono); color: var(--accent); }
+svg text { fill: var(--muted); font: 12px var(--f-mono); }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72ch; color: var(--ink-2); }
+
+/* hex popups and number pins (Leaflet) */
+.pin { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink);
+  font: 700 12px/1 var(--f-mono); border: 2px solid var(--surface); box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.pin.next { background: var(--surface); color: var(--accent); border-color: var(--accent); }
+.pop { font: 13px/1.45 var(--f-body); color: #17130f; }
+.pop b { font-family: var(--f-mono); }
+
+/* Leaflet 1.9.4 core CSS (only stylesheets from Google Fonts may load, so the needed rules are inline) */
+.leaflet-pane, .leaflet-tile, .leaflet-marker-icon, .leaflet-marker-shadow, .leaflet-tile-container, .leaflet-pane > svg, .leaflet-pane > canvas, .leaflet-zoom-box, .leaflet-image-layer, .leaflet-layer { position: absolute; left: 0; top: 0; }
+.leaflet-container { overflow: hidden; -webkit-tap-highlight-color: transparent; font: 12px/1.5 var(--f-body); }
+.leaflet-tile, .leaflet-marker-icon, .leaflet-marker-shadow { user-select: none; -webkit-user-drag: none; }
+.leaflet-tile { filter: inherit; visibility: hidden; }
+.leaflet-tile-loaded { visibility: inherit; }
+.leaflet-container img.leaflet-tile { mix-blend-mode: plus-lighter; }
+.leaflet-container .leaflet-tile-pane img, .leaflet-container img.leaflet-image-layer, .leaflet-container .leaflet-tile { max-width: none !important; max-height: none !important; width: auto; padding: 0; }
+.leaflet-container.leaflet-touch-zoom { touch-action: pan-x pan-y; }
+.leaflet-container.leaflet-touch-drag { touch-action: pinch-zoom; }
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom { touch-action: none; }
+.leaflet-pane { z-index: 400; }
+.leaflet-tile-pane { z-index: 200; }
+.leaflet-overlay-pane { z-index: 400; }
+.leaflet-shadow-pane { z-index: 500; }
+.leaflet-marker-pane { z-index: 600; }
+.leaflet-tooltip-pane { z-index: 650; }
+.leaflet-popup-pane { z-index: 700; }
+.leaflet-map-pane canvas { z-index: 100; }
+.leaflet-map-pane svg { z-index: 200; }
+.leaflet-control { position: relative; z-index: 800; pointer-events: visiblePainted; pointer-events: auto; float: left; clear: both; }
+.leaflet-top, .leaflet-bottom { position: absolute; z-index: 1000; pointer-events: none; }
+.leaflet-top { top: 0; } .leaflet-right { right: 0; } .leaflet-bottom { bottom: 0; } .leaflet-left { left: 0; }
+.leaflet-right .leaflet-control { float: right; margin-right: 10px; }
+.leaflet-top .leaflet-control { margin-top: 10px; }
+.leaflet-bottom .leaflet-control { margin-bottom: 10px; }
+.leaflet-left .leaflet-control { margin-left: 10px; }
+.leaflet-zoom-animated { transform-origin: 0 0; }
+.leaflet-zoom-anim .leaflet-zoom-animated { transition: transform .25s cubic-bezier(0,0,.25,1); }
+.leaflet-zoom-anim .leaflet-tile, .leaflet-pan-anim .leaflet-tile { transition: none; }
+.leaflet-zoom-anim .leaflet-zoom-hide { visibility: hidden; }
+.leaflet-interactive { cursor: pointer; }
+.leaflet-grab { cursor: grab; }
+.leaflet-dragging .leaflet-grab, .leaflet-dragging .leaflet-grab .leaflet-interactive { cursor: grabbing; }
+.leaflet-marker-icon, .leaflet-marker-shadow, .leaflet-image-layer, .leaflet-pane > svg path, .leaflet-tile-container { pointer-events: none; }
+.leaflet-marker-icon.leaflet-interactive, .leaflet-image-layer.leaflet-interactive, .leaflet-pane > svg path.leaflet-interactive { pointer-events: visiblePainted; pointer-events: auto; }
+.leaflet-bar { box-shadow: 0 1px 5px rgba(0,0,0,.65); border-radius: 4px; }
+.leaflet-bar a { background: #fff; border-bottom: 1px solid #ccc; width: 30px; height: 30px; line-height: 30px; display: block; text-align: center; text-decoration: none; color: #000; font: bold 18px 'Lucida Console', Monaco, monospace; }
+.leaflet-bar a:first-child { border-top-left-radius: 4px; border-top-right-radius: 4px; }
+.leaflet-bar a:last-child { border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; border-bottom: none; }
+.leaflet-control-attribution { background: rgba(255,255,255,.8); margin: 0; padding: 0 5px; color: #333; font-size: 11px; line-height: 1.4; }
+.leaflet-control-attribution a { color: #0078a8; }
+.leaflet-popup { position: absolute; text-align: center; margin-bottom: 20px; }
+.leaflet-popup-content-wrapper { padding: 1px; text-align: left; border-radius: 10px; background: #fff; box-shadow: 0 3px 14px rgba(0,0,0,.4); }
+.leaflet-popup-content { margin: 12px 16px; min-height: 1px; }
+.leaflet-popup-tip-container { width: 40px; height: 20px; position: absolute; left: 50%; margin-top: -1px; margin-left: -20px; overflow: hidden; pointer-events: none; }
+.leaflet-popup-tip { width: 17px; height: 17px; padding: 1px; margin: -10px auto 0; transform: rotate(45deg); background: #fff; box-shadow: 0 3px 14px rgba(0,0,0,.4); }
+.leaflet-container a.leaflet-popup-close-button { position: absolute; top: 0; right: 0; border: none; text-align: center; width: 24px; height: 24px; font: 16px/24px Tahoma, Verdana, sans-serif; color: #757575; text-decoration: none; background: transparent; }
+.leaflet-div-icon { background: transparent; border: 0; }
+@media (prefers-reduced-motion: reduce) { .leaflet-zoom-anim .leaflet-zoom-animated { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">WarsawOpenData · Veturilo · siatka heksagonalna</span>
+    <h1>Gdzie postawić nowe stacje Veturilo</h1>
+    <p class="lead">Warszawa podzielona na heksagony o promieniu 175 m. Każdy dostaje koszt J: im niższy, tym lepsze miejsce.
+      Stacje wybieramy po kolei: po każdym wyborze stawiamy tam stację i przeliczamy odległości, więc następna propozycja nie ląduje obok.</p>
+    <span class="mock">Ruch samochodowy (T) i hulajnogi (E) to dane przykładowe (atrapa)</span>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <section aria-label="Podsumowanie">
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section>
+    <h2>Mapa</h2>
+    <p class="sub-lead">Wybierz warstwę, pokaż punkty pomiarowe i przesuń suwak, żeby zobaczyć, jak kolejne stacje zmieniają d<sub>net</sub> i J.
+      Kliknij heksagon, żeby zobaczyć jego wartości.</p>
+    <div class="panel">
+      <div class="controls">
+        <div class="group" role="group" aria-label="Warstwa">
+          <span class="lbl">Warstwa</span>
+          <button class="chip" id="layer-j" data-layer="j" aria-pressed="true">J (koszt)</button>
+          <button class="chip" id="layer-t" data-layer="t" aria-pressed="false">T ruch</button>
+          <button class="chip" id="layer-e" data-layer="e" aria-pressed="false">E hulajnogi</button>
+          <button class="chip" id="layer-s" data-layer="s" aria-pressed="false">S bezpieczeństwo</button>
+          <button class="chip" id="layer-d" data-layer="d" aria-pressed="false">d<sub>net</sub></button>
+        </div>
+        <div class="group">
+          <span class="lbl">Punkty</span>
+          <label class="check"><input type="checkbox" id="show-stations" checked> stacje Veturilo</label>
+          <label class="check"><input type="checkbox" id="show-counters"> liczniki ruchu</label>
+          <label class="check"><input type="checkbox" id="show-scooters"> hulajnogi</label>
+        </div>
+      </div>
+      <div class="stepper">
+        <button class="btn" id="play" type="button">Odtwórz</button>
+        <input type="range" id="step" min="0" max="10" value="10" aria-label="Liczba wstawionych stacji">
+        <span class="step-label" id="step-label"></span>
+      </div>
+      <div id="map" role="region" aria-label="Mapa heksagonów"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Propozycje</h2>
+    <p class="sub-lead">Kolejność wyboru. d<sub>net</sub> i P to wartości w chwili wyboru, czyli już po postawieniu wcześniejszych stacji. Kliknij wiersz, żeby przybliżyć mapę.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Heks / miejsce</th><th>J</th><th>T</th><th>E</th><th>d<sub>net</sub> m</th><th>P</th><th>S</th><th>Zmienione heksy</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="two">
+    <div style="display:grid;gap:14px;min-width:0">
+      <h2>Funkcja kosztu</h2>
+      <div class="formula">J(p) = −α·T(p)·(1 + δ·E(p)) + β·P(d<sub>net</sub>(p)) + γ·S(p)</div>
+      <ul class="terms" id="terms"></ul>
+    </div>
+    <div class="panel chart">
+      <h3 style="margin:0;font:700 16px/1.3 var(--f-body)">Kara P(d) = (1 − d/R)² dla d &lt; R</h3>
+      <div id="pchart"></div>
+      <p class="note">Heks ze stacją ma d = 0, więc P = 1. Od R w górę kara znika.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Dane i metoda</h2>
+    <ul class="plain" id="method"></ul>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+const D = /*__DATA__*/null;
+const H = D.hex, N = H.lat.length, P = D.params;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = (v, d = 2) => v == null || !isFinite(v) ? "∞" : v.toFixed(d).replace(".", ",");
+const int = v => Math.round(v).toLocaleString("pl-PL");
+
+// ---------- header ----------
+document.getElementById("meta").innerHTML =
+  `<span>α <b>${P.alpha}</b></span><span>β <b>${P.beta}</b></span><span>γ <b>${P.gamma}</b></span>` +
+  `<span>δ <b>${P.delta}</b></span><span>R <b>${int(P.r)} m</b></span><span>heks <b>${D.hexSize} m</b></span>`;
+const S = D.summary, best = D.steps[0];
+document.getElementById("tiles").innerHTML = [
+  [int(S.hexes), "heksagonów", "w granicach Warszawy"],
+  [int(S.candidates), "kandydatów", `bez ${int(S.station_hexes)} heksów ze stacją i ${int(S.no_streets)} bez ulic`],
+  [int(S.stations), "stacji Veturilo", "z GBFS, także wirtualne"],
+  [fmt(best.j, 3), "najlepsze J", `heks ${best.hex}, d<sub>net</sub> ${best.dNet == null ? "∞" : int(best.dNet) + " m"}`],
+].map(([b, l, s]) => `<div class="tile"><span class="big">${b}</span><span class="lbl">${l}</span><span class="sub">${s}</span></div>`).join("");
+
+// ---------- distance per step ----------
+const dSteps = [H.d.map(v => v < 0 ? Infinity : v)];
+for (const st of D.steps) {
+  const d = dSteps[dSteps.length - 1].slice();
+  for (const [i, v] of st.changed) d[i] = v;
+  d[st.i] = 0;
+  dSteps.push(d);
+}
+const pen = d => d < P.r ? (1 - d / P.r) ** 2 : 0;
+const cost = (i, d) => -P.alpha * H.t[i] * (1 + P.delta * H.e[i]) + P.beta * pen(d[i]) + P.gamma * H.s[i];
+
+// ---------- colour ramp ----------
+const RAMP = ["#fff4d1", "#f7c94b", "#ec8a2f", "#cf3b3b", "#8e1240", "#3d0a2a"];
+const hex2 = h => [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16));
+const RGB = RAMP.map(hex2);
+function ramp(x) {
+  x = Math.max(0, Math.min(1, x)) * (RGB.length - 1);
+  const k = Math.min(Math.floor(x), RGB.length - 2), f = x - k;
+  const c = RGB[k].map((v, j) => Math.round(v + (RGB[k + 1][j] - v) * f));
+  return `rgb(${c})`;
+}
+const rampCss = `linear-gradient(90deg, ${RAMP.join(",")})`;
+
+// ---------- map ----------
+const map = L.map("map", { preferCanvas: true, zoomSnap: 0.5 }).setView([52.232, 21.01], 11);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(map);
+const renderer = L.canvas({ padding: 0.3 });
+L.polyline(D.boundary, { color: "#17130f", weight: 1.5, opacity: 0.7, renderer, interactive: false }).addTo(map);
+const DLAT = 180 / Math.PI / 6371000, DLON = DLAT / Math.cos(52.23 * Math.PI / 180);
+const corners = [0, 1, 2, 3, 4, 5].map(k => [Math.sin((30 + 60 * k) * Math.PI / 180), Math.cos((30 + 60 * k) * Math.PI / 180)]);
+const polys = new Array(N);
+for (let i = 0; i < N; i++) {
+  const ll = corners.map(([sy, cx]) => [H.lat[i] + D.hexSize * sy * DLAT, H.lon[i] + D.hexSize * cx * DLON]);
+  polys[i] = L.polygon(ll, { renderer, weight: 0.4, color: "#ffffff", opacity: 0.6, fillOpacity: 0.62 }).addTo(map);
+  polys[i].on("click", () => polys[i].bindPopup(popup(i), { maxWidth: 260 }).openPopup());
+}
+
+let layer = "j", step = D.steps.length;
+const LAYERS = {
+  j: { name: "J (koszt)", low: "wyższy koszt", high: "niższy koszt = lepsze miejsce" },
+  t: { name: "T ruch samochodowy", low: "0", high: "1" },
+  e: { name: "E hulajnogi", low: "0", high: "1" },
+  s: { name: "S bezpieczeństwo", low: "0 = DDR / CPR", high: "1 = wielopasmówka bez DDR" },
+  d: { name: "d<sub>net</sub>", low: "0 m", high: `≥ ${int(P.r * 2)} m` },
+};
+
+function popup(i) {
+  const d = dSteps[step][i];
+  const why = H.st[i] ? `stacji w heksie: ${H.st[i]}` : H.cand[i] ? "kandydat" : "bez ulic, poza rankingiem";
+  return `<div class="pop"><b>J ${fmt(cost(i, dSteps[step]), 3)}</b> · ${why}<br>` +
+    `T ${fmt(H.t[i])} (≈ ${int(H.tRaw[i])} aut/h)<br>E ${fmt(H.e[i])} (${H.eRaw[i]} zdarzeń)<br>` +
+    `S ${fmt(H.s[i])}<br>d<sub>net</sub> ${isFinite(d) ? int(d) + " m" : "> " + int(D.maxR) + " m"} · P ${fmt(pen(d), 3)}</div>`;
+}
+
+function paint() {
+  const d = dSteps[step];
+  let vals, lo, hi;
+  if (layer === "j") {
+    vals = new Float64Array(N);
+    lo = Infinity; hi = -Infinity;
+    for (let i = 0; i < N; i++) { vals[i] = cost(i, d); if (H.cand[i]) { lo = Math.min(lo, vals[i]); hi = Math.max(hi, vals[i]); } }
+  }
+  const none = css("--none");
+  for (let i = 0; i < N; i++) {
+    let fill;
+    if (layer === "j") fill = (H.cand[i] && !isPicked(i)) ? ramp((hi - vals[i]) / (hi - lo)) : none;
+    else if (layer === "d") fill = ramp(isFinite(d[i]) ? d[i] / (P.r * 2) : 1);
+    else fill = ramp(H[layer][i]);
+    polys[i].setStyle({ fillColor: fill });
+  }
+  const L_ = LAYERS[layer];
+  document.getElementById("legend").innerHTML =
+    `<span><b>${L_.name}</b></span><span>${L_.low} <i class="ramp" style="background:${layer === "j" ? rampCss : rampCss}"></i> ${L_.high}</span>` +
+    (layer === "j" ? `<span><i class="sw" style="background:${none}"></i> stacja, bez ulic albo już wybrany</span>` : "") +
+    `<span><i class="dot" style="background:${css("--station")}"></i> stacja Veturilo</span>` +
+    `<span><i class="dot" style="background:#2f2a25"></i> licznik ruchu (atrapa)</span>` +
+    `<span><i class="dot" style="background:#0f9d8a"></i> start / koniec hulajnogi (atrapa)</span>`;
+  pins();
+  const st = step ? D.steps[step - 1] : null;
+  document.getElementById("step-label").innerHTML = step === 0
+    ? "Stan obecny: tylko istniejące stacje"
+    : `Po ${step} z ${D.steps.length} nowych stacji · ostatnia: heks ${st.hex}, J ${fmt(st.j, 3)}`;
+  document.querySelectorAll("#rows tr").forEach((tr, k) => tr.classList.toggle("done", k < step));
+}
+const isPicked = i => D.steps.slice(0, step).some(s => s.i === i);
+
+const pinLayer = L.layerGroup().addTo(map);
+function pins() {
+  pinLayer.clearLayers();
+  D.steps.forEach((s, k) => {
+    if (k > step) return;
+    const next = k === step;
+    L.marker([s.lat, s.lon], { icon: L.divIcon({ className: "", html: `<span class="pin${next ? " next" : ""}">${next ? "?" : k + 1}</span>`, iconSize: [26, 26] }),
+      title: next ? `Następny wybór: heks ${s.hex}` : `Propozycja ${k + 1}` }).addTo(pinLayer);
+  });
+}
+
+// points
+const stationLayer = L.layerGroup(D.stations.map(([la, lo, nm]) =>
+  L.circleMarker([la, lo], { renderer, radius: 3, weight: 1, color: "#fff", fillColor: css("--station"), fillOpacity: 1 }).bindTooltip(nm))).addTo(map);
+const counterLayer = L.layerGroup(D.counters.map(([la, lo, v, rd]) =>
+  L.circleMarker([la, lo], { renderer, radius: 3.5, weight: 1, color: "#fff", fillColor: "#2f2a25", fillOpacity: 1 })
+    .bindTooltip(`Licznik (atrapa): ${v} aut/h średnio, droga: ${rd}`)));
+const scooterLayer = L.layerGroup(D.scooters.map(([la, lo, k]) =>
+  L.circleMarker([la, lo], { renderer, radius: 1.8, weight: 0, fillColor: k ? "#0f9d8a" : "#5fd3c0", fillOpacity: 0.75, interactive: false })));
+const toggle = (id, lyr) => document.getElementById(id).addEventListener("change", e => e.target.checked ? lyr.addTo(map) : map.removeLayer(lyr));
+toggle("show-stations", stationLayer); toggle("show-counters", counterLayer); toggle("show-scooters", scooterLayer);
+
+document.querySelectorAll("[data-layer]").forEach(b => b.addEventListener("click", () => {
+  layer = b.dataset.layer;
+  document.querySelectorAll("[data-layer]").forEach(x => x.setAttribute("aria-pressed", x === b));
+  paint();
+}));
+const slider = document.getElementById("step");
+slider.max = D.steps.length; slider.value = step;
+slider.addEventListener("input", () => { step = +slider.value; paint(); });
+let timer = null;
+const playBtn = document.getElementById("play");
+playBtn.addEventListener("click", () => {
+  if (timer) { clearInterval(timer); timer = null; playBtn.textContent = "Odtwórz"; return; }
+  step = 0; slider.value = 0; paint(); playBtn.textContent = "Zatrzymaj";
+  timer = setInterval(() => {
+    if (step >= D.steps.length) { clearInterval(timer); timer = null; playBtn.textContent = "Odtwórz"; return; }
+    step++; slider.value = step; paint();
+  }, matchMedia("(prefers-reduced-motion: reduce)").matches ? 2000 : 1200);
+});
+
+// ---------- table ----------
+document.getElementById("rows").innerHTML = D.steps.map(s =>
+  `<tr tabindex="0" data-lat="${s.lat}" data-lon="${s.lon}"><td><span class="num">${s.rank}</span></td>` +
+  `<td>${s.hex}<br><span class="note">${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}</span></td>` +
+  `<td><b>${fmt(s.j, 3)}</b></td><td>${fmt(s.t)}</td><td>${fmt(s.e)}</td><td>${s.dNet == null ? "∞" : int(s.dNet)}</td>` +
+  `<td>${fmt(s.p, 3)}</td><td>${fmt(s.s)}</td><td>${s.changed.length}</td></tr>`).join("");
+document.querySelectorAll("#rows tr").forEach(tr => {
+  const go = () => { map.setView([+tr.dataset.lat, +tr.dataset.lon], 15); document.getElementById("map").scrollIntoView({ behavior: "smooth", block: "center" }); };
+  tr.addEventListener("click", go);
+  tr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+});
+
+// ---------- formula terms ----------
+document.getElementById("terms").innerHTML = [
+  ["T", "natężenie ruchu samochodowego 0..1: średnia z liczników w heksie, puste heksy z interpolacji IDW. Duży ruch = dużo ludzi, którzy mogą przesiąść się na rower."],
+  ["E", "gęstość startów i końców przejazdów e-hulajnóg 0..1 (log liczby zdarzeń). Wzmacnia T o czynnik (1 + δ·E)."],
+  ["d<sub>net</sub>", `odległość po sieci rowerowej OSM do najbliższej stacji (jeden przebieg Dijkstry z wielu źródeł, do ${int(D.maxR)} m).`],
+  ["P", `kara za bliskość istniejącej stacji, (1 − d/R)² dla d &lt; R = ${int(P.r)} m.`],
+  ["S", "bezpieczeństwo infrastruktury: 0 przy DDR / CPR, 0,3 spokojna ulica lub pas rowerowy, 0,6 jednopasmowa główna, 1 wielopasmówka bez DDR."],
+].map(([k, v]) => `<li><code>${k}</code><span>${v}</span></li>`).join("");
+
+// ---------- P(d) chart ----------
+(function () {
+  const W = 420, Hh = 200, l = 40, r = 14, t = 12, b = 30, maxD = P.r * 1.5;
+  const x = d => l + (W - l - r) * d / maxD, y = v => t + (Hh - t - b) * (1 - v);
+  let path = "";
+  for (let k = 0; k <= 120; k++) { const d = maxD * k / 120; path += (k ? "L" : "M") + x(d).toFixed(1) + " " + y(pen(d)).toFixed(1); }
+  const ticks = [0, P.r / 2, P.r, P.r * 1.5].map(d => `<line x1="${x(d)}" x2="${x(d)}" y1="${t}" y2="${Hh - b}" stroke="var(--grid)"/><text x="${x(d)}" y="${Hh - b + 18}" text-anchor="middle">${int(d)} m</text>`).join("");
+  const yt = [0, 0.25, 0.5, 0.75, 1].map(v => `<line x1="${l}" x2="${W - r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${l - 6}" y="${y(v) + 4}" text-anchor="end">${fmt(v)}</text>`).join("");
+  document.getElementById("pchart").innerHTML =
+    `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Wykres kary P od odległości d">${yt}${ticks}` +
+    `<path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>` +
+    `<circle cx="${x(0)}" cy="${y(1)}" r="4" fill="var(--accent)"/><circle cx="${x(P.r)}" cy="${y(0)}" r="4" fill="var(--accent)"/></svg>`;
+})();
+
+// ---------- method ----------
+document.getElementById("method").innerHTML = [
+  `Granica Warszawy z OpenStreetMap (Nominatim). Heksagony o promieniu ${D.hexSize} m, liczone od środka; w mieście ${int(S.hexes)}.`,
+  `Atrapa T: ${int(S.counters)} sztucznych liczników na drogach OSM (więcej na trasach głównych), 24 odczyty godzinowe z szumem; licznik ma ${int(S.hexes_with_counter)} heksów.`,
+  `Atrapa E: ${int(S.scooter_events)} sztucznych startów i końców przejazdów: wzdłuż ulic, gęściej w centrum, plus ogniska (Centrum, Politechnika, Bulwary, Praga, Rondo Daszyńskiego…). Na mapie próbka.`,
+  "Pomiary w heksie są uśredniane: T to średnia z liczników, S to średnia ważona długością odcinków ulic.",
+  "d<sub>net</sub>: graf rowerowy OSM (jazda + prowadzenie roweru po chodniku), środek heksa przyklejony do najbliższego węzła. Heks ze stacją ma 0.",
+  "Wybór zachłanny: najniższe J wśród kandydatów, stawiamy tam stację, Dijkstra od nowej stacji (do R), minimum z poprzednim d<sub>net</sub>, powtórka.",
+  "Z rankingu wypadają heksy ze stacją i heksy bez ulic. To raport próbny: T i E trzeba zastąpić danymi miasta, zanim wyniki będą coś znaczyć.",
+].map(s => `<li>${s}</li>`).join("");
+
+paint();
+</script>
