@@ -40,3 +40,40 @@ Run from `backend/`: `uv run python ../algorithms/simulation/tune_delay_radius.p
 The first run gave only 31% at R = 30 m and R hardly mattered. The cause: `shape_dist_traveled` in `warsaw.zip`
 is in km and the GTFS cache keeps whole units only, so stop K-1 was often wrong. The delay code now computes distances
 along the shape in metres from coordinates (`mkuran._trip_static`).
+
+## Simulation against the full track (recording of 2026-10-17)
+
+`record_delay_sample.py` recorded 32 minutes on a local server (2026-10-17, 19:40-20:12 Warsaw time, 1097 buses and
+trams, ~176 000 feed points, no failed polls) plus the server's own `/api/live/delay` answers every 30 s for lines
+175, 180, 523, 189 (bus) and 17, 33 (tram). Data: `data/live/delay_sample.json.gz`.
+Reference = the moment the full track crosses the stop on the trip shape. `simulate_delay.py` replays the same points
+as the server sees them. 1130 passes by a stop on these 6 lines (22 more were skipped: two stops passed between feed points).
+
+| setting (R = 30 m) | available | median abs error | p90 abs error | error <= 30 s (of shown) | score |
+|---|---|---|---|---|---|
+| data as recorded | 98.2% | 2 s | 14 s | 96.8% | 95.0% |
+| 10% polls lost | 96.7% | 2 s | 15 s | 96.8% | 93.6% |
+| 30% polls lost | 91.4% | 3 s | 18 s | 96.6% | 88.2% |
+| GPS noise 10 m | 97.9% | 2.5 s | 14 s | 96.8% | 94.8% |
+| GPS noise 20 m | 97.8% | 4 s | 18 s | 96.3% | 94.2% |
+
+Live server answers (after a 5 min warm-up), against the same reference: 599 passes, 98.2% available, median abs
+error 2 s, p90 13 s, 98.6% within 30 s.
+
+## Search for the best R (`search_delay_radius.py`)
+
+Score = share of all passes shown with a delay within 30 s of the reference. Coarse R = 20..200 m every 10 m, then every
+1 m between the two best neighbours.
+
+| R (m) | 20 | 30 | 40 | 50 | 60 | 70 | 80 .. 200 |
+|---|---|---|---|---|---|---|---|
+| score | 93.3% | 95.0% | 95.8% | 96.3% | 96.3% | 96.4% | 96.5% |
+| available | 96.3% | 98.2% | 98.9% | 99.6% | 99.6% | 99.8% | 100% |
+
+Best neighbours 80 and 90 m; every 1 m between them gives the same score, so the smallest wins: **R = 80 m** (96.5%).
+The curve is flat from 80 m: the estimate always uses the buffered point closest to the stop, so R only decides whether
+to show it. A bigger R does not make shown delays worse in this recording; it only adds the few passes whose closest
+point was 30-80 m away. The default stays 30 m (`DELAY_RADIUS_M`) until the team decides; the gain would be +1.5 points.
+
+Limits: reference and estimate use the same feed points, so this measures the method, not the GPS error of the feed;
+one evening, 6 lines.
