@@ -3,6 +3,7 @@ import { Box, Typography, useTheme } from '@mui/material';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import { MODE_META, modeColor } from '../modes';
 import type { RouteLeg } from '../types';
+import { RADIUS } from '../layout';
 
 /** Chain of icons showing the stages of a journey: walk > bike > metro ... */
 export default function LegChain({ legs }: { legs: RouteLeg[] }) {
@@ -25,7 +26,7 @@ export default function LegChain({ legs }: { legs: RouteLeg[] }) {
                 pl: 0.5,
                 pr: 1,
                 py: 0.25,
-                borderRadius: 999,
+                borderRadius: RADIUS.pill,
                 bgcolor: `${color}22`,
                 color,
               }}

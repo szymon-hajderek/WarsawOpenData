@@ -1,9 +1,11 @@
-import { Box, IconButton, Paper } from '@mui/material';
+import { Box, IconButton, Paper, useTheme } from '@mui/material';
 import SwapVert from '@mui/icons-material/SwapVert';
 import TripOriginIcon from '@mui/icons-material/TripOrigin';
 import PlaceIcon from '@mui/icons-material/Place';
 import PlaceField from './PlaceField';
 import type { Place } from '../types';
+import { RADIUS } from '../layout';
+import { PALETTE } from '../map/palette';
 
 interface Props {
   origin: Place | null;
@@ -25,6 +27,8 @@ export default function SearchCard({
   onSwap,
   onLocate,
 }: Props) {
+  const { routeStart, routeEnd } = PALETTE[useTheme().palette.mode];
+
   return (
     <Paper
       elevation={4}
@@ -36,14 +40,15 @@ export default function SearchCard({
         right: { xs: 12, sm: 'auto' },
         width: { sm: 440 },
         p: 1.5,
-        borderRadius: '28px',
+        borderRadius: RADIUS.sheet,
         display: 'flex',
         alignItems: 'stretch',
         gap: 1,
       }}
     >
-      {/* timeline: start -> destination */}
+      {/* timeline: start -> destination, a gradient line from the start to the destination colour */}
       <Box
+        aria-hidden
         sx={{
           display: 'flex',
           flexDirection: 'column',
@@ -52,17 +57,17 @@ export default function SearchCard({
           width: 24,
         }}
       >
-        <TripOriginIcon sx={{ fontSize: 18 }} color="primary" />
+        <TripOriginIcon sx={{ fontSize: 20, color: routeStart }} />
         <Box
           sx={{
             flex: 1,
-            my: 0.5,
-            borderLeft: 2,
-            borderColor: 'divider',
-            borderStyle: 'dotted',
+            width: 3,
+            my: 0.75,
+            borderRadius: RADIUS.pill,
+            background: `linear-gradient(to bottom, ${routeStart}, ${routeEnd})`,
           }}
         />
-        <PlaceIcon sx={{ fontSize: 20 }} color="error" />
+        <PlaceIcon sx={{ fontSize: 22, color: routeEnd }} />
       </Box>
 
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>

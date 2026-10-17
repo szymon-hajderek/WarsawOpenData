@@ -7,6 +7,7 @@ import LegChain from './LegChain';
 import { formatCost, formatDuration, transfersLabel } from '../utils/format';
 import type { FilterChip, TimeRule } from '../preferences/model';
 import type { RouteOption } from '../types';
+import { RADIUS } from '../layout';
 
 interface Props {
   /** Routes after filtering and sorting. */
@@ -119,7 +120,7 @@ export default function RouteOptionsSheet({
                   gap: 1.5,
                   p: 1.5,
                   my: 0.75,
-                  borderRadius: 4,
+                  borderRadius: RADIUS.tile,
                   cursor: 'pointer',
                   border: 2,
                   borderColor: selected ? 'primary.main' : 'transparent',

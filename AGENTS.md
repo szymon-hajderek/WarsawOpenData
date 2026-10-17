@@ -158,16 +158,18 @@ Everything in this repo (files, commits, PRs) is written in English.
   set `VITE_API_URL=""` in `frontend/.env` to force the mock).
 - Place search: `src/api/geocode.ts` (`searchPlaces`), debounced, limited to Warsaw. Calls the
   backend geocode proxy when `API_URL` is set, else Nominatim directly (≈1 request/second limit).
-- Colours: every colour of the app lives in `src/map/looks.ts` (one table: look x light / dark). A **look** sets the
-  map colours, the round map buttons / markers AND the accent of the whole UI (the MUI theme in `src/theme.ts` is built
-  from it, so panels, chips and windows follow the look). Colours and icons of transport modes: `src/modes.tsx`.
-- Two looks, switched with the layers button on the map (saved in localStorage key `map-variant`, `src/mapLook.tsx`;
-  `lavender` is the default, `warsaw` = red + yellow: red is the main colour in light mode, yellow the accent at night):
-  - Both use the same flat vector map: OpenFreeMap tiles (no key) drawn by MapLibre GL inside Leaflet
-    (`@maplibre/maplibre-gl-leaflet`, loaded on demand). The style is ours: `src/map/mapStyle.ts` (colours from the look,
-    more labels when zoomed in). Map controls, markers and route in `src/components/MapView.tsx`.
-  - The old OSM raster map (v1) was removed. CARTO basemaps return "API KEY REQUIRED", so do not use them.
-    OpenFreeMap has no SLA; there is no fallback.
+- Colours: one palette, the Warsaw colours (red + yellow): `src/map/palette.ts` (`PALETTE`, light / dark). Red is the main
+  colour in light mode, yellow the accent at night. It sets the map colours, the round map buttons / markers AND the accent
+  of the whole UI (the MUI theme in `src/theme.ts` is built from it). The old lavender look and the look switch were removed.
+  Colours and icons of transport modes: `src/modes.tsx`.
+- Map: flat vector map, OpenFreeMap tiles (no key) drawn by MapLibre GL inside Leaflet (`@maplibre/maplibre-gl-leaflet`, loaded
+  on demand). The style is ours: `src/map/mapStyle.ts` (colours from the palette, more labels when zoomed in). Map controls,
+  markers and route in `src/components/MapView.tsx`. The old OSM raster map was removed. CARTO basemaps return
+  "API KEY REQUIRED", so do not use them. OpenFreeMap has no SLA; there is no fallback.
+- Corner radii: use the `RADIUS` tokens from `src/layout.ts` (sheet 28 px, card 20, tile / row / input 16, control 12,
+  pill 999). **Pitfall:** in MUI `sx` a numeric `borderRadius` is multiplied by `theme.shape.borderRadius` (12), so
+  `borderRadius: 4` is 48 px and swallows the content. Nested corners: inner radius = outer radius - padding.
+- The line in the search card (start -> destination) is a gradient from `routeStart` to `routeEnd` of the palette.
 - "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): open on the start screen, swipe down / tap to hide
   into a bar, swipe up / tap to bring it back. Shows the suggested vehicle (mode + line, direction and distance when known)
   and 3 others; "Inna linia" (autocomplete over all live lines) adds a hand-picked card; "Wykryj ponownie" (in the window)

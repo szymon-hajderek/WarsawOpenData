@@ -8,12 +8,10 @@ import MyLocation from '@mui/icons-material/MyLocation';
 import DarkMode from '@mui/icons-material/DarkMode';
 import LightMode from '@mui/icons-material/LightMode';
 import Place from '@mui/icons-material/Place';
-import Layers from '@mui/icons-material/Layers';
 import DirectionsBus from '@mui/icons-material/DirectionsBus';
 import Navigation from '@mui/icons-material/Navigation';
 import { MODE_META, iconHtml, modeColor } from '../modes';
-import { useMapLook } from '../mapLook';
-import { LOOKS, type MapLook } from '../map/looks';
+import { PALETTE } from '../map/palette';
 import { createStyle, MAP_ATTRIBUTION } from '../map/mapStyle';
 import type { LatLng, Place as PlaceT, RouteOption } from '../types';
 
@@ -82,7 +80,7 @@ function MapController({
 }
 
 /** Basemap: flat vector tiles drawn by MapLibre GL inside the Leaflet map. */
-function VectorBasemap({ look, mode }: { look: MapLook; mode: PaletteMode }) {
+function VectorBasemap({ mode }: { mode: PaletteMode }) {
   const map = useMap();
 
   useEffect(() => {
@@ -94,7 +92,7 @@ function VectorBasemap({ look, mode }: { look: MapLook; mode: PaletteMode }) {
     import('@maplibre/maplibre-gl-leaflet').then(({ maplibreGL }) => {
       if (cancelled) return;
       layer = maplibreGL({
-        style: createStyle(look, mode),
+        style: createStyle(mode),
         attributionControl: false,
       }).addTo(map);
     });
@@ -103,7 +101,7 @@ function VectorBasemap({ look, mode }: { look: MapLook; mode: PaletteMode }) {
       map.attributionControl.removeAttribution(MAP_ATTRIBUTION);
       layer?.remove();
     };
-  }, [map, look, mode]);
+  }, [map, mode]);
 
   return null;
 }
@@ -112,14 +110,12 @@ function RouteLayer({
   route,
   palette,
   detailed,
-  look,
 }: {
   route: RouteOption;
   palette: PaletteMode;
   detailed: boolean;
-  look: MapLook;
 }) {
-  const colors = LOOKS[look][palette];
+  const colors = PALETTE[palette];
 
   return (
     <>
@@ -189,9 +185,8 @@ export default function MapView({
   padding,
   onDetectVehicle,
 }: Props) {
-  const { look, toggle: toggleLook } = useMapLook();
   const [map, setMap] = useState<L.Map | null>(null);
-  const colors = LOOKS[look][paletteMode];
+  const colors = PALETTE[paletteMode];
 
   const icons = useMemo(() => {
     const { accent, surface, shadow } = colors;
@@ -252,7 +247,7 @@ export default function MapView({
           zoomControl={false}
           style={{ height: '100%', width: '100%' }}
         >
-          <VectorBasemap look={look} mode={paletteMode} />
+          <VectorBasemap mode={paletteMode} />
           <MapController
             origin={origin}
             destination={destination}
@@ -260,7 +255,7 @@ export default function MapView({
             userPosition={userPosition}
             padding={padding}
           />
-          {route && <RouteLayer route={route} palette={paletteMode} detailed={detailed} look={look} />}
+          {route && <RouteLayer route={route} palette={paletteMode} detailed={detailed} />}
           {userPosition && <Marker position={userPosition} icon={icons.user} interactive={false} />}
           {origin && !origin.isCurrentLocation && (
             <Marker position={origin.position} icon={icons.origin} interactive={false} />
@@ -269,7 +264,7 @@ export default function MapView({
         </MapContainer>
       </Box>
 
-      {/* map controls: map look, theme, location, zoom */}
+      {/* map controls: theme, location, zoom */}
       <Box
         sx={{
           position: 'absolute',
@@ -281,11 +276,6 @@ export default function MapView({
           gap: 1.25,
         }}
       >
-        {fab(
-          <IconButton aria-label="Zmień styl mapy" onClick={toggleLook}>
-            <Layers />
-          </IconButton>,
-        )}
         {fab(
           <IconButton
             aria-label={paletteMode === 'dark' ? 'Włącz jasny motyw' : 'Włącz ciemny motyw'}

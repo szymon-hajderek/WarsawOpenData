@@ -1,12 +1,12 @@
 import { alpha, createTheme, type PaletteMode, type Theme } from '@mui/material';
-import { LOOKS, type MapLook } from './map/looks';
+import { PALETTE } from './map/palette';
+import { RADIUS } from './layout';
 
 /**
- * Material design theme. Colours come from the chosen look (`src/map/looks.ts`), so the accent
- * of the whole UI follows the map look; light / dark follows the colour mode.
+ * Material design theme. Colours come from `src/map/palette.ts`; light / dark follows the colour mode.
  */
-export function createAppTheme(mode: PaletteMode, look: MapLook): Theme {
-  const { theme } = LOOKS[look][mode];
+export function createAppTheme(mode: PaletteMode): Theme {
+  const { theme } = PALETTE[mode];
   return createTheme({
     palette: {
       mode,
@@ -15,7 +15,7 @@ export function createAppTheme(mode: PaletteMode, look: MapLook): Theme {
       background: theme.background,
       divider: theme.divider,
     },
-    shape: { borderRadius: 16 },
+    shape: { borderRadius: 12 },
     typography: {
       fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
       button: { textTransform: 'none', fontWeight: 600, letterSpacing: 0.1 },
@@ -23,10 +23,11 @@ export function createAppTheme(mode: PaletteMode, look: MapLook): Theme {
     components: {
       MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
       MuiButton: {
-        styleOverrides: { root: { borderRadius: 999, paddingBlock: 12 } },
+        styleOverrides: { root: { borderRadius: RADIUS.pill, paddingBlock: 12 } },
       },
       MuiChip: { styleOverrides: { root: { fontWeight: 500 } } },
-      // Selected toggle buttons use the accent of the look instead of the default grey
+      MuiDialog: { styleOverrides: { paper: { borderRadius: RADIUS.sheet } } },
+      // Selected toggle buttons use the accent colour instead of the default grey
       MuiToggleButton: {
         styleOverrides: {
           root: ({ theme: t }) => ({

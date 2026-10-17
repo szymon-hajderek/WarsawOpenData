@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { alpha, Box, Button, Collapse, InputAdornment, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { formatKmh, type LevelDef } from '../../preferences/model';
+import { RADIUS } from '../../layout';
 
 interface Props<L extends string> {
   levels: LevelDef<L>[];
@@ -71,7 +72,7 @@ export default function LevelSelector<L extends string>({ levels, level, customK
       </Button>
       <Collapse in={advanced}>
         <Box
-          sx={(t) => ({ mt: 0.5, p: 1.5, borderRadius: 3, bgcolor: alpha(t.palette.primary.main, 0.06) })}
+          sx={(t) => ({ mt: 0.5, p: 1.5, borderRadius: RADIUS.control, bgcolor: alpha(t.palette.primary.main, 0.06) })}
         >
           <TextField
             fullWidth

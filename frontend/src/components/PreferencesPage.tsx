@@ -9,7 +9,7 @@ import PreferenceFields, { Section } from './preferences/PreferenceFields';
 import RuleDialog from './preferences/RuleDialog';
 import { usePreferences } from '../preferences/PreferencesProvider';
 import { DEFAULT_PREFERENCES, describeRule, type PreferenceOverrides, type TimeRule } from '../preferences/model';
-import { BOTTOM_NAV_HEIGHT } from '../layout';
+import { BOTTOM_NAV_HEIGHT, RADIUS } from '../layout';
 
 const OVERRIDE_LABELS: Record<keyof PreferenceOverrides, string> = {
   walking: 'Pieszo',
@@ -51,7 +51,7 @@ export default function PreferencesPage() {
         {activeRule && (
           <Box
             role="status"
-            sx={(t) => ({ mb: 2, p: 1.5, borderRadius: 3, bgcolor: alpha(t.palette.secondary.main, 0.14), display: 'flex', gap: 1, alignItems: 'center' })}
+            sx={(t) => ({ mb: 2, p: 1.5, borderRadius: RADIUS.tile, bgcolor: alpha(t.palette.secondary.main, 0.14), display: 'flex', gap: 1, alignItems: 'center' })}
           >
             <Schedule color="secondary" />
             <Typography variant="body2">
@@ -79,7 +79,7 @@ export default function PreferencesPage() {
                   key={r.id}
                   sx={(t) => ({
                     p: 1.5,
-                    borderRadius: 3,
+                    borderRadius: RADIUS.tile,
                     bgcolor: t.palette.background.paper,
                     border: 1,
                     borderColor: activeRule?.id === r.id ? 'secondary.main' : 'divider',
