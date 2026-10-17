@@ -157,6 +157,17 @@ Everything in this repo (files, commits, PRs) is written in English.
   after start and again on `requestLinePopup()` (for a "choose my line" button). Each detection sends a
   `bus-popup` event on `window` (`{ candidates, lines, points }`; `lines` = all live lines, for manual choice).
   Live buses have no direction yet (`direction: ""`). Concept: `ui/concept-art/current-line-popup.paint`.
+- Navigation: bottom bar (`src/components/BottomNav.tsx`) with tabs Mapa and Preferencje; floating panels sit above it
+  (`src/layout.ts`: `BOTTOM_NAV_HEIGHT`, `PANEL_BOTTOM`). The Preferences page is an overlay, the map stays mounted below.
+- Preferences + filters are UI only (route selection is the backend's job). Model, level tables (default speeds), time
+  rules and list filtering: `src/preferences/model.ts`; storage in localStorage key `preferences`
+  (`src/preferences/PreferencesProvider.tsx`). Preferences page: `src/components/PreferencesPage.tsx`; reusable fields
+  (levels + custom km/h, wheelchair, priorities, excluded districts / own points): `src/components/preferences/`.
+  Time rules (`RuleDialog.tsx`) override any section for given days and hours (may cross midnight); the latest started
+  active rule wins. `FilterSheet.tsx` = filters for the current search only (sorting, max transfers, vehicles, max walking
+  time, step-free, pace / wheelchair, excluded areas, and "Zaawansowane" = all preferences as overrides). Only list-like
+  filters really change the (mock) list, client-side (`applyListFilters`); speeds, wheelchair and areas are stored only and
+  not passed to `fetchRouteOptions` yet.
 - Vite proxies `/api` to the backend at http://localhost:8000.
 - Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with

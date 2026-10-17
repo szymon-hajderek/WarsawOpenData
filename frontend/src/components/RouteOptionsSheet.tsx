@@ -1,60 +1,88 @@
-import { alpha, Box, Button, Chip, CircularProgress, Typography } from '@mui/material';
-import Accessible from '@mui/icons-material/Accessible';
-import DirectionsWalk from '@mui/icons-material/DirectionsWalk';
-import Elderly from '@mui/icons-material/Elderly';
+import { alpha, Badge, Box, Button, Chip, CircularProgress, Typography } from '@mui/material';
+import Tune from '@mui/icons-material/Tune';
+import Schedule from '@mui/icons-material/Schedule';
 import LocalFireDepartment from '@mui/icons-material/LocalFireDepartment';
 import Sheet from './Sheet';
 import LegChain from './LegChain';
 import { formatCost, formatDuration, transfersLabel } from '../utils/format';
-import type { Profile, RouteOption } from '../types';
-
-const PROFILES: { id: Profile; label: string; hint: string; icon: JSX.Element }[] = [
-  { id: 'standard', label: 'Standard', hint: 'Standardowe tempo marszu i jazdy', icon: <DirectionsWalk /> },
-  { id: 'slow', label: 'Wolniej', hint: 'Spokojniejsze tempo marszu i jazdy', icon: <Elderly /> },
-  { id: 'accessible', label: 'Wózek', hint: 'Wózek / dostępność: trasy bez roweru, wolniejszy marsz', icon: <Accessible /> },
-];
+import type { FilterChip, TimeRule } from '../preferences/model';
+import type { RouteOption } from '../types';
 
 interface Props {
+  /** Routes after filtering and sorting. */
   options: RouteOption[];
+  /** How many routes were found before filtering. */
+  foundCount: number;
   loading: boolean;
   selectedId: string | null;
-  profile: Profile;
+  /** Short summary of the preferences the routes follow. */
+  summary: string[];
+  /** Time rule active right now, if any. */
+  activeRule: TimeRule | null;
+  /** Chips of the filters that differ from the defaults. */
+  chips: FilterChip[];
   onSelect: (id: string) => void;
-  onProfileChange: (p: Profile) => void;
+  onOpenFilters: () => void;
+  onClearChip: (id: FilterChip['id']) => void;
+  onClearAll: () => void;
   onConfirm: () => void;
 }
 
-/** List of connections - "Choose your route". */
+/** List of connections - "Choose your route" - with the preference summary and filters. */
 export default function RouteOptionsSheet({
   options,
+  foundCount,
   loading,
   selectedId,
-  profile,
+  summary,
+  activeRule,
+  chips,
   onSelect,
-  onProfileChange,
+  onOpenFilters,
+  onClearChip,
+  onClearAll,
   onConfirm,
 }: Props) {
+  const noScrollbar = { scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } } as const;
+
   return (
-    <Sheet>
+    <Sheet maxHeight={{ xs: '54vh', sm: 'calc(100vh - 200px)' }}>
       <Box sx={{ px: 2.5, pb: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          Wybierz trasę
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1, mt: 1, overflowX: 'auto', scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } }}>
-          {PROFILES.map((p) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>
+            Wybierz trasę
+          </Typography>
+          <Badge badgeContent={chips.length} color="primary" overlap="rectangular">
+            <Button variant="outlined" size="small" startIcon={<Tune />} onClick={onOpenFilters} sx={{ py: 0.75 }}>
+              Filtry
+            </Button>
+          </Badge>
+        </Box>
+
+        <Box sx={{ display: 'flex', gap: 1, mt: 1, overflowX: 'auto', alignItems: 'center', ...noScrollbar }}>
+          {activeRule && (
             <Chip
-              key={p.id}
-              icon={p.icon}
-              label={p.label}
-              title={p.hint}
-              clickable
-              color={profile === p.id ? 'primary' : 'default'}
-              variant={profile === p.id ? 'filled' : 'outlined'}
-              onClick={() => onProfileChange(p.id)}
+              icon={<Schedule />}
+              label={`Reguła: ${activeRule.name}`}
+              size="small"
+              color="secondary"
+              sx={{ flexShrink: 0 }}
+            />
+          )}
+          {chips.map((c) => (
+            <Chip
+              key={c.id}
+              label={c.label}
+              size="small"
+              color="primary"
+              onDelete={() => onClearChip(c.id)}
               sx={{ flexShrink: 0 }}
             />
           ))}
         </Box>
+        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', mt: 0.75 }} title={summary.join(' · ')}>
+          Dla Ciebie: {summary.join(' · ')}
+        </Typography>
       </Box>
 
       <Box sx={{ flex: 1, overflowY: 'auto', px: 1.5, minHeight: 120 }}>
@@ -64,9 +92,16 @@ export default function RouteOptionsSheet({
           </Box>
         )}
         {!loading && options.length === 0 && (
-          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-            Nie znaleziono połączeń dla tego profilu.
-          </Typography>
+          <Box sx={{ py: 4, textAlign: 'center' }}>
+            <Typography color="text.secondary">
+              {foundCount > 0 ? 'Żadna trasa nie spełnia wybranych filtrów.' : 'Nie znaleziono połączeń.'}
+            </Typography>
+            {foundCount > 0 && (
+              <Button onClick={onClearAll} sx={{ mt: 1 }}>
+                Wyczyść filtry
+              </Button>
+            )}
+          </Box>
         )}
         {!loading &&
           options.map((o) => {

@@ -5,10 +5,24 @@ import SearchCard from './components/SearchCard';
 import RouteOptionsSheet from './components/RouteOptionsSheet';
 import RouteDetailsSheet from './components/RouteDetailsSheet';
 import VehicleSheet from './components/VehicleSheet';
+import BottomNav, { type Tab } from './components/BottomNav';
+import PreferencesPage from './components/PreferencesPage';
+import FilterSheet from './components/FilterSheet';
 import { useColorMode } from './colorMode';
 import { fetchRouteOptions } from './api/routes';
 import { BUS_POPUP_REQUEST_EVENT, detectVehicle } from './api/vehicle';
-import type { LatLng, Place, Profile, RouteOption, VehicleCandidate } from './types';
+import { usePreferences } from './preferences/PreferencesProvider';
+import {
+  applyListFilters,
+  applyOverrides,
+  clearFilter,
+  DEFAULT_FILTERS,
+  filterChips,
+  summarize,
+  type TripFilters,
+} from './preferences/model';
+import { BOTTOM_NAV_HEIGHT } from './layout';
+import type { LatLng, Place, RouteOption, VehicleCandidate } from './types';
 
 type Step = 'search' | 'options' | 'route';
 
@@ -21,7 +35,11 @@ export default function App() {
   const [geoError, setGeoError] = useState(false);
   const [origin, setOrigin] = useState<Place | null>(null);
   const [destination, setDestination] = useState<Place | null>(null);
-  const [profile, setProfile] = useState<Profile>('standard');
+  const [tab, setTab] = useState<Tab>('map');
+  const { effective, activeRule } = usePreferences();
+  // Filters apply to the current search only; they start from the saved preferences.
+  const [filters, setFilters] = useState<TripFilters>(DEFAULT_FILTERS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [step, setStep] = useState<Step>('search');
   const [options, setOptions] = useState<RouteOption[]>([]);
   const [loading, setLoading] = useState(false);
@@ -100,8 +118,9 @@ export default function App() {
     if (currentLocation) setOrigin((prev) => prev ?? currentLocation);
   }, [currentLocation]);
 
-  // Fetch connections as soon as both points are set (and when the profile changes).
+  // Fetch connections as soon as both points are set.
   useEffect(() => {
+    setFilters(DEFAULT_FILTERS);
     if (!origin || !destination) {
       setOptions([]);
       setSelectedId(null);
@@ -113,7 +132,7 @@ export default function App() {
     setStep('options');
     setChosenId(null);
     setLoading(true);
-    fetchRouteOptions(origin, destination, profile)
+    fetchRouteOptions(origin, destination, 'standard')
       .then((result) => {
         if (cancelled) return;
         setOptions(result);
@@ -123,7 +142,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [origin, destination, profile]);
+  }, [origin, destination]);
 
   const handleLocateOrigin = () => {
     if (currentLocation) setOrigin(currentLocation);
@@ -135,13 +154,24 @@ export default function App() {
     setDestination(origin);
   };
 
+  // Preferences of this search = the ones valid now + this search's overrides.
+  const trip = useMemo(() => applyOverrides(effective, filters.overrides), [effective, filters.overrides]);
+  const visible = useMemo(() => applyListFilters(options, trip, filters), [options, trip, filters]);
+  const chips = useMemo(() => filterChips(filters, trip), [filters, trip]);
+
+  // Keep the selection inside the filtered list.
+  useEffect(() => {
+    if (selectedId && !visible.some((o) => o.id === selectedId)) setSelectedId(visible[0]?.id ?? null);
+    if (!selectedId && visible.length > 0) setSelectedId(visible[0].id);
+  }, [visible, selectedId]);
+
   const chosen = options.find((o) => o.id === chosenId) ?? null;
-  const preview = step === 'route' ? chosen : step === 'options' ? options.find((o) => o.id === selectedId) ?? null : null;
+  const preview = step === 'route' ? chosen : step === 'options' ? visible.find((o) => o.id === selectedId) ?? null : null;
 
   // Parts of the map covered by the panels, so the route stays in the visible area.
   const padding: MapPadding = desktop
     ? { top: 60, left: 500, bottom: 60, right: 90 }
-    : { top: step === 'route' ? 100 : 190, left: 40, bottom: step === 'route' ? (stepsExpanded ? 450 : 380) : 400, right: 70 };
+    : { top: step === 'route' ? 100 : 190, left: 40, bottom: BOTTOM_NAV_HEIGHT + (step === 'route' ? (stepsExpanded ? 450 : 380) : 430), right: 70 };
 
   return (
     <Box sx={{ position: 'fixed', inset: 0, bgcolor: 'background.default' }}>
@@ -188,12 +218,17 @@ export default function App() {
 
       {step === 'options' && (
         <RouteOptionsSheet
-          options={options}
+          options={visible}
+          foundCount={options.length}
           loading={loading}
           selectedId={selectedId}
-          profile={profile}
+          summary={summarize(trip)}
+          activeRule={activeRule}
+          chips={chips}
           onSelect={setSelectedId}
-          onProfileChange={setProfile}
+          onOpenFilters={() => setFiltersOpen(true)}
+          onClearChip={(id) => setFilters((f) => clearFilter(f, id))}
+          onClearAll={() => setFilters(DEFAULT_FILTERS)}
           onConfirm={() => {
             setChosenId(selectedId);
             setStep('route');
@@ -211,6 +246,19 @@ export default function App() {
           onBack={() => setStep('options')}
         />
       )}
+
+      <FilterSheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        filters={filters}
+        onChange={setFilters}
+        effective={effective}
+        trip={trip}
+        resultCount={visible.length}
+      />
+
+      {tab === 'preferences' && <PreferencesPage />}
+      <BottomNav tab={tab} onChange={setTab} />
 
       <Snackbar
         open={geoError}
