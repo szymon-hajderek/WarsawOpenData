@@ -7,7 +7,7 @@ interface ColorModeValue {
   toggle: () => void;
 }
 
-const ColorModeContext = createContext<ColorModeValue>({ mode: 'light', toggle: () => {} });
+const ColorModeContext = createContext<ColorModeValue | null>(null);
 const STORAGE_KEY = 'color-mode';
 
 function initialMode(): PaletteMode {
@@ -48,4 +48,8 @@ export function ColorModeProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export const useColorMode = () => useContext(ColorModeContext);
+export function useColorMode(): ColorModeValue {
+  const value = useContext(ColorModeContext);
+  if (!value) throw new Error('useColorMode must be used inside ColorModeProvider');
+  return value;
+}

@@ -21,3 +21,8 @@ export const RADIUS = {
   /** Pills, handles, thin bars, chips, buttons. */
   pill: 999,
 } as const;
+
+/** Parts of the map covered by the floating panels on a wide screen (px), so the route stays in view. */
+export const MAP_PADDING = {
+  desktop: { top: 60, left: 500, bottom: 60, right: 90 },
+} as const;

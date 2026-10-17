@@ -1,4 +1,4 @@
-import { API_URL } from '../config';
+import { API_URL, apiUrl } from '../config';
 import type { TransportMode } from '../types';
 import {
   EMPTY_SUMMARY,
@@ -24,7 +24,7 @@ export interface PlannedLeg {
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   if (!API_URL) throw new Error('backend disabled');
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(apiUrl(path), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

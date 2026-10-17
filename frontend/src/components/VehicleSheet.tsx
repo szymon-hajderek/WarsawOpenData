@@ -1,4 +1,3 @@
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import {
   alpha,
   Autocomplete,
@@ -21,6 +20,7 @@ import type { VehicleCandidate } from '../types';
 import { RADIUS } from '../layout';
 import SnapSheet, { type SheetSnap } from './SnapSheet';
 import { formatDistance } from '../utils/format';
+import { pressableProps } from './pressable';
 
 const vehicleName = (v: VehicleCandidate) => `${MODE_META[v.mode].label} ${v.line}`;
 /** "kier. X", or nothing when the direction is unknown (live buses have none yet). */
@@ -62,6 +62,8 @@ interface Props {
   /** The line picked by hand, if any. */
   manual: VehicleCandidate | null;
   loading: boolean;
+  /** The candidates are made-up example data. */
+  mock: boolean;
   snap: VehicleSnap;
   selectedId: string | null;
   /** The vehicle the user confirmed (shown in the hidden bar). */
@@ -86,6 +88,7 @@ export default function VehicleSheet({
   lines,
   manual,
   loading,
+  mock,
   snap,
   selectedId,
   confirmed,
@@ -111,13 +114,7 @@ export default function VehicleSheet({
     '&:hover': { bgcolor: alpha(t.palette.primary.main, isSelected ? 0.12 : 0.09) },
     '&:focus-visible': { outline: `2px solid ${t.palette.primary.main}`, outlineOffset: 2 },
   });
-  const pressable = (c: VehicleCandidate) => ({
-    role: 'button',
-    tabIndex: 0,
-    'aria-pressed': c.id === selectedId,
-    onClick: () => onSelect(c.id),
-    onKeyDown: (e: ReactKeyboardEvent) => (e.key === 'Enter' || e.key === ' ') && onSelect(c.id),
-  });
+  const pressable = (c: VehicleCandidate) => pressableProps(c.id === selectedId, () => onSelect(c.id));
 
   return (
     <SnapSheet
@@ -196,6 +193,7 @@ export default function VehicleSheet({
                     {vehicleName(suggested)}
                   </Typography>
                   <Chip label="Sugerowana" size="small" color="secondary" variant="outlined" />
+                  {mock && <Chip label="Dane przykładowe" size="small" color="warning" />}
                 </Box>
                 {[directionText(suggested), distanceText(suggested)].filter(Boolean).length > 0 && (
                   <Typography variant="body2" color="text.secondary" noWrap>

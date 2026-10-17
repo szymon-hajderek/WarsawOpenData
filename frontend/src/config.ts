@@ -8,4 +8,7 @@
  * When the backend is unreachable, the API wrappers fall back to the mock, so the
  * UI keeps working without a running backend.
  */
-export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+
+/** Full URL of a backend path (for example `/api/routes`). Every backend call goes through this. */
+export const apiUrl = (path: string): string => `${API_URL}${path}`;

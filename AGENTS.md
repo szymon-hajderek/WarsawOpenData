@@ -227,6 +227,16 @@ Everything in this repo (files, commits, PRs) is written in English.
   gives the average per mode; the frontend falls back to `localSummary` when the backend is down. Preferences: each of Pieszo / Rower / Wózek shows
   "Twoja średnia z historii" with "Użyj X km/h" (when it differs by 10% or more) and the switch "Zawsze używaj średniej z historii" (`autoSpeed`; when on and
   enough trips, `applyHistory` in `src/preferences/model.ts` replaces the level / typed speed and the selector is locked). History can be cleared on the Preferences page.
+- Backend calls: every call builds its URL with `apiUrl(path)` from `src/config.ts` (routes, geocode, history, vehicle). An empty
+  `API_URL` turns all of them to the in-browser mock. Answers are checked in `src/api/validate.ts`; a wrong shape counts as "backend down".
+- **Example data is marked.** When a call falls back to the mock, `fetchRouteOptions` / `detectVehicle` return `mock: true`; the app shows
+  one snackbar and a "Dane przykładowe" chip on the route list and the vehicle window.
+- Hooks (`src/hooks/`): `useLocationTrack` (one `watchPosition` + the last 3 positions, cleaned up on unmount), `useRouteSearch`,
+  `useVehicleDetection`. `App.tsx` only wires them. `ErrorBoundary` wraps the app. Selection and step are derived while rendering
+  (no effects for derived state). Under the Preferences page the map and panels are `inert`.
+- Selectable cards use `pressableProps` (`components/pressable.ts`): Enter / Space select, Space does not scroll. The map has ONE MapLibre
+  layer; the light / dark switch calls `setStyle`. Leaflet marker icons are plain SVG from `ICON_PATH` in `modes.tsx` (no `react-dom/server`).
+- Checks: `npm run lint` (ESLint 8, `.eslintrc.cjs`), `npm test` (Vitest 1 + Testing Library), `npm run build`.
 - Vite proxies `/api` to the backend at http://localhost:8000.
 - Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with

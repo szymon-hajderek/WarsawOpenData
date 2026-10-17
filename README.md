@@ -76,6 +76,7 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - `cd frontend && npm install` (if `~/.npm` is root-owned: `npm install --cache <some dir>`)
    - `npm run dev` starts the app at http://localhost:5173
    - `npm run build` type-checks and builds
+   - `npm run lint` runs ESLint (react-hooks + jsx-a11y rules); `npm test` runs the Vitest tests (jsdom, no browser needed)
    - optional: `VITE_API_URL` in `frontend/.env` points the app at the routing API
      (default `http://localhost:8000`; set `VITE_API_URL=""` to force the in-browser mock)
 3. **Data** (`data/`). GTFS zips and the OSM extract are stored with Git LFS.
