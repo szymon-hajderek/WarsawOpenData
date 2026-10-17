@@ -102,8 +102,12 @@ Everything in this repo (files, commits, PRs) is written in English.
   limit of about 1 request per second.
 - Theme: all colours in `src/theme.ts` (light + dark; toggle on the map, defaults to the system
   setting). Colours and icons of transport modes: `src/modes.tsx`.
-- Map tiles: plain OpenStreetMap tiles; dark mode is a CSS filter (`.tiles-dark` in `src/index.css`).
-  CARTO basemaps now return "API KEY REQUIRED", so do not use them.
+- Two map looks, switched with the layers button on the map (saved in localStorage, `src/mapVariant.tsx`):
+  - **v1** (default): plain OpenStreetMap raster tiles; dark mode is a CSS filter (`.tiles-dark` in `src/index.css`).
+  - **v2**: flat pastel vector map. Vector tiles from OpenFreeMap (no key) drawn by MapLibre GL inside Leaflet
+    (`@maplibre/maplibre-gl-leaflet`, loaded on demand). The style is ours: `src/map/styleV2.ts` (palettes for
+    light + dark, more labels when zoomed in). Round lavender buttons and markers live in `src/components/MapView.tsx`.
+  - CARTO basemaps now return "API KEY REQUIRED", so do not use them. OpenFreeMap has no SLA; there is no fallback to v1.
 - Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with
   a clean route and round stop markers, light map with a bottom sheet.
