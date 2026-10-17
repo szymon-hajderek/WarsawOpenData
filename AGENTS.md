@@ -194,7 +194,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   Not proposed: hexes with a station or without streets. Built in `warm()` (~2.5 min first time, cache `data/derived/siting_*.npz`).
   With these defaults T saturates at 1 in many hexes, so picks are mostly ranked by E and P; a weak quadratic P lets picks sit
   ~750 m (network) apart. Report: `uv run python siting_report.py` -> `data/SITING_REPORT.md`, `artifacts/veturilo-siting.html`
-  (Leaflet + OSM tiles; the tiles do not load when published as a claude.ai artifact, its CSP blocks images from other hosts).
+  (own canvas map with pan / zoom, no external scripts: Leaflet from a CDN failed to load for the user and broke the page).
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
 - **Integration tests** (`integration/`, see its README): `uv run pytest ../integration` from `backend/`, ~6 min.
   Simulation mode (`backend/sim/`): one clock (`sim.clock.now()`; live data code reads time there, never

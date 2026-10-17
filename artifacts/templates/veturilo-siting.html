@@ -6,12 +6,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: same system as the other pages in artifacts/. One reading column: verdict -> map with layers and the
+/* Layout: same system as the other pages in artifacts/ (no external scripts, the map is our own canvas). One reading column: verdict -> map with layers and the
    greedy step slider -> top-10 table -> cost formula + P(d) chart -> data and method. Accent = Warsaw red. */
 :root {
   --bg: #f5f4f2; --surface: #ffffff; --ink: #17130f; --ink-2: #4f4740; --muted: #7a7068;
   --grid: #e5e0da; --accent: #b3123b; --accent-ink: #ffffff; --yellow: #f2b400;
-  --good: #0c8f2e; --warn: #c98a00; --bad: #c8322b; --none: #c9c3bc; --station: #1d5fa8;
+  --good: #0c8f2e; --warn: #c98a00; --bad: #c8322b; --none: #c9c3bc; --station: #1d5fa8; --map-bg: #ebe7e2;
   --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
   --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -19,11 +19,11 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #12100e; --surface: #1b1815; --ink: #f3efea; --ink-2: #c4bbb2; --muted: #93897f;
   --grid: #302b26; --accent: #ff5577; --accent-ink: #1b0a0f; --yellow: #ffc933;
-  --good: #3cc160; --warn: #f0b429; --bad: #ef5a52; --none: #4a443e; --station: #6aa8f0; color-scheme: dark } }
+  --good: #3cc160; --warn: #f0b429; --bad: #ef5a52; --none: #4a443e; --station: #6aa8f0; --map-bg: #221e1a; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #12100e; --surface: #1b1815; --ink: #f3efea; --ink-2: #c4bbb2; --muted: #93897f;
   --grid: #302b26; --accent: #ff5577; --accent-ink: #1b0a0f; --yellow: #ffc933;
-  --good: #3cc160; --warn: #f0b429; --bad: #ef5a52; --none: #4a443e; --station: #6aa8f0; color-scheme: dark }
+  --good: #3cc160; --warn: #f0b429; --bad: #ef5a52; --none: #4a443e; --station: #6aa8f0; --map-bg: #221e1a; color-scheme: dark }
 
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--f-body); }
 .wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 64px;
@@ -89,63 +89,17 @@ svg text { fill: var(--muted); font: 12px var(--f-mono); }
 .chart svg { width: 100%; height: auto; display: block; overflow: visible; }
 ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72ch; color: var(--ink-2); }
 
-/* hex popups and number pins (Leaflet) */
-.pin { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink);
-  font: 700 12px/1 var(--f-mono); border: 2px solid var(--surface); box-shadow: 0 1px 4px rgba(0,0,0,.35); }
-.pin.next { background: var(--surface); color: var(--accent); border-color: var(--accent); }
-.pop { font: 13px/1.45 var(--f-body); color: #17130f; }
-.pop b { font-family: var(--f-mono); }
 
-/* Leaflet 1.9.4 core CSS (only stylesheets from Google Fonts may load, so the needed rules are inline) */
-.leaflet-pane, .leaflet-tile, .leaflet-marker-icon, .leaflet-marker-shadow, .leaflet-tile-container, .leaflet-pane > svg, .leaflet-pane > canvas, .leaflet-zoom-box, .leaflet-image-layer, .leaflet-layer { position: absolute; left: 0; top: 0; }
-.leaflet-container { overflow: hidden; -webkit-tap-highlight-color: transparent; font: 12px/1.5 var(--f-body); }
-.leaflet-tile, .leaflet-marker-icon, .leaflet-marker-shadow { user-select: none; -webkit-user-drag: none; }
-.leaflet-tile { filter: inherit; visibility: hidden; }
-.leaflet-tile-loaded { visibility: inherit; }
-.leaflet-container img.leaflet-tile { mix-blend-mode: plus-lighter; }
-.leaflet-container .leaflet-tile-pane img, .leaflet-container img.leaflet-image-layer, .leaflet-container .leaflet-tile { max-width: none !important; max-height: none !important; width: auto; padding: 0; }
-.leaflet-container.leaflet-touch-zoom { touch-action: pan-x pan-y; }
-.leaflet-container.leaflet-touch-drag { touch-action: pinch-zoom; }
-.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom { touch-action: none; }
-.leaflet-pane { z-index: 400; }
-.leaflet-tile-pane { z-index: 200; }
-.leaflet-overlay-pane { z-index: 400; }
-.leaflet-shadow-pane { z-index: 500; }
-.leaflet-marker-pane { z-index: 600; }
-.leaflet-tooltip-pane { z-index: 650; }
-.leaflet-popup-pane { z-index: 700; }
-.leaflet-map-pane canvas { z-index: 100; }
-.leaflet-map-pane svg { z-index: 200; }
-.leaflet-control { position: relative; z-index: 800; pointer-events: visiblePainted; pointer-events: auto; float: left; clear: both; }
-.leaflet-top, .leaflet-bottom { position: absolute; z-index: 1000; pointer-events: none; }
-.leaflet-top { top: 0; } .leaflet-right { right: 0; } .leaflet-bottom { bottom: 0; } .leaflet-left { left: 0; }
-.leaflet-right .leaflet-control { float: right; margin-right: 10px; }
-.leaflet-top .leaflet-control { margin-top: 10px; }
-.leaflet-bottom .leaflet-control { margin-bottom: 10px; }
-.leaflet-left .leaflet-control { margin-left: 10px; }
-.leaflet-zoom-animated { transform-origin: 0 0; }
-.leaflet-zoom-anim .leaflet-zoom-animated { transition: transform .25s cubic-bezier(0,0,.25,1); }
-.leaflet-zoom-anim .leaflet-tile, .leaflet-pan-anim .leaflet-tile { transition: none; }
-.leaflet-zoom-anim .leaflet-zoom-hide { visibility: hidden; }
-.leaflet-interactive { cursor: pointer; }
-.leaflet-grab { cursor: grab; }
-.leaflet-dragging .leaflet-grab, .leaflet-dragging .leaflet-grab .leaflet-interactive { cursor: grabbing; }
-.leaflet-marker-icon, .leaflet-marker-shadow, .leaflet-image-layer, .leaflet-pane > svg path, .leaflet-tile-container { pointer-events: none; }
-.leaflet-marker-icon.leaflet-interactive, .leaflet-image-layer.leaflet-interactive, .leaflet-pane > svg path.leaflet-interactive { pointer-events: visiblePainted; pointer-events: auto; }
-.leaflet-bar { box-shadow: 0 1px 5px rgba(0,0,0,.65); border-radius: 4px; }
-.leaflet-bar a { background: #fff; border-bottom: 1px solid #ccc; width: 30px; height: 30px; line-height: 30px; display: block; text-align: center; text-decoration: none; color: #000; font: bold 18px 'Lucida Console', Monaco, monospace; }
-.leaflet-bar a:first-child { border-top-left-radius: 4px; border-top-right-radius: 4px; }
-.leaflet-bar a:last-child { border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; border-bottom: none; }
-.leaflet-control-attribution { background: rgba(255,255,255,.8); margin: 0; padding: 0 5px; color: #333; font-size: 11px; line-height: 1.4; }
-.leaflet-control-attribution a { color: #0078a8; }
-.leaflet-popup { position: absolute; text-align: center; margin-bottom: 20px; }
-.leaflet-popup-content-wrapper { padding: 1px; text-align: left; border-radius: 10px; background: #fff; box-shadow: 0 3px 14px rgba(0,0,0,.4); }
-.leaflet-popup-content { margin: 12px 16px; min-height: 1px; }
-.leaflet-popup-tip-container { width: 40px; height: 20px; position: absolute; left: 50%; margin-top: -1px; margin-left: -20px; overflow: hidden; pointer-events: none; }
-.leaflet-popup-tip { width: 17px; height: 17px; padding: 1px; margin: -10px auto 0; transform: rotate(45deg); background: #fff; box-shadow: 0 3px 14px rgba(0,0,0,.4); }
-.leaflet-container a.leaflet-popup-close-button { position: absolute; top: 0; right: 0; border: none; text-align: center; width: 24px; height: 24px; font: 16px/24px Tahoma, Verdana, sans-serif; color: #757575; text-decoration: none; background: transparent; }
-.leaflet-div-icon { background: transparent; border: 0; }
-@media (prefers-reduced-motion: reduce) { .leaflet-zoom-anim .leaflet-zoom-animated { transition: none; } }
+/* canvas map: zoom buttons in the corner, hex values under the map */
+#map { position: relative; touch-action: none; }
+#map canvas { display: block; cursor: grab; }
+#map canvas:active { cursor: grabbing; }
+.zoom { position: absolute; top: max(10px, env(safe-area-inset-top, 0px)); right: 10px; display: grid; gap: 4px; z-index: 1; }
+.zoom button { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--grid); background: var(--surface); color: var(--ink);
+  font: 700 18px/1 var(--f-mono); cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+.zoom button.fit { font-size: 12px; }
+.hexinfo { display: flex; flex-wrap: wrap; gap: 4px 16px; font: 14px/1.4 var(--f-body); color: var(--ink-2); min-height: 22px; font-variant-numeric: tabular-nums; }
+.hexinfo b { color: var(--ink); font-family: var(--f-mono); }
 </style>
 
 <div class="wrap">
@@ -165,7 +119,7 @@ ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72
   <section>
     <h2>Mapa</h2>
     <p class="sub-lead">Wybierz warstwę, pokaż punkty pomiarowe i przesuń suwak, żeby zobaczyć, jak kolejne stacje zmieniają d<sub>net</sub> i J.
-      Kliknij heksagon, żeby zobaczyć jego wartości.</p>
+      Kliknij heksagon, żeby zobaczyć jego wartości. Mapę przesuwasz przeciągnięciem, przybliżasz kółkiem myszy albo przyciskami.</p>
     <div class="panel">
       <div class="controls">
         <div class="group" role="group" aria-label="Warstwa">
@@ -188,7 +142,10 @@ ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72
         <input type="range" id="step" min="0" max="10" value="10" aria-label="Liczba wstawionych stacji">
         <span class="step-label" id="step-label"></span>
       </div>
-      <div id="map" role="region" aria-label="Mapa heksagonów"></div>
+      <div id="map" role="region" aria-label="Mapa heksagonów: przeciągnij, żeby przesunąć, kółko myszy przybliża">
+        <div class="zoom"><button id="zoom-in" type="button" aria-label="Przybliż">+</button><button id="zoom-out" type="button" aria-label="Oddal">−</button><button id="zoom-fit" class="fit" type="button" aria-label="Pokaż całe miasto">całe</button></div>
+      </div>
+      <div class="hexinfo" id="hexinfo" aria-live="polite"></div>
       <div class="legend" id="legend"></div>
     </div>
   </section>
@@ -223,7 +180,6 @@ ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72
   </section>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script>
 const D = /*__DATA__*/null;
 const H = D.hex, N = H.lat.length, P = D.params;
@@ -266,22 +222,43 @@ function ramp(x) {
 }
 const rampCss = `linear-gradient(90deg, ${RAMP.join(",")})`;
 
-// ---------- map ----------
-const map = L.map("map", { preferCanvas: true, zoomSnap: 0.5 }).setView([52.232, 21.01], 11);
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(map);
-const renderer = L.canvas({ padding: 0.3 });
-L.polyline(D.boundary, { color: "#17130f", weight: 1.5, opacity: 0.7, renderer, interactive: false }).addTo(map);
-const DLAT = 180 / Math.PI / 6371000, DLON = DLAT / Math.cos(52.23 * Math.PI / 180);
-const corners = [0, 1, 2, 3, 4, 5].map(k => [Math.sin((30 + 60 * k) * Math.PI / 180), Math.cos((30 + 60 * k) * Math.PI / 180)]);
-const polys = new Array(N);
-for (let i = 0; i < N; i++) {
-  const ll = corners.map(([sy, cx]) => [H.lat[i] + D.hexSize * sy * DLAT, H.lon[i] + D.hexSize * cx * DLON]);
-  polys[i] = L.polygon(ll, { renderer, weight: 0.4, color: "#ffffff", opacity: 0.6, fillOpacity: 0.62 }).addTo(map);
-  polys[i].on("click", () => polys[i].bindPopup(popup(i), { maxWidth: 260 }).openPopup());
-}
+// ---------- map (own canvas, no external library: works offline and inside the artifact viewer) ----------
+const LAT0 = 52.23, MLAT = Math.PI / 180 * 6371000, MLON = MLAT * Math.cos(LAT0 * Math.PI / 180);
+const mx = lon => (lon - 21.0) * MLON, my = lat => (LAT0 - lat) * MLAT;  // metres, y down
+const HX = H.lon.map(mx), HY = H.lat.map(my);
+const CORN = [0, 1, 2, 3, 4, 5].map(k => [Math.cos((30 + 60 * k) * Math.PI / 180), Math.sin((30 + 60 * k) * Math.PI / 180)]);
+const B = D.boundary.map(ring => ring.map(([la, lo]) => [mx(lo), my(la)]));
+const ST = D.stations.map(([la, lo, nm]) => [mx(lo), my(la), nm]);
+const CO = D.counters.map(([la, lo, v, rd]) => [mx(lo), my(la), v, rd]);
+const SC = D.scooters.map(([la, lo, k]) => [mx(lo), my(la), k]);
+const xs = B.flat().map(p => p[0]), ys = B.flat().map(p => p[1]);
+const EXT = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
 
-let layer = "j", step = D.steps.length;
+const box = document.getElementById("map");
+const cv = document.createElement("canvas");
+box.appendChild(cv);
+const ctx = cv.getContext("2d");
+const view = { s: 0.02, x: 0, y: 0 };  // px per metre, metre at the top-left corner
+let W = 0, Hpx = 0, selected = -1;
+function fit() {
+  const pad = 16, s = Math.min((W - 2 * pad) / (EXT[2] - EXT[0]), (Hpx - 2 * pad) / (EXT[3] - EXT[1]));
+  view.s = s;
+  view.x = (EXT[0] + EXT[2]) / 2 - W / 2 / s;
+  view.y = (EXT[1] + EXT[3]) / 2 - Hpx / 2 / s;
+}
+function resize() {
+  const r = box.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const first = !W;
+  W = r.width; Hpx = r.height;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(Hpx * dpr);
+  cv.style.width = W + "px"; cv.style.height = Hpx + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (first) fit();
+  draw();
+}
+const px = x => (x - view.x) * view.s, py = y => (y - view.y) * view.s;
+
+let layer = "j", step = D.steps.length, fills = new Array(N);
 const LAYERS = {
   j: { name: "J (koszt)", low: "wyższy koszt", high: "niższy koszt = lepsze miejsce" },
   t: { name: "T ruch samochodowy", low: "0", high: "1" },
@@ -289,69 +266,131 @@ const LAYERS = {
   s: { name: "S bezpieczeństwo", low: "0 = DDR / CPR", high: "1 = wielopasmówka bez DDR" },
   d: { name: "d<sub>net</sub>", low: "0 m", high: `≥ ${int(P.r * 2)} m` },
 };
+const show = { stations: true, counters: false, scooters: false };
+const isPicked = i => D.steps.slice(0, step).some(s => s.i === i);
 
-function popup(i) {
+function draw() {
+  if (!W) return;
+  ctx.fillStyle = css("--map-bg");
+  ctx.fillRect(0, 0, W, Hpx);
+  const r = D.hexSize * view.s, x0 = view.x, y0 = view.y, x1 = x0 + W / view.s, y1 = y0 + Hpx / view.s, m = D.hexSize;
+  for (let i = 0; i < N; i++) {
+    if (HX[i] < x0 - m || HX[i] > x1 + m || HY[i] < y0 - m || HY[i] > y1 + m) continue;
+    const cx = px(HX[i]), cy = py(HY[i]);
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) ctx.lineTo(cx + r * CORN[k][0], cy + r * CORN[k][1]);
+    ctx.closePath();
+    ctx.fillStyle = fills[i];
+    ctx.fill();
+    if (r > 6) { ctx.strokeStyle = css("--map-bg"); ctx.lineWidth = 0.6; ctx.stroke(); }
+  }
+  ctx.strokeStyle = css("--ink"); ctx.lineWidth = 1.5; ctx.globalAlpha = 0.75;
+  for (const ring of B) { ctx.beginPath(); ring.forEach(([x, y]) => ctx.lineTo(px(x), py(y))); ctx.closePath(); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  const dots = (arr, rad, color, edge) => {
+    ctx.fillStyle = color;
+    for (const p of arr) {
+      ctx.beginPath(); ctx.arc(px(p[0]), py(p[1]), rad, 0, 2 * Math.PI);
+      ctx.fill();
+      if (edge) { ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke(); }
+    }
+  };
+  if (show.scooters) { ctx.globalAlpha = 0.7; dots(SC, view.s > 0.05 ? 2 : 1.3, "#0f9d8a"); ctx.globalAlpha = 1; }
+  if (show.counters) dots(CO, 3.2, "#2f2a25", "#ffffff");
+  if (show.stations) dots(ST, view.s > 0.05 ? 3.5 : 2.5, css("--station"), "#ffffff");
+  if (selected >= 0) {
+    const cx = px(HX[selected]), cy = py(HY[selected]);
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) ctx.lineTo(cx + r * CORN[k][0], cy + r * CORN[k][1]);
+    ctx.closePath(); ctx.strokeStyle = css("--ink"); ctx.lineWidth = 2.5; ctx.stroke();
+  }
+  // numbered pins: picks so far, plus the next pick as "?"
+  ctx.font = "700 12px " + css("--f-mono"); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  D.steps.forEach((s, k) => {
+    if (k > step) return;
+    const next = k === step, cx = px(mx(s.lon)), cy = py(my(s.lat));
+    ctx.beginPath(); ctx.arc(cx, cy, 12, 0, 2 * Math.PI);
+    ctx.fillStyle = next ? css("--surface") : css("--accent"); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = next ? css("--accent") : css("--surface"); ctx.stroke();
+    ctx.fillStyle = next ? css("--accent") : css("--accent-ink");
+    ctx.fillText(next ? "?" : String(k + 1), cx, cy + 0.5);
+  });
+}
+
+function info(i) {
+  const el = document.getElementById("hexinfo");
+  if (i < 0) { el.innerHTML = "Kliknij heksagon, żeby zobaczyć jego wartości."; return; }
   const d = dSteps[step][i];
   const why = H.st[i] ? `stacji w heksie: ${H.st[i]}` : H.cand[i] ? "kandydat" : "bez ulic, poza rankingiem";
-  return `<div class="pop"><b>J ${fmt(cost(i, dSteps[step]), 3)}</b> · ${why}<br>` +
-    `T ${fmt(H.t[i])} (≈ ${int(H.tRaw[i])} aut/h)<br>E ${fmt(H.e[i])} (${H.eRaw[i]} zdarzeń)<br>` +
-    `S ${fmt(H.s[i])}<br>d<sub>net</sub> ${isFinite(d) ? int(d) + " m" : "> " + int(D.maxR) + " m"} · P ${fmt(pen(d), 3)}</div>`;
+  el.innerHTML = `<b>J ${fmt(cost(i, dSteps[step]), 3)}</b> <span>${why}</span>` +
+    `<span>T ${fmt(H.t[i])} (≈ ${int(H.tRaw[i])} aut/h)</span><span>E ${fmt(H.e[i])} (${H.eRaw[i]} zdarzeń)</span>` +
+    `<span>S ${fmt(H.s[i])}</span><span>d<sub>net</sub> ${isFinite(d) ? int(d) + " m" : "> " + int(D.maxR) + " m"} · P ${fmt(pen(d), 3)}</span>` +
+    `<span class="note">${H.lat[i].toFixed(5)}, ${H.lon[i].toFixed(5)}</span>`;
 }
 
 function paint() {
   const d = dSteps[step];
-  let vals, lo, hi;
+  let vals, lo = Infinity, hi = -Infinity;
   if (layer === "j") {
     vals = new Float64Array(N);
-    lo = Infinity; hi = -Infinity;
     for (let i = 0; i < N; i++) { vals[i] = cost(i, d); if (H.cand[i]) { lo = Math.min(lo, vals[i]); hi = Math.max(hi, vals[i]); } }
   }
   const none = css("--none");
   for (let i = 0; i < N; i++) {
-    let fill;
-    if (layer === "j") fill = (H.cand[i] && !isPicked(i)) ? ramp((hi - vals[i]) / (hi - lo)) : none;
-    else if (layer === "d") fill = ramp(isFinite(d[i]) ? d[i] / (P.r * 2) : 1);
-    else fill = ramp(H[layer][i]);
-    polys[i].setStyle({ fillColor: fill });
+    if (layer === "j") fills[i] = (H.cand[i] && !isPicked(i)) ? ramp((hi - vals[i]) / (hi - lo)) : none;
+    else if (layer === "d") fills[i] = ramp(isFinite(d[i]) ? d[i] / (P.r * 2) : 1);
+    else fills[i] = ramp(H[layer][i]);
   }
   const L_ = LAYERS[layer];
   document.getElementById("legend").innerHTML =
-    `<span><b>${L_.name}</b></span><span>${L_.low} <i class="ramp" style="background:${layer === "j" ? rampCss : rampCss}"></i> ${L_.high}</span>` +
+    `<span><b>${L_.name}</b></span><span>${L_.low} <i class="ramp" style="background:${rampCss}"></i> ${L_.high}</span>` +
     (layer === "j" ? `<span><i class="sw" style="background:${none}"></i> stacja, bez ulic albo już wybrany</span>` : "") +
     `<span><i class="dot" style="background:${css("--station")}"></i> stacja Veturilo</span>` +
     `<span><i class="dot" style="background:#2f2a25"></i> licznik ruchu (atrapa)</span>` +
     `<span><i class="dot" style="background:#0f9d8a"></i> start / koniec hulajnogi (atrapa)</span>`;
-  pins();
   const st = step ? D.steps[step - 1] : null;
   document.getElementById("step-label").innerHTML = step === 0
     ? "Stan obecny: tylko istniejące stacje"
     : `Po ${step} z ${D.steps.length} nowych stacji · ostatnia: heks ${st.hex}, J ${fmt(st.j, 3)}`;
   document.querySelectorAll("#rows tr").forEach((tr, k) => tr.classList.toggle("done", k < step));
-}
-const isPicked = i => D.steps.slice(0, step).some(s => s.i === i);
-
-const pinLayer = L.layerGroup().addTo(map);
-function pins() {
-  pinLayer.clearLayers();
-  D.steps.forEach((s, k) => {
-    if (k > step) return;
-    const next = k === step;
-    L.marker([s.lat, s.lon], { icon: L.divIcon({ className: "", html: `<span class="pin${next ? " next" : ""}">${next ? "?" : k + 1}</span>`, iconSize: [26, 26] }),
-      title: next ? `Następny wybór: heks ${s.hex}` : `Propozycja ${k + 1}` }).addTo(pinLayer);
-  });
+  info(selected);
+  draw();
 }
 
-// points
-const stationLayer = L.layerGroup(D.stations.map(([la, lo, nm]) =>
-  L.circleMarker([la, lo], { renderer, radius: 3, weight: 1, color: "#fff", fillColor: css("--station"), fillOpacity: 1 }).bindTooltip(nm))).addTo(map);
-const counterLayer = L.layerGroup(D.counters.map(([la, lo, v, rd]) =>
-  L.circleMarker([la, lo], { renderer, radius: 3.5, weight: 1, color: "#fff", fillColor: "#2f2a25", fillOpacity: 1 })
-    .bindTooltip(`Licznik (atrapa): ${v} aut/h średnio, droga: ${rd}`)));
-const scooterLayer = L.layerGroup(D.scooters.map(([la, lo, k]) =>
-  L.circleMarker([la, lo], { renderer, radius: 1.8, weight: 0, fillColor: k ? "#0f9d8a" : "#5fd3c0", fillOpacity: 0.75, interactive: false })));
-const toggle = (id, lyr) => document.getElementById(id).addEventListener("change", e => e.target.checked ? lyr.addTo(map) : map.removeLayer(lyr));
-toggle("show-stations", stationLayer); toggle("show-counters", counterLayer); toggle("show-scooters", scooterLayer);
+// pan (drag), zoom (wheel, pinch via buttons), click = pick a hex
+function zoomAt(f, sx, sy) {
+  const s = Math.max(0.005, Math.min(1.5, view.s * f));
+  view.x += sx / view.s - sx / s; view.y += sy / view.s - sy / s; view.s = s;
+  draw();
+}
+let drag = null;
+cv.addEventListener("pointerdown", e => { drag = { x: e.clientX, y: e.clientY, moved: false }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+  if (drag.moved) { view.x -= dx / view.s; view.y -= dy / view.s; drag.x = e.clientX; drag.y = e.clientY; draw(); }
+});
+cv.addEventListener("pointerup", e => {
+  if (drag && !drag.moved) {
+    const r = cv.getBoundingClientRect(), wx = (e.clientX - r.left) / view.s + view.x, wy = (e.clientY - r.top) / view.s + view.y;
+    let best = -1, bd = D.hexSize * D.hexSize;
+    for (let i = 0; i < N; i++) { const q = (HX[i] - wx) ** 2 + (HY[i] - wy) ** 2; if (q < bd) { bd = q; best = i; } }
+    selected = best; info(best); draw();
+  }
+  drag = null;
+});
+cv.addEventListener("wheel", e => {
+  e.preventDefault();
+  const r = cv.getBoundingClientRect();
+  zoomAt(e.deltaY < 0 ? 1.25 : 0.8, e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
+document.getElementById("zoom-in").addEventListener("click", () => zoomAt(1.5, W / 2, Hpx / 2));
+document.getElementById("zoom-out").addEventListener("click", () => zoomAt(1 / 1.5, W / 2, Hpx / 2));
+document.getElementById("zoom-fit").addEventListener("click", () => { fit(); draw(); });
+function centerOn(lat, lon, s) { view.s = s; view.x = mx(lon) - W / 2 / s; view.y = my(lat) - Hpx / 2 / s; draw(); }
 
+for (const k of Object.keys(show)) document.getElementById("show-" + k).addEventListener("change", e => { show[k] = e.target.checked; draw(); });
 document.querySelectorAll("[data-layer]").forEach(b => b.addEventListener("click", () => {
   layer = b.dataset.layer;
   document.querySelectorAll("[data-layer]").forEach(x => x.setAttribute("aria-pressed", x === b));
@@ -370,7 +409,9 @@ playBtn.addEventListener("click", () => {
     step++; slider.value = step; paint();
   }, matchMedia("(prefers-reduced-motion: reduce)").matches ? 2000 : 1200);
 });
-
+new ResizeObserver(resize).observe(box);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paint);
+new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 // ---------- table ----------
 document.getElementById("rows").innerHTML = D.steps.map(s =>
   `<tr tabindex="0" data-lat="${s.lat}" data-lon="${s.lon}"><td><span class="num">${s.rank}</span></td>` +
@@ -378,7 +419,7 @@ document.getElementById("rows").innerHTML = D.steps.map(s =>
   `<td><b>${fmt(s.j, 3)}</b></td><td>${fmt(s.t)}</td><td>${fmt(s.e)}</td><td>${s.dNet == null ? "∞" : int(s.dNet)}</td>` +
   `<td>${fmt(s.p, 3)}</td><td>${fmt(s.s)}</td><td>${s.changed.length}</td></tr>`).join("");
 document.querySelectorAll("#rows tr").forEach(tr => {
-  const go = () => { map.setView([+tr.dataset.lat, +tr.dataset.lon], 15); document.getElementById("map").scrollIntoView({ behavior: "smooth", block: "center" }); };
+  const go = () => { centerOn(+tr.dataset.lat, +tr.dataset.lon, 0.25); document.getElementById("map").scrollIntoView({ behavior: "smooth", block: "center" }); };
   tr.addEventListener("click", go);
   tr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
 });

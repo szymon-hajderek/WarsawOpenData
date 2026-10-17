@@ -7,7 +7,8 @@ Where to put new Veturilo stations.
 - `backend/sources/siting.py`: Warsaw boundary from Nominatim, S from OSM tags (one osmium pass), mock traffic counters and
   e-scooter events, d_net by multi-source Dijkstra on the bike graph, cached hex table, `GET /api/veturilo/siting`, `warm()`.
 - `backend/siting_report.py`: trial report `data/SITING_REPORT.md` + `data/siting_report.json` + map page
-  `artifacts/veturilo-siting.html` (layers T / E / S / d_net / J, mock points, greedy step slider).
+  `artifacts/veturilo-siting.html` (layers T / E / S / d_net / J, mock points, greedy step slider). The map is drawn on our
+  own canvas (drag, wheel / buttons to zoom, click a hex); no Leaflet, no tiles, so it works offline and in the artifact viewer.
 - Committed data: `data/geojson/warsaw.geojson`, `data/mock/traffic_counts.json`, `data/mock/scooter_events.json.gz` (MOCK).
 
 Assumptions (decided while building):
