@@ -20,7 +20,7 @@ Done:
 
 - Map UI in Polish: start / destination fields, list of options, route preview, route details (mock data).
 - Two map looks (`lavender`, `warsaw`), light and dark mode.
-- "Which vehicle am I in?" window (mock data).
+- "Which vehicle am I in?" window: nearest live buses by MSE (`POST /api/live/nearest-buses`).
 - Data download and parsers for GTFS, City Hall live APIs, Veturilo (GBFS) and the OSM street graph.
 - FastAPI endpoints for every data source.
 
@@ -87,6 +87,8 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - `uv run uvicorn main:app --reload` starts the API at http://localhost:8000 (docs at `/docs`)
    - `uv run python report.py` rebuilds `data/REPORT.md` (sources, ID links, graph sizes, endpoints)
    - the first request that needs GTFS / OSM builds caches in `data/derived/` (~25 s / ~45 s)
+   - `uv run pytest ../algorithms` runs the algorithm tests (pytest is in the `dev` group, installed by `uv sync`)
+   - optional `.env` setting `LIVE_BUSES_URL`: where bus detection reads live bus positions (default: this backend)
 5. **Routing API** (`backend/app/`, serves the frontend: routes + geocode). Separate from the data
    layer, uses venv + `requirements.txt` (not uv).
    - `cd backend && py -m venv .venv` (use `py`; on Windows `python` is a Microsoft Store alias)
