@@ -1,18 +1,69 @@
 # WarsawOpenData
 
-Route planner for Warsaw.
+Route planner for Warsaw. It combines Veturilo (city bikes) with public transport at every stage of a trip.
+A 24-hour hackathon project built on Warsaw open data.
 
-> **Status:** early idea. There is no code yet.
+> **Status:** proof of concept. The frontend UI works with **mock routing**. The backend downloads and parses
+> the data and serves it through FastAPI. Real routing is not built yet.
 
-## Planned features
+## Goal
 
+1. The user sets a start (own location or typed) and a destination.
+2. The app shows n connection options that use Veturilo at any stage.
+3. The user picks one and sees the route on the map, with a summary and steps.
+
+The project aims at inclusivity (walking, cycling and stroller pace), safety, privacy and scalability to other cities.
+
+## Features
+
+Done:
+
+- Map UI in Polish: start / destination fields, list of options, route preview, route details (mock data).
+- Two map looks (`lavender`, `warsaw`), light and dark mode.
+- "Which vehicle am I in?" window (mock data).
+- Data download and parsers for GTFS, City Hall live APIs, Veturilo (GBFS) and the OSM street graph.
+- FastAPI endpoints for every data source.
+
+Planned:
+
+- **Real routing** with OpenTripPlanner (GTFS, GBFS, OSM).
 - **Multi-stop routes.** Plan one trip through many places, with many means of transport.
 - **Online route planning.** Change the route while the user travels.
 - **Live delays.** Use real-time vehicle data to find the fastest route now.
 
+## Tech stack
+
+- Frontend: React + TypeScript + Vite, Material UI, Leaflet + MapLibre (OpenFreeMap tiles)
+- Backend: Python + FastAPI, managed with uv
+- Routing: OpenTripPlanner (planned)
+- Database: none for now, raw files in `data/`
+
+## Folder structure
+
+- `frontend/` — React app
+- `backend/` — FastAPI app, data download and parsers (see `backend/README.md`)
+- `data/` — datasets and the data report `data/REPORT.md`
+- `algorithms/`, `db/`, `routing/` — placeholders for the next steps
+- `ui/` — UI concept art
+- `changes/` — one change note per branch
+
+## Quick start
+
+Full steps are in "Environment setup (for agents)" below. In short:
+
+```bash
+cd frontend && npm install && npm run dev          # http://localhost:5173
+cd backend && uv sync && uv run uvicorn main:app --reload   # http://localhost:8000/docs
+```
+
 ## Data
 
-- [Warsaw city API portal](https://api.um.warszawa.pl/)
+- [Warsaw city API portal](https://api.um.warszawa.pl/) — live vehicle positions and timetables
+- GTFS from [mkuran.pl](https://mkuran.pl/gtfs/) — ZTM, WKD and other trains
+- Veturilo stations and bikes (Nextbike GBFS)
+- OpenStreetMap street graph (BBBike extract)
+
+Details, ID links and graph sizes: `data/REPORT.md`.
 
 ## Environment setup (for agents)
 
