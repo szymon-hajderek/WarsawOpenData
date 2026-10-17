@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Autocomplete,
   Box,
@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import MyLocation from '@mui/icons-material/MyLocation';
 import PlaceOutlined from '@mui/icons-material/PlaceOutlined';
-import { searchPlaces } from '../api/geocode';
+import { MIN_QUERY, searchPlaces } from '../api/geocode';
 import type { Place } from '../types';
 import { RADIUS } from '../layout';
 
@@ -38,6 +38,9 @@ export default function PlaceField({
   const [input, setInput] = useState(value?.label ?? '');
   const [results, setResults] = useState<Place[]>([]);
   const [loading, setLoading] = useState(false);
+  // The position only orders results; a new fix must not restart a search in progress.
+  const nearRef = useRef(currentLocation?.position);
+  nearRef.current = currentLocation?.position;
 
   // Keep the text in sync when the value changes from outside (swap, geolocation).
   useEffect(() => {
@@ -46,7 +49,7 @@ export default function PlaceField({
 
   useEffect(() => {
     const q = input.trim();
-    if (q.length < 3 || q === value?.label) {
+    if (q.length < MIN_QUERY || q === value?.label) {
       setResults([]);
       setLoading(false);
       return;
@@ -55,14 +58,14 @@ export default function PlaceField({
     setLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const found = await searchPlaces(q, ac.signal); // Nominatim: debounce, max ~1 req/s
+        const found = await searchPlaces(q, ac.signal, nearRef.current); // Nominatim: debounce, max ~1 req/s
         if (!ac.signal.aborted) setResults(found);
       } catch {
         if (!ac.signal.aborted) setResults([]);
       } finally {
         if (!ac.signal.aborted) setLoading(false);
       }
-    }, 450);
+    }, 300);
     return () => {
       ac.abort(); // also cancels the request that is already on its way
       clearTimeout(timer);
@@ -95,7 +98,15 @@ export default function PlaceField({
       onClose={(_, reason) => {
         if (reason === 'blur' || reason === 'escape') setInput(value?.label ?? '');
       }}
-      noOptionsText={typing ? (loading ? 'Szukam…' : 'Brak wyników w Warszawie') : 'Wpisz adres lub miejsce'}
+      noOptionsText={
+        typing
+          ? loading
+            ? 'Szukam…'
+            : input.trim().length < 3
+              ? 'Brak przystanków. Wpisz co najmniej 3 znaki, aby szukać adresów.'
+              : 'Brak wyników w Warszawie'
+          : 'Wpisz adres lub miejsce'
+      }
       loadingText="Szukam…"
       clearText="Wyczyść"
       openText="Otwórz"

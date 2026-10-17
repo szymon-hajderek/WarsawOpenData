@@ -1,6 +1,10 @@
 export type LatLng = [number, number];
 
-export type TransportMode = 'walk' | 'bike' | 'bus' | 'tram' | 'metro' | 'rail';
+/** GPS order `[lon, lat]` (the start and end of a leg). */
+export type LonLat = [number, number];
+
+/** `bike` = the rider's own bike, `veturilo` = a rented Veturilo bike. */
+export type TransportMode = 'walk' | 'bike' | 'veturilo' | 'bus' | 'tram' | 'metro' | 'rail';
 
 /** Travel profile: pace of walking / cycling and accessibility needs. */
 export type Profile = 'standard' | 'slow' | 'accessible';
@@ -21,6 +25,9 @@ export interface RouteLeg {
   line?: string;
   durationMin: number;
   distanceM: number;
+  /** Where the leg starts and ends, `[lon, lat]`. */
+  start?: LonLat;
+  end?: LonLat;
   path: LatLng[];
   /** 1-based number of the intermediate stop this leg ends at (trips with stops). */
   stop?: number;
@@ -37,9 +44,10 @@ export interface RouteOption {
   arrival: string;
   durationMin: number;
   distanceM: number;
-  calories: number;
+  /** Metres on foot (`walk` legs) and by bike (`bike` + `veturilo` legs). */
+  walkDistance: number;
+  bikeDistance: number;
   transfers: number;
-  costPln: number;
   tags: string[];
   /** Start, the intermediate stops in the order they are visited, destination (trips with stops only). */
   waypoints?: Place[];
@@ -80,7 +88,7 @@ export interface BusDelayDetail {
 }
 
 /** Public transport vehicles the user can be inside of (no walking / Veturilo). */
-export type VehicleMode = Exclude<TransportMode, 'walk' | 'bike'>;
+export type VehicleMode = Exclude<TransportMode, 'walk' | 'bike' | 'veturilo'>;
 
 export interface VehicleCandidate {
   id: string;

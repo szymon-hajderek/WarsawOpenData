@@ -19,8 +19,7 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 - No authentication on our side. The keys for City Hall endpoints live in `.env` on the server (`ACCESS.md`).
 - Examples below are real answers from a running server. Long lists are cut to 1-2 items and end with `"..."`.
 - Coordinates are WGS84 `lat` / `lon` in degrees. Times are Warsaw local time.
-- Endpoints: 27 (data API 24: meta 2, GTFS 8, live and City Hall 4, bus detection 2, Veturilo 5, OSM 3;
-  routing API 3).
+- Endpoint groups are listed below, plus 6 simulation endpoints that exist only in simulation mode (`SIM_SCENARIO`).
 
 | Group | Prefix | Source file |
 |---|---|---|
@@ -28,10 +27,12 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 | [GTFS](#gtfs-timetables-and-stops) | `/api/gtfs` | `backend/sources/mkuran.py` |
 | [Live vehicles](#live-vehicles-and-city-hall) | `/api/live`, `/api/ztm` | `backend/sources/um_warszawa.py` |
 | [Bus detection](#bus-detection) | `/api/live` | `backend/bus_detect.py` |
-| [Veturilo](#veturilo-city-bikes) | `/api/veturilo` | `backend/sources/nextbike.py` |
+| [Veturilo](#veturilo-city-bikes) | `/api/veturilo` | `backend/sources/nextbike.py`, `backend/sources/siting.py` (`/siting`) |
 | [OSM](#osm-street-graph) | `/api/osm` | `backend/sources/osm.py` |
 | [Stations](#stations-stationlocations) | `/api/stations` | `backend/api_stations.py` |
 | [Routing API](#routing-api-backendapp) | `/api/routes`, `/api/geocode`, `/health` | `backend/app/` |
+| [Journey statistics](#journey-statistics) | `/api/journeys` | `backend/app/api/journeys.py` |
+| [Simulation](#simulation-only-with-sim_scenario) | `/api/sim` | `backend/sim/api.py` |
 
 ## IDs
 
@@ -40,6 +41,8 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 - Route ids: `ztm:131`. Group ids: `ztm:7009`. Veturilo station: `station_id` (`203610`), global id `vet:203610`.
 - `line` in live endpoints = GTFS `route_short_name`; `route_id` = `ztm:<line>`.
 - Veturilo and OSM have no shared ids with GTFS: join them by distance.
+- Geocoded places use OSM object references: `osm:node:123`, `osm:way:123` or `osm:relation:123`.
+  The former `osm-<place_id>` was a Nominatim database key, not a durable object reference.
 
 ---
 
@@ -402,6 +405,34 @@ Bike types (classic, e-bike, ...). Match `vehicle_type_id` from the endpoints ab
   "rider_capacity": 1, "propulsion_type": "human"}, "..."]
 ```
 
+### `GET /api/veturilo/siting`
+
+Best hexes for **new** Veturilo stations, picked one by one (`backend/sources/siting.py`,
+`algorithms/station_siting.py`). Warsaw is split into hexagons (radius 175 m); each gets
+`J = -alpha*T*(1 + delta*E) + beta*P(dNet) + gamma*S`, `P(d) = (1 - d/r)^2` for `d < r`, else 0. Lowest `J` wins;
+then a station is placed there and `dNet` is updated before the next pick. **`t` and `e` come from MOCK data**
+(`data/mock/`). Hexes that already have a station or have no street are never proposed.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `n` | 10 | number of proposals, 1..50 |
+| `alpha` | 1 | weight of car traffic `T`, 0..100 |
+| `beta` | 1 | weight of the penalty `P` for being near a station, 0..100 |
+| `gamma` | 0.5 | weight of the safety value `S`, 0..100 |
+| `delta` | 0.5 | how much e-scooters `E` boost `T`, 0..100 |
+| `r` | 1000 | penalty radius `R` in metres, 50..5000 |
+
+Answer fields: `rank`, `hex` (axial `q:r`), `lat`, `lon` (hex centre), `j`, `t` (0..1), `e` (0..1), `dNet` (bike-network
+metres to the nearest station at the moment of the pick, `null` = more than 5000 m), `p`, `s` (0 = bike path, 1 = multi-lane
+road without one). Out-of-range parameter -> 422. While the hex grid is built at server start -> 503.
+
+```json
+[{"rank": 1, "hex": "-6331:22123", "lat": 52.226191, "lon": 21.053264, "j": -1.1654, "t": 1.0, "e": 0.7389,
+  "dNet": 1241.4, "p": 0.0, "s": 0.4082},
+ {"rank": 2, "hex": "-6352:22121", "lat": 52.22147, "lon": 20.955353, "j": -1.1533, "t": 1.0, "e": 0.6526,
+  "dNet": 848.4, "p": 0.023, "s": 0.3}]
+```
+
 ---
 
 ## Stations (StationLocations)
@@ -534,19 +565,26 @@ Types:
 
 | Type | Fields |
 |---|---|
-| `LatLng` | `[lat, lon]` |
+| `LatLng` | `[lat, lon]` (used in `path` and `Place.position`) |
+| `LonLat` | `[lon, lat]` (GPS / GeoJSON order, used in a leg's `start` and `end`) |
 | `Place` | `id`, `label`, `sublabel` (optional), `position` (`LatLng`), `isCurrentLocation` (optional bool) |
-| `RouteLeg` | `mode` (`walk`, `bike`, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names), `line` (or `null`), `durationMin`, `distanceM`, `path` (list of `LatLng`) |
-| `RouteOption` | `id`, `title`, `legs`, `departure`, `arrival` (`HH:MM`), `durationMin`, `distanceM`, `calories`, `transfers`, `costPln`, `tags` |
+| `RouteLeg` | `mode` (`walk`, `bike` = own bike, `veturilo` = rented Veturilo bike, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names of the start and end stop or place), `line` (or `null`), `durationMin`, `distanceM`, `start`, `end` (`LonLat`, the first and last point of `path`), `path` (list of `LatLng`), `stop` (optional, 1-based number of the intermediate stop the leg ends at) |
+| `RouteOption` | `id`, `title`, `legs`, `departure`, `arrival` (`HH:MM`), `durationMin`, `distanceM`, `walkDistance`, `bikeDistance`, `transfers`, `tags`, `waypoints` (optional, trips with stops) |
+
+`walkDistance` is the sum of the `walk` legs and `bikeDistance` the sum of the `bike` and `veturilo` legs, in metres; `distanceM` is the whole trip.
+There are no `costPln` and `calories` any more: calories are worked out from the legs (`mode`, `distanceM`, `durationMin`; see `algorithms/calories.py`).
 
 ### `POST /api/routes`
 
 Route options between two places, from the GTFS timetable, OSM walk/bike paths and live Veturilo
 availability. Up to 6 options: a walk, a Veturilo ride, a Veturilo ride joined to one direct
 public-transport ride (bike then bus/tram/metro/rail, or the ride then a bike), Veturilo between
-two rides, direct rides and one transfer. A live bus or tram that is behind its timetable adds an
+two rides, direct rides, one transfer and two transfers. Boarding stops are chosen by OSM walk time
+among the nearest posts, not by straight-line distance alone. A live bus or tram that is behind its
+timetable, a GTFS-RT trip update, or a PKP PLK delay (when `PLK_KEY` is set) adds an
 `opóźnienie N min` tag and shifts departure and arrival. Shape distances in the GTFS file are
 kilometers and are stored as meters. Boarding stops are one post per stop group, so a big node does not fill the whole list.
+Changes between platforms use `transfers.txt` and `pathways.txt` when a feed has them, and posts of the same stop group otherwise.
 The clock is Europe/Warsaw. Before 04:00 the search uses the previous GTFS service day
 (times at 24:00 and later).
 `profile` `accessible` drops Veturilo and stops or trips marked wheelchair-inaccessible (`"2"`).
@@ -555,6 +593,11 @@ A line that appears in the current ZTM alerts gets the tag `Zmiana na trasie`.
 Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow` or `accessible`, default `standard`),
 `when` (optional, Warsaw local `HH:MM` or an ISO datetime; empty means now),
 `via` (optional list of `Place`, at most 5) and `order` (`given` or `optimal`).
+Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Veturilo), `stepFree` (bool),
+`maxTransfers` (`0`, `1`, `2` or `null` = up to two), `excludedDistricts` (Warsaw district names),
+`excludedPoints` (`position`, `radiusM`) and `body` (`wheelchair` `none` | `manual` | `electric`; a wheelchair
+implies `accessible` routing and no Veturilo; `weightKg`, `heightCm`, `age` and `sex` are accepted but not used by the route search). A trip with stops plans the next leg from the
+previous arrival plus 2 minutes at the stop. `order` `optimal` minimises a time estimate, not straight-line distance.
 
 Answer: list of `RouteOption`. Public-transport geometry follows the GTFS shape between the stops
 boarded and alighted. Walk and bike geometry follows the OSM graph (a straight line only when the
@@ -564,11 +607,13 @@ graph has no path).
 [{"id": "pt-ztm:trip", "title": "175",
   "legs": [{"mode": "walk", "from": "Start", "to": "Marszałkowska", "line": null,
             "durationMin": 4, "distanceM": 280,
+            "start": [21.0122, 52.2297], "end": [21.015, 52.231],
             "path": [[52.2297, 21.0122], [52.231, 21.015], "..."]},
            {"mode": "bus", "from": "Marszałkowska", "to": "Metro Politechnika", "line": "175",
-            "durationMin": 12, "distanceM": 2400, "path": [[52.231, 21.015], "..."]}],
+            "durationMin": 12, "distanceM": 2400,
+            "start": [21.015, 52.231], "end": [21.0054, 52.2194], "path": [[52.231, 21.015], "..."]}],
   "departure": "15:59", "arrival": "16:18", "durationMin": 19, "distanceM": 2800,
-  "calories": 15, "transfers": 0, "costPln": 3.4, "tags": ["Najszybsza"]}, "..."]
+  "walkDistance": 280, "bikeDistance": 0, "transfers": 0, "tags": ["Najszybsza"]}, "..."]
 ```
 
 Errors: `422` when the body is not valid, or when `when` is not `HH:MM` or an ISO datetime.
@@ -576,20 +621,194 @@ Errors: `422` when the body is not valid, or when `when` is not `HH:MM` or an IS
 
 ### `GET /api/geocode`
 
-Place search: proxy to OpenStreetMap Nominatim, limited to Warsaw, up to 6 results, duplicates removed.
+Place search for the start and destination fields, limited to Warsaw. The answer lists our own places first: up to 4 stops
+(one per stop name, at the centre of its posts, `sublabel` `Przystanek`, `id` `stop-<gtfs id>`) and Veturilo stations
+(`sublabel` `Stacja Veturilo`, `id` `veturilo-<station id>`), matched on the start of any word without regard to case or Polish
+accents (`marszalk` finds `Marszałkowska`). Then come OpenStreetMap Nominatim results (addresses and other places, up to 6, duplicates
+and places already listed removed), only for texts of 3 or more characters.
+Nominatim place IDs use `osm:<osm_type>:<osm_id>`; Nominatim results without an OSM object reference are omitted.
 
 | Query | Type | Default | Meaning |
 |---|---|---|---|
 | `q` | string, at least 1 character | required | search text |
+| `lat`, `lon` | number | none | the user's position; equally good local matches are ordered by distance from it |
 
 ```json
-[{"id": "osm-177963717", "label": "Dworzec Centralny", "sublabel": "Aleje Jerozolimskie 54, Śródmieście",
-  "position": [52.2288747, 21.0040358], "isCurrentLocation": null}, "..."]
+[{"id": "osm:way:126234965", "label": "Koneser", "sublabel": "Praga-Północ",
+  "position": [52.2555027, 21.0452825], "isCurrentLocation": null}, "..."]
 ```
 
-Errors: `422` for an empty `q` or a `q` longer than 200 characters; `502 {"detail": "Geocoding service failed"}`
-when Nominatim fails. The server keeps answers for 10 minutes, so a repeated search does not reach Nominatim.
+Errors: `422` for an empty `q`, a `q` longer than 200 characters or a position out of range; `502 {"detail": "Geocoding service failed"}`
+when Nominatim fails and no stop or station matched (when some matched, they are returned alone). The server keeps answers for 10 minutes, so a repeated search does not reach Nominatim.
 
 ### `GET /health`
 
 Liveness check: `{"status": "ok"}`.
+
+---
+
+## Journey statistics
+
+### `POST /api/journeys`
+
+Records one explicitly completed GPS recording, only when the user has opted in (off by default).
+The frontend snapshots the selected whole-trip start and destination at recording start. Searches,
+previews, mock routes, interrupted recordings and recordings without usable GPS are not submitted.
+This is independent of the stateless speed-history endpoints.
+
+Body: `token` (UUID, generated once per recording), `from` and `to` (each has `id`, `position`
+as `[lat, lon]`, and optional `isCurrentLocation`, default false). No labels, full tracks,
+user/device identifiers or personal preferences are accepted. Unknown fields are rejected.
+
+- GTFS IDs (`ztm:...`, `wkd:...`, `pkp:...`) and Veturilo IDs (`vet:...`) resolve to catalog coordinates.
+- OSM object references (`osm:node:...`, `osm:way:...`, `osm:relation:...`) retain the selected object's coordinates.
+- `id: "current-location"` with `isCurrentLocation: true` resolves to the nearest boarding stop/platform
+  or Veturilo station, by geographic distance (ties by ID). Only that anchor's ID and exact coordinates
+  are persisted; the supplied GPS point is not stored. There is no distance cutoff or spatial grid.
+
+SQLite stores places and daily Warsaw-time origin-destination counts in `db/journey_stats.sqlite`
+(override with `JOURNEY_STATS_DB`). A token-only receipt makes retries atomic and idempotent:
+the first submission returns `200 {"recorded": true}`, and repeats return `200 {"recorded": false}`.
+There are no individual journey timestamps or links between different recordings or users.
+Counters and receipts are retained until the operator clears the database. There is no public read/export API.
+Counts represent completed recordings with selected endpoints, not verified arrival at the destination.
+
+The database and anchor catalog are initialized at server startup from local GTFS and GBFS files.
+Requests never download data or build caches. Statistics failures do not block the frontend's local
+speed-history saving; it makes at most one retry with the same token while sharing remains enabled.
+
+Errors: `422` for malformed input or unknown catalog IDs; `503 {"detail": "journey statistics unavailable"}`
+when initialization/data is unavailable or a database write fails. New statistics logs contain no
+coordinates, labels, request bodies, tokens or user identifiers.
+
+Verified against a running local server (isolated temporary database):
+
+```json
+{"token": "c1b57903-37b5-418d-8e75-cde286eb5a11",
+ "from": {"id": "current-location", "position": [52.248455, 21.044827], "isCurrentLocation": true},
+ "to": {"id": "vet:203610", "position": [52.25602, 21.046219]}}
+```
+
+First answer: `{"recorded": true}`. Repeating that exact request: `{"recorded": false}`.
+
+## Simulation (only with `SIM_SCENARIO`)
+
+For integration tests and demos. Start the server with `SIM_SCENARIO=<name>` (a file
+`integration/scenarios/<name>.json`, see `integration/README.md`). Then:
+
+- the live feeds replay the scenario on a simulated clock: `GET /api/live/vehicles` (recorded or made from
+  GTFS), Veturilo status (saved GBFS file + changes from the scenario) and ZTM alerts. No external API is called,
+  and `PORTAL_KEY` is not needed;
+- `/api/live/nearest-buses`, `/api/live/delay` and departures use the simulated time. The route engine reads the
+  real clock: send the simulated `time` from `GET /api/sim/state` as `when` in `POST /api/routes`;
+- the 3 s vehicle poller is off: each `POST /api/sim/clock` reads the feed once.
+
+Without `SIM_SCENARIO` these endpoints do not exist (`404`).
+`t` and `start` are epoch seconds; `time` is Warsaw local time.
+
+### `GET /api/sim/state`
+
+Clock time and the loaded scenario.
+
+```json
+{"scenario": "trip-gorczewska-daszynskiego", "source": "gtfs", "start": 1792564200.0,
+ "title": "Osiedle Gorczewska -> Rondo Daszynskiego by bus and tram", "t": 1792564200.0,
+ "time": "2026-10-21T08:30:00", "elapsed_s": 0.0}
+```
+
+### `POST /api/sim/clock`
+
+Set and / or move the clock, then bus detection reads the feed at the new time. Answer: same as `GET /api/sim/state`.
+
+| Body field | Type | Meaning |
+|---|---|---|
+| `t` | number, optional | set the clock to this epoch (s) |
+| `step_s` | number 0-3600, optional | then move it forward by this many seconds |
+
+```json
+{"step_s": 60}
+```
+
+```json
+{"scenario": "trip-gorczewska-daszynskiego", "source": "gtfs", "start": 1792564200.0,
+ "title": "Osiedle Gorczewska -> Rondo Daszynskiego by bus and tram", "t": 1792564260.0,
+ "time": "2026-10-21T08:31:00", "elapsed_s": 60.0}
+```
+
+### `GET /api/sim/scenario`
+
+The loaded scenario file as JSON (`title`, `source`, `start`, `trip`, `test`, and optional `recording`,
+`delays`, `alerts`, `veturilo`).
+
+```json
+{"title": "Osiedle Gorczewska -> Rondo Daszynskiego by bus and tram", "source": "gtfs", "start": "2026-10-21T08:30:00",
+ "trip": {"from": {"id": "os-gorczewska", "label": "Osiedle Górczewska", "position": [52.2397, 20.907]}, "...": "..."}}
+```
+
+### `POST /api/sim/scenario`
+
+Load another scenario, forget all vehicles of the previous one and set the clock to its start.
+Body: `{"name": "recorded-bus-ride"}` (lowercase letters, digits and `-`, else `422`).
+Answer: same as `GET /api/sim/state`.
+
+```json
+{"scenario": "recorded-bus-ride", "source": "recorded", "start": 1792243404.1179507,
+ "title": "Which bus am I on? (2-minute recording)", "t": 1792243404.1179507,
+ "time": "2026-10-17T15:23:24", "elapsed_s": 0.0}
+```
+
+Error: `404 {"detail": "unknown scenario"}`.
+
+### `GET /api/sim/scenarios`
+
+Every scenario file in `integration/scenarios/` (the demo lists them). `trip` is `null` for a scenario
+without a planned trip.
+
+```json
+[{"name": "trip-gorczewska-daszynskiego", "title": "Osiedle Gorczewska -> Rondo Daszynskiego by bus and tram",
+  "source": "gtfs",
+  "trip": {"from": {"id": "os-gorczewska", "label": "Osiedle Górczewska", "position": [52.2397, 20.907]},
+           "to": {"id": "rondo-daszynskiego", "label": "Rondo Daszyńskiego", "position": [52.2303, 20.984]},
+           "profile": "standard"}}, "..."]
+```
+
+### `POST /api/sim/ride`
+
+Simulate a user who travels a route option and return the whole timeline (the demo plays it back). The user leaves at
+`option.departure`, walks, waits for a synthetic vehicle of the planned line, rides it and walks on. Takes 30-60 s for a
+long trip, one ride at a time (`409` if no scenario is loaded). Afterwards the clock and the vehicles go back to the
+scenario start, so the next ride starts from the same state.
+
+| Body field | Type | Meaning |
+|---|---|---|
+| `option` | object | a `RouteOption` as `POST /api/routes` returns it |
+| `profile` | string, default `standard` | walking / cycling pace profile (`standard`, `slow`, `accessible`) |
+| `noiseM` | number 0-100, default 15 | GPS error, standard deviation per axis (m) |
+| `seed` | integer, default 1 | the same seed gives the same ride |
+
+Answer: `ok` / `reason` (the ride failed, e.g. no vehicle came in 30 min), `start` / `end` (epoch s), `plan` (legs with
+`mode`, `line`, `path`), `fixes` (every 5 s: `lat` / `lon` what the phone reports, `trueLat` / `trueLon` where the user is,
+`leg` index, `vehicle` id while riding), `events` (`board` / `alight`), `detections` (every 10 s while riding: the
+candidates `POST /api/live/nearest-buses` returned for the last 3 fixes).
+
+```json
+{"ok": true, "reason": "", "start": 1792564260.0, "end": 1792566410.0,
+ "plan": [{"mode": "walk", "line": null, "path": [[52.2397, 20.907], "..."]}, "..."],
+ "fixes": [{"t": 1792564265.0, "lat": 52.239712, "lon": 20.907031, "trueLat": 52.239701, "trueLon": 20.907018,
+            "leg": 0, "vehicle": null}, "..."],
+ "events": [{"t": 1792565100.0, "event": "board", "line": "11", "vehicle": "tram-S11-3", "waitedS": 120.0}, "..."],
+ "detections": [{"t": 1792565130.0, "vehicle": "tram-S11-3",
+                 "candidates": [{"id": "tram-S11-3", "mode": "tram", "line": "11", "direction": "Sielce",
+                                 "vehicle": "S11-3", "brigade": "3", "rmse_m": 20.1}, "..."]}, "..."]}
+```
+
+Errors: `422 {"detail": "bad option: ..."}` (a broken option), `409 {"detail": "no scenario loaded"}`.
+
+In simulation mode `GET /api/live/vehicles` keeps its form. A vehicle made from GTFS has
+`vehicle` = `S<line>-<brigade>` (e.g. `S521-3`); a recorded one keeps its real number:
+
+```json
+[{"line": "161", "brigade": "2", "lat": 52.162864, "lon": 21.212823, "time": "2026-10-17 15:23:04",
+  "vehicle": "1000", "mode": "bus", "route_id": "ztm:161"}, "..."]
+```
+

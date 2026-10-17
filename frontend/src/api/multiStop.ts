@@ -1,5 +1,5 @@
 import type { Place, RouteLeg, RouteOption } from '../types';
-import { haversine } from '../utils/geo';
+import { haversine, sumDistance } from '../utils/geo';
 
 /** Most intermediate stops on one trip (the backend enforces the same limit). */
 export const MAX_STOPS = 5;
@@ -59,9 +59,9 @@ function combine(index: number, segments: RouteOption[], waypoints: Place[]): Ro
     arrival: addMinutes(segments[0].departure, duration),
     durationMin: duration,
     distanceM: segments.reduce((s, o) => s + o.distanceM, 0),
-    calories: segments.reduce((s, o) => s + o.calories, 0),
+    walkDistance: sumDistance(legs, ['walk']),
+    bikeDistance: sumDistance(legs, ['bike', 'veturilo']),
     transfers: segments.reduce((s, o) => s + o.transfers, 0),
-    costPln: Math.round(segments.reduce((s, o) => s + o.costPln, 0) * 100) / 100,
     tags: [],
     waypoints,
   };
@@ -88,12 +88,5 @@ export function combineSegments(perSegment: RouteOption[][], points: Place[]): R
   result.sort((a, b) => a.durationMin - b.durationMin);
 
   result[0]?.tags.push('Najszybsza');
-  if (result.length > 1) {
-    const minCost = Math.min(...result.map((o) => o.costPln));
-    const cheapest = result.filter((o) => o.costPln === minCost);
-    if (cheapest.length === 1) cheapest[0].tags.push('Najtańsza');
-    const active = result.reduce((a, b) => (b.calories > a.calories ? b : a));
-    if (active.calories > 0 && active.tags.length < 2) active.tags.push('Najaktywniejsza');
-  }
   return result;
 }

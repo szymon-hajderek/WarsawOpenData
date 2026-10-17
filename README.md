@@ -36,7 +36,7 @@ Planned:
 - Frontend: React + TypeScript + Vite, Material UI, Leaflet + MapLibre (OpenFreeMap tiles)
 - Backend: Python + FastAPI (data layer managed with uv; routing API in `backend/app/` uses venv)
 - Routing: custom C++ engine (planned); FastAPI is a thin backend in front of it
-- Database: none for now, raw files in `data/`
+- Database: SQLite for opt-in journey counters; source datasets remain raw files in `data/`
 
 ## Folder structure
 
@@ -75,6 +75,8 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
 2. **Frontend** (`frontend/`). Needs Node 18.18 or newer 18.x.
    - `cd frontend && npm install` (if `~/.npm` is root-owned: `npm install --cache <some dir>`)
    - `npm run dev` starts the app at http://localhost:5173
+   - On a phone (same Wi-Fi) the location button needs HTTPS: stop the other dev server and run `npm run dev:https`, then open
+     `https://<laptop-ip>:5173` and accept the self-signed certificate warning once.
    - `npm run build` type-checks and builds
    - `npm run lint` runs ESLint (react-hooks + jsx-a11y rules); `npm test` runs the Vitest tests (jsdom, no browser needed)
    - optional: `VITE_API_URL` in `frontend/.env` points the app at the routing API
@@ -85,7 +87,7 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
      `mazowieckie` (300 MB) and keeps a 31 MB cut, `data/osm/warsaw_ztm.osm.pbf`)
 4. **Backend** (`backend/`, Python + FastAPI, managed with [uv](https://docs.astral.sh/uv/)).
    - install uv: `brew install uv` (or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
-   - `cd backend && uv sync` installs Python 3.12 and all dependencies (`osmium`, `scipy`, `fastapi` ...)
+   - `cd backend && uv sync` installs Python 3.12 and all dependencies (`osmium`, `scipy`, `fastapi`, `tzdata`, `gtfs-realtime-bindings` ...)
    - run every backend command from `backend/`
    - `uv run uvicorn main:app --reload` starts the API at http://localhost:8000 (docs at `/docs`).
      This one process serves the data, geocode and `POST /api/routes` (real GTFS + OSM + Veturilo).
@@ -102,14 +104,41 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - street matrices for every pair of stops (optional): `uv run python preprocess_street.py` (~18 min on 16 threads,
      ~2.4 GB). Details: `algorithms/router/README.md`
    - `uv run pytest tests ../algorithms` runs the tests (pytest is in the `dev` group, installed by `uv sync`)
+   - `uv run pytest ../integration` runs the integration tests: synthetic trips on real data in simulation mode,
+     about 6 minutes, no keys needed (`-m recorded` / `-m gtfs` for one kind). Results: `integration/RESULTS.md`.
+     See `integration/README.md`
+   - optional `SIM_SCENARIO=<name>` starts the server in simulation mode with `integration/scenarios/<name>.json`
+     (simulated clock, replayed feeds, `/api/sim/*` endpoints, no `PORTAL_KEY` needed)
+   - ride demo: `./demo.sh [scenario]` from the repo root starts the backend in simulation mode and the frontend
+     (needs `npm install` and `uv sync` once); open http://localhost:5173 and use the "Demo" tab (it exists only in
+     simulation mode). `API_PORT` changes the backend port
+   - optional `ROUTE_ENGINE` picks the route engine: `real` (default) or `stub`
+   - opt-in journey statistics: no extra dependency or database server is needed. Startup creates
+     `db/journey_stats.sqlite` (git-ignored; SQLite from the Python standard library). The backend needs write
+     access to `db/`. Optional `JOURNEY_STATS_DB` changes the file path; its parent is created automatically.
+     Anchors load from local GTFS and `data/gbfs/veturilo_station_information.json`. To download the latter:
+     `uv run python download.py nextbike`. Statistics return 503 if no anchor catalog or database is available.
+     Enable **Statystyki podróży** in the app's Preferences (off by default), then explicitly start and finish
+     a real GPS recording. `POST /api/journeys` stores exact selected object references and daily counts;
+     current-location endpoints are replaced by the nearest transit/Veturilo anchor. No full GPS track,
+     user/device identifier or precise journey timestamp is kept in this database. See `data/API.md`.
    - bus detection simulation: `uv run python ../algorithms/simulation/simulate_nearest_buses.py`
      (uses the committed sample; record a new one with `uv run python ../algorithms/simulation/record_buses.py`, needs `PORTAL_KEY`)
    - rebuild the results page `artifacts/bus-detection-simulation.html`: `uv run python ../algorithms/simulation/export_viz.py`
    - optional `.env` setting `LIVE_BUSES_URL`: where bus detection reads live bus positions (default: the City Hall feed via `PORTAL_KEY`). Without `PORTAL_KEY` the live-vehicle poller stays off and `GET /api/live/vehicles` returns 503.
+   - Veturilo station siting (`GET /api/veturilo/siting`): the server builds the hex grid at start (first run ~2.5 min:
+     one extra OSM pass, cached in `data/derived/siting_*.npz`). Trial report + map page:
+     `uv run python siting_report.py` (writes `data/SITING_REPORT.md`, `data/siting_report.json`, `artifacts/veturilo-siting.html`;
+     `--rebuild` recomputes the grid, `--mocks` regenerates the mock data in `data/mock/`). The Warsaw boundary
+     `data/geojson/warsaw.geojson` is committed; `uv run python download.py siting` fetches it again from Nominatim
    - optional `.env` setting `DELAY_RADIUS_M`: radius for the delay estimate `GET /api/live/delay` (default `30`)
+   - delay simulation on the committed recording `data/live/delay_sample.json.gz`: `uv run python ../algorithms/simulation/simulate_delay.py --radius 30`;
+     rebuild the report `artifacts/delay-simulation.html`: `uv run python ../algorithms/simulation/export_delay_viz.py`;
+     search the best radius (20-200 m every 10 m, then every 1 m): `uv run python ../algorithms/simulation/search_delay_radius.py`;
+     record a new sample (server running, 30 min): `uv run python ../algorithms/simulation/record_delay_sample.py 30`
    - tune that radius on live data (needs `PORTAL_KEY`): `uv run python ../algorithms/simulation/tune_delay_radius.py 8`
 5. **Routes** are part of the uv app in step 4. Do not start a second server on port 8000.
    The package `backend/app/` is the route engine imported by `main.py`. `requirements.txt` is only
    the old slim app and cannot load the timetable (it has no numpy/scipy).
-6. **Database, Docker.** Not set up yet (PostgreSQL + PostGIS, Docker). The C++ routing engine is
-   planned (a long-running service that builds its own graph at startup; Python then sends only live updates).
+6. **Database, Docker.** SQLite journey counters are initialized automatically (step 4).
+   PostgreSQL + PostGIS and Docker are not set up yet.

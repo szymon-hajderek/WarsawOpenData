@@ -1,4 +1,4 @@
-from fares import brackets_for, cheapest_fare, veturilo_from_brackets, veturilo_pln
+from fares import brackets_for, cheapest_fare, open_fare, veturilo_from_brackets, veturilo_pln
 
 TIME = [
     {"price": 3.4, "duration_s": 1200, "transfers": None, "zones": {"1", "2", "1+2"}, "routes": {"175", "182"}},
@@ -7,6 +7,17 @@ TIME = [
     {"price": 15.0, "duration_s": 86400, "transfers": None, "zones": {"1"}, "routes": {"175", "182"}},
     {"price": 5.0, "duration_s": None, "transfers": 0, "zones": set(), "routes": {"L-1"}},
 ]
+
+
+def test_open_fare_picks_the_cheapest_ticket_that_covers_the_ride():
+    wkd = [
+        {"price": 4.1, "duration_s": 1140, "zones": set(), "routes": set()},
+        {"price": 6.3, "duration_s": 2280, "zones": set(), "routes": set()},
+        {"price": 9.2, "duration_s": None, "zones": set(), "routes": set()},
+    ]
+    assert open_fare(wkd, 600) == 4.1
+    assert open_fare(wkd, 2000) == 6.3
+    assert open_fare(wkd, 9000) == 9.2
 
 
 def test_short_ride_uses_the_20_minute_ticket():

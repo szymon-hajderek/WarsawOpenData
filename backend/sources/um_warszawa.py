@@ -14,6 +14,7 @@ from datetime import datetime
 import httpx
 from fastapi import APIRouter, HTTPException, Path, Query
 
+from sim import clock, scenario
 from config import LIVE_DIR, PORTAL_KEY, WAW_API_KEY, TTLCache, UpstreamError, load_json, require_key, save_json
 
 PORTAL = "https://dane.um.warszawa.pl/api/action"
@@ -44,6 +45,8 @@ def join_stop_id(zespol: str, slupek: str) -> str:
 # ---------------------------------------------------------------- fetchers
 
 def fetch_vehicles(kind: str) -> list[dict]:
+    if scenario.current():
+        return scenario.current().vehicles(kind)
     r = httpx.post(f"{PORTAL}/get_ztm_lokalizacja_pojazdow", json={"type": VEHICLE_TYPES[kind]},
                    headers={"Authorization": require_key("PORTAL_KEY", PORTAL_KEY)}, timeout=30)
     r.raise_for_status()
@@ -57,7 +60,7 @@ def fetch_vehicles(kind: str) -> list[dict]:
 
 def fresh(vehicles: list[dict], max_age_s: int = 300, now: datetime | None = None) -> list[dict]:
     """The feed also returns vehicles that stopped reporting long ago (even years). Drop them."""
-    now = now or datetime.now()
+    now = now or clock.warsaw_now()
     return [v for v in vehicles
             if (now - datetime.strptime(v["time"], "%Y-%m-%d %H:%M:%S")).total_seconds() <= max_age_s]
 
@@ -147,7 +150,7 @@ def api_vehicles(type: str = Query("bus", description="bus or tram"), line: str 
     """Live ZTM bus / tram positions (3 s cache). route_id matches /api/gtfs/routes."""
     if type not in VEHICLE_TYPES:
         raise HTTPException(400, "type must be bus or tram")
-    if not PORTAL_KEY:
+    if not PORTAL_KEY and not scenario.current():
         raise HTTPException(503, "PORTAL_KEY is not set")
     try:
         data = fresh(_veh_cache.get(("veh", type), lambda: fetch_vehicles(type)), max_age_s)

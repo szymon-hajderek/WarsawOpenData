@@ -8,10 +8,12 @@ import VehicleSheet from './components/VehicleSheet';
 import { useSnapHeights, type SheetSnap } from './components/SnapSheet';
 import BottomNav, { type Tab } from './components/BottomNav';
 import PreferencesPage from './components/PreferencesPage';
+import DemoPage from './components/DemoPage';
+import { simState } from './api/sim';
 import FilterSheet from './components/FilterSheet';
 import { useColorMode } from './colorMode';
 import { requestLinePopup } from './api/vehicle';
-import { useLocationTrack } from './hooks/useLocationTrack';
+import { geoErrorText, useLocationTrack } from './hooks/useLocationTrack';
 import { useRouteSearch } from './hooks/useRouteSearch';
 import { useVehicleDetection } from './hooks/useVehicleDetection';
 import { usePreferences } from './preferences/PreferencesProvider';
@@ -22,6 +24,7 @@ import {
   clearFilter,
   DEFAULT_FILTERS,
   filterChips,
+  routeSearchBody,
   summarize,
   type TripFilters,
 } from './preferences/model';
@@ -42,6 +45,11 @@ export default function App() {
   const [stopFields, setStopFields] = useState<(Place | null)[]>([]);
   const [stopOrder, setStopOrder] = useState<StopOrder>('given');
   const [tab, setTab] = useState<Tab>('map');
+  // The Demo tab exists only when the backend runs in simulation mode (SIM_SCENARIO).
+  const [simulation, setSimulation] = useState(false);
+  useEffect(() => {
+    void simState().then((s) => setSimulation(s !== null));
+  }, []);
   const { effective, activeRule } = usePreferences();
   const { tracker } = useHistory();
   // Filters apply to the current search only; they start from the saved preferences.
@@ -75,12 +83,15 @@ export default function App() {
   const viaKey = stopFields.map((p) => p?.id ?? '').join('|');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const via = useMemo(() => stopFields.filter((p): p is Place => p !== null), [viaKey]);
+  const trip = useMemo(() => applyOverrides(effective, filters.overrides), [effective, filters.overrides]);
+  const search = useMemo(() => routeSearchBody(trip), [trip]);
 
   const { options, loading, error: searchError, mock: routesMock } = useRouteSearch({
     origin,
     destination,
     via,
     order: stopOrder,
+    search,
   });
 
   // A new search starts clean: no filters, no chosen route.
@@ -115,7 +126,6 @@ export default function App() {
   };
 
   // Preferences of this search = the ones valid now + this search's overrides.
-  const trip = useMemo(() => applyOverrides(effective, filters.overrides), [effective, filters.overrides]);
   const visible = useMemo(() => applyListFilters(options, trip, filters), [options, trip, filters]);
   const chips = useMemo(() => filterChips(filters, trip), [filters, trip]);
 
@@ -146,7 +156,10 @@ export default function App() {
   return (
     <Box sx={{ position: 'fixed', inset: 0, bgcolor: 'background.default' }}>
       {/* Under the Preferences page the map and panels cannot take focus or be read by a screen reader. */}
-      <Box {...(tab === 'preferences' ? ({ inert: '' } as object) : {})}>
+      <Box
+        {...(tab !== 'map' ? ({ inert: '' } as object) : {})}
+        sx={tab === 'demo' ? { visibility: 'hidden' } : undefined}
+      >
         <MapView
           paletteMode={mode}
           onToggleMode={toggle}
@@ -222,6 +235,7 @@ export default function App() {
         {step === 'route' && chosen && origin && destination && (
           <RouteDetailsSheet
             route={chosen}
+            mock={routesMock}
             origin={origin}
             destination={destination}
             snap={detailsSnap}
@@ -272,7 +286,8 @@ export default function App() {
       )}
 
       {tab === 'preferences' && <PreferencesPage />}
-      <BottomNav tab={tab} onChange={setTab} />
+      {tab === 'demo' && <DemoPage paletteMode={mode} onToggleMode={toggle} />}
+      <BottomNav tab={tab} onChange={setTab} demo={simulation} />
 
       <Snackbar
         open={geoError}
@@ -282,7 +297,7 @@ export default function App() {
         sx={{ top: { xs: 150 } }}
       >
         <Alert severity="info" variant="filled" onClose={clearGeoError}>
-          Nie udało się ustalić lokalizacji. Wpisz punkt startowy ręcznie.
+          {geoErrorText()}
         </Alert>
       </Snackbar>
 

@@ -6,6 +6,7 @@ Street geometry comes from OSM for the options that are returned.
 """
 from __future__ import annotations
 
+import contextvars
 import logging
 import sys
 from datetime import datetime, timedelta, timezone
@@ -14,11 +15,11 @@ from typing import Any, Optional
 from config import REPO, haversine_m
 
 sys.path.insert(0, str(REPO / "algorithms"))
-from fares import brackets_for, cheapest_fare, veturilo_from_brackets, veturilo_pln  # noqa: E402
+from districts import blocked  # noqa: E402
 from lateness import lateness_s  # noqa: E402
 from plan_trip import (  # noqa: E402
     as_warsaw, best_bike_pair, bike_access_pairs, bike_between, direct_rides, nearby, service_moment,
-    spread_groups, transfer_rides, warsaw_offset,
+    spread_groups, transfer_rides, two_transfer_rides, warsaw_offset,
 )
 
 log = logging.getLogger("uvicorn.error")
@@ -36,9 +37,10 @@ PROFILE_SPEED = {
     "slow": {"walk": 0.9, "bike": 3.0},
     "accessible": {"walk": 1.0, "bike": 0.0},
 }
-KCAL_PER_KM = {"walk": 55, "bike": 32}
 WALK_M = {"standard": 900, "slow": 700, "accessible": 600}
 CATCH_SLACK_S = 20
+_SPEED = contextvars.ContextVar("route_speed", default=None)
+_BLOCK = contextvars.ContextVar("route_block", default=None)
 
 
 def _distance(a, b) -> float:
@@ -55,18 +57,26 @@ class RealRouteEngine(RouteEngine):
     def update_state(self, update: dict[str, Any]) -> None:
         return None
 
-    def query_routes(self, frm: Place, to: Place, profile: Profile, when: str | None = None) -> list[RouteOption]:
+    def query_routes(self, frm: Place, to: Place, profile: Profile, when: str | None = None, search=None) -> list[RouteOption]:
         now = _clock(when)
         date, now_sec = service_moment(now)
         self._vehicles = _live_vehicles()
-        accessible = profile == "accessible"
+        self._trip_delays = _trip_delays()
+        self._station_delays = _station_delays()
+        speed, accessible, max_transfers, block = _limits(profile, search)
         origin = tuple(frm.position)
         dest = tuple(to.position)
-        speed = PROFILE_SPEED[profile]
+        tokens = (_SPEED.set(speed), _BLOCK.set(block))
+        try:
+            return self._query(frm, to, profile, now, now_sec, date, origin, dest, speed, accessible, max_transfers)
+        finally:
+            _SPEED.reset(tokens[0])
+            _BLOCK.reset(tokens[1])
 
-        stops = mkuran.vertices()
-        boards = spread_groups(nearby(origin, stops, WALK_M[profile], 40, _distance, accessible), 8)
-        alights = spread_groups(nearby(dest, stops, WALK_M[profile], 40, _distance, accessible), 8)
+    def _query(self, frm, to, profile, now, now_sec, date, origin, dest, speed, accessible, max_transfers):
+        stops = [s for s in mkuran.vertices() if not _inside(s["lat"], s["lon"])]
+        boards = spread_groups(_by_street(origin, nearby(origin, stops, WALK_M[profile], 40, _distance, accessible), profile), 8)
+        alights = spread_groups(_by_street(dest, nearby(dest, stops, WALK_M[profile], 40, _distance, accessible), profile), 8)
         dest_ids = {s["id"] for s in alights}
 
         def departures(stop_id, after):
@@ -77,28 +87,35 @@ class RealRouteEngine(RouteEngine):
 
         options: list[RouteOption] = []
         walk = self._walk_option(frm, to, origin, dest, profile, now)
-        if walk:
+        if walk and _option_clear(walk):
             options.append(walk)
         if speed["bike"] > 0:
             bike = self._bike_option(frm, to, origin, dest, profile, now)
-            if bike:
+            if bike and _option_clear(bike):
                 options.append(bike)
 
         if boards and alights:
-            foot = _footpaths(stops, 450)
-            directs = direct_rides([s["id"] for s in boards], dest_ids, departures, onward, accessible)
-            transfers = transfer_rides([s["id"] for s in boards[:5]], dest_ids, departures, onward,
-                                       foot, accessible)
+            foot = _footpaths(stops, 450, accessible)
+            directs = [r for r in direct_rides([s["id"] for s in boards], dest_ids, departures, onward, accessible)
+                       if _ride_clear(r)]
+            transfers = []
+            if max_transfers >= 1:
+                transfers = [r for r in transfer_rides([s["id"] for s in boards[:5]], dest_ids, departures, onward,
+                                                       foot, accessible)
+                             if _ride_clear(r["first"]) and _ride_clear(r["second"])]
+            doubles = two_transfer_rides([s["id"] for s in boards], dest_ids, departures, onward, foot, accessible) \
+                if max_transfers >= 2 else []
             built = []
             if speed["bike"] > 0:
                 built.extend(self._bike_with_transit(
                     frm, to, origin, dest, profile, now, now_sec, stops, dest_ids, directs,
                     departures, onward, accessible))
-                middle = self._bike_in_the_middle(
-                    frm, to, origin, dest, profile, now, now_sec, stops, dest_ids,
-                    [s["id"] for s in boards], departures, onward, accessible)
-                if middle:
-                    built.append(middle)
+                if max_transfers >= 1:
+                    middle = self._bike_in_the_middle(
+                        frm, to, origin, dest, profile, now, now_sec, stops, dest_ids,
+                        [s["id"] for s in boards], departures, onward, accessible)
+                    if middle:
+                        built.append(middle)
             for ride in directs:
                 option = self._transit_option(frm, to, origin, dest, profile, now, now_sec, [ride], 0, None)
                 if option:
@@ -109,15 +126,23 @@ class RealRouteEngine(RouteEngine):
                     [ride["first"], ride["second"]], ride["walk_m"], ride["first"]["calls"][-1])
                 if option:
                     built.append(option)
+            for ride in doubles:
+                option = self._transit_option(
+                    frm, to, origin, dest, profile, now, now_sec,
+                    ride["rides"], ride["walk_m"], ride["rides"][0]["calls"][-1])
+                if option:
+                    built.append(option)
             built.sort(key=lambda o: o.durationMin)
             seen = set()
             for option in built:
+                if option.transfers > max_transfers or not _option_clear(option):
+                    continue
                 key = tuple((leg.mode, leg.line, leg.from_, leg.to) for leg in option.legs)
                 if key in seen:
                     continue
                 seen.add(key)
                 options.append(option)
-                if sum(1 for o in options if any(leg.mode not in ("walk", "bike") for leg in o.legs)) >= 4:
+                if sum(1 for o in options if any(leg.mode not in ("walk", "bike", "veturilo") for leg in o.legs)) >= 4:
                     break
 
         options.sort(key=lambda o: o.durationMin)
@@ -147,10 +172,10 @@ class RealRouteEngine(RouteEngine):
             return None
         legs = [
             _leg("walk", frm.label, pickup["name"], None, walk_to),
-            _leg("bike", pickup["name"], dropoff["name"], None, ride),
+            _leg("veturilo", pickup["name"], dropoff["name"], None, ride),
             _leg("walk", dropoff["name"], to.label, None, walk_from),
         ]
-        return _option("bike", "Veturilo", legs, now, _bike_price(ride["seconds"] / 60, pickup["electric"]))
+        return _option("bike", "Veturilo", legs, now)
 
     def _bike_with_transit(self, frm, to, origin, dest, profile, now, now_sec, stops, dest_ids, directs,
                            departures, onward, accessible):
@@ -170,11 +195,10 @@ class RealRouteEngine(RouteEngine):
                 (board["lat"], board["lon"]), board["name"], profile)
             if bridge is None:
                 continue
-            legs, seconds, ride_s = bridge
+            legs, seconds, _ = bridge
             option = self._transit_option(
                 frm, to, origin, dest, profile, now, now_sec, [ride], 0, None,
-                lead=(legs, seconds), skip_access=True,
-                extra_cost=_bike_price(ride_s / 60, pair["pickup"].get("electric")))
+                lead=(legs, seconds), skip_access=True)
             if option:
                 found.append(option)
                 break
@@ -192,10 +216,10 @@ class RealRouteEngine(RouteEngine):
                 bridge = _bike_bridge(
                     (last["lat"], last["lon"]), last["name"], pair[0], pair[1], dest, to.label, profile)
                 if bridge is not None:
-                    legs, seconds, ride_s = bridge
+                    legs, seconds, _ = bridge
                     option = self._transit_option(
                         frm, to, origin, dest, profile, now, now_sec, [ride], 0, None,
-                        egress=(legs, seconds), extra_cost=_bike_price(ride_s / 60, pair[0].get("electric")))
+                        egress=(legs, seconds))
                     if option:
                         found.append(option)
         return found
@@ -214,19 +238,18 @@ class RealRouteEngine(RouteEngine):
             (board["lat"], board["lon"]), board["name"], profile)
         if bridge is None:
             return None
-        legs, seconds, ride_s = bridge
+        legs, seconds, _ = bridge
         option = self._transit_option(
             frm, to, origin, dest, profile, now, now_sec,
             [found["first"], found["second"]], 0, None,
-            between=(legs, seconds),
-            extra_cost=_bike_price(ride_s / 60, found["pickup"].get("electric")))
+            between=(legs, seconds))
         if option:
             lines = [found["first"]["dep"]["line"], found["second"]["dep"]["line"]]
             option.title = f"{lines[0]} + Veturilo + {lines[1]}"
         return option
 
     def _transit_option(self, frm, to, origin, dest, profile, now, now_sec, rides, between_m, between_stop,
-                        lead=None, skip_access=False, egress=None, extra_cost=0.0, between=None):
+                        lead=None, skip_access=False, egress=None, between=None):
         first = rides[0]["calls"][0]
         last = rides[-1]["calls"][-1]
         lead_legs, lead_s = lead if lead else ([], 0.0)
@@ -252,23 +275,24 @@ class RealRouteEngine(RouteEngine):
         legs = list(lead_legs)
         if access_leg is not None:
             legs.append(access_leg)
-        zones = set()
-        route_ids = set()
         for index, ride in enumerate(rides):
             calls = ride["calls"]
-            if index > 0 and between is not None:
+            if index == 1 and between is not None:
                 between_legs, between_s = between
                 if ride["dep"]["sec"] < rides[index - 1]["calls"][-1]["arr"] + between_s - CATCH_SLACK_S:
                     return None
                 legs.extend(between_legs)
-            elif index > 0 and between_m > 0 and between_stop is not None:
-                mid = _street((between_stop["lat"], between_stop["lon"]),
-                              (calls[0]["lat"], calls[0]["lon"]), "walk", profile)
-                if mid is None:
+            elif index > 0:
+                prev = rides[index - 1]["calls"][-1]
+                if prev.get("stop_id") != calls[0].get("stop_id"):
+                    mid = _street((prev["lat"], prev["lon"]), (calls[0]["lat"], calls[0]["lon"]), "walk", profile)
+                    if mid is None:
+                        return None
+                    if ride["dep"]["sec"] < prev["arr"] + mid["seconds"] - CATCH_SLACK_S:
+                        return None
+                    legs.append(_leg("walk", prev["name"], calls[0]["name"], None, mid))
+                elif ride["dep"]["sec"] < prev["arr"] - CATCH_SLACK_S:
                     return None
-                if ride["dep"]["sec"] < rides[index - 1]["calls"][-1]["arr"] + mid["seconds"] - CATCH_SLACK_S:
-                    return None
-                legs.append(_leg("walk", between_stop["name"], calls[0]["name"], None, mid))
             path = _ride_path(ride["dep"]["trip_id"], calls)
             meters = sum(_distance(path[i], path[i + 1]) for i in range(len(path) - 1))
             seconds = max(0, calls[-1]["arr"] - calls[0]["dep"])
@@ -277,15 +301,7 @@ class RealRouteEngine(RouteEngine):
                 mode=dep["mode"], from_=calls[0]["name"], to=calls[-1]["name"], line=dep["line"],
                 durationMin=_minutes(seconds), distanceM=round(meters, 1), path=path,
             ))
-            zones.update(c["zone"] for c in calls if c.get("zone"))
-            route_ids.add(dep["route_id"].split(":", 1)[-1])
         legs.extend(egress_legs)
-        ticket_s = rides[-1]["calls"][-1]["arr"] - rides[0]["dep"]["sec"]
-        price = cheapest_fare(mkuran.fare_table(), zones, ticket_s, route_ids)
-        if price is None:
-            feeds = {ride["dep"].get("feed") for ride in rides}
-            price = 7.0 if feeds - {"ztm"} else 4.4
-        price += extra_cost
         title = " + ".join(ride["dep"]["line"] for ride in rides)
         if between is not None:
             parts = title.split(" + ")
@@ -296,8 +312,7 @@ class RealRouteEngine(RouteEngine):
         delay = self._delay(rides[0], now_sec)
         leave = leave + timedelta(seconds=delay)
         door_s = (rides[-1]["calls"][-1]["arr"] + egress_s) - (rides[0]["dep"]["sec"] - access_s - lead_s)
-        option = _option("pt-" + "-".join(ride["dep"]["trip_id"] for ride in rides), title, legs, leave,
-                         price, door_s)
+        option = _option("pt-" + "-".join(ride["dep"]["trip_id"] for ride in rides), title, legs, leave, door_s)
         if delay >= 60:
             option.tags.append(f"opóźnienie {max(1, round(delay / 60))} min")
         if any(ride["dep"]["line"] in alerts.alerted_lines() for ride in rides):
@@ -306,17 +321,101 @@ class RealRouteEngine(RouteEngine):
 
     def _delay(self, ride: dict, now_sec: int) -> int:
         dep = ride["dep"]
-        if dep.get("mode") not in ("bus", "tram") or not ride.get("calls"):
-            return 0
-        vehicle = next((v for v in getattr(self, "_vehicles", [])
-                        if v.get("line") == dep.get("line")
-                        and str(v.get("brigade")) == str(dep.get("brigade"))), None)
-        if vehicle is None:
-            return 0
-        calls = mkuran.whole_trip(dep["trip_id"], ride["calls"][0]["stop_id"], dep["sec"])
-        if len(calls) < 2:
-            return 0
-        return lateness_s(calls, (vehicle["lat"], vehicle["lon"]), now_sec, _distance)
+        calls = ride.get("calls") or []
+        trip_id = dep.get("trip_id") or ""
+        posted = getattr(self, "_trip_delays", {}).get(trip_id) or getattr(self, "_trip_delays", {}).get(trip_id.split(":")[-1]) or 0
+        station = 0
+        if dep.get("feed") == "pkp" and getattr(self, "_station_delays", {}):
+            plk = mkuran.plk_ids()
+            for call in calls:
+                station = max(station, self._station_delays.get(plk.get(call.get("stop_id"), ""), 0))
+        late = 0
+        if dep.get("mode") in ("bus", "tram") and calls:
+            vehicle = next((v for v in getattr(self, "_vehicles", [])
+                            if v.get("line") == dep.get("line")
+                            and str(v.get("brigade")) == str(dep.get("brigade"))), None)
+            if vehicle is not None:
+                whole = mkuran.whole_trip(trip_id, calls[0]["stop_id"], dep["sec"])
+                if len(whole) >= 2:
+                    late = lateness_s(whole, (vehicle["lat"], vehicle["lon"]), now_sec, _distance)
+        return max(late, int(posted), station)
+
+
+def _limits(profile: Profile, search):
+    """Speeds in m/s, whether to skip steps, how many transfers, and what to avoid."""
+    speed = dict(PROFILE_SPEED[profile])
+    accessible = profile == "accessible"
+    max_transfers = 2
+    districts: list[str] = []
+    points: list[tuple[float, float, float]] = []
+    if search is not None:
+        if getattr(search, "walkKmh", None):
+            speed["walk"] = search.walkKmh / 3.6
+        if getattr(search, "bikeKmh", None) is not None:
+            speed["bike"] = search.bikeKmh / 3.6
+        body_obj = getattr(search, "body", None)
+        if body_obj is not None and body_obj.wheelchair != "none":
+            accessible = True
+            speed["bike"] = 0.0
+        if getattr(search, "stepFree", False):
+            accessible = True
+        if getattr(search, "maxTransfers", None) is not None:
+            max_transfers = search.maxTransfers
+        districts = list(getattr(search, "excludedDistricts", []) or [])
+        points = [(p.position[0], p.position[1], p.radiusM) for p in (getattr(search, "excludedPoints", None) or [])]
+    block = (districts, points) if districts or points else None
+    return speed, accessible, max_transfers, block
+
+
+def _inside(lat, lon) -> bool:
+    spec = _BLOCK.get()
+    if not spec or lat is None or lon is None:
+        return False
+    return blocked(float(lat), float(lon), spec[0], spec[1], _distance)
+
+
+def _by_street(origin, candidates, profile):
+    """Re-rank the nearest stops by OSM walk time. The straight-line list is only the candidate pool."""
+    ranked = []
+    for stop in candidates[:12]:
+        street = _street(origin, (stop["lat"], stop["lon"]), "walk", profile)
+        if street is None or street["seconds"] > 18 * 60:
+            continue
+        ranked.append((street["seconds"], stop))
+    ranked.sort(key=lambda item: item[0])
+    return [stop for _, stop in ranked] or list(candidates[:8])
+
+
+def _ride_clear(ride) -> bool:
+    calls = ride.get("calls") or []
+    mids = calls[1:-1] if len(calls) > 2 else []
+    return not any(_inside(call.get("lat"), call.get("lon")) for call in mids)
+
+
+def _option_clear(option: RouteOption) -> bool:
+    for leg in option.legs:
+        for point in leg.path[1:-1]:
+            if _inside(point[0], point[1]):
+                return False
+    return True
+
+
+def _trip_delays() -> dict:
+    try:
+        from sources.realtime import delays_by_trip
+        return delays_by_trip()
+    except Exception as exc:
+        log.warning("trip delays skipped: %s", exc)
+        return {}
+
+
+def _station_delays() -> dict:
+    try:
+        from sources.realtime import delays_by_station
+        return delays_by_station()
+    except Exception as exc:
+        log.warning("station delays skipped: %s", exc)
+        return {}
 
 
 def _live_vehicles() -> list[dict]:
@@ -335,8 +434,8 @@ def _live_vehicles() -> list[dict]:
 _FOOT_CACHE: dict = {}
 
 
-def _footpaths(stops: list[dict], max_m: float) -> dict[str, list[tuple[str, float]]]:
-    """Stop id -> other stops within `max_m` in a straight line, closest first. Used only to change vehicles."""
+def _footpaths(stops: list[dict], max_m: float, step_free: bool = False) -> dict[str, list]:
+    """Stop id -> places you can change: nearby posts, the same station, transfers.txt, pathways."""
     from scipy.spatial import cKDTree
 
     from config import to_xy
@@ -344,7 +443,7 @@ def _footpaths(stops: list[dict], max_m: float) -> dict[str, list[tuple[str, flo
 
     if len(stops) < 2:
         return {}
-    key = (stops[0]["id"], stops[-1]["id"], len(stops), max_m)
+    key = (stops[0]["id"], stops[-1]["id"], len(stops), max_m, step_free)
     cached = _FOOT_CACHE.get(key)
     if cached is not None:
         return cached
@@ -352,11 +451,34 @@ def _footpaths(stops: list[dict], max_m: float) -> dict[str, list[tuple[str, flo
     lon = np.array([s["lon"] for s in stops])
     x, y = to_xy(lat, lon)
     pairs = cKDTree(np.column_stack((x, y))).query_pairs(max_m)
-    out: dict[str, list[tuple[str, float]]] = {}
+    out: dict[str, list] = {}
     for i, j in pairs:
         meters = _distance((stops[i]["lat"], stops[i]["lon"]), (stops[j]["lat"], stops[j]["lon"]))
-        out.setdefault(stops[i]["id"], []).append((stops[j]["id"], meters))
-        out.setdefault(stops[j]["id"], []).append((stops[i]["id"], meters))
+        out.setdefault(stops[i]["id"], []).append((stops[j]["id"], meters, 0))
+        out.setdefault(stops[j]["id"], []).append((stops[i]["id"], meters, 0))
+    by_group: dict[str, list] = {}
+    for stop in stops:
+        by_group.setdefault(stop.get("group") or stop["id"], []).append(stop)
+    for members in by_group.values():
+        if len(members) < 2:
+            continue
+        for a in members:
+            near = []
+            for b in members:
+                if a["id"] == b["id"]:
+                    continue
+                meters = _distance((a["lat"], a["lon"]), (b["lat"], b["lon"]))
+                if meters <= 350:
+                    near.append((b["id"], meters, 60))
+            near.sort(key=lambda item: item[1])
+            out.setdefault(a["id"], []).extend(near[:3])
+    try:
+        for a, b, sec in mkuran.transfer_links():
+            out.setdefault(a, []).append((b, 80.0, sec))
+        for a, b, meters, sec in mkuran.pathway_links(step_free):
+            out.setdefault(a, []).append((b, meters or 40.0, sec))
+    except (OSError, KeyError) as exc:
+        log.warning("transfer links skipped: %s", exc)
     for stop_id in out:
         out[stop_id].sort(key=lambda item: item[1])
     _FOOT_CACHE[key] = out
@@ -380,17 +502,6 @@ def _clock(when: str | None) -> datetime:
     return as_warsaw(parsed)
 
 
-def _bike_price(minutes: float, electric: bool) -> float:
-    try:
-        steps = brackets_for(nextbike.pricing_plans(), electric)
-    except Exception as exc:
-        log.warning("Veturilo pricing plans unavailable: %s", exc)
-        steps = None
-    if steps:
-        return veturilo_from_brackets(minutes, steps)
-    return veturilo_pln(minutes, electric)
-
-
 def _bike_bridge(a_point, a_label, pickup, dropoff, b_point, b_label, profile):
     """Walk to a bike, ride, walk on. ``(legs, seconds, ride_seconds)`` or None."""
     walk_to = _street(a_point, (pickup["lat"], pickup["lon"]), "walk", profile)
@@ -400,14 +511,15 @@ def _bike_bridge(a_point, a_label, pickup, dropoff, b_point, b_label, profile):
         return None
     legs = [
         _leg("walk", a_label, pickup["name"], None, walk_to),
-        _leg("bike", pickup["name"], dropoff["name"], None, ride),
+        _leg("veturilo", pickup["name"], dropoff["name"], None, ride),
         _leg("walk", dropoff["name"], b_label, None, walk_from),
     ]
     return legs, walk_to["seconds"] + ride["seconds"] + walk_from["seconds"], ride["seconds"]
 
 
 def _street(a, b, mode: str, profile: Profile):
-    speed = PROFILE_SPEED[profile][mode]
+    table = _SPEED.get() or PROFILE_SPEED[profile]
+    speed = table[mode]
     if speed <= 0:
         return None
     # the C++ router finds the best path for the profile's speeds; walking with the accessible profile avoids steps
@@ -472,30 +584,17 @@ def _leg(mode, frm, to, line, street) -> RouteLeg:
                     distanceM=round(street["length_m"], 1), path=street["geometry"])
 
 
-def _option(option_id, title, legs, leave, cost, door_s: float | None = None) -> RouteOption:
-    calories = 0
-    for leg in legs:
-        rate = KCAL_PER_KM.get(leg.mode)
-        if rate:
-            calories += leg.distanceM / 1000 * rate
-    non_walk = sum(1 for leg in legs if leg.mode != "walk")
+def _option(option_id, title, legs, leave, door_s: float | None = None) -> RouteOption:
+    transit = sum(1 for leg in legs if leg.mode not in ("walk", "bike", "veturilo"))
     duration = _minutes(door_s) if door_s is not None else sum(leg.durationMin for leg in legs)
     return RouteOption(
         id=option_id, title=title, legs=legs,
         departure=format_time(leave), arrival=format_time(leave + timedelta(minutes=duration)),
         durationMin=duration, distanceM=round(sum(leg.distanceM for leg in legs), 1),
-        calories=round_half_up(calories), transfers=max(0, non_walk - 1), costPln=round(cost, 2), tags=[],
+        transfers=max(0, transit - 1), tags=[],
     )
 
 
 def _tag(options: list[RouteOption]) -> None:
-    if not options:
-        return
-    options[0].tags.append("Najszybsza")
-    best = min(o.costPln for o in options)
-    cheapest = [o for o in options if o.costPln == best]
-    if len(cheapest) == 1 and len(options) > 1:
-        cheapest[0].tags.append("Najtańsza")
-    active = max(options, key=lambda o: o.calories)
-    if active.calories > 0 and len(active.tags) < 2:
-        active.tags.append("Najaktywniejsza")
+    if options:
+        options[0].tags.append("Najszybsza")

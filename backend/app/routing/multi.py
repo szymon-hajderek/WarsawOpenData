@@ -4,8 +4,9 @@ The engine answers "from A to B". A trip A -> S1 -> S2 -> B is asked as one quer
 n-th best option of every segment is chained into the n-th option of the trip. The stops are kept in
 the given order or reordered for the shortest trip (start and destination stay fixed).
 
-Simplifications (also written in `changes/feature-multi-stop-trips.md`): every segment is planned
-as if it started now, there is no time spent at a stop, and the order is chosen by straight-line distance.
+The next segment starts when the previous one arrives, plus a short wait at the stop.
+"Optimal" order minimises a time estimate (a walk under 700 m, otherwise a wait plus transit),
+not straight-line distance.
 """
 from __future__ import annotations
 
@@ -16,13 +17,15 @@ from typing import Optional
 from config import REPO, haversine_m
 
 sys.path.insert(0, str(REPO / "algorithms"))
-from stop_order import best_order  # noqa: E402
+from stop_order import best_order, travel_seconds  # noqa: E402
 
 from ..models import Place, Profile, RouteLeg, RouteOption
 from .engine import RouteEngine
 
 # How many ranked options of the trip are returned.
 MAX_OPTIONS = 3
+# Minutes standing at an intermediate stop before the next segment is planned.
+DWELL_MIN = 2
 
 
 def _distance(a: Place, b: Place) -> float:
@@ -51,7 +54,7 @@ def combine(index: int, segments: list[RouteOption], waypoints: list[Place]) -> 
             seg_legs[-1].stop = k + 1  # this leg ends at the (k+1)-th intermediate stop
         legs.extend(seg_legs)
 
-    duration = sum(seg.durationMin for seg in segments)
+    duration = sum(seg.durationMin for seg in segments) + DWELL_MIN * max(0, len(segments) - 1)
     departure = segments[0].departure
     return RouteOption(
         id=f"multi-{index}",
@@ -61,9 +64,7 @@ def combine(index: int, segments: list[RouteOption], waypoints: list[Place]) -> 
         arrival=_add_minutes(departure, duration),
         durationMin=duration,
         distanceM=sum(seg.distanceM for seg in segments),
-        calories=sum(seg.calories for seg in segments),
         transfers=sum(seg.transfers for seg in segments),
-        costPln=round(sum(seg.costPln for seg in segments), 2),
         tags=[],
         waypoints=waypoints,
     )
@@ -73,14 +74,6 @@ def _tag(options: list[RouteOption]) -> None:
     if not options:
         return
     options[0].tags.append("Najszybsza")  # options are sorted by duration
-    if len(options) > 1:
-        min_cost = min(o.costPln for o in options)
-        cheapest = [o for o in options if o.costPln == min_cost]
-        if len(cheapest) == 1:
-            cheapest[0].tags.append("Najtańsza")
-        most_active = max(options, key=lambda o: o.calories)
-        if most_active.calories > 0 and len(most_active.tags) < 2:
-            most_active.tags.append("Najaktywniejsza")
 
 
 def query_multi(
@@ -92,17 +85,20 @@ def query_multi(
     profile: Profile,
     max_options: int = MAX_OPTIONS,
     when: str | None = None,
+    search=None,
 ) -> list[RouteOption]:
     """Options for a trip `frm -> via... -> to`. Empty when some segment has no connection."""
-    stops = best_order(frm, via, to, _distance) if order == "optimal" else list(via)
+    stops = best_order(frm, via, to, lambda a, b: travel_seconds(_distance(a, b))) if order == "optimal" else list(via)
     points = [frm, *stops, to]
 
     per_segment: list[list[RouteOption]] = []
+    cursor = when
     for a, b in zip(points, points[1:]):
-        options = sorted(engine.query_routes(a, b, profile, when=when), key=lambda o: o.durationMin)
+        options = sorted(engine.query_routes(a, b, profile, when=cursor, search=search), key=lambda o: o.durationMin)
         if not options:
             return []
         per_segment.append(options)
+        cursor = _add_minutes(options[0].arrival, DWELL_MIN)
 
     count = min(max_options, max(len(options) for options in per_segment))
     result: list[RouteOption] = []

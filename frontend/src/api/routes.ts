@@ -1,5 +1,6 @@
+import type { RouteSearchBody } from '../preferences/model';
 import type { LatLng, Place, Profile, RouteLeg, RouteOption, StopOrder, TransportMode } from '../types';
-import { buildPath, haversine, slicePath } from '../utils/geo';
+import { buildPath, haversine, lonLat, slicePath, sumDistance } from '../utils/geo';
 import { formatTime } from '../utils/format';
 import { API_URL, apiUrl } from '../config';
 import { isRouteOptions } from './validate';
@@ -20,6 +21,10 @@ export interface RouteQuery {
   via?: Place[];
   /** Keep the stops as given, or reorder them for the shortest trip (start and destination stay fixed). */
   order?: StopOrder;
+  /** Pace, transfers, excluded areas and body data. Omitted fields keep the backend defaults. */
+  search?: RouteSearchBody;
+  /** Warsaw local departure, ISO datetime or `HH:MM`. Empty = now (the demo sends the simulated time). */
+  when?: string;
 }
 
 export interface RouteResult {
@@ -38,7 +43,7 @@ export async function fetchRouteOptions(query: RouteQuery, signal?: AbortSignal)
         signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(via.length ? { from, to, profile, via, order } : { from, to, profile }),
+        body: JSON.stringify({ from, to, profile, ...(via.length ? { via, order } : {}), ...(query.when ? { when: query.when } : {}), ...query.search }),
       });
       if (!res.ok) throw new Error(`Routing failed: ${res.status}`);
       const data: unknown = await res.json();
@@ -78,11 +83,11 @@ interface Template {
 
 const TEMPLATES: Template[] = [
   {
-    id: 'bike',
+    id: 'veturilo',
     title: 'Veturilo',
     legs: [
       { mode: 'walk', share: 0.04 },
-      { mode: 'bike', share: 0.92 },
+      { mode: 'veturilo', share: 0.92 },
       { mode: 'walk', share: 0.04 },
     ],
     bend: 0.06,
@@ -95,7 +100,7 @@ const TEMPLATES: Template[] = [
     legs: [
       { mode: 'walk', share: 0.05 },
       { mode: 'metro', share: 0.6 },
-      { mode: 'bike', share: 0.3 },
+      { mode: 'veturilo', share: 0.3 },
       { mode: 'walk', share: 0.05 },
     ],
     bend: 0.03,
@@ -105,7 +110,7 @@ const TEMPLATES: Template[] = [
     id: 'bike-bus',
     title: 'Veturilo + autobus',
     legs: [
-      { mode: 'bike', share: 0.25 },
+      { mode: 'veturilo', share: 0.25 },
       { mode: 'bus', share: 0.7 },
       { mode: 'walk', share: 0.05 },
     ],
@@ -140,7 +145,7 @@ const TEMPLATES: Template[] = [
     legs: [
       { mode: 'walk', share: 0.04 },
       { mode: 'rail', share: 0.72 },
-      { mode: 'bike', share: 0.2 },
+      { mode: 'veturilo', share: 0.2 },
       { mode: 'walk', share: 0.04 },
     ],
     bend: -0.04,
@@ -167,9 +172,6 @@ const PT_WAIT_MIN = 4;
 const BIKE_UNLOCK_MIN = 1;
 const DETOUR_FACTOR = 1.25; // straight line -> real street network
 
-const KCAL_PER_KM = { walk: 55, bike: 32 };
-const TICKET_PLN = 4.4; // estimate: 20-minute ticket
-const VETURILO_FREE_MIN = 20;
 
 const LINES: Partial<Record<TransportMode, string[]>> = {
   bus: ['175', '186', '523'],
@@ -179,7 +181,8 @@ const LINES: Partial<Record<TransportMode, string[]>> = {
 };
 const STOP_NAME: Record<TransportMode, string> = {
   walk: '',
-  bike: 'Stacja Veturilo',
+  bike: 'Stacja własnego roweru',
+  veturilo: 'Stacja Veturilo',
   bus: 'Przystanek autobusowy',
   tram: 'Przystanek tramwajowy',
   metro: 'Stacja metra',
@@ -215,7 +218,7 @@ function buildOption(
 
     let minutes: number;
     if (tl.mode === 'walk') minutes = (distM / 1000 / speeds.walk) * 60;
-    else if (tl.mode === 'bike') minutes = (distM / 1000 / speeds.bike) * 60 + BIKE_UNLOCK_MIN;
+    else if (tl.mode === 'veturilo') minutes = (distM / 1000 / speeds.bike) * 60 + BIKE_UNLOCK_MIN;
     else {
       minutes = (distM / 1000 / (PT_SPEED[tl.mode] ?? 20)) * 60 + (ptBoarded ? 2 : PT_WAIT_MIN);
       ptBoarded = true;
@@ -223,6 +226,7 @@ function buildOption(
 
     const prev = i > 0 ? all[i - 1] : undefined;
     const next = i < all.length - 1 ? all[i + 1] : undefined;
+    const path = slicePath(master, start, Math.min(1, cursor));
     return {
       mode: tl.mode,
       from: prev ? nodeName(prev.mode, tl.mode) : from.label,
@@ -230,21 +234,14 @@ function buildOption(
       line,
       durationMin: Math.max(1, Math.round(minutes)),
       distanceM: distM,
-      path: slicePath(master, start, Math.min(1, cursor)),
+      start: lonLat(path[0]),
+      end: lonLat(path[path.length - 1]),
+      path,
     };
   });
 
   const durationMin = legs.reduce((s, l) => s + l.durationMin, 0);
-  const bikeMin = legs.filter((l) => l.mode === 'bike').reduce((s, l) => s + l.durationMin, 0);
-  const usesPt = legs.some((l) => PT_SPEED[l.mode]);
-  const calories = Math.round(
-    legs.reduce((s, l) => {
-      if (l.mode === 'walk') return s + (l.distanceM / 1000) * KCAL_PER_KM.walk;
-      if (l.mode === 'bike') return s + (l.distanceM / 1000) * KCAL_PER_KM.bike;
-      return s;
-    }, 0),
-  );
-  const nonWalk = legs.filter((l) => l.mode !== 'walk').length;
+  const nonWalk = legs.filter((l) => !['walk', 'bike', 'veturilo'].includes(l.mode)).length;
   const arrival = new Date(departure.getTime() + durationMin * 60000);
 
   return {
@@ -255,9 +252,9 @@ function buildOption(
     arrival: formatTime(arrival),
     durationMin,
     distanceM: totalM,
-    calories,
+    walkDistance: sumDistance(legs, ['walk']),
+    bikeDistance: sumDistance(legs, ['bike', 'veturilo']),
     transfers: Math.max(0, nonWalk - 1),
-    costPln: (usesPt ? TICKET_PLN : 0) + (bikeMin > VETURILO_FREE_MIN ? 1 : 0),
     tags: [],
   };
 }
@@ -279,19 +276,12 @@ async function mockRouteOptions(
     (t) =>
       distanceM >= t.minDistanceM &&
       (t.maxDistanceM === undefined || distanceM <= t.maxDistanceM) &&
-      !(profile === 'accessible' && t.legs.some((l) => l.mode === 'bike')),
+      !(profile === 'accessible' && t.legs.some((l) => l.mode === 'veturilo')),
   ).map((t) => buildOption(t, from, to, profile, distanceM, seed, departure));
 
   options.sort((a, b) => a.durationMin - b.durationMin);
   if (options.length === 0) return options;
 
   options[0].tags.push('Najszybsza');
-  const minCost = Math.min(...options.map((o) => o.costPln));
-  const cheapest = options.filter((o) => o.costPln === minCost);
-  if (cheapest.length === 1 && options.length > 1) cheapest[0].tags.push('Najtańsza');
-  const mostActive = options.reduce((a, b) => (b.calories > a.calories ? b : a));
-  if (mostActive.calories > 0 && options.length > 1 && mostActive.tags.length < 2) {
-    mostActive.tags.push('Najaktywniejsza');
-  }
   return options;
 }

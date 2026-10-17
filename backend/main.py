@@ -3,6 +3,7 @@
 Run from backend/: uv run uvicorn main:app --reload
 """
 import logging
+import os
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,12 +15,14 @@ from fastapi.responses import JSONResponse
 
 import api_stations
 import bus_detect
+import journey_stats
 import street_router
-from app.api import geocode, history
+from app.api import geocode, history, journeys
 from app.api import routes as route_api
 from app.config import settings
 from config import DATA, MissingKey, UpstreamError, load_json
-from sources import mkuran, nextbike, osm, um_warszawa
+from sources import mkuran, nextbike, osm, siting, um_warszawa
+from sim import api as sim_api
 from sources.registry import SOURCES
 
 
@@ -30,13 +33,15 @@ log = logging.getLogger("main")
 # set, so scripts and tests that import the app (without the lifespan) are not blocked.
 READY = threading.Event()
 READY.set()
-NEEDS_CACHES = ("/api/gtfs", "/api/osm", "/api/routes", "/api/live/nearest-buses")
+NEEDS_CACHES = ("/api/gtfs", "/api/osm", "/api/routes", "/api/live/nearest-buses", "/api/veturilo/siting")
 
 
 def _warm_up() -> None:
     try:
+        journey_stats.initialize()
         mkuran.warm()
         osm.warm()
+        siting.warm()  # hex grid for /api/veturilo/siting (first run ~2.5 min, then cached)
         street_router.start()  # the C++ street router (writes its graph files first if they are stale)
     except Exception:
         log.exception("warm-up failed; endpoints will try to build the caches on demand")
@@ -55,7 +60,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, title="WarsawOpenData data API",
               description="GTFS, City Hall, Veturilo, OSM, and route options from that data. "
-                          "No database: files in data/, parsed on first use.")
+                          "Source files in data/; optional journey counters in SQLite.")
 
 
 @app.middleware("http")
@@ -93,13 +98,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-for module in (mkuran, um_warszawa, nextbike, osm):
+for module in (mkuran, um_warszawa, nextbike, osm, siting):
     app.include_router(module.router)
 app.include_router(bus_detect.router)
 app.include_router(api_stations.router)
 app.include_router(route_api.router)
 app.include_router(geocode.router)
 app.include_router(history.router)
+app.include_router(journeys.router)
+
+# Simulation mode (integration tests, demo): the live feeds replay a scenario on a movable clock.
+if os.getenv("SIM_SCENARIO"):
+    sim_api.activate(os.environ["SIM_SCENARIO"], poll=False)
+    app.include_router(sim_api.router)
 
 
 @app.get("/api/sources", tags=["meta"])

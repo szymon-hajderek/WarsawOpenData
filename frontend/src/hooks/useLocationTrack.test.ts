@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import { useLocationTrack } from './useLocationTrack';
+import { geoErrorText, useLocationTrack } from './useLocationTrack';
 
 type Success = (pos: { coords: { latitude: number; longitude: number } }) => void;
 
@@ -44,5 +44,10 @@ describe('useLocationTrack', () => {
     unmount();
     expect(clearWatch).toHaveBeenCalledWith(7);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('explains the HTTPS requirement when the page is not secure', () => {
+    expect(geoErrorText(true)).toContain('HTTPS');
+    expect(geoErrorText(false)).not.toContain('HTTPS');
   });
 });

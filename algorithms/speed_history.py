@@ -70,7 +70,7 @@ def split_track(
     `points`: GPS samples `{lat, lon, t}` (t in seconds). `legs`: the planned route's legs
     `{mode, distanceM}` in order. The moving distance of the track is shared between the legs in
     proportion to their planned distance (the user followed the plan). Walking legs count as
-    `walk_as` ("walking" or "wheelchair"), bike legs as "cycling"; other legs only take their share.
+    `walk_as` ("walking" or "wheelchair"), bike and veturilo legs as "cycling"; other legs only take their share.
     Returns at most one record per mode, `[]` when the track is too short, does not match the plan
     or gives an implausible speed.
     """
@@ -101,7 +101,7 @@ def split_track(
 
     totals: dict[str, list[float]] = {}
     for leg, d, t in zip(legs, dist, time):
-        mode = walk_as if leg["mode"] == "walk" else "cycling" if leg["mode"] == "bike" else None
+        mode = walk_as if leg["mode"] == "walk" else "cycling" if leg["mode"] in ("bike", "veturilo") else None
         if mode:
             acc_mode = totals.setdefault(mode, [0.0, 0.0])
             acc_mode[0] += d

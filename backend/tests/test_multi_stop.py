@@ -11,13 +11,13 @@ def place(name: str, lat: float, lon: float) -> Place:
     return Place(id=name, label=name, position=(lat, lon))
 
 
-def option(oid: str, duration: int, *, cost=0.0, calories=0, title="Test", transfers=0, leg_to="") -> RouteOption:
+def option(oid: str, duration: int, *, title="Test", transfers=0, leg_to="") -> RouteOption:
     leg = RouteLeg.model_validate(
         {"mode": "walk", "from": "x", "to": leg_to, "durationMin": duration, "distanceM": duration * 80.0, "path": [(0, 0), (0, 1)]}
     )
     return RouteOption(
         id=oid, title=title, legs=[leg], departure="10:00", arrival="10:00", durationMin=duration,
-        distanceM=duration * 80.0, calories=calories, transfers=transfers, costPln=cost, tags=[],
+        distanceM=duration * 80.0, transfers=transfers, tags=[],
     )
 
 
@@ -28,7 +28,7 @@ class FakeEngine(RouteEngine):
         self.table = table or {}
         self.calls: list[tuple[str, str]] = []
 
-    def query_routes(self, frm, to, profile, when=None):
+    def query_routes(self, frm, to, profile, when=None, search=None):
         self.calls.append((frm.id, to.id))
         return self.table.get((frm.id, to.id), [option(f"{frm.id}{to.id}", 10, leg_to=to.label)])
 
@@ -45,8 +45,8 @@ def test_given_order_is_kept_and_totals_are_summed():
     assert engine.calls == [("A", "S2"), ("S2", "S1"), ("S1", "B")]
     trip = result[0]
     assert [p.id for p in trip.waypoints] == ["A", "S2", "S1", "B"]
-    assert trip.durationMin == 30
-    assert trip.arrival == "10:30"
+    assert trip.durationMin == 34  # 3 x 10 min plus 2 min standing at each of the two stops
+    assert trip.arrival == "10:34"
     assert trip.distanceM == pytest.approx(2400)
     assert len(trip.legs) == 3
 
@@ -75,7 +75,7 @@ def test_nth_best_options_are_chained_and_the_count_is_limited():
         ("S1", "B"): [option("b1", 6), option("b2", 9)],
     }
     result = query_multi(FakeEngine(table), A, B, [S1], "given", "standard")
-    assert [o.durationMin for o in result] == [11, 17, 20]  # 5+6, 8+9, 11+9 (the last option is reused)
+    assert [o.durationMin for o in result] == [13, 19, 22]  # 5+6, 8+9, 11+9, plus 2 min at the stop
     assert len(result) <= 3
 
 
@@ -84,14 +84,30 @@ def test_a_segment_without_connections_gives_no_trip():
     assert query_multi(FakeEngine(table), A, B, [S1], "given", "standard") == []
 
 
-def test_tags_fastest_cheapest_and_most_active():
+def test_only_the_fastest_option_is_tagged():
     table = {
-        ("A", "S1"): [option("a1", 5, cost=4.4, calories=0), option("a2", 9, cost=0, calories=300)],
-        ("S1", "B"): [option("b1", 5, cost=4.4, calories=0), option("b2", 9, cost=0, calories=300)],
+        ("A", "S1"): [option("a1", 5), option("a2", 9)],
+        ("S1", "B"): [option("b1", 5), option("b2", 9)],
     }
     result = query_multi(FakeEngine(table), A, B, [S1], "given", "standard")
     assert result[0].tags == ["Najszybsza"]
-    assert "Najtańsza" in result[1].tags
+    assert all(o.tags == [] for o in result[1:])
+
+
+def test_walk_and_bike_distances_come_from_the_legs():
+    legs = [
+        RouteLeg.model_validate({"mode": "walk", "from": "a", "to": "b", "durationMin": 5, "distanceM": 400, "path": [(52.0, 21.0), (52.1, 21.1)]}),
+        RouteLeg.model_validate({"mode": "veturilo", "from": "b", "to": "c", "durationMin": 9, "distanceM": 2000, "path": [(52.1, 21.1), (52.2, 21.2)]}),
+        RouteLeg.model_validate({"mode": "bike", "from": "c", "to": "d", "durationMin": 3, "distanceM": 700, "path": [(52.2, 21.2), (52.3, 21.3)]}),
+        RouteLeg.model_validate({"mode": "bus", "from": "d", "to": "e", "durationMin": 9, "distanceM": 3000, "path": [(52.3, 21.3), (52.4, 21.4)]}),
+    ]
+    o = RouteOption(id="x", title="t", legs=legs, departure="10:00", arrival="10:20", durationMin=26, distanceM=6100, transfers=0, tags=[])
+    assert o.walkDistance == 400 and o.bikeDistance == 2700
+
+
+def test_a_leg_gets_its_start_and_end_as_lon_lat():
+    leg = RouteLeg.model_validate({"mode": "walk", "from": "a", "to": "b", "durationMin": 5, "distanceM": 400, "path": [(52.2, 21.0), (52.3, 21.1)]})
+    assert leg.start == (21.0, 52.2) and leg.end == (21.1, 52.3)
 
 
 def test_combine_titles_are_unique_and_short():

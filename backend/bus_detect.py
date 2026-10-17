@@ -18,6 +18,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from config import REPO
+from sim import clock, scenario
 
 sys.path.insert(0, str(REPO / "algorithms"))
 from bus_delay import WINDOW_S, add_point, estimate  # noqa: E402
@@ -54,8 +55,8 @@ def _feeds() -> list[tuple[str, str]]:
 
 
 def _epoch(local_time: str) -> float:
-    """Feed time is Warsaw local time; the server is assumed to run in the same time zone."""
-    return datetime.strptime(local_time, "%Y-%m-%d %H:%M:%S").timestamp()
+    """Feed time is Warsaw local time, whatever the server's time zone."""
+    return clock.warsaw_epoch(datetime.strptime(local_time, "%Y-%m-%d %H:%M:%S"))
 
 
 def _direction(line: str, brigade: str, local_time: str) -> str:
@@ -97,7 +98,7 @@ def _store(mode: str, rows: list[dict]) -> None:
 
 def _forget_stale() -> None:
     """Drop vehicles that left the feed, so they are not ranked and the dicts do not grow."""
-    cutoff = time.time() - STALE_S
+    cutoff = clock.now() - STALE_S
     with _lock:
         for vid in [vid for vid, track in _history.items() if not track or track[-1]["t"] < cutoff]:
             del _history[vid]
@@ -139,7 +140,7 @@ def poll_once() -> bool:
         _store(mode, rows)
     if batches:
         _forget_stale()
-        _updated_at = time.time()
+        _updated_at = clock.now()
     return bool(batches)
 
 
@@ -153,8 +154,21 @@ def _loop() -> None:
         time.sleep(POLL_S)
 
 
+def reset() -> None:
+    """Forget all vehicles (a new simulation scenario starts)."""
+    global _updated_at
+    with _lock:
+        for d in (_history, _info, _buffers, _last_proj):
+            d.clear()
+        _broken.clear()
+        _updated_at = None
+
+
 def start_poller() -> None:
     from config import PORTAL_KEY
+    if scenario.current():
+        log.warning("live vehicle poller off: simulation mode, the sim clock polls on each step")
+        return
     if not _CUSTOM and not PORTAL_KEY:
         log.warning("live vehicle poller off: PORTAL_KEY is not set")
         return
@@ -200,7 +214,7 @@ def api_nearest_buses(req: NearestRequest):
     return {"candidates": candidates, "lines": lines, "updated_at": _updated_at}
 
 def _clock(epoch: float | None) -> str | None:
-    return None if epoch is None else datetime.fromtimestamp(epoch).strftime("%H:%M:%S")
+    return None if epoch is None else clock.warsaw_time(epoch).strftime("%H:%M:%S")
 
 
 @router.get("/delay")
@@ -214,7 +228,7 @@ def api_delay(vehicle: str = Query(..., description="vehicle id as in nearest-bu
     if info is None:
         raise HTTPException(404, "unknown vehicle")
     from sources import mkuran
-    when = datetime.fromtimestamp(buffer[-1]["t"]) if buffer else datetime.now()
+    when = clock.warsaw_time(buffer[-1]["t"]) if buffer else clock.warsaw_now()
     r = estimate(buffer, mkuran.brigade_trips(info["line"], info["brigade"], when, WINDOW_S), DELAY_RADIUS_M, prev)
     trip = r["trip"]
     if trip is not None:

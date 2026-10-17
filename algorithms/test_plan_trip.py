@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from plan_trip import (
     best_bike_pair, bike_access_pairs, bike_between, direct_rides, nearby, service_moment,
-    spread_groups, transfer_rides,
+    spread_groups, transfer_rides, two_transfer_rides,
 )
 
 
@@ -63,6 +63,54 @@ def test_transfer_changes_to_a_second_trip():
     assert len(rides) == 1
     assert rides[0]["second"]["dep"]["trip_id"] == "t2"
     assert rides[0]["walk_m"] == 0
+
+
+def test_transfer_waits_out_the_minimum_transfer_time():
+    def departures(stop_id, after):
+        if stop_id == "a" and after is None:
+            return [{"trip_id": "t1", "sec": 1000, "line": "1", "wheelchair": "0"}]
+        if stop_id == "b" and after is not None:
+            return [{"trip_id": "t2", "sec": int(after), "line": "2", "wheelchair": "0"}]
+        return []
+
+    def onward(trip_id, stop_id, sec):
+        if trip_id == "t1":
+            return [
+                {"stop_id": "a", "arr": 1000, "dep": 1000, "wheelchair": "0"},
+                {"stop_id": "hub", "arr": 1100, "dep": 1100, "wheelchair": "0"},
+            ]
+        return [
+            {"stop_id": "b", "arr": sec, "dep": sec, "wheelchair": "0"},
+            {"stop_id": "dest", "arr": sec + 100, "dep": sec + 100, "wheelchair": "0"},
+        ]
+
+    rides = transfer_rides(["a"], {"dest"}, departures, onward, {"hub": [("b", 40.0, 180)]}, accessible=False)
+    assert rides[0]["second"]["dep"]["sec"] == 1100 + 180
+
+
+def test_two_transfers_reach_the_destination_on_the_third_ride():
+    def departures(stop_id, after):
+        table = {
+            "a": [{"trip_id": "t1", "sec": 1000, "line": "1", "wheelchair": "0"}],
+            "b": [{"trip_id": "t2", "sec": 1400, "line": "2", "wheelchair": "0"}],
+            "c": [{"trip_id": "t3", "sec": 1800, "line": "3", "wheelchair": "0"}],
+        }
+        if after is not None and stop_id in table and table[stop_id][0]["sec"] < after:
+            return []
+        return table.get(stop_id, [])
+
+    def onward(trip_id, stop_id, sec):
+        chain = {
+            "t1": [("a", 1000), ("ab", 1200)],
+            "t2": [("b", 1400), ("bc", 1600)],
+            "t3": [("c", 1800), ("dest", 2000)],
+        }
+        return [{"stop_id": sid, "arr": t, "dep": t, "wheelchair": "0"} for sid, t in chain[trip_id]]
+
+    foot = {"ab": [("b", 30.0, 0)], "bc": [("c", 30.0, 0)]}
+    rides = two_transfer_rides(["a"], {"dest"}, departures, onward, foot, accessible=False)
+    assert len(rides) == 1
+    assert [ride["dep"]["line"] for ride in rides[0]["rides"]] == ["1", "2", "3"]
 
 
 def test_spread_groups_keeps_one_post_per_stop_group():

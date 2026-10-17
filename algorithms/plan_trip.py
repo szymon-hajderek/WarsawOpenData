@@ -98,38 +98,53 @@ def direct_rides(boards: list[str], dest_ids: set[str], departures, onward,
     return found
 
 
+def _link(item) -> tuple[str, float, int]:
+    """A foot link is `(stop_id, meters)` or `(stop_id, meters, min_transfer_s)`."""
+    return item[0], float(item[1]), int(item[2]) if len(item) > 2 else 0
+
+
+def _alight_picks(calls, dep_sec, accessible, alights, limit_s):
+    picks = []
+    for index, call in enumerate(calls[1:], start=1):
+        if call["arr"] - dep_sec > limit_s:
+            break
+        if index == 1 and len(calls) > 3:
+            continue
+        if accessible and call.get("wheelchair") == "2":
+            continue
+        picks.append((index, call))
+    if len(picks) > alights:
+        step = len(picks) / alights
+        picks = [picks[int(k * step)] for k in range(alights)]
+    return picks
+
+
+def _can_board(dep, prev, accessible, min_sec):
+    if dep["trip_id"] == prev["trip_id"]:
+        return False
+    if prev.get("line") and prev.get("line") == dep.get("line"):
+        return False
+    if dep["sec"] < prev["arr"] + min_sec or dep["sec"] - prev["arr"] > 20 * 60:
+        return False
+    if accessible and dep.get("wheelchair") == "2":
+        return False
+    return True
+
+
 def transfer_rides(boards: list[str], dest_ids: set[str], departures, onward, foot: dict,
                    accessible: bool, per_board: int = 5, alights: int = 3) -> list[dict]:
-    """One transfer. `foot` maps a stop id to nearby stops `(other_id, meters)`, closest first."""
+    """One transfer. `foot` maps a stop id to nearby stops, closest first."""
     found = []
     for stop_id in boards:
         for dep in departures(stop_id, None)[:per_board]:
             if accessible and dep.get("wheelchair") == "2":
                 continue
             calls = onward(dep["trip_id"], stop_id, dep["sec"])
-            picks = []
-            for index, call in enumerate(calls[1:], start=1):
-                if call["arr"] - dep["sec"] > 40 * 60:
-                    break
-                if index == 1 and len(calls) > 3:
-                    continue
-                if accessible and call.get("wheelchair") == "2":
-                    continue
-                picks.append((index, call))
-            if len(picks) > alights:
-                step = len(picks) / alights
-                picks = [picks[int(k * step)] for k in range(alights)]
-            for index, call in picks:
+            for index, call in _alight_picks(calls, dep["sec"], accessible, alights, 40 * 60):
                 neighbors = [(call["stop_id"], 0.0)] + list(foot.get(call["stop_id"], ()))[:3]
-                for other_id, meters in neighbors:
-                    for dep2 in departures(other_id, call["arr"])[:4]:
-                        if dep2["trip_id"] == dep["trip_id"]:
-                            continue
-                        if dep.get("line") and dep.get("line") == dep2.get("line"):
-                            continue
-                        if dep2["sec"] < call["arr"] or dep2["sec"] - call["arr"] > 20 * 60:
-                            continue
-                        if accessible and dep2.get("wheelchair") == "2":
+                for other_id, meters, min_sec in map(_link, neighbors):
+                    for dep2 in departures(other_id, call["arr"] + min_sec)[:4]:
+                        if not _can_board(dep2, {**dep, "arr": call["arr"]}, accessible, min_sec):
                             continue
                         calls2 = onward(dep2["trip_id"], other_id, dep2["sec"])
                         for index2, call2 in enumerate(calls2[1:], start=1):
@@ -142,6 +157,51 @@ def transfer_rides(boards: list[str], dest_ids: set[str], departures, onward, fo
                                     "walk_m": meters,
                                 })
                                 break
+    return found
+
+
+def two_transfer_rides(boards: list[str], dest_ids: set[str], departures, onward, foot: dict,
+                       accessible: bool) -> list[dict]:
+    """Two transfers. Caps are tight: a third ride is only tried from a few alighting stops."""
+    found = []
+    for stop_id in list(boards)[:3]:
+        for dep in departures(stop_id, None)[:2]:
+            if accessible and dep.get("wheelchair") == "2":
+                continue
+            calls = onward(dep["trip_id"], stop_id, dep["sec"])
+            for index, call in _alight_picks(calls, dep["sec"], accessible, 2, 30 * 60):
+                if call["stop_id"] in dest_ids:
+                    continue
+                neighbors = list(foot.get(call["stop_id"], ()))[:2] or [(call["stop_id"], 0.0)]
+                for other_id, meters, min_sec in map(_link, neighbors):
+                    for dep2 in departures(other_id, call["arr"] + min_sec)[:2]:
+                        if not _can_board(dep2, {**dep, "arr": call["arr"]}, accessible, min_sec):
+                            continue
+                        calls2 = onward(dep2["trip_id"], other_id, dep2["sec"])
+                        for index2, call2 in _alight_picks(calls2, dep2["sec"], accessible, 2, 30 * 60):
+                            if call2["stop_id"] in dest_ids:
+                                continue
+                            neighbors2 = list(foot.get(call2["stop_id"], ()))[:2] or [(call2["stop_id"], 0.0)]
+                            for other3, meters3, min3 in map(_link, neighbors2):
+                                for dep3 in departures(other3, call2["arr"] + min3)[:2]:
+                                    if not _can_board(dep3, {**dep2, "arr": call2["arr"]}, accessible, min3):
+                                        continue
+                                    calls3 = onward(dep3["trip_id"], other3, dep3["sec"])
+                                    for index3, call3 in enumerate(calls3[1:], start=1):
+                                        if accessible and call3.get("wheelchair") == "2":
+                                            continue
+                                        if call3["stop_id"] in dest_ids:
+                                            found.append({
+                                                "rides": [
+                                                    {"dep": dep, "calls": calls[:index + 1]},
+                                                    {"dep": dep2, "calls": calls2[:index2 + 1]},
+                                                    {"dep": dep3, "calls": calls3[:index3 + 1]},
+                                                ],
+                                                "walk_m": meters + meters3,
+                                            })
+                                            break
+                                    if len(found) >= 6:
+                                        return found
     return found
 
 

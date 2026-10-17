@@ -165,6 +165,28 @@ export const DEFAULT_PREFERENCES: Preferences = {
   body: { weightKg: null, heightCm: null, age: null, sex: null },
 };
 
+/** Fields `POST /api/routes` uses to pace, filter and price the search. */
+export function routeSearchBody(p: Preferences) {
+  const chair = p.wheelchair.type !== 'none';
+  return {
+    walkKmh: chair ? (wheelchairKmh(p.wheelchair) ?? walkingKmh(p.walking)) : walkingKmh(p.walking),
+    bikeKmh: !p.cycling.enabled || chair ? 0 : cyclingKmh(p.cycling),
+    stepFree: p.wheelchair.stepFree || chair,
+    maxTransfers: p.priorities.maxTransfers,
+    excludedDistricts: p.priorities.excluded.districts,
+    excludedPoints: p.priorities.excluded.points.map((pt) => ({ position: pt.position, radiusM: pt.radiusM })),
+    body: {
+      weightKg: p.body.weightKg,
+      heightCm: p.body.heightCm,
+      age: p.body.age,
+      sex: p.body.sex,
+      wheelchair: p.wheelchair.type,
+    },
+  };
+}
+
+export type RouteSearchBody = ReturnType<typeof routeSearchBody>;
+
 export const walkingKmh = (s: WalkingSetting) =>
   s.customKmh ?? WALK_LEVELS.find((l) => l.id === s.level)!.kmh;
 
@@ -222,7 +244,7 @@ export function restingKcalPerDay(b: BodySetting): number {
 
 /**
  * Net calories (above resting) of a route's active legs: MET x weight x hours minus the resting
- * energy of the same time. Public transport legs count as resting. Walking legs count as a manual
+ * energy of the same time. The speed of a leg is its distance over its time (as in `algorithms/calories.py`). Public transport legs count as resting. Walking legs count as a manual
  * wheelchair when the user has one (an electric one burns nothing). Flat ground, no load.
  */
 export function routeKcal(route: Pick<RouteOption, 'legs'>, p: Preferences): number {
@@ -236,9 +258,11 @@ export function routeKcal(route: Pick<RouteOption, 'legs'>, p: Preferences): num
     if (leg.mode === 'walk' && p.wheelchair.type === 'electric') continue;
     if (leg.mode === 'walk') {
       [kmh, table] = wheelchair !== null ? [wheelchair, WHEELCHAIR_MET] : [walkingKmh(p.walking), WALK_MET];
-    } else if (leg.mode === 'bike') {
+    } else if (leg.mode === 'bike' || leg.mode === 'veturilo') {
       [kmh, table] = [cyclingKmh(p.cycling), BIKE_MET];
     } else continue;
+    // The leg's own time gives its real speed; the pace from the preferences is the fallback.
+    if (leg.durationMin > 0 && leg.distanceM > 0) kmh = leg.distanceM / 1000 / (leg.durationMin / 60);
     const hours = leg.distanceM / 1000 / kmh;
     total += Math.max(0, met(table, kmh) * weight - restPerHour) * hours;
   }
@@ -370,17 +394,16 @@ export function describeRule(rule: TimeRule): string {
 
 // ------------------------------------------------------------ trip filters
 
-export type SortKey = 'fastest' | 'fewest-transfers' | 'cheapest' | 'most-active';
+export type SortKey = 'fastest' | 'fewest-transfers' | 'most-active';
 export type FilterMode = Exclude<TransportMode, 'walk'>;
 
 export const SORT_LABELS: Record<SortKey, string> = {
   fastest: 'Najszybsze',
   'fewest-transfers': 'Najmniej przesiadek',
-  cheapest: 'Najtańsze',
   'most-active': 'Najaktywniejsze',
 };
 
-export const FILTER_MODES: FilterMode[] = ['bus', 'tram', 'metro', 'rail', 'bike'];
+export const FILTER_MODES: FilterMode[] = ['bus', 'tram', 'metro', 'rail', 'veturilo'];
 
 export interface TripFilters {
   sort: SortKey;
@@ -404,7 +427,8 @@ const MODE_NAMES: Record<FilterMode, string> = {
   tram: 'Tramwaj',
   metro: 'Metro',
   rail: 'Kolej',
-  bike: 'Veturilo',
+  bike: 'Rower',
+  veturilo: 'Veturilo',
 };
 export const modeName = (m: FilterMode) => MODE_NAMES[m];
 
@@ -460,14 +484,14 @@ export const countActiveFilters = (f: TripFilters, trip: Preferences) => filterC
 const walkMinutes = (o: RouteOption) => o.legs.filter((l) => l.mode === 'walk').reduce((s, l) => s + l.durationMin, 0);
 
 /**
- * Client-side filtering and sorting of the routes that were found. Only list-like filters work here
- * (transfers, vehicles, walking time, sorting); speeds, wheelchair and areas need the routing backend.
+ * Client-side filtering and sorting of the routes that were found. Vehicles and max walking time
+ * still apply here. Speeds, wheelchair, transfers and excluded areas are also sent to the backend.
  */
 export function applyListFilters(options: RouteOption[], trip: Preferences, f: TripFilters): RouteOption[] {
   const maxTransfers = trip.priorities.maxTransfers;
   const list = options.filter((o) => {
     if (maxTransfers !== null && o.transfers > maxTransfers) return false;
-    if (f.modes && o.legs.some((l) => l.mode !== 'walk' && !f.modes!.includes(l.mode as FilterMode))) return false;
+    if (f.modes && o.legs.some((l) => l.mode !== 'walk' && l.mode !== 'bike' && !f.modes!.includes(l.mode as FilterMode))) return false;
     if (f.maxWalkMin !== null && walkMinutes(o) > f.maxWalkMin) return false;
     return true;
   });
@@ -476,7 +500,6 @@ export function applyListFilters(options: RouteOption[], trip: Preferences, f: T
   const by: Record<SortKey, (a: RouteOption, b: RouteOption) => number> = {
     fastest: (a, b) => a.durationMin - b.durationMin,
     'fewest-transfers': (a, b) => a.transfers - b.transfers || a.durationMin - b.durationMin,
-    cheapest: (a, b) => a.costPln - b.costPln || a.durationMin - b.durationMin,
     'most-active': (a, b) => kcal(b) - kcal(a) || a.durationMin - b.durationMin,
   };
   return [...list].sort(by[f.sort]);

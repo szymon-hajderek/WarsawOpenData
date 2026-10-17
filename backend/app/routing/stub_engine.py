@@ -29,11 +29,11 @@ class _Template(TypedDict):
 
 TEMPLATES: list[_Template] = [
     {
-        "id": "bike",
+        "id": "veturilo",
         "title": "Veturilo",
         "legs": [
             {"mode": "walk", "share": 0.04},
-            {"mode": "bike", "share": 0.92},
+            {"mode": "veturilo", "share": 0.92},
             {"mode": "walk", "share": 0.04},
         ],
         "bend": 0.06,
@@ -46,7 +46,7 @@ TEMPLATES: list[_Template] = [
         "legs": [
             {"mode": "walk", "share": 0.05},
             {"mode": "metro", "share": 0.6},
-            {"mode": "bike", "share": 0.3},
+            {"mode": "veturilo", "share": 0.3},
             {"mode": "walk", "share": 0.05},
         ],
         "bend": 0.03,
@@ -57,7 +57,7 @@ TEMPLATES: list[_Template] = [
         "id": "bike-bus",
         "title": "Veturilo + autobus",
         "legs": [
-            {"mode": "bike", "share": 0.25},
+            {"mode": "veturilo", "share": 0.25},
             {"mode": "bus", "share": 0.7},
             {"mode": "walk", "share": 0.05},
         ],
@@ -95,7 +95,7 @@ TEMPLATES: list[_Template] = [
         "legs": [
             {"mode": "walk", "share": 0.04},
             {"mode": "rail", "share": 0.72},
-            {"mode": "bike", "share": 0.2},
+            {"mode": "veturilo", "share": 0.2},
             {"mode": "walk", "share": 0.04},
         ],
         "bend": -0.04,
@@ -123,10 +123,6 @@ PT_WAIT_MIN = 4
 BIKE_UNLOCK_MIN = 1
 DETOUR_FACTOR = 1.25  # straight line -> real street network
 
-KCAL_PER_KM = {"walk": 55, "bike": 32}
-TICKET_PLN = 4.4  # estimate: 20-minute ticket
-VETURILO_FREE_MIN = 20
-
 LINES: dict[str, list[str]] = {
     "bus": ["175", "186", "523"],
     "tram": ["17", "18", "25", "33"],
@@ -135,7 +131,8 @@ LINES: dict[str, list[str]] = {
 }
 STOP_NAME: dict[TransportMode, str] = {
     "walk": "",
-    "bike": "Stacja Veturilo",
+    "bike": "Stacja własnego roweru",
+    "veturilo": "Stacja Veturilo",
     "bus": "Przystanek autobusowy",
     "tram": "Przystanek tramwajowy",
     "metro": "Stacja metra",
@@ -174,7 +171,7 @@ def _build_option(
 
         if tl["mode"] == "walk":
             minutes = (dist_m / 1000 / speeds["walk"]) * 60
-        elif tl["mode"] == "bike":
+        elif tl["mode"] == "veturilo":
             minutes = (dist_m / 1000 / speeds["bike"]) * 60 + BIKE_UNLOCK_MIN
         else:
             minutes = (dist_m / 1000 / PT_SPEED.get(tl["mode"], 20)) * 60 + (
@@ -197,19 +194,7 @@ def _build_option(
         )
 
     duration_min = sum(leg.durationMin for leg in legs)
-    bike_min = sum(leg.durationMin for leg in legs if leg.mode == "bike")
-    uses_pt = any(leg.mode in PT_SPEED for leg in legs)
-    calories = round_half_up(
-        sum(
-            (leg.distanceM / 1000) * KCAL_PER_KM["walk"]
-            if leg.mode == "walk"
-            else (leg.distanceM / 1000) * KCAL_PER_KM["bike"]
-            if leg.mode == "bike"
-            else 0
-            for leg in legs
-        )
-    )
-    non_walk = sum(1 for leg in legs if leg.mode != "walk")
+    non_walk = sum(1 for leg in legs if leg.mode not in ("walk", "bike", "veturilo"))
     arrival = departure + timedelta(minutes=duration_min)
 
     return RouteOption(
@@ -220,9 +205,7 @@ def _build_option(
         arrival=format_time(arrival),
         durationMin=duration_min,
         distanceM=total_m,
-        calories=calories,
         transfers=max(0, non_walk - 1),
-        costPln=(TICKET_PLN if uses_pt else 0) + (1 if bike_min > VETURILO_FREE_MIN else 0),
         tags=[],
     )
 
@@ -234,7 +217,7 @@ class StubRouteEngine(RouteEngine):
         # The stub has no live state to update.
         return None
 
-    def query_routes(self, frm: Place, to: Place, profile: Profile, when: str | None = None) -> list[RouteOption]:
+    def query_routes(self, frm: Place, to: Place, profile: Profile, when: str | None = None, search=None) -> list[RouteOption]:
         distance_m = haversine(frm.position, to.position)
         seed = abs(round_half_up((frm.position[0] + to.position[1]) * 1000))
         departure = datetime.now() + timedelta(minutes=2)
@@ -244,7 +227,7 @@ class StubRouteEngine(RouteEngine):
             for t in TEMPLATES
             if distance_m >= t["minDistanceM"]
             and (t["maxDistanceM"] is None or distance_m <= t["maxDistanceM"])
-            and not (profile == "accessible" and any(leg["mode"] == "bike" for leg in t["legs"]))
+            and not (profile == "accessible" and any(leg["mode"] == "veturilo" for leg in t["legs"]))
         ]
 
         options.sort(key=lambda o: o.durationMin)
@@ -252,11 +235,4 @@ class StubRouteEngine(RouteEngine):
             return options
 
         options[0].tags.append("Najszybsza")
-        min_cost = min(o.costPln for o in options)
-        cheapest = [o for o in options if o.costPln == min_cost]
-        if len(cheapest) == 1 and len(options) > 1:
-            cheapest[0].tags.append("Najtańsza")
-        most_active = max(options, key=lambda o: o.calories)
-        if most_active.calories > 0 and len(options) > 1 and len(most_active.tags) < 2:
-            most_active.tags.append("Najaktywniejsza")
         return options

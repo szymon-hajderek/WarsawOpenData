@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchRouteOptions } from '../api/routes';
+import type { RouteSearchBody } from '../preferences/model';
 import type { Place, RouteOption, StopOrder } from '../types';
 
 interface Query {
@@ -7,10 +8,11 @@ interface Query {
   destination: Place | null;
   via: Place[];
   order: StopOrder;
+  search?: RouteSearchBody;
 }
 
 /** Fetches the connections as soon as both points are set; a new query cancels the old one. */
-export function useRouteSearch({ origin, destination, via, order }: Query) {
+export function useRouteSearch({ origin, destination, via, order, search }: Query) {
   const [options, setOptions] = useState<RouteOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -25,7 +27,7 @@ export function useRouteSearch({ origin, destination, via, order }: Query) {
     }
     const ac = new AbortController();
     setLoading(true);
-    fetchRouteOptions({ from: origin, to: destination, profile: 'standard', via, order }, ac.signal)
+    fetchRouteOptions({ from: origin, to: destination, profile: 'standard', via, order, search }, ac.signal)
       .then((result) => {
         setOptions(result.options);
         setMock(result.mock);
@@ -39,7 +41,7 @@ export function useRouteSearch({ origin, destination, via, order }: Query) {
         setLoading(false);
       });
     return () => ac.abort();
-  }, [origin, destination, via, order]);
+  }, [origin, destination, via, order, search]);
 
   return { options, loading, error, mock };
 }

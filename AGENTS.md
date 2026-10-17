@@ -45,6 +45,18 @@ Everything in this repo (files, commits, PRs) is written in English.
 - To change the API, edit `data/API.md` first, then the code, in the same PR. Never let code and `data/API.md` differ.
 - Before you call or add an endpoint, read `data/API.md`. Use real answers from a running server for the examples.
 
+## Street routing and the route engine: report only
+
+- **The street routing code and the route engine have their own maintainers. Do not change them.**
+  - Street routing: `backend/sources/osm.py`, `algorithms/street_model.py`, `algorithms/street_graph.py`,
+    `algorithms/test_street_model.py`, `algorithms/router/` and `backend/preprocess_street.py`.
+  - Route engine: `backend/app/routing/`, `algorithms/plan_trip.py` and `algorithms/lateness.py`.
+- When you find a problem there (bug, slowdown, stale cache, wrong result), only report it:
+  1. Open a GitHub issue (`gh issue create`) with the symptom, how to reproduce it, measurements,
+     the cause if known and a suggested fix.
+  2. Tell the user about the problem and give the issue link.
+- Do not fix it, and do not work around it in other code, unless the user asks for it.
+
 ## Feature Branches
 
 - **One feature, one branch.** Do not add a second feature onto a branch that already has another.
@@ -93,8 +105,9 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Frontend: React + TypeScript + Vite
 - Map: Leaflet + OpenStreetMap
 - Backend: Python + FastAPI
-- Database: none for now. Raw files in `data/`, parsed by Python modules on first use.
-  PostgreSQL + PostGIS (or SQLite) later if needed.
+- Database: SQLite for optional journey statistics (`db/journey_stats.sqlite`, git-ignored).
+  Source datasets remain raw files in `data/`, parsed by Python modules on first use.
+  PostgreSQL + PostGIS for source datasets later if needed.
 - Routing: a long-running **C++ engine** builds its own graph at startup and keeps it in memory.
   Today the street part runs (`algorithms/router/`, see Backend notes); transit routing is still Python
   (`backend/app/routing/real_engine.py`).
@@ -147,7 +160,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   `POST /api/live/nearest-buses` ranks buses by MSE (m^2) between the user's 1-3 points and each bus track
   (each user point paired with the bus point closest in time), `algorithms/nearest_buses.py`. Returns 4
   (1 + 3 for the popup), no distance cut-off. Feed time is read as server local time (Warsaw).
-- Tests: `cd backend && uv run pytest tests ../algorithms` (`algorithms/` = pure functions, `backend/tests/` = API-level logic that needs no data files).
+- Tests: `cd backend && uv run pytest tests ../algorithms` (integration tests: `uv run pytest ../integration`) (`algorithms/` = pure functions, `backend/tests/` = API-level logic that needs no data files).
 - Simulation (`algorithms/simulation/`): `record_buses.py` records 2 min of live buses (needs `PORTAL_KEY`) to
   `data/live/bus_track_sample.json` (committed); `simulate_nearest_buses.py` puts users on bus polylines with a GPS
   radius (10-100 m). Results in `algorithms/simulation/RESULTS.md`: own bus always in top-4, top-1 96-100% with
@@ -156,9 +169,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   `rank_buses` is O(V*K*H + V log V), ~2 ms per request for ~880 buses.
 - Visualization: `artifacts/bus-detection-simulation.html` (charts, one mini map per line, table), rebuilt with
   `uv run python ../algorithms/simulation/export_viz.py` (same seed, so the same numbers as RESULTS.md).
-- Known issue: `bus_detect._epoch` reads feed times in the server's time zone. On a machine in UTC (this dev
-  laptop is) bus times end up 2 h ahead of the user's, so time pairing picks the oldest bus report. Fix: parse
-  with `ZoneInfo("Europe/Warsaw")` (needs `tzdata` on Windows).
+- Time zone: feed times and GTFS service midnights are Europe/Warsaw (`sim/clock.py`: `warsaw_epoch`,
+  `warsaw_time`, `zoneinfo` + the `tzdata` package), whatever the server's zone. `record_buses.py` still stores
+  vehicle `t` in the recorder's zone; `sim/scenario.py` undoes that with the poll time.
 - Delay estimate (`algorithms/bus_delay.py`, `GET /api/live/delay?vehicle=bus-1234`): the poller also keeps a per-vehicle
   buffer (longest scheduled stop-to-stop time of the brigade's current trip + 60 s, else 10 min) with a midpoint between feed
   points (~5 s) unless a poll failed in between or the gap is > 25 s. The vehicle is projected on the GTFS shape of the trip with
@@ -166,7 +179,41 @@ Everything in this repo (files, commits, PRs) is written in English.
   Delay = time closest to K-1 within `DELAY_RADIUS_M` (default 30 m) - scheduled departure at K-1, shown at stop K; may be negative.
   Not found -> `available: false`. **Pitfall:** `shape_dist_traveled` in `warsaw.zip` is in km and `mkuran._shape_dist` keeps
   whole units only, so the cached `shape_dist` is useless at stop level; `mkuran._trip_static` computes metres from coordinates. Tuning: `algorithms/simulation/tune_delay_radius.py`, results in `DELAY_RESULTS.md`.
+  Delay simulation: `record_delay_sample.py` records all live vehicles + `/api/live/delay` answers from a local server into
+  `data/live/delay_sample.json.gz` (t = seconds since local midnight of `date`); `simulate_delay.py` (`evaluate(sample, radius_m,
+  drop, noise_m)`, for future R searches) compares the replayed estimate with the full-track reference (stop crossing on the shape);
+  `export_delay_viz.py` builds `artifacts/delay-simulation.html`. `search_delay_radius.py`: R 20..200 m every 10 m, then every 1 m
+  between the two best neighbours; score = share of passes shown within 30 s. On the 2026-10-17 recording: 30 m 95.0%, best 80 m 96.5%
+  (flat from 80 m); default still 30 m.
+- Veturilo siting (`backend/sources/siting.py`, `algorithms/station_siting.py`, `GET /api/veturilo/siting`): Warsaw boundary
+  (`data/geojson/warsaw.geojson`, Nominatim relation R336075) split into pointy-top axial hexes, radius 175 m (6476 hexes). Cost
+  `J = -a*T*(1 + d*E) + b*P(d_net) + g*S`, `P = (1 - d/R)^2` below R; defaults a=1, b=1, g=0.5, d=0.5, R=1000 m (`DEFAULTS`).
+  **T and E are mocks** (`data/mock/`, seed 20261017): T = mean of fake hourly counters per hex + IDW, normalised at p99; E = fake
+  scooter events per hex, normalised on log(1 + n). S = length-weighted mean of OSM segments (0 DDR/CPR, 0.3 quiet / painted lane,
+  0.6 single-lane main, 1 multi-lane or trunk without a path). d_net = one multi-source Dijkstra on the bike graph in metres (up to
+  5000 m), 0 in a hex with a station. Greedy top-N: after each pick, Dijkstra from the new station (limit R) and min.
+  Not proposed: hexes with a station or without streets. Built in `warm()` (~2.5 min first time, cache `data/derived/siting_*.npz`).
+  With these defaults T saturates at 1 in many hexes, so picks are mostly ranked by E and P; a weak quadratic P lets picks sit
+  ~750 m (network) apart. Report: `uv run python siting_report.py` -> `data/SITING_REPORT.md`, `artifacts/veturilo-siting.html`
+  (Leaflet + OSM tiles; the tiles do not load when published as a claude.ai artifact, its CSP blocks images from other hosts).
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
+- **Ride demo** (`./demo.sh [scenario]`): Demo tab in the frontend, shown only when `GET /api/sim/state` answers (backend in
+  simulation mode). `POST /api/sim/ride` (`backend/sim/api.py`, `backend/sim/journey.py`) computes the whole ride (30-60 s), the page
+  (`DemoPage.tsx`, `useRidePlayback`, `sim/ride.ts::sampleRide`) plays it back (pause, 1x / 10x / 60x, slider, GPS error). Route
+  options for a free route are asked with `when` = simulated date + hour. `journey.py` lives in `backend/sim/`, not in `integration/`.
+- **Integration tests** (`integration/`, see its README): `uv run pytest ../integration` from `backend/`, ~6 min.
+  Simulation mode (`backend/sim/`): one clock (`sim.clock.now()`; live data code reads time there, never
+  `time.time()` / `datetime.now()`; the route engine does not, so send `when`), a scenario file in `integration/scenarios/` replaces the vehicle feed
+  (recorded or made from GTFS by `sim/synth.py`), Veturilo status and alerts. `SIM_SCENARIO=<name>` turns it on
+  in the server and mounts `/api/sim/*`. Two kinds: `recorded/` and `gtfs/` (pytest markers). `ROUTE_ENGINE`
+  (`app/routing/factory.py`) picks the engine; a new engine (C++) must pass this suite before it replaces `real`.
+- **Do not change the route engine to make an integration test pass.** The engine (`backend/app/routing/`,
+  `algorithms/plan_trip.py`, `algorithms/lateness.py`) and the street routing code have their own maintainers. When a
+  test finds an engine bug: open a GitHub issue (symptom, a `curl` to reproduce, measurements, cause if known), mark
+  the case as strict xfail with the issue number, and tell the user. Simulation mode does not touch the engine either:
+  tests send the simulated time as `when`.
+- Engine bugs found so far: #63 (options leave hours after the query, night buses for 08:30), #64 (no option or no
+  transit option at all), #65 (direct bus / tram options dropped after PR #56), #66 (`lateness.py` shows 4 min as 3).
 - `/api/osm/route` returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`) from the graph;
   `osm.route()` / `osm.nearest()` in Python have no limit (`report.py` snaps far stops).
 - Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
@@ -231,8 +278,11 @@ Everything in this repo (files, commits, PRs) is written in English.
   is off/unreachable. Types in `src/types.ts`. The mock's costs and speeds are rough estimates.
 - Backend URL: `src/config.ts` reads `VITE_API_URL` (default `http://localhost:8000`;
   set `VITE_API_URL=""` in `frontend/.env` to force the mock).
-- Place search: `src/api/geocode.ts` (`searchPlaces`), debounced, limited to Warsaw. Calls the
-  backend geocode proxy when `API_URL` is set, else Nominatim directly (≈1 request/second limit).
+- Place search: `src/api/geocode.ts` (`searchPlaces`, `MIN_QUERY`), debounced (300 ms), limited to Warsaw. Calls the backend (`GET /api/geocode`) when `API_URL` is set
+  (from 2 characters; sends the user's position as `lat` / `lon`), else Nominatim directly (3 characters, ≈1 request/second limit). The backend answers with our own
+  stops and Veturilo stations first (`algorithms/place_search.py`: start-of-word match, accents folded, distance as a tie-break), then Nominatim; stops still come when Nominatim is down.
+  Without the backend the same search runs in the browser on `src/data/places.json` (about 3300 stop names and stations, 130 KB, a separate chunk loaded on first use;
+  `src/utils/placeSearch.ts` is the TypeScript twin of `place_search.py`). Regenerate the file after a timetable or station change: `cd backend && uv run python export_places.py`.
 - Colours: one palette, the Warsaw colours (red + yellow): `src/map/palette.ts` (`PALETTE`, light / dark). Red is the main
   colour in light mode, yellow the accent at night. It sets the map colours, the round map buttons / markers AND the accent
   of the whole UI (the MUI theme in `src/theme.ts` is built from it). The old lavender look and the look switch were removed.
@@ -274,22 +324,26 @@ Everything in this repo (files, commits, PRs) is written in English.
   switches to "Moja kolejność") and a remove button per stop, and the chips "Moja kolejność" / "Optymalna"; the swap button reverses the whole trip. `fetchRouteOptions`
   takes `{ from, to, profile, via, order }` and sends `via` + `order` to `POST /api/routes`. Backend: `RouteRequest.via` / `order`, `RouteOption.waypoints`
   (start, stops in visiting order, destination), `RouteLeg.stop` (1-based number of the stop the leg ends at); `backend/app/routing/multi.py` asks the
-  engine once per segment and chains the n-th best option of every segment (max 3 options); "optimal" = `algorithms/stop_order.py` (exact, straight-line distance,
-  start and destination fixed). Simplifications: every segment is planned from "now", no time at a stop. The frontend mock does the same in `src/api/multiStop.ts`.
-- Preferences + filters are UI only (route selection is the backend's job). Model, level tables (default speeds), time
+  engine once per segment and chains the n-th best option of every segment (max 3 options); "optimal" = `algorithms/stop_order.py` (exact, a walk under 700 m otherwise a wait plus transit time,
+  start and destination fixed). The next segment starts at the previous arrival plus 2 minutes. The frontend mock does the same chaining in `src/api/multiStop.ts` without the wait.
+- Preferences are sent with the search (`walkKmh`, `bikeKmh`, `stepFree`, `maxTransfers`, excluded areas, `body`). Vehicles and max walking time still filter the list in the browser. Model, level tables (default speeds), time
   rules and list filtering: `src/preferences/model.ts`; storage in localStorage key `preferences`
   (`src/preferences/PreferencesProvider.tsx`). Preferences page: `src/components/PreferencesPage.tsx`; reusable fields
   (levels + custom km/h, wheelchair, priorities, excluded districts / own points): `src/components/preferences/`.
   Time rules (`RuleDialog.tsx`) override any section for given days and hours (may cross midnight); the latest started
   active rule wins. `FilterSheet.tsx` = filters for the current search only (sorting, max transfers, vehicles, max walking
-  time, step-free, pace / wheelchair, excluded areas, and "Zaawansowane" = all preferences as overrides). Only list-like
-  filters really change the (mock) list, client-side (`applyListFilters`); speeds, wheelchair and areas are stored only and
-  not passed to `fetchRouteOptions` yet.
+  time, step-free, pace / wheelchair, excluded areas, and "Zaawansowane" = all preferences as overrides). Vehicles and max walking
+  time still filter the list in the browser (`applyListFilters`).
+  `fetchRouteOptions` sends `walkKmh`, `bikeKmh`, `stepFree`, `maxTransfers`, excluded districts and points, and `body`.
 - Calories (device-side): `Preferences.body` (weight, height, age, sex; all optional, defaults 70 kg / 170 cm / 35 y) is edited in the "Kalorie" section of the
   Preferences page only (`components/preferences/BodySection.tsx`); rules and filters never override it (`applyOverrides` keeps it). `routeKcal(route, prefs)` in
   `src/preferences/model.ts` computes NET kcal of the walk / bike legs (MET from the Compendium of Physical Activities interpolated by the user's km/h x weight x hours
-  minus resting energy (Mifflin-St Jeor); manual wheelchair uses a rough table from Conger and Bassett 2011, electric = 0; transit legs count as resting). It replaces
-  `RouteOption.calories` in the route list, details and the "most active" sort. Not modelled yet: slope, carried load, bike type, wind. Backend `calories` is unchanged (flat kcal/km).
+  minus resting energy (Mifflin-St Jeor); manual wheelchair uses a rough table from Conger and Bassett 2011, electric = 0; transit legs count as resting). The speed of a leg is its distance over its time
+  (the pace from the preferences is the fallback). Routes carry no `calories` or `costPln` any more; kcal is worked out from the legs in the route list, details and the "most active"
+  sort. `algorithms/calories.py` (`net_kcal`) is the same formula for any consumer of the route format. Not modelled yet: slope, carried load, bike type, wind.
+- Route format (`data/API.md`): `RouteLeg.mode` is `walk`, `bike` (own bike, nothing produces it yet), `veturilo` (rented), `bus`, `tram`, `metro`, `rail`; a leg also has
+  `start` / `end` as `[lon, lat]` (the `path` stays `[lat, lng]`). `RouteOption` has `walkDistance` and `bikeDistance` (m) and no price: the backend's fare code
+  (`algorithms/fares.py`) is not used by the route engine any more. Only "Najszybsza" is a backend tag; the frontend sort "Najaktywniejsze" uses `routeKcal`.
 - Speed history (device-side, privacy first): in the route view "Rozpocznij przejazd" / "Zakończ" records GPS points (memory only, one every 4 s,
   Screen Wake Lock while recording) and sends the track once to `POST /api/history/records` (`backend/app/api/history.py`,
   `algorithms/speed_history.py::split_track`: shares the moving distance between the route's legs by planned distance, ignores standing
@@ -310,12 +364,26 @@ Everything in this repo (files, commits, PRs) is written in English.
   layer; the light / dark switch calls `setStyle`. Leaflet marker icons are plain SVG from `ICON_PATH` in `modes.tsx` (no `react-dom/server`).
 - Checks: `npm run lint` (ESLint 8, `.eslintrc.cjs`), `npm test` (Vitest 1 + Testing Library), `npm run build`.
 - Vite proxies `/api` to the backend at http://localhost:8000.
+- Geolocation works only on HTTPS or `localhost`. On a phone the plain `http://<laptop-ip>:5173` fails, so use `npm run dev:https` (vite `--mode https`, self-signed
+  certificate from `@vitejs/plugin-basic-ssl`, accept the warning once). The app then shows a specific message (`geoErrorText`) when the page is not secure.
 - Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with
   a clean route and round stop markers, light map with a bottom sheet.
 - Run: `npm install`, `npm run dev` (http://localhost:5173), `npm run build` (type-check + build).
 
 ### Backend — routing API (`backend/app/`)
+
+- Journey statistics (#52): `POST /api/journeys` records only the whole-trip start/destination of explicitly
+  finished real GPS recordings after separate opt-in (off by default, localStorage `journey-statistics-enabled`).
+  `backend/journey_stats.py` initializes SQLite and the local GTFS/GBFS anchor catalog at startup in both apps;
+  optional `JOURNEY_STATS_DB` overrides `db/journey_stats.sqlite`. No cache builds or network calls in this request.
+  Concrete object IDs and exact object coordinates are kept; current-location endpoints map to the geographically
+  nearest boarding stop/platform or Veturilo station (no distance cutoff; ties by ID). Daily Warsaw-time counters,
+  plus random per-recording token-only receipts for atomic retry deduplication; no full tracks, user/device IDs or
+  precise journey timestamps. No public read/export endpoint. Counts and receipts stay until the DB is cleared.
+  The recorder snapshots endpoints and opt-in at start; revocation invalidates the current submission. Mock,
+  interrupted and GPS-less recordings do not count; statistics failures do not block local speed history.
+  Geocoded places use `osm:<node|way|relation>:<osm_id>` instead of Nominatim's temporary `place_id`.
 
 - Separate package `backend/app/` holds the route models and `RealRouteEngine`. `backend/main.py`
   mounts it, so one uv process serves data, geocode and `POST /api/routes`.

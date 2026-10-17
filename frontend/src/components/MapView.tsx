@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import L from 'leaflet';
-import { MapContainer, Marker, Polyline, useMap } from 'react-leaflet';
+import { CircleMarker, MapContainer, Marker, Polyline, useMap } from 'react-leaflet';
 import { Box, IconButton, type PaletteMode } from '@mui/material';
 import Add from '@mui/icons-material/Add';
 import Remove from '@mui/icons-material/Remove';
@@ -55,6 +55,8 @@ interface Props {
   controlsOffset?: number;
   /** Shows a button that detects the vehicle the user is in (and reopens the vehicle window). */
   onDetectVehicle?: () => void;
+  /** What the phone reports in the demo (with GPS error), drawn as a small dot next to the real position. */
+  gpsPosition?: LatLng | null;
 }
 
 /** Fits the view to what is visible (route / points) and handles the first geolocation fix. */
@@ -257,6 +259,7 @@ export default function MapView({
   stops = [],
   controlsOffset = 0,
   onDetectVehicle,
+  gpsPosition = null,
 }: Props) {
   const [map, setMap] = useState<L.Map | null>(null);
   const colors = PALETTE[paletteMode];
@@ -364,6 +367,14 @@ export default function MapView({
             padding={padding}
           />
           {route && <RouteLayer route={route} palette={paletteMode} detailed={detailed} look={look} />}
+          {gpsPosition && (
+            <CircleMarker
+              center={gpsPosition}
+              radius={5}
+              pathOptions={{ color: colors.routeEnd, fillColor: colors.routeEnd, fillOpacity: 0.9, weight: 1 }}
+              interactive={false}
+            />
+          )}
           {userPosition && <Marker position={userPosition} icon={icons.user} interactive={false} />}
           {origin && !origin.isCurrentLocation && (
             <Marker position={origin.position} icon={icons.origin} interactive={false} />
