@@ -1,0 +1,320 @@
+[
+ {
+  "time": "18:17:00",
+  "brigade": "M4",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "15:17:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "13:17:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "05:11:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "11:57:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "11:17:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "19:17:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "06:36:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "07:17:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "12:57:00",
+  "brigade": "M4",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "14:17:00",
+  "brigade": "M4",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "23:11:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "10:17:00",
+  "brigade": "M4",
+  "direction": "Rechniewskiego",
+  "variant": "TX-REHp05"
+ },
+ {
+  "time": "06:57:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "04:41:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TX-REHp05"
+ },
+ {
+  "time": "12:37:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "17:17:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "16:37:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "08:57:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "13:57:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "05:41:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "07:57:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "14:37:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "18:37:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "16:17:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "20:37:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "19:57:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "15:57:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "15:37:00",
+  "brigade": "M4",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "21:17:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "19:37:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "10:57:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "09:37:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "09:17:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "08:17:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "11:37:00",
+  "brigade": "M4",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "14:57:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "21:41:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "09:57:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "10:37:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "22:41:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "20:57:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "13:37:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "16:57:00",
+  "brigade": "M4",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "17:57:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "08:37:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "06:11:00",
+  "brigade": "1",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "07:37:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "17:37:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "22:11:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "20:17:00",
+  "brigade": "3",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "18:57:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ },
+ {
+  "time": "12:17:00",
+  "brigade": "2",
+  "direction": "Rechniewskiego",
+  "variant": "TP-REH"
+ }
+]

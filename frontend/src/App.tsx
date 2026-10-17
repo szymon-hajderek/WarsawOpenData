@@ -4,9 +4,11 @@ import MapView, { type MapPadding } from './components/MapView';
 import SearchCard from './components/SearchCard';
 import RouteOptionsSheet from './components/RouteOptionsSheet';
 import RouteDetailsSheet from './components/RouteDetailsSheet';
+import VehicleSheet from './components/VehicleSheet';
 import { useColorMode } from './colorMode';
 import { fetchRouteOptions } from './api/routes';
-import type { LatLng, Place, Profile, RouteOption } from './types';
+import { detectVehicle } from './api/vehicle';
+import type { LatLng, Place, Profile, RouteOption, VehicleCandidate } from './types';
 
 type Step = 'search' | 'options' | 'route';
 
@@ -26,6 +28,14 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [stepsExpanded, setStepsExpanded] = useState(false);
+
+  // "Which vehicle am I in?" window: open from the start, can be hidden and brought back.
+  const [vehicles, setVehicles] = useState<VehicleCandidate[]>([]);
+  const [vehiclesLoading, setVehiclesLoading] = useState(true);
+  const [vehicleOpen, setVehicleOpen] = useState(true);
+  const [vehicleDismissed, setVehicleDismissed] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [confirmedVehicle, setConfirmedVehicle] = useState<VehicleCandidate | null>(null);
 
   const currentLocation = useMemo<Place | null>(
     () =>
@@ -48,6 +58,22 @@ export default function App() {
   }, []);
 
   useEffect(() => locate(), [locate]);
+
+  // Detect the vehicle again whenever the location changes (the first call may come without a location).
+  useEffect(() => {
+    let cancelled = false;
+    setVehiclesLoading(true);
+    detectVehicle(userPosition)
+      .then((found) => {
+        if (cancelled) return;
+        setVehicles(found);
+        setSelectedVehicleId((prev) => (found.some((v) => v.id === prev) ? prev : found[0]?.id ?? null));
+      })
+      .finally(() => !cancelled && setVehiclesLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [userPosition]);
 
   // The start defaults to the user's location.
   useEffect(() => {
@@ -120,6 +146,23 @@ export default function App() {
           onDestinationChange={setDestination}
           onSwap={swap}
           onLocate={handleLocateOrigin}
+        />
+      )}
+
+      {step === 'search' && !vehicleDismissed && (
+        <VehicleSheet
+          candidates={vehicles}
+          loading={vehiclesLoading}
+          open={vehicleOpen}
+          selectedId={selectedVehicleId}
+          confirmed={confirmedVehicle}
+          onOpenChange={setVehicleOpen}
+          onSelect={setSelectedVehicleId}
+          onConfirm={() => {
+            setConfirmedVehicle(vehicles.find((v) => v.id === selectedVehicleId) ?? null);
+            setVehicleOpen(false);
+          }}
+          onDismiss={() => setVehicleDismissed(true)}
         />
       )}
 

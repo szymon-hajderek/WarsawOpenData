@@ -20,61 +20,6 @@ body {
   border: none;
 }
 
-/* Current-location dot with a pulse */
-.user-dot {
-  position: relative;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #3d6bff;
-  border: 3px solid #fff;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
-}
-.user-dot::after {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  background: #3d6bff;
-  opacity: 0.4;
-  animation: pulse 2s ease-out infinite;
-}
-@keyframes pulse {
-  from {
-    transform: scale(1);
-    opacity: 0.45;
-  }
-  to {
-    transform: scale(3);
-    opacity: 0;
-  }
-}
-
-/* Soft glow of the route line in dark mode */
-.route-glow {
-  filter: drop-shadow(0 0 5px currentColor);
-}
-
-/* Marker of a stop / transfer along the route */
-.stop-marker {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  box-sizing: border-box;
-  border-radius: 50%;
-  border: 3px solid;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-}
-
 .leaflet-control-attribution {
   font-size: 10px;
-}
-
-/* Map tile tinting: soft in light mode, inverted dark map in dark mode */
-.tiles-light {
-  filter: saturate(0.7) brightness(1.04);
-}
-.tiles-dark {
-  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.55);
 }

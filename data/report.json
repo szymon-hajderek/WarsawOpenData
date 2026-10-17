@@ -1,0 +1,309 @@
+{
+ "generated": "2026-10-17T14:48:45",
+ "reference_date": "20261021",
+ "vertices": {
+  "transit_posts": 7145,
+  "transit_stop_groups": 3046,
+  "by_feed": {
+   "ztm": 6955,
+   "wkd": 59,
+   "pkp": 131
+  },
+  "by_mode": {
+   "bus": 6284,
+   "tram": 631,
+   "metro": 39,
+   "rail": 212
+  },
+  "veturilo_stations": 349,
+  "osm_walk": 1534865,
+  "osm_bike": 1000177
+ },
+ "item1_transit_edges": {
+  "unique_from_to_route": 22611,
+  "unique_from_to": 9772,
+  "timetable_edges_on_date": 986137,
+  "date": "20261021"
+ },
+ "item2_walk_pairs": {
+  "transit": {
+   "n": 7145,
+   "all_pairs_unordered": 25521940,
+   "all_pairs_directed": 51043880,
+   "pairs_within_300m": 14529,
+   "pairs_within_500m": 32609,
+   "pairs_within_1000m": 110180
+  },
+  "transit_plus_veturilo": {
+   "n": 7494,
+   "all_pairs_unordered": 28076271,
+   "all_pairs_directed": 56152542,
+   "pairs_within_300m": 16921,
+   "pairs_within_500m": 38172,
+   "pairs_within_1000m": 130594
+  }
+ },
+ "item3_osm": {
+  "walk": {
+   "vertices": 1534865,
+   "edges_undirected": 1741689,
+   "edges_directed": 3483378,
+   "simplified_vertices": 548631,
+   "simplified_edges_undirected": 755455,
+   "signal_crossings": 7708,
+   "other_crossings": 38148,
+   "road_signals": 4047
+  },
+  "bike": {
+   "vertices": 1000177,
+   "edges_undirected": 1061573,
+   "edges_directed": 2003918,
+   "simplified_vertices": 314022,
+   "simplified_edges_undirected": 375418,
+   "signal_crossings": 7007,
+   "other_crossings": 37044,
+   "road_signals": 4107
+  }
+ },
+ "item4_feasibility": {
+  "speeds_m_s": {
+   "walk": 1.3,
+   "bike": 4.2
+  },
+  "waits_s": {
+   "walk": {
+    "crossing_signals": 27.22222222222222,
+    "crossing": 2.0,
+    "traffic_signals": 0.0
+   },
+   "bike": {
+    "crossing_signals": 27.22222222222222,
+    "crossing": 0.0,
+    "traffic_signals": 20.0
+   }
+  },
+  "nodes_with_signal_timing_tags": 0,
+  "snap_to_walk_graph_m": {
+   "median": 5.4,
+   "p99": 6780.9,
+   "over_200m": 410
+  },
+  "benchmarks": [
+   {
+    "mode": "walk",
+    "points": 7494,
+    "sample_sources": 50,
+    "limit_s": null,
+    "seconds_per_source": 0.188,
+    "all_pairs_hours_1_core": 0.3904,
+    "avg_points_reached": 7494.0,
+    "pairs_to_store": 56160036,
+    "dense_matrix_mb_float32": 224.6
+   },
+   {
+    "mode": "walk",
+    "points": 7494,
+    "sample_sources": 50,
+    "limit_s": 900,
+    "seconds_per_source": 0.001,
+    "all_pairs_hours_1_core": 0.002,
+    "avg_points_reached": 28.8,
+    "pairs_to_store": 215827,
+    "dense_matrix_mb_float32": 224.6
+   },
+   {
+    "mode": "bike",
+    "points": 7494,
+    "sample_sources": 50,
+    "limit_s": null,
+    "seconds_per_source": 0.114,
+    "all_pairs_hours_1_core": 0.2377,
+    "avg_points_reached": 7494.0,
+    "pairs_to_store": 56160036,
+    "dense_matrix_mb_float32": 224.6
+   },
+   {
+    "mode": "bike",
+    "points": 7494,
+    "sample_sources": 50,
+    "limit_s": 1200,
+    "seconds_per_source": 0.003,
+    "all_pairs_hours_1_core": 0.0062,
+    "avg_points_reached": 264.8,
+    "pairs_to_store": 1984710,
+    "dense_matrix_mb_float32": 224.6
+   }
+  ]
+ },
+ "compatibility": {
+  "um_route_posts_in_gtfs": "6634/6773",
+  "gtfs_ztm_posts_in_um_routes": "6612/6821",
+  "live_lines_in_gtfs": "237/237",
+  "live_line_brigade_in_gtfs_blocks": "1113/1115 (date 20261017)",
+  "veturilo_to_nearest_stop_m": {
+   "median": 49,
+   "p90": 146,
+   "within_300m": "336/349"
+  },
+  "live_stale_positions_dropped": 428,
+  "rail_stations_merged_into_ztm": 63,
+  "rail_platforms_merged_into_ztm": 458,
+  "near_misses": [
+   {
+    "stop": "wkd:prpkp_bus",
+    "name": "PKP Pruszków",
+    "ztm": "ztm:4905",
+    "ztm_name": "Pruszków",
+    "distance_m": 97
+   },
+   {
+    "stop": "wkd:walje_bus_d0",
+    "name": "PKP WKD Aleje Jerozolimskie",
+    "ztm": "ztm:4913",
+    "ztm_name": "Warszawa Aleje Jerozolimskie",
+    "distance_m": 125
+   },
+   {
+    "stop": "wkd:wocho",
+    "name": "Warszawa Ochota WKD",
+    "ztm": "ztm:4901",
+    "ztm_name": "Warszawa Ochota",
+    "distance_m": 94
+   },
+   {
+    "stop": "wkd:wocho_bus_d1",
+    "name": "Plac Zawiszy",
+    "ztm": "ztm:4901",
+    "ztm_name": "Warszawa Ochota",
+    "distance_m": 105
+   },
+   {
+    "stop": "wkd:wsrod_bus_d1",
+    "name": "Dworzec Centralny",
+    "ztm": "ztm:7900",
+    "ztm_name": "Warszawa Centralna",
+    "distance_m": 119
+   },
+   {
+    "stop": "wkd:wzach",
+    "name": "Warszawa Zachodnia WKD",
+    "ztm": "ztm:4900",
+    "ztm_name": "Warszawa Zachodnia",
+    "distance_m": 87
+   }
+  ]
+ },
+ "seconds_to_build": 24.3,
+ "endpoints": [
+  {
+   "method": "GET",
+   "path": "/api/gtfs/stops?mode&feed&bbox&include_merged",
+   "doc": "Boarding points (posts / platforms). Merged duplicates are hidden unless include_merged."
+  },
+  {
+   "method": "GET",
+   "path": "/api/gtfs/stops/{stop_id}",
+   "doc": "One stop with group, modes and same_as (merged rail station)."
+  },
+  {
+   "method": "GET",
+   "path": "/api/gtfs/stop-groups?feed",
+   "doc": "Stop groups (ZTM zespół, station parents) with their posts."
+  },
+  {
+   "method": "GET",
+   "path": "/api/gtfs/routes?mode&feed",
+   "doc": "Lines from all GTFS feeds (SKM only from ZTM)."
+  },
+  {
+   "method": "GET",
+   "path": "/api/gtfs/routes/{route_id}/stops",
+   "doc": "Distinct stop sequences (variants) of one line."
+  },
+  {
+   "method": "GET",
+   "path": "/api/gtfs/stops/{stop_id}/departures?date&time&limit",
+   "doc": "Next departures from a stop (all feeds; a merged rail station includes KM / IC trains)."
+  },
+  {
+   "method": "GET",
+   "path": "/api/gtfs/edges?limit&offset",
+   "doc": "Unique stop -> next stop edges per route (canonical stop ids)."
+  },
+  {
+   "method": "GET",
+   "path": "/api/gtfs/merge",
+   "doc": "Rail stations merged across feeds, and near misses (< 150 m, different names)."
+  },
+  {
+   "method": "GET",
+   "path": "/api/live/vehicles?type&line&max_age_s",
+   "doc": "Live ZTM bus / tram positions (30 s cache). route_id matches /api/gtfs/routes."
+  },
+  {
+   "method": "GET",
+   "path": "/api/ztm/stops/{stop_id}/lines",
+   "doc": "Lines that stop at a ZTM post (City Hall timetable API)."
+  },
+  {
+   "method": "GET",
+   "path": "/api/ztm/stops/{stop_id}/lines/{line}/times",
+   "doc": "Today's planned times of one line at one ZTM post (City Hall timetable API)."
+  },
+  {
+   "method": "GET",
+   "path": "/api/ztm/routes/{line}",
+   "doc": "Official route variants of a line with GTFS stop ids and distances (snapshot file)."
+  },
+  {
+   "method": "GET",
+   "path": "/api/veturilo/stations",
+   "doc": "Veturilo stations: id, name, number, location, capacity (saved file)."
+  },
+  {
+   "method": "GET",
+   "path": "/api/veturilo/stations/{station_id}",
+   "doc": "One station with its live status."
+  },
+  {
+   "method": "GET",
+   "path": "/api/veturilo/status",
+   "doc": "Live bikes / docks per station (30 s cache)."
+  },
+  {
+   "method": "GET",
+   "path": "/api/veturilo/free-bikes",
+   "doc": "Live list of bikes (at stations and parked outside them)."
+  },
+  {
+   "method": "GET",
+   "path": "/api/veturilo/vehicle-types",
+   "doc": "Bike types (classic, e-bike ...)."
+  },
+  {
+   "method": "GET",
+   "path": "/api/osm/graph/summary?mode",
+   "doc": "Vertex / edge / crossing counts of the walk or bike graph, speeds and waits."
+  },
+  {
+   "method": "GET",
+   "path": "/api/osm/nearest?lat&lon&mode",
+   "doc": "Nearest node of the walk / bike graph to a point."
+  },
+  {
+   "method": "GET",
+   "path": "/api/osm/route?from_lat&from_lon&to_lat&to_lon&mode",
+   "doc": "Street path with length, expected waits and total seconds (walk or bike)."
+  },
+  {
+   "method": "GET",
+   "path": "/api/sources",
+   "doc": "All data sources: URL, local file, key, license / attribution, status."
+  },
+  {
+   "method": "GET",
+   "path": "/api/stats",
+   "doc": "Vertex / edge counts from the last report run (backend/report.py)."
+  }
+ ]
+}

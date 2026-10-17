@@ -1,0 +1,3432 @@
+[
+ {
+  "line": "9",
+  "brigade": "012",
+  "lat": 52.255657,
+  "lon": 21.055298,
+  "time": "2026-10-17 00:00:36",
+  "vehicle": "1296",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "22",
+  "brigade": "11",
+  "lat": 52.29976,
+  "lon": 20.931377,
+  "time": "2026-10-16 18:49:05",
+  "vehicle": "1302",
+  "mode": "tram",
+  "route_id": "ztm:22"
+ },
+ {
+  "line": "9",
+  "brigade": "013",
+  "lat": 52.25565,
+  "lon": 21.053898,
+  "time": "2026-10-16 20:45:17",
+  "vehicle": "1312",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "17",
+  "brigade": "016",
+  "lat": 52.299427,
+  "lon": 20.928076,
+  "time": "2024-10-26 07:09:54",
+  "vehicle": "1316",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "15",
+  "brigade": "014",
+  "lat": 52.29877,
+  "lon": 20.930782,
+  "time": "2026-10-16 23:47:19",
+  "vehicle": "1340",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "17",
+  "brigade": "021",
+  "lat": 52.29922,
+  "lon": 20.931625,
+  "time": "2026-10-16 18:42:32",
+  "vehicle": "1346",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "22",
+  "brigade": "013",
+  "lat": 52.29913,
+  "lon": 20.93072,
+  "time": "2026-10-16 23:52:54",
+  "vehicle": "1354",
+  "mode": "tram",
+  "route_id": "ztm:22"
+ },
+ {
+  "line": "24",
+  "brigade": "1",
+  "lat": 52.232136,
+  "lon": 20.973413,
+  "time": "2026-10-16 23:56:09",
+  "vehicle": "1364",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "26",
+  "brigade": "9",
+  "lat": 52.29922,
+  "lon": 20.931335,
+  "time": "2026-10-16 23:42:41",
+  "vehicle": "1380",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "6",
+  "brigade": "013",
+  "lat": 52.256046,
+  "lon": 21.054813,
+  "time": "2026-10-16 19:30:31",
+  "vehicle": "1381",
+  "mode": "tram",
+  "route_id": "ztm:6"
+ },
+ {
+  "line": "19",
+  "brigade": "015",
+  "lat": 52.23201,
+  "lon": 20.972998,
+  "time": "2026-10-16 23:21:14",
+  "vehicle": "1390",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "24",
+  "brigade": "014",
+  "lat": 52.232697,
+  "lon": 20.972872,
+  "time": "2026-10-17 00:13:31",
+  "vehicle": "1392",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "23",
+  "brigade": "2",
+  "lat": 52.30573,
+  "lon": 21.02365,
+  "time": "2026-10-16 23:53:26",
+  "vehicle": "1398",
+  "mode": "tram",
+  "route_id": "ztm:23"
+ },
+ {
+  "line": "18",
+  "brigade": "018",
+  "lat": 52.30483,
+  "lon": 21.024687,
+  "time": "2026-10-16 20:11:00",
+  "vehicle": "1404",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "18",
+  "brigade": "015",
+  "lat": 52.304726,
+  "lon": 21.024702,
+  "time": "2026-10-16 19:31:03",
+  "vehicle": "1410",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "6",
+  "brigade": "4",
+  "lat": 52.25623,
+  "lon": 21.05603,
+  "time": "2026-10-17 00:20:25",
+  "vehicle": "1414",
+  "mode": "tram",
+  "route_id": "ztm:6"
+ },
+ {
+  "line": "26",
+  "brigade": "018",
+  "lat": 52.25579,
+  "lon": 21.055782,
+  "time": "2026-10-17 00:16:22",
+  "vehicle": "1416",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "9",
+  "brigade": "2",
+  "lat": 52.255695,
+  "lon": 21.053812,
+  "time": "2026-10-16 18:27:21",
+  "vehicle": "1424",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "3",
+  "brigade": "012",
+  "lat": 52.25595,
+  "lon": 21.054695,
+  "time": "2026-10-16 23:54:00",
+  "vehicle": "1430",
+  "mode": "tram",
+  "route_id": "ztm:3"
+ },
+ {
+  "line": "6",
+  "brigade": "2",
+  "lat": 52.25559,
+  "lon": 21.05493,
+  "time": "2026-10-16 23:54:32",
+  "vehicle": "1434",
+  "mode": "tram",
+  "route_id": "ztm:6"
+ },
+ {
+  "line": "7",
+  "brigade": "010",
+  "lat": 52.25553,
+  "lon": 21.053638,
+  "time": "2026-10-16 18:18:24",
+  "vehicle": "1448",
+  "mode": "tram",
+  "route_id": "ztm:7"
+ },
+ {
+  "line": "3",
+  "brigade": "4",
+  "lat": 52.304863,
+  "lon": 21.02471,
+  "time": "2026-10-16 19:12:53",
+  "vehicle": "1450",
+  "mode": "tram",
+  "route_id": "ztm:3"
+ },
+ {
+  "line": "25",
+  "brigade": "9",
+  "lat": 52.30659,
+  "lon": 21.024792,
+  "time": "2026-10-16 18:19:44",
+  "vehicle": "1456",
+  "mode": "tram",
+  "route_id": "ztm:25"
+ },
+ {
+  "line": "18",
+  "brigade": "2",
+  "lat": 52.18778,
+  "lon": 20.999716,
+  "time": "2026-10-16 23:54:42",
+  "vehicle": "1462",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "17",
+  "brigade": "12",
+  "lat": 52.186317,
+  "lon": 20.999855,
+  "time": "2026-10-16 18:51:22",
+  "vehicle": "1464",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "19",
+  "brigade": "4",
+  "lat": 52.186535,
+  "lon": 20.999876,
+  "time": "2026-10-16 19:08:20",
+  "vehicle": "1466",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "9",
+  "brigade": "6",
+  "lat": 52.23202,
+  "lon": 20.972572,
+  "time": "2026-10-17 01:02:03",
+  "vehicle": "2008",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "19",
+  "brigade": "13",
+  "lat": 52.23198,
+  "lon": 20.972147,
+  "time": "2026-10-16 20:22:25",
+  "vehicle": "2014",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "1",
+  "brigade": "015",
+  "lat": 52.231895,
+  "lon": 20.972166,
+  "time": "2026-10-16 19:25:53",
+  "vehicle": "2016",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "20",
+  "brigade": "015",
+  "lat": 52.231686,
+  "lon": 20.97104,
+  "time": "2026-10-16 18:53:08",
+  "vehicle": "2022",
+  "mode": "tram",
+  "route_id": "ztm:20"
+ },
+ {
+  "line": "26",
+  "brigade": "14",
+  "lat": 52.233982,
+  "lon": 20.972961,
+  "time": "2026-10-16 20:41:55",
+  "vehicle": "2024",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "1",
+  "brigade": "017",
+  "lat": 52.231792,
+  "lon": 20.971783,
+  "time": "2026-10-16 19:19:50",
+  "vehicle": "2026",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "9",
+  "brigade": "015",
+  "lat": 52.231632,
+  "lon": 20.970728,
+  "time": "2026-10-16 18:44:15",
+  "vehicle": "2034",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "9",
+  "brigade": "016",
+  "lat": 52.23186,
+  "lon": 20.971718,
+  "time": "2026-10-16 19:08:09",
+  "vehicle": "2040",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "24",
+  "brigade": "015",
+  "lat": 52.232845,
+  "lon": 20.972881,
+  "time": "2026-10-16 19:50:19",
+  "vehicle": "2042",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "19",
+  "brigade": "016",
+  "lat": 52.23195,
+  "lon": 20.972609,
+  "time": "2026-10-16 21:06:56",
+  "vehicle": "2054",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "9",
+  "brigade": "8",
+  "lat": 52.232018,
+  "lon": 20.97321,
+  "time": "2026-10-17 01:18:26",
+  "vehicle": "2056",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "24",
+  "brigade": "013",
+  "lat": 52.231895,
+  "lon": 20.971788,
+  "time": "2026-10-16 23:47:29",
+  "vehicle": "2060",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "9",
+  "brigade": "014",
+  "lat": 52.231857,
+  "lon": 20.972597,
+  "time": "2026-10-16 19:28:45",
+  "vehicle": "2062",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "9",
+  "brigade": "10",
+  "lat": 52.231968,
+  "lon": 20.973053,
+  "time": "2026-10-16 21:10:55",
+  "vehicle": "2064",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "24",
+  "brigade": "1",
+  "lat": 52.23235,
+  "lon": 20.972492,
+  "time": "2026-10-09 00:04:34",
+  "vehicle": "2068",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "18",
+  "brigade": "6",
+  "lat": 52.18688,
+  "lon": 20.999884,
+  "time": "2026-10-16 21:37:10",
+  "vehicle": "2082",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "31",
+  "brigade": "2",
+  "lat": 52.186703,
+  "lon": 21.0,
+  "time": "2026-10-16 22:36:39",
+  "vehicle": "2088",
+  "mode": "tram",
+  "route_id": "ztm:31"
+ },
+ {
+  "line": "15",
+  "brigade": "7",
+  "lat": 52.18655,
+  "lon": 20.999908,
+  "time": "2026-10-16 19:33:41",
+  "vehicle": "2092",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "31",
+  "brigade": "4",
+  "lat": 52.18658,
+  "lon": 21.000017,
+  "time": "2026-10-16 22:34:37",
+  "vehicle": "2098",
+  "mode": "tram",
+  "route_id": "ztm:31"
+ },
+ {
+  "line": "19",
+  "brigade": "7",
+  "lat": 52.187557,
+  "lon": 20.99994,
+  "time": "2026-10-16 22:15:30",
+  "vehicle": "2106",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "18",
+  "brigade": "9",
+  "lat": 52.187565,
+  "lon": 20.999983,
+  "time": "2026-10-16 20:21:06",
+  "vehicle": "2108",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "33",
+  "brigade": "012",
+  "lat": 52.18723,
+  "lon": 21.000036,
+  "time": "2026-10-16 22:10:52",
+  "vehicle": "2116",
+  "mode": "tram",
+  "route_id": "ztm:33"
+ },
+ {
+  "line": "15",
+  "brigade": "2",
+  "lat": 52.18663,
+  "lon": 20.99995,
+  "time": "2026-10-16 21:13:44",
+  "vehicle": "2118",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "17",
+  "brigade": "7",
+  "lat": 52.186886,
+  "lon": 20.999851,
+  "time": "2026-10-16 20:44:21",
+  "vehicle": "2120",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "15",
+  "brigade": "8",
+  "lat": 52.18752,
+  "lon": 20.99994,
+  "time": "2026-10-16 21:12:19",
+  "vehicle": "2122",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "19",
+  "brigade": "018",
+  "lat": 52.187473,
+  "lon": 21.000278,
+  "time": "2026-10-16 23:53:20",
+  "vehicle": "2128",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "17",
+  "brigade": "9",
+  "lat": 52.18634,
+  "lon": 20.999916,
+  "time": "2026-10-16 18:40:18",
+  "vehicle": "2132",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "18",
+  "brigade": "014",
+  "lat": 52.30425,
+  "lon": 21.02488,
+  "time": "2026-10-16 19:09:07",
+  "vehicle": "2140",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "23",
+  "brigade": "012",
+  "lat": 52.305176,
+  "lon": 21.024693,
+  "time": "2026-10-16 19:28:18",
+  "vehicle": "2162",
+  "mode": "tram",
+  "route_id": "ztm:23"
+ },
+ {
+  "line": "25",
+  "brigade": "5",
+  "lat": 52.30495,
+  "lon": 21.024664,
+  "time": "2026-10-16 21:10:41",
+  "vehicle": "2164",
+  "mode": "tram",
+  "route_id": "ztm:25"
+ },
+ {
+  "line": "7",
+  "brigade": "7",
+  "lat": 52.21034,
+  "lon": 20.980831,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3002",
+  "mode": "tram",
+  "route_id": "ztm:7"
+ },
+ {
+  "line": "24",
+  "brigade": "018",
+  "lat": 52.25612,
+  "lon": 21.055489,
+  "time": "2026-10-16 21:32:52",
+  "vehicle": "3007",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "7",
+  "brigade": "2",
+  "lat": 52.256115,
+  "lon": 21.055262,
+  "time": "2025-04-29 11:50:32",
+  "vehicle": "3011",
+  "mode": "tram",
+  "route_id": "ztm:7"
+ },
+ {
+  "line": "7",
+  "brigade": "1",
+  "lat": 52.209778,
+  "lon": 20.98198,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3012",
+  "mode": "tram",
+  "route_id": "ztm:7"
+ },
+ {
+  "line": "28",
+  "brigade": "5",
+  "lat": 52.25634,
+  "lon": 21.05548,
+  "time": "2026-10-17 14:25:10",
+  "vehicle": "3013",
+  "mode": "tram",
+  "route_id": "ztm:28"
+ },
+ {
+  "line": "7",
+  "brigade": "2",
+  "lat": 52.224957,
+  "lon": 20.989786,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3015",
+  "mode": "tram",
+  "route_id": "ztm:7"
+ },
+ {
+  "line": "7",
+  "brigade": "3",
+  "lat": 52.243458,
+  "lon": 21.048859,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3016",
+  "mode": "tram",
+  "route_id": "ztm:7"
+ },
+ {
+  "line": "28",
+  "brigade": "8",
+  "lat": 52.258766,
+  "lon": 21.025867,
+  "time": "2026-10-17 14:40:20",
+  "vehicle": "3019",
+  "mode": "tram",
+  "route_id": "ztm:28"
+ },
+ {
+  "line": "28",
+  "brigade": "2",
+  "lat": 52.26692,
+  "lon": 20.962223,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3023",
+  "mode": "tram",
+  "route_id": "ztm:28"
+ },
+ {
+  "line": "7",
+  "brigade": "4",
+  "lat": 52.258167,
+  "lon": 21.059746,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3028",
+  "mode": "tram",
+  "route_id": "ztm:7"
+ },
+ {
+  "line": "28",
+  "brigade": "4",
+  "lat": 52.255676,
+  "lon": 21.054018,
+  "time": "2026-10-16 18:46:35",
+  "vehicle": "3029",
+  "mode": "tram",
+  "route_id": "ztm:28"
+ },
+ {
+  "line": "7",
+  "brigade": "6",
+  "lat": 52.255596,
+  "lon": 21.054089,
+  "time": "2026-10-16 18:56:27",
+  "vehicle": "3030",
+  "mode": "tram",
+  "route_id": "ztm:7"
+ },
+ {
+  "line": "17",
+  "brigade": "8",
+  "lat": 52.187458,
+  "lon": 21.000948,
+  "time": "2026-10-16 23:48:10",
+  "vehicle": "3101",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "17",
+  "brigade": "13",
+  "lat": 52.186,
+  "lon": 21.001019,
+  "time": "2026-10-16 19:07:31",
+  "vehicle": "3103",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "17",
+  "brigade": "11",
+  "lat": 52.18658,
+  "lon": 21.00082,
+  "time": "2026-10-17 00:23:05",
+  "vehicle": "3106",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "17",
+  "brigade": "034",
+  "lat": 52.18717,
+  "lon": 21.000967,
+  "time": "2026-10-16 22:54:46",
+  "vehicle": "3108",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "17",
+  "brigade": "23",
+  "lat": 52.186615,
+  "lon": 21.000996,
+  "time": "2026-10-16 20:13:42",
+  "vehicle": "3110",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "17",
+  "brigade": "038",
+  "lat": 52.186302,
+  "lon": 21.000996,
+  "time": "2026-10-16 20:13:55",
+  "vehicle": "3112",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "17",
+  "brigade": "11",
+  "lat": 52.186234,
+  "lon": 21.000595,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3113",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "15",
+  "brigade": "1",
+  "lat": 52.202377,
+  "lon": 20.969004,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3116",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "17",
+  "brigade": "10",
+  "lat": 52.2071,
+  "lon": 21.005362,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3117",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "24",
+  "brigade": "5",
+  "lat": 52.237835,
+  "lon": 21.050045,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3118",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "20",
+  "brigade": "5",
+  "lat": 52.24451,
+  "lon": 20.965824,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3120",
+  "mode": "tram",
+  "route_id": "ztm:20"
+ },
+ {
+  "line": "15",
+  "brigade": "2",
+  "lat": 52.175972,
+  "lon": 20.943815,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3121",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "22",
+  "brigade": "1",
+  "lat": 52.247158,
+  "lon": 21.047087,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3122",
+  "mode": "tram",
+  "route_id": "ztm:22"
+ },
+ {
+  "line": "9",
+  "brigade": "27",
+  "lat": 52.23772,
+  "lon": 21.04987,
+  "time": "2026-10-17 14:40:10",
+  "vehicle": "3123",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "26",
+  "brigade": "3",
+  "lat": 52.23397,
+  "lon": 20.968758,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3125",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "1",
+  "brigade": "8",
+  "lat": 52.218803,
+  "lon": 20.983368,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3126",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "17",
+  "brigade": "12",
+  "lat": 52.287125,
+  "lon": 20.953115,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3127",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "19",
+  "brigade": "6",
+  "lat": 52.2602,
+  "lon": 20.924768,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3128",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "9",
+  "brigade": "8",
+  "lat": 52.211422,
+  "lon": 20.976856,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3130",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "23",
+  "brigade": "1",
+  "lat": 52.237743,
+  "lon": 20.971748,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3131",
+  "mode": "tram",
+  "route_id": "ztm:23"
+ },
+ {
+  "line": "26",
+  "brigade": "12",
+  "lat": 52.29205,
+  "lon": 20.9302,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3132",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "23",
+  "brigade": "7",
+  "lat": 52.24674,
+  "lon": 21.01503,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3133",
+  "mode": "tram",
+  "route_id": "ztm:23"
+ },
+ {
+  "line": "33",
+  "brigade": "8",
+  "lat": 52.235428,
+  "lon": 20.99735,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3134",
+  "mode": "tram",
+  "route_id": "ztm:33"
+ },
+ {
+  "line": "1",
+  "brigade": "7",
+  "lat": 52.244728,
+  "lon": 20.977224,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3135",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "19",
+  "brigade": "3",
+  "lat": 52.22077,
+  "lon": 21.004843,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3139",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "9",
+  "brigade": "21",
+  "lat": 52.189835,
+  "lon": 20.957993,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3140",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "20",
+  "brigade": "8",
+  "lat": 52.290512,
+  "lon": 21.002151,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3141",
+  "mode": "tram",
+  "route_id": "ztm:20"
+ },
+ {
+  "line": "9",
+  "brigade": "6",
+  "lat": 52.209137,
+  "lon": 20.974993,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3142",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "22",
+  "brigade": "9",
+  "lat": 52.227657,
+  "lon": 21.00166,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3143",
+  "mode": "tram",
+  "route_id": "ztm:22"
+ },
+ {
+  "line": "22",
+  "brigade": "4",
+  "lat": 52.22516,
+  "lon": 20.990246,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3144",
+  "mode": "tram",
+  "route_id": "ztm:22"
+ },
+ {
+  "line": "17",
+  "brigade": "032",
+  "lat": 52.29883,
+  "lon": 20.930422,
+  "time": "2026-10-16 22:49:31",
+  "vehicle": "3145",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "1",
+  "brigade": "3",
+  "lat": 52.263615,
+  "lon": 21.02095,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3146",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "26",
+  "brigade": "4",
+  "lat": 52.252636,
+  "lon": 21.02981,
+  "time": "2026-10-17 14:40:11",
+  "vehicle": "3148",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "17",
+  "brigade": "27",
+  "lat": 52.229504,
+  "lon": 21.000824,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3149",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "17",
+  "brigade": "27",
+  "lat": 52.299404,
+  "lon": 20.930973,
+  "time": "2026-10-16 23:17:05",
+  "vehicle": "3151",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "33",
+  "brigade": "1",
+  "lat": 52.206795,
+  "lon": 21.003527,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3152",
+  "mode": "tram",
+  "route_id": "ztm:33"
+ },
+ {
+  "line": "26",
+  "brigade": "021",
+  "lat": 52.29914,
+  "lon": 20.93067,
+  "time": "2026-10-16 21:04:24",
+  "vehicle": "3153",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "1",
+  "brigade": "26",
+  "lat": 52.255913,
+  "lon": 20.985937,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3154",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "9",
+  "brigade": "23",
+  "lat": 52.214176,
+  "lon": 20.979206,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3155",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "3",
+  "brigade": "4",
+  "lat": 52.238174,
+  "lon": 21.118788,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3156",
+  "mode": "tram",
+  "route_id": "ztm:3"
+ },
+ {
+  "line": "22",
+  "brigade": "8",
+  "lat": 52.249554,
+  "lon": 20.979515,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3157",
+  "mode": "tram",
+  "route_id": "ztm:22"
+ },
+ {
+  "line": "9",
+  "brigade": "26",
+  "lat": 52.2446,
+  "lon": 21.0845,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3158",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "24",
+  "brigade": "4",
+  "lat": 52.229847,
+  "lon": 20.984764,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3159",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "1",
+  "brigade": "25",
+  "lat": 52.306908,
+  "lon": 21.02534,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3160",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "22",
+  "brigade": "6",
+  "lat": 52.271366,
+  "lon": 20.944036,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3163",
+  "mode": "tram",
+  "route_id": "ztm:22"
+ },
+ {
+  "line": "1",
+  "brigade": "9",
+  "lat": 52.179127,
+  "lon": 20.947208,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3164",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "22",
+  "brigade": "3",
+  "lat": 52.298626,
+  "lon": 20.930334,
+  "time": "2026-10-17 00:26:13",
+  "vehicle": "3165",
+  "mode": "tram",
+  "route_id": "ztm:22"
+ },
+ {
+  "line": "1",
+  "brigade": "21",
+  "lat": 52.278057,
+  "lon": 21.027828,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3169",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "22",
+  "brigade": "3",
+  "lat": 52.23683,
+  "lon": 21.045528,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3171",
+  "mode": "tram",
+  "route_id": "ztm:22"
+ },
+ {
+  "line": "17",
+  "brigade": "4",
+  "lat": 52.29868,
+  "lon": 20.93277,
+  "time": "2026-10-16 19:10:51",
+  "vehicle": "3172",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "24",
+  "brigade": "6",
+  "lat": 52.238457,
+  "lon": 21.11796,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3173",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "9",
+  "brigade": "4",
+  "lat": 52.243546,
+  "lon": 21.078596,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3175",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "22",
+  "brigade": "1",
+  "lat": 52.298923,
+  "lon": 20.932684,
+  "time": "2026-10-16 19:12:35",
+  "vehicle": "3178",
+  "mode": "tram",
+  "route_id": "ztm:22"
+ },
+ {
+  "line": "9",
+  "brigade": "25",
+  "lat": 52.244587,
+  "lon": 21.084873,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3179",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "3",
+  "brigade": "8",
+  "lat": 52.29843,
+  "lon": 21.02185,
+  "time": "2026-10-17 14:40:11",
+  "vehicle": "3183",
+  "mode": "tram",
+  "route_id": "ztm:3"
+ },
+ {
+  "line": "9",
+  "brigade": "1",
+  "lat": 52.243088,
+  "lon": 21.075678,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3184",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "1",
+  "brigade": "28",
+  "lat": 52.29851,
+  "lon": 21.022133,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3185",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "20",
+  "brigade": "6",
+  "lat": 52.246723,
+  "lon": 21.014206,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3186",
+  "mode": "tram",
+  "route_id": "ztm:20"
+ },
+ {
+  "line": "9",
+  "brigade": "22",
+  "lat": 52.17949,
+  "lon": 20.947475,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3187",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "22",
+  "brigade": "12",
+  "lat": 52.298714,
+  "lon": 20.932709,
+  "time": "2026-10-16 21:21:38",
+  "vehicle": "3189",
+  "mode": "tram",
+  "route_id": "ztm:22"
+ },
+ {
+  "line": "26",
+  "brigade": "2",
+  "lat": 52.23151,
+  "lon": 20.914959,
+  "time": "2026-10-17 14:40:12",
+  "vehicle": "3190",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "24",
+  "brigade": "2",
+  "lat": 52.260128,
+  "lon": 20.924917,
+  "time": "2026-10-17 14:40:12",
+  "vehicle": "3192",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "15",
+  "brigade": "9",
+  "lat": 52.299694,
+  "lon": 20.931206,
+  "time": "2026-10-17 00:06:11",
+  "vehicle": "3196",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "19",
+  "brigade": "7",
+  "lat": 52.27219,
+  "lon": 20.943354,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3198",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "7",
+  "brigade": "6",
+  "lat": 52.229588,
+  "lon": 21.010674,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3204",
+  "mode": "tram",
+  "route_id": "ztm:7"
+ },
+ {
+  "line": "9",
+  "brigade": "7",
+  "lat": 52.175846,
+  "lon": 20.943745,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3206",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "26",
+  "brigade": "10",
+  "lat": 52.24658,
+  "lon": 20.911636,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3207",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "9",
+  "brigade": "5",
+  "lat": 52.229687,
+  "lon": 21.01119,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3208",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "9",
+  "brigade": "28",
+  "lat": 52.22257,
+  "lon": 20.98669,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3209",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "3",
+  "brigade": "6",
+  "lat": 52.24744,
+  "lon": 21.049652,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3211",
+  "mode": "tram",
+  "route_id": "ztm:3"
+ },
+ {
+  "line": "1",
+  "brigade": "8",
+  "lat": 52.30605,
+  "lon": 21.023962,
+  "time": "2026-10-17 00:05:10",
+  "vehicle": "3212",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "9",
+  "brigade": "24",
+  "lat": 52.234776,
+  "lon": 21.035326,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3214",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "7",
+  "brigade": "5",
+  "lat": 52.24927,
+  "lon": 21.04348,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3215",
+  "mode": "tram",
+  "route_id": "ztm:7"
+ },
+ {
+  "line": "18",
+  "brigade": "6",
+  "lat": 52.257805,
+  "lon": 21.001461,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3216",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "33",
+  "brigade": "3",
+  "lat": 52.299095,
+  "lon": 20.93229,
+  "time": "2026-10-16 19:38:15",
+  "vehicle": "3217",
+  "mode": "tram",
+  "route_id": "ztm:33"
+ },
+ {
+  "line": "17",
+  "brigade": "24",
+  "lat": 52.298363,
+  "lon": 20.932121,
+  "time": "2026-10-16 19:39:44",
+  "vehicle": "3218",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "33",
+  "brigade": "6",
+  "lat": 52.285397,
+  "lon": 20.923723,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3219",
+  "mode": "tram",
+  "route_id": "ztm:33"
+ },
+ {
+  "line": "33",
+  "brigade": "7",
+  "lat": 52.265068,
+  "lon": 20.969004,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3220",
+  "mode": "tram",
+  "route_id": "ztm:33"
+ },
+ {
+  "line": "23",
+  "brigade": "2",
+  "lat": 52.26013,
+  "lon": 20.92417,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3221",
+  "mode": "tram",
+  "route_id": "ztm:23"
+ },
+ {
+  "line": "1",
+  "brigade": "24",
+  "lat": 52.209766,
+  "lon": 20.981997,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3222",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "1",
+  "brigade": "22",
+  "lat": 52.18803,
+  "lon": 21.000898,
+  "time": "2026-10-16 18:57:15",
+  "vehicle": "3223",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "17",
+  "brigade": "23",
+  "lat": 52.187355,
+  "lon": 21.00204,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3224",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "25",
+  "brigade": "012",
+  "lat": 52.3048,
+  "lon": 21.024334,
+  "time": "2026-10-16 21:00:40",
+  "vehicle": "3225",
+  "mode": "tram",
+  "route_id": "ztm:25"
+ },
+ {
+  "line": "33",
+  "brigade": "3",
+  "lat": 52.271473,
+  "lon": 20.945627,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3226",
+  "mode": "tram",
+  "route_id": "ztm:33"
+ },
+ {
+  "line": "28",
+  "brigade": "013",
+  "lat": 52.298985,
+  "lon": 20.931202,
+  "time": "2026-10-17 00:24:22",
+  "vehicle": "3227",
+  "mode": "tram",
+  "route_id": "ztm:28"
+ },
+ {
+  "line": "15",
+  "brigade": "8",
+  "lat": 52.24818,
+  "lon": 20.999132,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3229",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "26",
+  "brigade": "016",
+  "lat": 52.305252,
+  "lon": 21.024601,
+  "time": "2026-10-16 20:15:45",
+  "vehicle": "3230",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "3",
+  "brigade": "2",
+  "lat": 52.273994,
+  "lon": 21.031555,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3231",
+  "mode": "tram",
+  "route_id": "ztm:3"
+ },
+ {
+  "line": "17",
+  "brigade": "035",
+  "lat": 52.298893,
+  "lon": 20.931072,
+  "time": "2026-10-17 00:08:03",
+  "vehicle": "3232",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "15",
+  "brigade": "1",
+  "lat": 52.298542,
+  "lon": 20.932755,
+  "time": "2026-10-17 00:55:24",
+  "vehicle": "3233",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "1",
+  "brigade": "22",
+  "lat": 52.25494,
+  "lon": 20.983831,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3236",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "1",
+  "brigade": "1",
+  "lat": 52.20812,
+  "lon": 20.974022,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3237",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "17",
+  "brigade": "1",
+  "lat": 52.298824,
+  "lon": 20.930552,
+  "time": "2026-10-17 00:23:00",
+  "vehicle": "3239",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "2",
+  "brigade": "021",
+  "lat": 52.298286,
+  "lon": 20.932175,
+  "time": "2026-10-16 18:15:17",
+  "vehicle": "3240",
+  "mode": "tram",
+  "route_id": "ztm:2"
+ },
+ {
+  "line": "17",
+  "brigade": "018",
+  "lat": 52.187157,
+  "lon": 21.000837,
+  "time": "2026-10-17 00:01:34",
+  "vehicle": "3242",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "3",
+  "brigade": "5",
+  "lat": 52.237923,
+  "lon": 21.120302,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3243",
+  "mode": "tram",
+  "route_id": "ztm:3"
+ },
+ {
+  "line": "3",
+  "brigade": "1",
+  "lat": 52.29877,
+  "lon": 21.021612,
+  "time": "2026-10-17 14:40:10",
+  "vehicle": "3244",
+  "mode": "tram",
+  "route_id": "ztm:3"
+ },
+ {
+  "line": "18",
+  "brigade": "2",
+  "lat": 52.21406,
+  "lon": 21.021284,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3247",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "15",
+  "brigade": "9",
+  "lat": 52.22009,
+  "lon": 21.009096,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3250",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "1",
+  "brigade": "27",
+  "lat": 52.280987,
+  "lon": 21.026518,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3251",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "1",
+  "brigade": "5",
+  "lat": 52.29872,
+  "lon": 21.02176,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3252",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "17",
+  "brigade": "5",
+  "lat": 52.245235,
+  "lon": 20.990704,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3253",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "19",
+  "brigade": "5",
+  "lat": 52.26459,
+  "lon": 20.929205,
+  "time": "2026-10-17 14:40:12",
+  "vehicle": "3254",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "19",
+  "brigade": "4",
+  "lat": 52.255386,
+  "lon": 20.982183,
+  "time": "2026-10-17 14:40:13",
+  "vehicle": "3255",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "1",
+  "brigade": "4",
+  "lat": 52.298473,
+  "lon": 21.021961,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3256",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "3",
+  "brigade": "3",
+  "lat": 52.24695,
+  "lon": 21.058668,
+  "time": "2026-10-17 14:40:12",
+  "vehicle": "3257",
+  "mode": "tram",
+  "route_id": "ztm:3"
+ },
+ {
+  "line": "26",
+  "brigade": "9",
+  "lat": 52.228683,
+  "lon": 20.94937,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3261",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "22",
+  "brigade": "2",
+  "lat": 52.24464,
+  "lon": 21.084873,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3262",
+  "mode": "tram",
+  "route_id": "ztm:22"
+ },
+ {
+  "line": "17",
+  "brigade": "21",
+  "lat": 52.1819,
+  "lon": 20.988897,
+  "time": "2026-10-17 14:40:12",
+  "vehicle": "3263",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "33",
+  "brigade": "4",
+  "lat": 52.29201,
+  "lon": 20.930197,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3264",
+  "mode": "tram",
+  "route_id": "ztm:33"
+ },
+ {
+  "line": "9",
+  "brigade": "3",
+  "lat": 52.238144,
+  "lon": 21.119286,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3266",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "3",
+  "brigade": "7",
+  "lat": 52.27233,
+  "lon": 21.033205,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3268",
+  "mode": "tram",
+  "route_id": "ztm:3"
+ },
+ {
+  "line": "23",
+  "brigade": "5",
+  "lat": 52.2371,
+  "lon": 20.980383,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3269",
+  "mode": "tram",
+  "route_id": "ztm:23"
+ },
+ {
+  "line": "1",
+  "brigade": "23",
+  "lat": 52.228664,
+  "lon": 20.985878,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3270",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "18",
+  "brigade": "9",
+  "lat": 52.17866,
+  "lon": 21.000994,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3271",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "17",
+  "brigade": "26",
+  "lat": 52.263638,
+  "lon": 20.979,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3272",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "26",
+  "brigade": "11",
+  "lat": 52.275543,
+  "lon": 20.938131,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3273",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "24",
+  "brigade": "7",
+  "lat": 52.238197,
+  "lon": 21.11876,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3274",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "25",
+  "brigade": "8",
+  "lat": 52.30439,
+  "lon": 21.02458,
+  "time": "2026-10-16 18:02:58",
+  "vehicle": "3275",
+  "mode": "tram",
+  "route_id": "ztm:25"
+ },
+ {
+  "line": "1",
+  "brigade": "035",
+  "lat": 52.3059,
+  "lon": 21.024124,
+  "time": "2026-10-16 23:27:22",
+  "vehicle": "3276",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "17",
+  "brigade": "24",
+  "lat": 52.23214,
+  "lon": 20.998976,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3277",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "24",
+  "brigade": "8",
+  "lat": 52.24136,
+  "lon": 21.10757,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3279",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "22",
+  "brigade": "7",
+  "lat": 52.27102,
+  "lon": 20.943756,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3280",
+  "mode": "tram",
+  "route_id": "ztm:22"
+ },
+ {
+  "line": "17",
+  "brigade": "22",
+  "lat": 52.18163,
+  "lon": 20.989056,
+  "time": "2026-10-17 14:40:12",
+  "vehicle": "3281",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "9",
+  "brigade": "9",
+  "lat": 52.22789,
+  "lon": 21.00264,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3282",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "20",
+  "brigade": "4",
+  "lat": 52.252598,
+  "lon": 20.898195,
+  "time": "2026-10-17 14:40:10",
+  "vehicle": "3286",
+  "mode": "tram",
+  "route_id": "ztm:20"
+ },
+ {
+  "line": "9",
+  "brigade": "2",
+  "lat": 52.23812,
+  "lon": 21.11882,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3287",
+  "mode": "tram",
+  "route_id": "ztm:9"
+ },
+ {
+  "line": "24",
+  "brigade": "1",
+  "lat": 52.247047,
+  "lon": 20.929407,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3288",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "24",
+  "brigade": "10",
+  "lat": 52.236794,
+  "lon": 20.979992,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3289",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "17",
+  "brigade": "3",
+  "lat": 52.31927,
+  "lon": 20.95119,
+  "time": "2026-10-17 14:40:11",
+  "vehicle": "3290",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "24",
+  "brigade": "9",
+  "lat": 52.23479,
+  "lon": 21.035517,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3292",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "1",
+  "brigade": "6",
+  "lat": 52.267693,
+  "lon": 21.03504,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3294",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "1",
+  "brigade": "2",
+  "lat": 52.23723,
+  "lon": 20.979868,
+  "time": "2026-10-17 14:40:08",
+  "vehicle": "3295",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "22",
+  "brigade": "5",
+  "lat": 52.26431,
+  "lon": 20.971565,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3501",
+  "mode": "tram",
+  "route_id": "ztm:22"
+ },
+ {
+  "line": "33",
+  "brigade": "2",
+  "lat": 52.242184,
+  "lon": 20.993338,
+  "time": "2026-10-17 14:40:12",
+  "vehicle": "3502",
+  "mode": "tram",
+  "route_id": "ztm:33"
+ },
+ {
+  "line": "4",
+  "brigade": "4",
+  "lat": 52.300518,
+  "lon": 21.021723,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3602",
+  "mode": "tram",
+  "route_id": "ztm:4"
+ },
+ {
+  "line": "10",
+  "brigade": "2",
+  "lat": 52.172974,
+  "lon": 21.019632,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3603",
+  "mode": "tram",
+  "route_id": "ztm:10"
+ },
+ {
+  "line": "1",
+  "brigade": "10",
+  "lat": 52.17594,
+  "lon": 20.943848,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3604",
+  "mode": "tram",
+  "route_id": "ztm:1"
+ },
+ {
+  "line": "10",
+  "brigade": "014",
+  "lat": 52.1865,
+  "lon": 21.000837,
+  "time": "2026-10-17 00:18:38",
+  "vehicle": "3605",
+  "mode": "tram",
+  "route_id": "ztm:10"
+ },
+ {
+  "line": "33",
+  "brigade": "5",
+  "lat": 52.291637,
+  "lon": 20.929686,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3606",
+  "mode": "tram",
+  "route_id": "ztm:33"
+ },
+ {
+  "line": "11",
+  "brigade": "022",
+  "lat": 52.18855,
+  "lon": 21.001066,
+  "time": "2026-10-16 19:29:18",
+  "vehicle": "3607",
+  "mode": "tram",
+  "route_id": "ztm:11"
+ },
+ {
+  "line": "10",
+  "brigade": "4",
+  "lat": 52.214325,
+  "lon": 21.02118,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "3610",
+  "mode": "tram",
+  "route_id": "ztm:10"
+ },
+ {
+  "line": "10",
+  "brigade": "3",
+  "lat": 52.17865,
+  "lon": 21.021692,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3614",
+  "mode": "tram",
+  "route_id": "ztm:10"
+ },
+ {
+  "line": "4",
+  "brigade": "9",
+  "lat": 52.182907,
+  "lon": 21.023392,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3615",
+  "mode": "tram",
+  "route_id": "ztm:4"
+ },
+ {
+  "line": "4",
+  "brigade": "2",
+  "lat": 52.227222,
+  "lon": 21.013277,
+  "time": "2026-10-17 14:40:20",
+  "vehicle": "3617",
+  "mode": "tram",
+  "route_id": "ztm:4"
+ },
+ {
+  "line": "4",
+  "brigade": "10",
+  "lat": 52.17272,
+  "lon": 21.019535,
+  "time": "2026-10-17 14:40:20",
+  "vehicle": "3618",
+  "mode": "tram",
+  "route_id": "ztm:4"
+ },
+ {
+  "line": "4",
+  "brigade": "8",
+  "lat": 52.221336,
+  "lon": 21.01702,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3621",
+  "mode": "tram",
+  "route_id": "ztm:4"
+ },
+ {
+  "line": "10",
+  "brigade": "10",
+  "lat": 52.22715,
+  "lon": 21.002298,
+  "time": "2026-10-17 14:40:20",
+  "vehicle": "3622",
+  "mode": "tram",
+  "route_id": "ztm:10"
+ },
+ {
+  "line": "10",
+  "brigade": "8",
+  "lat": 52.186844,
+  "lon": 21.000608,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3623",
+  "mode": "tram",
+  "route_id": "ztm:10"
+ },
+ {
+  "line": "4",
+  "brigade": "5",
+  "lat": 52.31098,
+  "lon": 21.012592,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3626",
+  "mode": "tram",
+  "route_id": "ztm:4"
+ },
+ {
+  "line": "4",
+  "brigade": "7",
+  "lat": 52.250996,
+  "lon": 21.026012,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "3629",
+  "mode": "tram",
+  "route_id": "ztm:4"
+ },
+ {
+  "line": "4",
+  "brigade": "6",
+  "lat": 52.28117,
+  "lon": 21.027487,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3630",
+  "mode": "tram",
+  "route_id": "ztm:4"
+ },
+ {
+  "line": "4",
+  "brigade": "3",
+  "lat": 52.256065,
+  "lon": 21.033472,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3633",
+  "mode": "tram",
+  "route_id": "ztm:4"
+ },
+ {
+  "line": "10",
+  "brigade": "1",
+  "lat": 52.202415,
+  "lon": 21.023445,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3635",
+  "mode": "tram",
+  "route_id": "ztm:10"
+ },
+ {
+  "line": "11",
+  "brigade": "6",
+  "lat": 52.227608,
+  "lon": 20.95205,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3637",
+  "mode": "tram",
+  "route_id": "ztm:11"
+ },
+ {
+  "line": "11",
+  "brigade": "7",
+  "lat": 52.220226,
+  "lon": 21.005508,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "3638",
+  "mode": "tram",
+  "route_id": "ztm:11"
+ },
+ {
+  "line": "10",
+  "brigade": "7",
+  "lat": 52.238644,
+  "lon": 20.900562,
+  "time": "2026-10-17 14:40:20",
+  "vehicle": "3640",
+  "mode": "tram",
+  "route_id": "ztm:10"
+ },
+ {
+  "line": "10",
+  "brigade": "12",
+  "lat": 52.232475,
+  "lon": 20.973066,
+  "time": "2026-10-17 00:25:58",
+  "vehicle": "3641",
+  "mode": "tram",
+  "route_id": "ztm:10"
+ },
+ {
+  "line": "10",
+  "brigade": "9",
+  "lat": 52.23241,
+  "lon": 20.972387,
+  "time": "2026-10-16 21:50:28",
+  "vehicle": "3642",
+  "mode": "tram",
+  "route_id": "ztm:10"
+ },
+ {
+  "line": "10",
+  "brigade": "017",
+  "lat": 52.233585,
+  "lon": 20.973099,
+  "time": "2026-10-16 19:25:23",
+  "vehicle": "3643",
+  "mode": "tram",
+  "route_id": "ztm:10"
+ },
+ {
+  "line": "24",
+  "brigade": "3",
+  "lat": 52.24672,
+  "lon": 20.939592,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "3644",
+  "mode": "tram",
+  "route_id": "ztm:24"
+ },
+ {
+  "line": "10",
+  "brigade": "5",
+  "lat": 52.23086,
+  "lon": 20.987139,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "3648",
+  "mode": "tram",
+  "route_id": "ztm:10"
+ },
+ {
+  "line": "10",
+  "brigade": "9",
+  "lat": 52.2247,
+  "lon": 20.933987,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3649",
+  "mode": "tram",
+  "route_id": "ztm:10"
+ },
+ {
+  "line": "10",
+  "brigade": "6",
+  "lat": 52.22237,
+  "lon": 20.91714,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3650",
+  "mode": "tram",
+  "route_id": "ztm:10"
+ },
+ {
+  "line": "6",
+  "brigade": "8",
+  "lat": 52.25507,
+  "lon": 21.034502,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3801",
+  "mode": "tram",
+  "route_id": "ztm:6"
+ },
+ {
+  "line": "28",
+  "brigade": "7",
+  "lat": 52.26372,
+  "lon": 20.973776,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3802",
+  "mode": "tram",
+  "route_id": "ztm:28"
+ },
+ {
+  "line": "6",
+  "brigade": "7",
+  "lat": 52.255733,
+  "lon": 21.053812,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3803",
+  "mode": "tram",
+  "route_id": "ztm:6"
+ },
+ {
+  "line": "6",
+  "brigade": "4",
+  "lat": 52.299286,
+  "lon": 20.935408,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3805",
+  "mode": "tram",
+  "route_id": "ztm:6"
+ },
+ {
+  "line": "27",
+  "brigade": "4",
+  "lat": 52.272636,
+  "lon": 20.972164,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3807",
+  "mode": "tram",
+  "route_id": "ztm:27"
+ },
+ {
+  "line": "28",
+  "brigade": "4",
+  "lat": 52.238663,
+  "lon": 20.900948,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3808",
+  "mode": "tram",
+  "route_id": "ztm:28"
+ },
+ {
+  "line": "27",
+  "brigade": "3",
+  "lat": 52.272728,
+  "lon": 20.971912,
+  "time": "2026-10-17 14:40:20",
+  "vehicle": "3809",
+  "mode": "tram",
+  "route_id": "ztm:27"
+ },
+ {
+  "line": "27",
+  "brigade": "1",
+  "lat": 52.224827,
+  "lon": 20.931086,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3811",
+  "mode": "tram",
+  "route_id": "ztm:27"
+ },
+ {
+  "line": "20",
+  "brigade": "7",
+  "lat": 52.25596,
+  "lon": 21.054201,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3813",
+  "mode": "tram",
+  "route_id": "ztm:20"
+ },
+ {
+  "line": "27",
+  "brigade": "5",
+  "lat": 52.237038,
+  "lon": 20.980055,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3814",
+  "mode": "tram",
+  "route_id": "ztm:27"
+ },
+ {
+  "line": "13",
+  "brigade": "6",
+  "lat": 52.235096,
+  "lon": 20.973574,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3815",
+  "mode": "tram",
+  "route_id": "ztm:13"
+ },
+ {
+  "line": "6",
+  "brigade": "9",
+  "lat": 52.243885,
+  "lon": 21.095646,
+  "time": "2026-10-17 14:40:20",
+  "vehicle": "3816",
+  "mode": "tram",
+  "route_id": "ztm:6"
+ },
+ {
+  "line": "28",
+  "brigade": "9",
+  "lat": 52.232677,
+  "lon": 20.972809,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3817",
+  "mode": "tram",
+  "route_id": "ztm:28"
+ },
+ {
+  "line": "27",
+  "brigade": "2",
+  "lat": 52.23611,
+  "lon": 20.97772,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "3818",
+  "mode": "tram",
+  "route_id": "ztm:27"
+ },
+ {
+  "line": "13",
+  "brigade": "1",
+  "lat": 52.22479,
+  "lon": 20.931023,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3820",
+  "mode": "tram",
+  "route_id": "ztm:13"
+ },
+ {
+  "line": "20",
+  "brigade": "2",
+  "lat": 52.235428,
+  "lon": 20.975023,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "3821",
+  "mode": "tram",
+  "route_id": "ztm:20"
+ },
+ {
+  "line": "20",
+  "brigade": "3",
+  "lat": 52.24699,
+  "lon": 20.913258,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "3822",
+  "mode": "tram",
+  "route_id": "ztm:20"
+ },
+ {
+  "line": "13",
+  "brigade": "3",
+  "lat": 52.252934,
+  "lon": 21.030409,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3823",
+  "mode": "tram",
+  "route_id": "ztm:13"
+ },
+ {
+  "line": "20",
+  "brigade": "1",
+  "lat": 52.249928,
+  "lon": 21.023554,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3824",
+  "mode": "tram",
+  "route_id": "ztm:20"
+ },
+ {
+  "line": "13",
+  "brigade": "4",
+  "lat": 52.256916,
+  "lon": 21.05475,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "3825",
+  "mode": "tram",
+  "route_id": "ztm:13"
+ },
+ {
+  "line": "13",
+  "brigade": "2",
+  "lat": 52.25582,
+  "lon": 21.05381,
+  "time": "2026-10-17 14:40:20",
+  "vehicle": "3827",
+  "mode": "tram",
+  "route_id": "ztm:13"
+ },
+ {
+  "line": "6",
+  "brigade": "1",
+  "lat": 52.24399,
+  "lon": 21.094933,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "3828",
+  "mode": "tram",
+  "route_id": "ztm:6"
+ },
+ {
+  "line": "13",
+  "brigade": "5",
+  "lat": 52.249634,
+  "lon": 21.022842,
+  "time": "2026-10-17 14:40:20",
+  "vehicle": "3829",
+  "mode": "tram",
+  "route_id": "ztm:13"
+ },
+ {
+  "line": "6",
+  "brigade": "3",
+  "lat": 52.265377,
+  "lon": 20.989712,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "4001",
+  "mode": "tram",
+  "route_id": "ztm:6"
+ },
+ {
+  "line": "15",
+  "brigade": "7",
+  "lat": 52.27503,
+  "lon": 20.98028,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4002",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "6",
+  "brigade": "10",
+  "lat": 52.23821,
+  "lon": 21.119272,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4004",
+  "mode": "tram",
+  "route_id": "ztm:6"
+ },
+ {
+  "line": "28",
+  "brigade": "6",
+  "lat": 52.263786,
+  "lon": 20.928072,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4005",
+  "mode": "tram",
+  "route_id": "ztm:28"
+ },
+ {
+  "line": "23",
+  "brigade": "6",
+  "lat": 52.256584,
+  "lon": 21.033125,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4006",
+  "mode": "tram",
+  "route_id": "ztm:23"
+ },
+ {
+  "line": "15",
+  "brigade": "3",
+  "lat": 52.202763,
+  "lon": 20.969353,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "4008",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "15",
+  "brigade": "5",
+  "lat": 52.24493,
+  "lon": 21.000776,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4009",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "6",
+  "brigade": "6",
+  "lat": 52.2909,
+  "lon": 20.9496,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4010",
+  "mode": "tram",
+  "route_id": "ztm:6"
+ },
+ {
+  "line": "28",
+  "brigade": "1",
+  "lat": 52.259182,
+  "lon": 21.025318,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "4011",
+  "mode": "tram",
+  "route_id": "ztm:28"
+ },
+ {
+  "line": "23",
+  "brigade": "3",
+  "lat": 52.260418,
+  "lon": 20.925173,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4012",
+  "mode": "tram",
+  "route_id": "ztm:23"
+ },
+ {
+  "line": "28",
+  "brigade": "3",
+  "lat": 52.25551,
+  "lon": 20.917982,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "4013",
+  "mode": "tram",
+  "route_id": "ztm:28"
+ },
+ {
+  "line": "15",
+  "brigade": "4",
+  "lat": 52.220345,
+  "lon": 21.006807,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4015",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "6",
+  "brigade": "5",
+  "lat": 52.29214,
+  "lon": 20.929932,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4017",
+  "mode": "tram",
+  "route_id": "ztm:6"
+ },
+ {
+  "line": "23",
+  "brigade": "4",
+  "lat": 52.235153,
+  "lon": 20.973507,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4018",
+  "mode": "tram",
+  "route_id": "ztm:23"
+ },
+ {
+  "line": "15",
+  "brigade": "6",
+  "lat": 52.27519,
+  "lon": 20.980522,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4019",
+  "mode": "tram",
+  "route_id": "ztm:15"
+ },
+ {
+  "line": "6",
+  "brigade": "2",
+  "lat": 52.259815,
+  "lon": 21.024633,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4020",
+  "mode": "tram",
+  "route_id": "ztm:6"
+ },
+ {
+  "line": "18",
+  "brigade": "3",
+  "lat": 52.2424,
+  "lon": 21.003815,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4102",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "26",
+  "brigade": "1",
+  "lat": 52.263084,
+  "lon": 20.927029,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "4104",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "26",
+  "brigade": "7",
+  "lat": 52.25079,
+  "lon": 21.039953,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "4107",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "26",
+  "brigade": "5",
+  "lat": 52.2454,
+  "lon": 21.0825,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4108",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "18",
+  "brigade": "4",
+  "lat": 52.2665,
+  "lon": 21.0201,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4109",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "18",
+  "brigade": "7",
+  "lat": 52.230965,
+  "lon": 21.011095,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4110",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "18",
+  "brigade": "1",
+  "lat": 52.188866,
+  "lon": 21.004942,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "4111",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "18",
+  "brigade": "5",
+  "lat": 52.29085,
+  "lon": 21.002373,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4112",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "26",
+  "brigade": "8",
+  "lat": 52.246,
+  "lon": 21.006653,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4113",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "18",
+  "brigade": "8",
+  "lat": 52.193043,
+  "lon": 21.024525,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "4116",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "26",
+  "brigade": "6",
+  "lat": 52.244667,
+  "lon": 21.08449,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4117",
+  "mode": "tram",
+  "route_id": "ztm:26"
+ },
+ {
+  "line": "18",
+  "brigade": "10",
+  "lat": 52.181873,
+  "lon": 20.98875,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4118",
+  "mode": "tram",
+  "route_id": "ztm:18"
+ },
+ {
+  "line": "16",
+  "brigade": "15",
+  "lat": 52.16507,
+  "lon": 21.069754,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "4201",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "2",
+  "brigade": "7",
+  "lat": 52.31766,
+  "lon": 20.962782,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "4203",
+  "mode": "tram",
+  "route_id": "ztm:2"
+ },
+ {
+  "line": "2",
+  "brigade": "1",
+  "lat": 52.340717,
+  "lon": 20.948002,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4205",
+  "mode": "tram",
+  "route_id": "ztm:2"
+ },
+ {
+  "line": "11",
+  "brigade": "1",
+  "lat": 52.20698,
+  "lon": 21.047392,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4209",
+  "mode": "tram",
+  "route_id": "ztm:11"
+ },
+ {
+  "line": "2",
+  "brigade": "6",
+  "lat": 52.29215,
+  "lon": 20.92988,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4211",
+  "mode": "tram",
+  "route_id": "ztm:2"
+ },
+ {
+  "line": "19",
+  "brigade": "1",
+  "lat": 52.17819,
+  "lon": 21.048206,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4213",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "19",
+  "brigade": "10",
+  "lat": 52.186275,
+  "lon": 21.000593,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4214",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "16",
+  "brigade": "1",
+  "lat": 52.25494,
+  "lon": 20.982325,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4215",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "14",
+  "brigade": "3",
+  "lat": 52.215797,
+  "lon": 21.02028,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "4216",
+  "mode": "tram",
+  "route_id": "ztm:14"
+ },
+ {
+  "line": "14",
+  "brigade": "7",
+  "lat": 52.218113,
+  "lon": 20.983017,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4217",
+  "mode": "tram",
+  "route_id": "ztm:14"
+ },
+ {
+  "line": "19",
+  "brigade": "8",
+  "lat": 52.254234,
+  "lon": 20.983118,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "4218",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "17",
+  "brigade": "1",
+  "lat": 52.322826,
+  "lon": 20.94405,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4219",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "14",
+  "brigade": "2",
+  "lat": 52.219242,
+  "lon": 20.983725,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4220",
+  "mode": "tram",
+  "route_id": "ztm:14"
+ },
+ {
+  "line": "11",
+  "brigade": "5",
+  "lat": 52.224747,
+  "lon": 20.930962,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4222",
+  "mode": "tram",
+  "route_id": "ztm:11"
+ },
+ {
+  "line": "16",
+  "brigade": "17",
+  "lat": 52.230385,
+  "lon": 21.011505,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4223",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "14",
+  "brigade": "1",
+  "lat": 52.187843,
+  "lon": 21.000202,
+  "time": "2026-10-16 21:13:57",
+  "vehicle": "4226",
+  "mode": "tram",
+  "route_id": "ztm:14"
+ },
+ {
+  "line": "14",
+  "brigade": "5",
+  "lat": 52.17583,
+  "lon": 21.062067,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "4227",
+  "mode": "tram",
+  "route_id": "ztm:14"
+ },
+ {
+  "line": "16",
+  "brigade": "12",
+  "lat": 52.18684,
+  "lon": 21.0008,
+  "time": "2026-10-17 00:47:30",
+  "vehicle": "4228",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "17",
+  "brigade": "2",
+  "lat": 52.34065,
+  "lon": 20.950191,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "4229",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "16",
+  "brigade": "6",
+  "lat": 52.218315,
+  "lon": 21.0189,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4231",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "16",
+  "brigade": "9",
+  "lat": 52.1887,
+  "lon": 21.048464,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4233",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "11",
+  "brigade": "2",
+  "lat": 52.206726,
+  "lon": 21.042906,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "4234",
+  "mode": "tram",
+  "route_id": "ztm:11"
+ },
+ {
+  "line": "11",
+  "brigade": "4",
+  "lat": 52.226604,
+  "lon": 20.944134,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "4235",
+  "mode": "tram",
+  "route_id": "ztm:11"
+ },
+ {
+  "line": "19",
+  "brigade": "2",
+  "lat": 52.193108,
+  "lon": 21.043753,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4236",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "16",
+  "brigade": "5",
+  "lat": 52.24422,
+  "lon": 20.991535,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4238",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "14",
+  "brigade": "6",
+  "lat": 52.21157,
+  "lon": 21.020313,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4239",
+  "mode": "tram",
+  "route_id": "ztm:14"
+ },
+ {
+  "line": "16",
+  "brigade": "11",
+  "lat": 52.252865,
+  "lon": 20.998016,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4240",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "16",
+  "brigade": "10",
+  "lat": 52.223507,
+  "lon": 21.015507,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4241",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "16",
+  "brigade": "25",
+  "lat": 52.186855,
+  "lon": 21.000805,
+  "time": "2026-10-16 23:50:59",
+  "vehicle": "4242",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "14",
+  "brigade": "012",
+  "lat": 52.188038,
+  "lon": 21.00075,
+  "time": "2026-10-16 19:08:47",
+  "vehicle": "4243",
+  "mode": "tram",
+  "route_id": "ztm:14"
+ },
+ {
+  "line": "14",
+  "brigade": "4",
+  "lat": 52.171677,
+  "lon": 21.066664,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4244",
+  "mode": "tram",
+  "route_id": "ztm:14"
+ },
+ {
+  "line": "16",
+  "brigade": "14",
+  "lat": 52.16455,
+  "lon": 21.07004,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4245",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "16",
+  "brigade": "4",
+  "lat": 52.1883,
+  "lon": 21.0008,
+  "time": "2026-10-16 19:03:34",
+  "vehicle": "4246",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "16",
+  "brigade": "016",
+  "lat": 52.18786,
+  "lon": 21.000742,
+  "time": "2026-10-17 01:13:45",
+  "vehicle": "4248",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "16",
+  "brigade": "3",
+  "lat": 52.271065,
+  "lon": 20.943678,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "4249",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "16",
+  "brigade": "22",
+  "lat": 52.1872,
+  "lon": 21.000818,
+  "time": "2026-10-17 01:04:05",
+  "vehicle": "4250",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "19",
+  "brigade": "9",
+  "lat": 52.211895,
+  "lon": 21.006695,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4252",
+  "mode": "tram",
+  "route_id": "ztm:19"
+ },
+ {
+  "line": "11",
+  "brigade": "3",
+  "lat": 52.22328,
+  "lon": 21.004625,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4253",
+  "mode": "tram",
+  "route_id": "ztm:11"
+ },
+ {
+  "line": "16",
+  "brigade": "13",
+  "lat": 52.20945,
+  "lon": 21.025711,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4254",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "16",
+  "brigade": "18",
+  "lat": 52.186535,
+  "lon": 20.999866,
+  "time": "2025-02-09 23:33:12",
+  "vehicle": "4255",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "17",
+  "brigade": "6",
+  "lat": 52.20747,
+  "lon": 21.006807,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4256",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "2",
+  "brigade": "4",
+  "lat": 52.31642,
+  "lon": 20.958517,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4257",
+  "mode": "tram",
+  "route_id": "ztm:2"
+ },
+ {
+  "line": "2",
+  "brigade": "3",
+  "lat": 52.300846,
+  "lon": 20.929823,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4260",
+  "mode": "tram",
+  "route_id": "ztm:2"
+ },
+ {
+  "line": "17",
+  "brigade": "4",
+  "lat": 52.275303,
+  "lon": 20.964497,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4262",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "11",
+  "brigade": "023",
+  "lat": 52.18828,
+  "lon": 21.000956,
+  "time": "2026-10-16 19:15:28",
+  "vehicle": "4263",
+  "mode": "tram",
+  "route_id": "ztm:11"
+ },
+ {
+  "line": "14",
+  "brigade": "2",
+  "lat": 52.18652,
+  "lon": 21.000126,
+  "time": "2025-02-28 22:29:26",
+  "vehicle": "4264",
+  "mode": "tram",
+  "route_id": "ztm:14"
+ },
+ {
+  "line": "16",
+  "brigade": "2",
+  "lat": 52.18719,
+  "lon": 21.000778,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "4265",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "16",
+  "brigade": "8",
+  "lat": 52.157066,
+  "lon": 21.076584,
+  "time": "2026-10-17 14:40:15",
+  "vehicle": "4266",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "17",
+  "brigade": "9",
+  "lat": 52.179466,
+  "lon": 20.99743,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "4269",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "14",
+  "brigade": "1",
+  "lat": 52.209934,
+  "lon": 20.982185,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4270",
+  "mode": "tram",
+  "route_id": "ztm:14"
+ },
+ {
+  "line": "17",
+  "brigade": "25",
+  "lat": 52.266804,
+  "lon": 20.976997,
+  "time": "2026-10-17 14:40:17",
+  "vehicle": "4272",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "17",
+  "brigade": "8",
+  "lat": 52.181732,
+  "lon": 20.989141,
+  "time": "2026-10-17 14:40:19",
+  "vehicle": "4274",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "2",
+  "brigade": "2",
+  "lat": 52.303482,
+  "lon": 20.943653,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "4275",
+  "mode": "tram",
+  "route_id": "ztm:2"
+ },
+ {
+  "line": "16",
+  "brigade": "7",
+  "lat": 52.185986,
+  "lon": 21.051497,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4277",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "16",
+  "brigade": "12",
+  "lat": 52.238827,
+  "lon": 21.00633,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4278",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "2",
+  "brigade": "5",
+  "lat": 52.299206,
+  "lon": 20.93523,
+  "time": "2026-10-17 14:40:14",
+  "vehicle": "4280",
+  "mode": "tram",
+  "route_id": "ztm:2"
+ },
+ {
+  "line": "16",
+  "brigade": "4",
+  "lat": 52.26815,
+  "lon": 20.957817,
+  "time": "2026-10-17 14:40:18",
+  "vehicle": "4282",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ },
+ {
+  "line": "17",
+  "brigade": "28",
+  "lat": 52.195168,
+  "lon": 21.001785,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "4283",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "17",
+  "brigade": "7",
+  "lat": 52.17958,
+  "lon": 20.996872,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "4284",
+  "mode": "tram",
+  "route_id": "ztm:17"
+ },
+ {
+  "line": "16",
+  "brigade": "16",
+  "lat": 52.210964,
+  "lon": 21.021662,
+  "time": "2026-10-17 14:40:16",
+  "vehicle": "4285",
+  "mode": "tram",
+  "route_id": "ztm:16"
+ }
+]

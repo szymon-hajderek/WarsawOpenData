@@ -30,6 +30,10 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Whenever we want to add something, we create a new branch and open a Pull Request.
 - Nothing is committed directly to `main` — changes land on `main` only via a merged PR.
 - PRs are created with the GitHub CLI (`gh pr create`) and need a short title and description.
+- **Before every PR, update the "Environment setup (for agents)" section in `README.md`.**
+  If the branch adds or changes a dependency, a tool, a command, an env variable or a data download,
+  write the exact install steps there (e.g. `uv sync`, `npm install`). If nothing changed, leave it as is.
+  A new agent must be able to build the full environment from that section alone.
 
 ## Feature Branches
 
@@ -67,15 +71,18 @@ Everything in this repo (files, commits, PRs) is written in English.
 - **Jury criteria (design for them):** inclusivity / accessibility / diversity, scalability to
   other cities, safety, privacy, evidence-based, technical correctness, business model.
 - **Time frame:** 24h hackathon, so keep everything simple.
-- **Status:** the frontend UI exists; the FastAPI backend exists with a stub routing engine
-  (ported mock) and a geocode proxy; the real C++ routing engine and data are not done yet.
+- **Status:** the frontend UI exists. The backend has two parts: a **data layer** (download,
+  parsers and FastAPI endpoints for all sources, `backend/`, report in `data/REPORT.md`) and a
+  **routing API** (`backend/app/`) with a stub routing engine (ported mock) + a geocode proxy.
+  The real C++ routing engine is not built yet.
 
 ### Tech stack
 
 - Frontend: React + TypeScript + Vite
 - Map: Leaflet + OpenStreetMap
 - Backend: Python + FastAPI
-- Database: PostgreSQL + PostGIS (SQLite is enough for the POC)
+- Database: none for now. Raw files in `data/`, parsed by Python modules on first use.
+  PostgreSQL + PostGIS (or SQLite) later if needed.
 - Routing: a long-running **C++ engine** keeps the graph + live state in memory; Python
   (FastAPI) is a thin backend that pushes updates and asks it for routes. (OpenTripPlanner
   was the earlier idea; the team chose a custom C++ engine instead.)
@@ -91,6 +98,33 @@ Everything in this repo (files, commits, PRs) is written in English.
 - `routing/` — OpenTripPlanner config
 - `data/` — datasets, one subfolder per data type: `gtfs/`, `gbfs/`, `osm/`, `geojson/`
 
+### Backend and data (`backend/`, `data/`)
+
+- Python deps with **uv**: `cd backend && uv sync`. Run all commands from `backend/` (imports are flat:
+  `config`, `sources.*`). uv picks Python 3.12 (`.venv` is git-ignored).
+- One file per source in `backend/sources/` with `download()`, parse functions and a FastAPI `router`:
+  `mkuran.py` (GTFS), `um_warszawa.py` (City Hall live APIs), `nextbike.py` (Veturilo GBFS), `osm.py`
+  (walk / bike graph). `sources/registry.py` lists every source, also the ones we only list.
+- Commands: `uv run python download.py [source]`, `uv run uvicorn main:app --reload`
+  (docs at `/docs`), `uv run python report.py` (writes `data/REPORT.md` + `data/report.json`).
+- Raw data: GTFS zips and `Warsaw.osm.pbf` are in Git LFS (`.gitattributes`); run `git lfs install`
+  once after cloning. `data/derived/` holds parsed caches (git-ignored, rebuilt on first use, ~25 s
+  for GTFS, ~45 s for OSM).
+- Dedup: stops only from GTFS. ZTM (bus, tram, metro, SKM) from `warsaw.zip`, WKD from `wkd.zip`,
+  other trains from `polish_trains.zip` without SKM and only inside the ZTM bbox. Rail stations merge
+  across feeds only rail-to-rail (same name, < 150 m, field `same_as`); never with bus / tram stops.
+- IDs: global stop ids have a feed prefix (`ztm:700901`, `wkd:brzoz`, `pkp:33605_RAIL_1_5`).
+  ZTM `700901` = zespół `7009` + słupek `01` = City Hall `busstopId` + `busstopNr`.
+  Live `Lines` / `Brigade` = GTFS `route_short_name` / `block_short_name`.
+  Veturilo and OSM have no shared ids: join by distance.
+- City Hall APIs: `api.um.warszawa.pl` URLs need the trailing slash (`dbtimetable_get/`), else 301.
+  The stop dictionary (`dbstore_get`) returns an error; GTFS covers it. The live vehicle feed
+  also returns positions that are years old: filter by time (`max_age_s`).
+- The BBBike OSM box (52.041-52.451 N, 20.653-21.408 E) is smaller than the ZTM area; ~400 outer
+  stops snap far. Geofabrik `mazowieckie` + `osmium extract` is the fix if needed.
+- Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
+  `WAIT` in `osm.py`). OSM has no signal timing tags in Warsaw.
+
 ### Frontend (`frontend/`)
 
 - Stack: React 18, Vite 5, TypeScript, Material UI v6 (+ icons), Leaflet 1.9 with `react-leaflet` 4.
@@ -105,23 +139,32 @@ Everything in this repo (files, commits, PRs) is written in English.
   set `VITE_API_URL=""` in `frontend/.env` to force the mock).
 - Place search: `src/api/geocode.ts` (`searchPlaces`), debounced, limited to Warsaw. Calls the
   backend geocode proxy when `API_URL` is set, else Nominatim directly (≈1 request/second limit).
-- Theme: all colours in `src/theme.ts` (light + dark; toggle on the map, defaults to the system
-  setting). Colours and icons of transport modes: `src/modes.tsx`.
-- Two map looks, switched with the layers button on the map (saved in localStorage, `src/mapVariant.tsx`):
-  - **v1** (default): plain OpenStreetMap raster tiles; dark mode is a CSS filter (`.tiles-dark` in `src/index.css`).
-  - **v2**: flat pastel vector map. Vector tiles from OpenFreeMap (no key) drawn by MapLibre GL inside Leaflet
-    (`@maplibre/maplibre-gl-leaflet`, loaded on demand). The style is ours: `src/map/styleV2.ts` (palettes for
-    light + dark, more labels when zoomed in). Round lavender buttons and markers live in `src/components/MapView.tsx`.
-  - CARTO basemaps now return "API KEY REQUIRED", so do not use them. OpenFreeMap has no SLA; there is no fallback to v1.
+- Colours: every colour of the app lives in `src/map/looks.ts` (one table: look x light / dark). A **look** sets the
+  map colours, the round map buttons / markers AND the accent of the whole UI (the MUI theme in `src/theme.ts` is built
+  from it, so panels, chips and windows follow the look). Colours and icons of transport modes: `src/modes.tsx`.
+- Two looks, switched with the layers button on the map (saved in localStorage key `map-variant`, `src/mapLook.tsx`;
+  `lavender` is the default, `warsaw` = red + yellow: red is the main colour in light mode, yellow the accent at night):
+  - Both use the same flat vector map: OpenFreeMap tiles (no key) drawn by MapLibre GL inside Leaflet
+    (`@maplibre/maplibre-gl-leaflet`, loaded on demand). The style is ours: `src/map/mapStyle.ts` (colours from the look,
+    more labels when zoomed in). Map controls, markers and route in `src/components/MapView.tsx`.
+  - The old OSM raster map (v1) was removed. CARTO basemaps return "API KEY REQUIRED", so do not use them.
+    OpenFreeMap has no SLA; there is no fallback.
+- "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): open on the start screen, swipe down / tap to hide
+  into a bar, swipe up / tap to bring it back. Shows the suggested vehicle (mode + line + direction) and 3 others;
+  "Jadę tą linią" confirms, "Nie jadę komunikacją" closes it until reload. **Data is a mock:** `src/api/vehicle.ts`
+  (`detectVehicle`) is the seam for the backend (location + bus history). A teammate's concept for it is
+  `ui/concept-art/current-line-popup.paint` (a HEIF image; the window was designed without opening it).
 - Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with
   a clean route and round stop markers, light map with a bottom sheet.
 - Run: `npm install`, `npm run dev` (http://localhost:5173), `npm run build` (type-check + build).
 
-### Backend (`backend/`)
+### Backend — routing API (`backend/app/`)
 
+- Separate from the data layer above: the data layer serves raw sources; this part serves the
+  frontend (routes + geocode). They live side by side in `backend/` and today run as two apps.
 - Stack: Python + FastAPI, run with `uvicorn app.main:app --reload`. Deps in `requirements.txt`
-  (fastapi, uvicorn, httpx); use a `venv`. No database yet. See `backend/README.md`.
+  (fastapi, uvicorn, httpx); use a `venv`. No database. See `backend/README.md`.
 - Models (`app/models.py`) mirror `frontend/src/types.ts` exactly (camelCase JSON keys; `from`
   via a Pydantic alias). FastAPI serializes responses by alias, so the output matches the UI types.
 - Endpoints: `POST /api/routes` -> `RouteOption[]` (backend side of `fetchRouteOptions`),
@@ -152,3 +195,5 @@ Everything in this repo (files, commits, PRs) is written in English.
   Cursor reads it (a plain `CLAUDE.md` may not be loaded).
 - Change notes live in `changes/` (one file per branch), not in a single shared
   `CHANGES.md`, so parallel branches do not create merge conflicts in change notes.
+- `README.md` has an "Environment setup (for agents)" section: how to install the full environment
+  (keys, frontend with npm, backend with uv). It is updated in every PR that changes setup.

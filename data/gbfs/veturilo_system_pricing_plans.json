@@ -1,0 +1,108 @@
+{
+ "last_updated": 1792240758,
+ "ttl": 86400,
+ "data": {
+  "plans": [
+   {
+    "plan_id": "Rate0043",
+    "name": "<20min PLN 0, <60min PLN 1, <120min PLN 4, <180min PLN 9, 180min-12hrs PLN 9 + PLN 7/hour, >12hrs PLN 272",
+    "currency": "PLN",
+    "price": 0,
+    "is_taxable": false,
+    "description": "<20min PLN 0, <60min PLN 1, <120min PLN 4, <180min PLN 9, 180min-12hrs PLN 9 + PLN 7/hour, >12hrs PLN 272",
+    "per_min_pricing": [
+     {
+      "start": 20,
+      "interval": 0,
+      "rate": 1,
+      "end": 60
+     },
+     {
+      "start": 60,
+      "interval": 0,
+      "rate": 3,
+      "end": 120
+     },
+     {
+      "start": 120,
+      "interval": 0,
+      "rate": 5,
+      "end": 180
+     },
+     {
+      "start": 180,
+      "interval": 60,
+      "rate": 7,
+      "end": 720
+     },
+     {
+      "start": 720,
+      "interval": 0,
+      "rate": 200
+     }
+    ]
+   },
+   {
+    "plan_id": "Rate0188",
+    "name": "<20min PLN 0, <1h PLN 6, >1h PLN 14/hour, >12h Fee PLN 300",
+    "currency": "PLN",
+    "price": 0,
+    "is_taxable": false,
+    "description": "<20min PLN 0, <1h PLN 6, >1h PLN 14/hour, >12h Fee PLN 300",
+    "per_min_pricing": [
+     {
+      "start": 20,
+      "interval": 0,
+      "rate": 6,
+      "end": 60
+     },
+     {
+      "start": 60,
+      "interval": 60,
+      "rate": 14,
+      "end": 720
+     },
+     {
+      "start": 720,
+      "interval": 0,
+      "rate": 300
+     }
+    ]
+   },
+   {
+    "plan_id": "Rate0315",
+    "name": "<25min PLN 0, <1h PLN 1, <2h PLN 4, >2h PLN 5 / 1h, >12h PLN 354",
+    "currency": "PLN",
+    "price": 0,
+    "is_taxable": false,
+    "description": "<25min PLN 0, <1h PLN 1, <2h PLN 4, >2h PLN 5 / 1h, >12h PLN 354",
+    "per_min_pricing": [
+     {
+      "start": 25,
+      "interval": 0,
+      "rate": 1,
+      "end": 60
+     },
+     {
+      "start": 60,
+      "interval": 0,
+      "rate": 3,
+      "end": 120
+     },
+     {
+      "start": 120,
+      "interval": 60,
+      "rate": 5,
+      "end": 720
+     },
+     {
+      "start": 720,
+      "interval": 0,
+      "rate": 300
+     }
+    ]
+   }
+  ]
+ },
+ "version": "2.3"
+}

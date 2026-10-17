@@ -1,27 +1,19 @@
 import { createTheme, type PaletteMode, type Theme } from '@mui/material';
+import { LOOKS, type MapLook } from './map/looks';
 
 /**
- * Material design theme. Every colour lives here, so adding/changing a colour
- * scheme means touching this file only (the app switches between light and dark).
+ * Material design theme. Colours come from the chosen look (`src/map/looks.ts`), so the accent
+ * of the whole UI follows the map look; light / dark follows the colour mode.
  */
-export function createAppTheme(mode: PaletteMode): Theme {
-  const dark = mode === 'dark';
+export function createAppTheme(mode: PaletteMode, look: MapLook): Theme {
+  const { theme } = LOOKS[look][mode];
   return createTheme({
     palette: {
       mode,
-      primary: {
-        main: dark ? '#B6BEFF' : '#4355C7',
-        contrastText: dark ? '#0E1226' : '#FFFFFF',
-      },
-      secondary: {
-        main: dark ? '#4DD6C0' : '#00897B',
-        contrastText: dark ? '#00201B' : '#FFFFFF',
-      },
-      background: {
-        default: dark ? '#0E1116' : '#F4F6FB',
-        paper: dark ? '#171B22' : '#FFFFFF',
-      },
-      divider: dark ? 'rgba(255,255,255,0.10)' : 'rgba(20,28,60,0.10)',
+      primary: theme.primary,
+      secondary: theme.secondary,
+      background: theme.background,
+      divider: theme.divider,
     },
     shape: { borderRadius: 16 },
     typography: {

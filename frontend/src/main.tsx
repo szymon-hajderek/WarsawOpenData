@@ -7,15 +7,15 @@ import 'leaflet/dist/leaflet.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './index.css';
 import { ColorModeProvider } from './colorMode';
-import { MapVariantProvider } from './mapVariant';
+import { MapLookProvider } from './mapLook';
 import App from './App';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ColorModeProvider>
-      <MapVariantProvider>
+    <MapLookProvider>
+      <ColorModeProvider>
         <App />
-      </MapVariantProvider>
-    </ColorModeProvider>
+      </ColorModeProvider>
+    </MapLookProvider>
   </StrictMode>,
 );
