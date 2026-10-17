@@ -491,9 +491,13 @@ Types:
 Route options between two places, from the GTFS timetable, OSM walk/bike paths and live Veturilo
 availability. Up to 6 options: a walk, a Veturilo ride, a Veturilo ride joined to one direct
 public-transport ride (bike then bus/tram/metro/rail, or the ride then a bike), Veturilo between
-two rides, direct rides and one transfer. A live bus or tram that is behind its timetable adds an
+two rides, direct rides, one transfer and two transfers. Boarding stops are chosen by OSM walk time
+among the nearest posts, not by straight-line distance alone. A live bus or tram that is behind its
+timetable, a GTFS-RT trip update, or a PKP PLK delay (when `PLK_KEY` is set) adds an
 `opóźnienie N min` tag and shifts departure and arrival. Shape distances in the GTFS file are
 kilometers and are stored as meters. Boarding stops are one post per stop group, so a big node does not fill the whole list.
+Changes between platforms use `transfers.txt` and `pathways.txt` when a feed has them, and posts of the same stop group otherwise.
+WKD price comes from its GTFS fare file. SKM uses the ZTM ticket. KM has no fare file, so a KM ride is 7 zł.
 The clock is Europe/Warsaw. Before 04:00 the search uses the previous GTFS service day
 (times at 24:00 and later).
 `profile` `accessible` drops Veturilo and stops or trips marked wheelchair-inaccessible (`"2"`).
@@ -502,6 +506,11 @@ A line that appears in the current ZTM alerts gets the tag `Zmiana na trasie`.
 Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow` or `accessible`, default `standard`),
 `when` (optional, Warsaw local `HH:MM` or an ISO datetime; empty means now),
 `via` (optional list of `Place`, at most 5) and `order` (`given` or `optimal`).
+Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Veturilo), `stepFree` (bool),
+`maxTransfers` (`0`, `1`, `2` or `null` = up to two), `excludedDistricts` (Warsaw district names),
+`excludedPoints` (`position`, `radiusM`) and `body` (`weightKg`, `heightCm`, `age`, `sex`, `wheelchair`
+`none` | `manual` | `electric`) for net calories. A trip with stops plans the next leg from the
+previous arrival plus 2 minutes at the stop. `order` `optimal` minimises a time estimate, not straight-line distance.
 
 Answer: list of `RouteOption`. Public-transport geometry follows the GTFS shape between the stops
 boarded and alighted. Walk and bike geometry follows the OSM graph (a straight line only when the

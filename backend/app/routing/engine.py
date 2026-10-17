@@ -30,7 +30,7 @@ from ..models import Place, Profile, RouteOption
 
 class RouteEngine(ABC):
     @abstractmethod
-    def query_routes(self, frm: Place, to: Place, profile: Profile, when: str | None = None) -> list[RouteOption]:
+    def query_routes(self, frm: Place, to: Place, profile: Profile, when: str | None = None, search=None) -> list[RouteOption]:
         """Return ranked connection options from `frm` to `to` for `profile`.
 
         `when` is a Warsaw-local ``HH:MM`` or ISO datetime. Empty means now.

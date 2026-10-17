@@ -12,6 +12,7 @@ import sys
 import threading
 import time
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
@@ -54,8 +55,9 @@ def _feeds() -> list[tuple[str, str]]:
 
 
 def _epoch(local_time: str) -> float:
-    """Feed time is Warsaw local time; the server is assumed to run in the same time zone."""
-    return datetime.strptime(local_time, "%Y-%m-%d %H:%M:%S").timestamp()
+    """Feed time is Europe/Warsaw wall time, including on a server whose clock is UTC."""
+    wall = datetime.strptime(local_time, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Europe/Warsaw"))
+    return wall.timestamp()
 
 
 def _direction(line: str, brigade: str, local_time: str) -> str:

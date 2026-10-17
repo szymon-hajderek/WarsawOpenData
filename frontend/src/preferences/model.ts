@@ -165,6 +165,28 @@ export const DEFAULT_PREFERENCES: Preferences = {
   body: { weightKg: null, heightCm: null, age: null, sex: null },
 };
 
+/** Fields `POST /api/routes` uses to pace, filter and price the search. */
+export function routeSearchBody(p: Preferences) {
+  const chair = p.wheelchair.type !== 'none';
+  return {
+    walkKmh: chair ? (wheelchairKmh(p.wheelchair) ?? walkingKmh(p.walking)) : walkingKmh(p.walking),
+    bikeKmh: !p.cycling.enabled || chair ? 0 : cyclingKmh(p.cycling),
+    stepFree: p.wheelchair.stepFree || chair,
+    maxTransfers: p.priorities.maxTransfers,
+    excludedDistricts: p.priorities.excluded.districts,
+    excludedPoints: p.priorities.excluded.points.map((pt) => ({ position: pt.position, radiusM: pt.radiusM })),
+    body: {
+      weightKg: p.body.weightKg,
+      heightCm: p.body.heightCm,
+      age: p.body.age,
+      sex: p.body.sex,
+      wheelchair: p.wheelchair.type,
+    },
+  };
+}
+
+export type RouteSearchBody = ReturnType<typeof routeSearchBody>;
+
 export const walkingKmh = (s: WalkingSetting) =>
   s.customKmh ?? WALK_LEVELS.find((l) => l.id === s.level)!.kmh;
 
@@ -460,8 +482,8 @@ export const countActiveFilters = (f: TripFilters, trip: Preferences) => filterC
 const walkMinutes = (o: RouteOption) => o.legs.filter((l) => l.mode === 'walk').reduce((s, l) => s + l.durationMin, 0);
 
 /**
- * Client-side filtering and sorting of the routes that were found. Only list-like filters work here
- * (transfers, vehicles, walking time, sorting); speeds, wheelchair and areas need the routing backend.
+ * Client-side filtering and sorting of the routes that were found. Vehicles and max walking time
+ * still apply here. Speeds, wheelchair, transfers and excluded areas are also sent to the backend.
  */
 export function applyListFilters(options: RouteOption[], trip: Preferences, f: TripFilters): RouteOption[] {
   const maxTransfers = trip.priorities.maxTransfers;

@@ -22,6 +22,7 @@ import {
   clearFilter,
   DEFAULT_FILTERS,
   filterChips,
+  routeSearchBody,
   summarize,
   type TripFilters,
 } from './preferences/model';
@@ -75,12 +76,15 @@ export default function App() {
   const viaKey = stopFields.map((p) => p?.id ?? '').join('|');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const via = useMemo(() => stopFields.filter((p): p is Place => p !== null), [viaKey]);
+  const trip = useMemo(() => applyOverrides(effective, filters.overrides), [effective, filters.overrides]);
+  const search = useMemo(() => routeSearchBody(trip), [trip]);
 
   const { options, loading, error: searchError, mock: routesMock } = useRouteSearch({
     origin,
     destination,
     via,
     order: stopOrder,
+    search,
   });
 
   // A new search starts clean: no filters, no chosen route.
@@ -115,7 +119,6 @@ export default function App() {
   };
 
   // Preferences of this search = the ones valid now + this search's overrides.
-  const trip = useMemo(() => applyOverrides(effective, filters.overrides), [effective, filters.overrides]);
   const visible = useMemo(() => applyListFilters(options, trip, filters), [options, trip, filters]);
   const chips = useMemo(() => filterChips(filters, trip), [filters, trip]);
 
