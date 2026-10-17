@@ -75,6 +75,8 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
 2. **Frontend** (`frontend/`). Needs Node 18.18 or newer 18.x.
    - `cd frontend && npm install` (if `~/.npm` is root-owned: `npm install --cache <some dir>`)
    - `npm run dev` starts the app at http://localhost:5173
+   - On a phone (same Wi-Fi) the location button needs HTTPS: stop the other dev server and run `npm run dev:https`, then open
+     `https://<laptop-ip>:5173` and accept the self-signed certificate warning once.
    - `npm run build` type-checks and builds
    - `npm run lint` runs ESLint (react-hooks + jsx-a11y rules); `npm test` runs the Vitest tests (jsdom, no browser needed)
    - optional: `VITE_API_URL` in `frontend/.env` points the app at the routing API

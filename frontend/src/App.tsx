@@ -11,7 +11,7 @@ import PreferencesPage from './components/PreferencesPage';
 import FilterSheet from './components/FilterSheet';
 import { useColorMode } from './colorMode';
 import { requestLinePopup } from './api/vehicle';
-import { useLocationTrack } from './hooks/useLocationTrack';
+import { geoErrorText, useLocationTrack } from './hooks/useLocationTrack';
 import { useRouteSearch } from './hooks/useRouteSearch';
 import { useVehicleDetection } from './hooks/useVehicleDetection';
 import { usePreferences } from './preferences/PreferencesProvider';
@@ -285,7 +285,7 @@ export default function App() {
         sx={{ top: { xs: 150 } }}
       >
         <Alert severity="info" variant="filled" onClose={clearGeoError}>
-          Nie udało się ustalić lokalizacji. Wpisz punkt startowy ręcznie.
+          {geoErrorText()}
         </Alert>
       </Snackbar>
 

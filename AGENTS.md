@@ -339,6 +339,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   layer; the light / dark switch calls `setStyle`. Leaflet marker icons are plain SVG from `ICON_PATH` in `modes.tsx` (no `react-dom/server`).
 - Checks: `npm run lint` (ESLint 8, `.eslintrc.cjs`), `npm test` (Vitest 1 + Testing Library), `npm run build`.
 - Vite proxies `/api` to the backend at http://localhost:8000.
+- Geolocation works only on HTTPS or `localhost`. On a phone the plain `http://<laptop-ip>:5173` fails, so use `npm run dev:https` (vite `--mode https`, self-signed
+  certificate from `@vitejs/plugin-basic-ssl`, accept the warning once). The app then shows a specific message (`geoErrorText`) when the page is not secure.
 - Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with
   a clean route and round stop markers, light map with a bottom sheet.

@@ -8,6 +8,15 @@ const MAX_POINTS = 3;
 /** The shown position changes only after the user moved this far (fewer re-renders). */
 const MOVE_M = 15;
 
+/** Browsers give the location only to secure pages (HTTPS or localhost). */
+export const isInsecurePage = () => typeof window !== 'undefined' && window.isSecureContext === false;
+
+/** Text of the snackbar shown when the location could not be read. */
+export const geoErrorText = (insecure = isInsecurePage()) =>
+  insecure
+    ? 'Lokalizacja działa tylko na stronie z HTTPS. Uruchom npm run dev:https albo wpisz punkt startowy ręcznie.'
+    : 'Nie udało się ustalić lokalizacji. Wpisz punkt startowy ręcznie.';
+
 /**
  * The user's location: one `watchPosition` stream, cleaned up when the component unmounts.
  * It also keeps the last 1-3 positions (one every 10 s, memory only) for the vehicle detection.
