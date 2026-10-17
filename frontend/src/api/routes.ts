@@ -1,14 +1,35 @@
 import type { LatLng, Place, Profile, RouteLeg, RouteOption, TransportMode } from '../types';
 import { buildPath, haversine, slicePath } from '../utils/geo';
 import { formatTime } from '../utils/format';
+import { API_URL } from '../config';
 
 /**
- * ROUTING SERVICE - MOCK.
+ * ROUTING SERVICE.
  *
- * `fetchRouteOptions` is the single seam between the UI and the backend. For now
- * it generates plausible connections locally; once FastAPI + OpenTripPlanner are
- * ready, replace the body with a call to the API returning the same `RouteOption[]`.
+ * `fetchRouteOptions` is the single seam between the UI and the backend. It calls
+ * the FastAPI backend (`POST /api/routes`) when `API_URL` is set, and falls back to
+ * the local mock (`mockRouteOptions`) when the backend is disabled or unreachable.
  */
+export async function fetchRouteOptions(
+  from: Place,
+  to: Place,
+  profile: Profile,
+): Promise<RouteOption[]> {
+  if (API_URL) {
+    try {
+      const res = await fetch(`${API_URL}/api/routes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to, profile }),
+      });
+      if (!res.ok) throw new Error(`Routing failed: ${res.status}`);
+      return (await res.json()) as RouteOption[];
+    } catch (err) {
+      console.warn('Backend unavailable, falling back to mock routing.', err);
+    }
+  }
+  return mockRouteOptions(from, to, profile);
+}
 
 interface TemplateLeg {
   mode: TransportMode;
@@ -211,7 +232,8 @@ function buildOption(
   };
 }
 
-export async function fetchRouteOptions(
+/** Local fallback: generates plausible connections in the browser. */
+async function mockRouteOptions(
   from: Place,
   to: Place,
   profile: Profile,

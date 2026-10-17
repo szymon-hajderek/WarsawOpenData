@@ -34,6 +34,16 @@ Everything in this repo (files, commits, PRs) is written in English.
   If the branch adds or changes a dependency, a tool, a command, an env variable or a data download,
   write the exact install steps there (e.g. `uv sync`, `npm install`). If nothing changed, leave it as is.
   A new agent must be able to build the full environment from that section alone.
+- **Before every PR, check `data/API.md`** (the API reference). If the branch adds, removes or changes an
+  endpoint, a parameter, an answer field or an error, update `data/API.md` in the same PR. If the API did not
+  change, leave the file as is.
+
+## API contract
+
+- **`data/API.md` is the contract of the backend API.** Backend and frontend code must follow it:
+  use only the endpoints, parameters and answer fields written there.
+- To change the API, edit `data/API.md` first, then the code, in the same PR. Never let code and `data/API.md` differ.
+- Before you call or add an endpoint, read `data/API.md`. Use real answers from a running server for the examples.
 
 ## Feature Branches
 
@@ -71,8 +81,10 @@ Everything in this repo (files, commits, PRs) is written in English.
 - **Jury criteria (design for them):** inclusivity / accessibility / diversity, scalability to
   other cities, safety, privacy, evidence-based, technical correctness, business model.
 - **Time frame:** 24h hackathon, so keep everything simple.
-- **Status:** the frontend UI exists (mock routing). The backend has data download, parsers and
-  FastAPI endpoints for all sources (`backend/`, report in `data/REPORT.md`); routing is not built yet.
+- **Status:** the frontend UI exists. The backend has two parts: a **data layer** (download,
+  parsers and FastAPI endpoints for all sources, `backend/`, report in `data/REPORT.md`) and a
+  **routing API** (`backend/app/`) with a stub routing engine (ported mock) + a geocode proxy.
+  The real C++ routing engine is not built yet.
 
 ### Tech stack
 
@@ -81,7 +93,9 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Backend: Python + FastAPI
 - Database: none for now. Raw files in `data/`, parsed by Python modules on first use.
   PostgreSQL + PostGIS (or SQLite) later if needed.
-- Routing: OpenTripPlanner (supports GTFS, GBFS and OSM)
+- Routing: a long-running **C++ engine** keeps the graph + live state in memory; Python
+  (FastAPI) is a thin backend that pushes updates and asks it for routes. (OpenTripPlanner
+  was the earlier idea; the team chose a custom C++ engine instead.)
 - Deployment: Docker
 
 ### Folder structure
@@ -92,7 +106,8 @@ Everything in this repo (files, commits, PRs) is written in English.
 - `algorithms/` — algorithms (mandatory folder): pure functions + their pytest files (`nearest_buses.py`)
 - `db/` — database files and setup
 - `routing/` — OpenTripPlanner config
-- `data/` — datasets, one subfolder per data type: `gtfs/`, `gbfs/`, `osm/`, `geojson/`
+- `data/` — datasets, one subfolder per data type: `gtfs/`, `gbfs/`, `osm/`, `geojson/`;
+  `data/API.md` is the API reference (the contract), `data/REPORT.md` the data report
 
 ### Backend and data (`backend/`, `data/`)
 
@@ -134,11 +149,13 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Screens, one flow: map with the user's location and start / destination fields on top ->
   list of connection options (with preview on the map) -> chosen route (clean route on the map,
   summary, steps). State lives in `src/App.tsx` (`step`: search / options / route).
-- **Routing is a mock.** `src/api/routes.ts` (`fetchRouteOptions`) is the only seam to the backend.
-  Replace its body with a call to FastAPI / OpenTripPlanner returning `RouteOption[]`
-  (types in `src/types.ts`). Costs and speeds in the mock are rough estimates.
-- Place search: Nominatim (`src/api/geocode.ts`), limited to Warsaw, debounced; it has a usage
-  limit of about 1 request per second.
+- **Routing seam.** `src/api/routes.ts` (`fetchRouteOptions`) calls the backend (`POST /api/routes`)
+  when `API_URL` is set, and falls back to the in-browser mock (`mockRouteOptions`) if the backend
+  is off/unreachable. Types in `src/types.ts`. The mock's costs and speeds are rough estimates.
+- Backend URL: `src/config.ts` reads `VITE_API_URL` (default `http://localhost:8000`;
+  set `VITE_API_URL=""` in `frontend/.env` to force the mock).
+- Place search: `src/api/geocode.ts` (`searchPlaces`), debounced, limited to Warsaw. Calls the
+  backend geocode proxy when `API_URL` is set, else Nominatim directly (≈1 request/second limit).
 - Colours: every colour of the app lives in `src/map/looks.ts` (one table: look x light / dark). A **look** sets the
   map colours, the round map buttons / markers AND the accent of the whole UI (the MUI theme in `src/theme.ts` is built
   from it, so panels, chips and windows follow the look). Colours and icons of transport modes: `src/modes.tsx`.
@@ -173,6 +190,23 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with
   a clean route and round stop markers, light map with a bottom sheet.
 - Run: `npm install`, `npm run dev` (http://localhost:5173), `npm run build` (type-check + build).
+
+### Backend — routing API (`backend/app/`)
+
+- Separate from the data layer above: the data layer serves raw sources; this part serves the
+  frontend (routes + geocode). They live side by side in `backend/` and today run as two apps.
+- Stack: Python + FastAPI, run with `uvicorn app.main:app --reload`. Deps in `requirements.txt`
+  (fastapi, uvicorn, httpx); use a `venv`. No database. See `backend/README.md`.
+- Models (`app/models.py`) mirror `frontend/src/types.ts` exactly (camelCase JSON keys; `from`
+  via a Pydantic alias). FastAPI serializes responses by alias, so the output matches the UI types.
+- Endpoints: `POST /api/routes` -> `RouteOption[]` (backend side of `fetchRouteOptions`),
+  `GET /api/geocode?q=` -> `Place[]` (Nominatim proxy, Warsaw-limited), `GET /health`.
+- Routing is behind a `RouteEngine` seam (`app/routing/engine.py`): `query_routes(...)` and
+  `update_state(...)`. Current impl is `StubRouteEngine` (`app/routing/stub_engine.py`), a 1:1
+  port of the frontend mock. Swap it for a `CppRouteEngine` later; nothing else changes.
+- The Python<->C++ wire format is owned by the C++ team (not defined yet). Python will keep the
+  C++ service current via `update_state` (live data) and delegate routing via `query_routes`.
+- Config via env vars (all optional): `CORS_ORIGINS`, `NOMINATIM_URL`, `NOMINATIM_USER_AGENT`.
 
 ### Decisions and notes
 

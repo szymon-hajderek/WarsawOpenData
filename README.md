@@ -26,7 +26,7 @@ Done:
 
 Planned:
 
-- **Real routing** with OpenTripPlanner (GTFS, GBFS, OSM).
+- **Real routing** with a custom C++ engine (keeps the graph + live state in memory; Python feeds it data).
 - **Multi-stop routes.** Plan one trip through many places, with many means of transport.
 - **Online route planning.** Change the route while the user travels.
 - **Live delays.** Use real-time vehicle data to find the fastest route now.
@@ -34,15 +34,15 @@ Planned:
 ## Tech stack
 
 - Frontend: React + TypeScript + Vite, Material UI, Leaflet + MapLibre (OpenFreeMap tiles)
-- Backend: Python + FastAPI, managed with uv
-- Routing: OpenTripPlanner (planned)
+- Backend: Python + FastAPI (data layer managed with uv; routing API in `backend/app/` uses venv)
+- Routing: custom C++ engine (planned); FastAPI is a thin backend in front of it
 - Database: none for now, raw files in `data/`
 
 ## Folder structure
 
 - `frontend/` — React app
 - `backend/` — FastAPI app, data download and parsers (see `backend/README.md`)
-- `data/` — datasets and the data report `data/REPORT.md`
+- `data/` — datasets, the API reference `data/API.md` and the data report `data/REPORT.md`
 - `algorithms/`, `db/`, `routing/` — placeholders for the next steps
 - `ui/` — UI concept art
 - `changes/` — one change note per branch
@@ -75,6 +75,8 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - `cd frontend && npm install` (if `~/.npm` is root-owned: `npm install --cache <some dir>`)
    - `npm run dev` starts the app at http://localhost:5173
    - `npm run build` type-checks and builds
+   - optional: `VITE_API_URL` in `frontend/.env` points the app at the routing API
+     (default `http://localhost:8000`; set `VITE_API_URL=""` to force the in-browser mock)
 3. **Data** (`data/`). GTFS zips and the OSM extract are stored with Git LFS.
    - install Git LFS once: `brew install git-lfs && git lfs install`, then `git lfs pull`
    - or download fresh copies: `cd backend && uv run python download.py` (about 250 MB)
@@ -87,4 +89,11 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - the first request that needs GTFS / OSM builds caches in `data/derived/` (~25 s / ~45 s)
    - `uv run pytest ../algorithms` runs the algorithm tests (pytest is in the `dev` group, installed by `uv sync`)
    - optional `.env` setting `LIVE_BUSES_URL`: where bus detection reads live bus positions (default: this backend)
-5. **Routing, database, Docker.** Not set up yet (OpenTripPlanner, PostgreSQL + PostGIS, Docker).
+5. **Routing API** (`backend/app/`, serves the frontend: routes + geocode). Separate from the data
+   layer, uses venv + `requirements.txt` (not uv).
+   - `cd backend && py -m venv .venv` (use `py`; on Windows `python` is a Microsoft Store alias)
+   - activate: `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (macOS / Linux)
+   - `pip install -r requirements.txt`, then `uvicorn app.main:app --reload` (http://localhost:8000)
+   - both apps default to port 8000; run one at a time or pass a different `--port`
+6. **Database, Docker.** Not set up yet (PostgreSQL + PostGIS, Docker). The C++ routing engine is
+   planned (a long-running service that keeps the graph + live state in memory).

@@ -1,4 +1,6 @@
 """FastAPI app: mounts one router per data source. Run from backend/: uv run uvicorn main:app --reload"""
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 import bus_detect
@@ -6,13 +8,19 @@ from config import load_json, DATA
 from sources import mkuran, nextbike, osm, um_warszawa
 from sources.registry import SOURCES
 
-app = FastAPI(title="WarsawOpenData data API",
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    bus_detect.start_poller()
+    yield
+
+
+app = FastAPI(lifespan=lifespan, title="WarsawOpenData data API",
               description="Raw data from mkuran GTFS, um.warszawa.pl, Veturilo GBFS and OSM. No database: "
                           "files in data/, parsed on first use.")
 for module in (mkuran, um_warszawa, nextbike, osm):
     app.include_router(module.router)
 app.include_router(bus_detect.router)
-app.add_event_handler("startup", bus_detect.start_poller)
 
 
 @app.get("/api/sources", tags=["meta"])
