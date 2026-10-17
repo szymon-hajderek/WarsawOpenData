@@ -172,8 +172,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   pill 999). **Pitfall:** in MUI `sx` a numeric `borderRadius` is multiplied by `theme.shape.borderRadius` (12), so
   `borderRadius: 4` is 48 px and swallows the content. Nested corners: inner radius = outer radius - padding.
 - The line in the search card (start -> destination) is a gradient from `routeStart` to `routeEnd` of the palette.
-- "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): open on the start screen, swipe down / tap to hide
-  into a bar, swipe up / tap to bring it back. Shows the suggested vehicle (mode + line, direction and distance when known)
+- "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): shown on the start screen. It follows the finger and
+  settles on 3 heights (`VehicleSnap`: `bar`, `middle` = suggested vehicle + confirm, about 1/3 of the screen and the start
+  state, `full` = everything); a quick flick skips a level, a tap steps up (full -> middle), Enter / arrow keys work too.
+  Content below the visible height is `inert`. Shows the suggested vehicle (mode + line, direction and distance when known)
   and 3 others; "Inna linia" (autocomplete over all live lines) adds a hand-picked card; "Wykryj ponownie" (in the window)
   and the bus button on the map (start screen only, also brings the window back after "Nie jadę komunikacją") detect again;
   "Jadę tą linią" confirms. Data: `src/api/vehicle.ts` `detectVehicle` sends the user's last 1-3 positions (memory only,
