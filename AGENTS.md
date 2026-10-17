@@ -137,8 +137,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   also returns positions that are years old: filter by time (`max_age_s`).
 - The BBBike OSM box (52.041-52.451 N, 20.653-21.408 E) is smaller than the ZTM area; ~400 outer
   stops snap far. Geofabrik `mazowieckie` + `osmium extract` is the fix if needed.
-- Bus detection (`backend/bus_detect.py`): a thread polls `LIVE_BUSES_URL` (default our
-  `/api/live/vehicles?type=bus`) every 3 s (vehicle feed cache: 3 s; the feed itself changes about every 10 s) and keeps the last 3 positions per vehicle in memory.
+- Bus detection (`backend/bus_detect.py`): a thread polls live positions every 3 s (vehicle feed cache: 3 s; the feed itself changes about every 10 s) and keeps the last 3 positions per vehicle in memory.
+  Without `PORTAL_KEY` the poller does not start and `GET /api/live/vehicles` returns 503 (no traceback).
+  With the key it calls `fetch_vehicles` directly. `LIVE_BUSES_URL`, when set, is polled over HTTP instead.
   `POST /api/live/nearest-buses` ranks buses by MSE (m^2) between the user's 1-3 points and each bus track
   (each user point paired with the bus point closest in time), `algorithms/nearest_buses.py`. Returns 4
   (1 + 3 for the popup), no distance cut-off. Feed time is read as server local time (Warsaw).

@@ -1,6 +1,8 @@
 """Pick direct rides and one-transfer rides from timetable callbacks. No files, no HTTP."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 
 def nearby(origin: tuple[float, float], stops: list[dict], max_m: float, limit: int,
            distance, accessible: bool) -> list[dict]:
@@ -14,6 +16,68 @@ def nearby(origin: tuple[float, float], stops: list[dict], max_m: float, limit: 
             found.append((meters, stop))
     found.sort(key=lambda item: item[0])
     return [stop for _, stop in found[:limit]]
+
+
+def spread_groups(stops: list[dict], limit: int) -> list[dict]:
+    """One stop per group, closest first. `stops` must already be nearest-first."""
+    seen = set()
+    out = []
+    for stop in stops:
+        group = stop.get("group") or stop["id"]
+        if group in seen:
+            continue
+        seen.add(group)
+        out.append(stop)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _last_sunday(year: int, month: int) -> int:
+    if month == 12:
+        last = datetime(year + 1, 1, 1) - timedelta(days=1)
+    else:
+        last = datetime(year, month + 1, 1) - timedelta(days=1)
+    return last.day - (last.weekday() - 6) % 7
+
+
+def warsaw_offset(moment: datetime) -> timedelta:
+    """Poland civil offset: UTC+2 from the last Sunday of March 01:00 UTC, else UTC+1."""
+    utc = moment.astimezone(timezone.utc) if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+    start = datetime(utc.year, 3, _last_sunday(utc.year, 3), 1, tzinfo=timezone.utc)
+    end = datetime(utc.year, 10, _last_sunday(utc.year, 10), 1, tzinfo=timezone.utc)
+    return timedelta(hours=2) if start <= utc < end else timedelta(hours=1)
+
+
+def as_warsaw(now: datetime) -> datetime:
+    """Naive Europe/Warsaw wall time. A naive input is already treated as Warsaw."""
+    if now.tzinfo is None:
+        return now
+    utc = now.astimezone(timezone.utc)
+    return (utc + warsaw_offset(utc)).replace(tzinfo=None)
+
+
+def service_moment(now: datetime, cutoff_hour: int = 4) -> tuple[str, int]:
+    """GTFS service date and seconds from that midnight.
+
+    Before `cutoff_hour` the trip still belongs to yesterday, and the clock is
+    written as 24:00+ so it matches GTFS times such as 25:10:00. Aware datetimes
+    are converted to Europe/Warsaw first.
+    """
+    now = as_warsaw(now)
+    sec = now.hour * 3600 + now.minute * 60 + now.second
+    day = now.date()
+    if sec < cutoff_hour * 3600:
+        day -= timedelta(days=1)
+        sec += 24 * 3600
+    return day.strftime("%Y%m%d"), sec
+
+
+def can_return(station: dict) -> bool:
+    """A drop-off needs a free dock and a station that is accepting bikes."""
+    if station.get("returning") is False:
+        return False
+    return (station.get("docks") or 0) > 0
 
 
 def direct_rides(boards: list[str], dest_ids: set[str], departures, onward,
@@ -85,13 +149,13 @@ def best_bike_pair(origin, dest, stations: list[dict], distance, max_m: float = 
     """Pickup with a bike and drop-off with a free dock, the pair with the shortest three legs."""
     best = None
     for pickup in stations:
-        if pickup.get("bikes", 0) <= 0:
+        if pickup.get("bikes", 0) <= 0 or pickup.get("renting") is False:
             continue
         to_pickup = distance(origin, (pickup["lat"], pickup["lon"]))
         if to_pickup > max_m:
             continue
         for dropoff in stations:
-            if pickup["id"] == dropoff["id"] or (dropoff.get("docks") or 0) <= 0:
+            if pickup["id"] == dropoff["id"] or not can_return(dropoff):
                 continue
             from_dropoff = distance(dest, (dropoff["lat"], dropoff["lon"]))
             if from_dropoff > max_m:
@@ -103,3 +167,64 @@ def best_bike_pair(origin, dest, stations: list[dict], distance, max_m: float = 
     if best is None:
         return None
     return best[1], best[2]
+
+
+def bike_access_pairs(origin, dest, stations: list[dict], stops: list[dict], distance,
+                      max_m: float = 900, stop_m: float = 400, limit: int = 4) -> list[dict]:
+    """Pickup near the origin, drop-off nearer the destination beside a transit stop.
+
+    Each item is ``{"pickup", "dropoff", "stop"}``, shortest three-leg score first.
+    """
+    trip = distance(origin, dest)
+    if trip < 1200:
+        return []
+    pickups = []
+    for station in stations:
+        if station.get("bikes", 0) <= 0 or station.get("renting") is False:
+            continue
+        walk = distance(origin, (station["lat"], station["lon"]))
+        if walk <= max_m:
+            pickups.append((walk, station))
+    pickups.sort(key=lambda item: item[0])
+    pickups = pickups[:3]
+
+    dropoffs = []
+    for station in stations:
+        if not can_return(station):
+            continue
+        left = distance((station["lat"], station["lon"]), dest)
+        if 400 < left < trip - 400:
+            dropoffs.append((left, station))
+    dropoffs.sort(key=lambda item: item[0])
+    dropoffs = dropoffs[:25]
+
+    found = []
+    for walk, pickup in pickups:
+        for _, drop in dropoffs:
+            if drop["id"] == pickup["id"]:
+                continue
+            ride = distance((pickup["lat"], pickup["lon"]), (drop["lat"], drop["lon"]))
+            if ride < 400:
+                continue
+            near = None
+            near_m = None
+            for stop in stops:
+                gap = distance((drop["lat"], drop["lon"]), (stop["lat"], stop["lon"]))
+                if gap <= stop_m and (near_m is None or gap < near_m):
+                    near, near_m = stop, gap
+            if near is None:
+                continue
+            left = distance((drop["lat"], drop["lon"]), dest)
+            found.append((walk + ride + near_m + left, pickup, drop, near))
+    found.sort(key=lambda item: item[0])
+    out = []
+    seen = set()
+    for _, pickup, drop, stop in found:
+        key = (pickup["id"], stop["id"])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"pickup": pickup, "dropoff": drop, "stop": stop})
+        if len(out) >= limit:
+            break
+    return out

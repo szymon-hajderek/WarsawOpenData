@@ -36,6 +36,47 @@ def cheapest_fare(fares: list[dict], zones: set[str], seconds: int, route_ids: s
     return best
 
 
+def veturilo_from_brackets(minutes: float, brackets: list[dict]) -> float:
+    """Price from a GBFS ``per_min_pricing`` list.
+
+    A step with ``interval`` 0 adds ``rate`` once when the rental passes ``start``
+    (the standard plan's steps add up to the totals in the plan name, including 272 zł
+    after 12 h). A step with a positive ``interval`` adds ``rate`` for every interval
+    that the rental spends after ``start``.
+    """
+    minutes = max(0.0, minutes)
+    price = 0.0
+    for step in sorted(brackets, key=lambda item: item["start"]):
+        start = float(step["start"])
+        if minutes <= start:
+            break
+        interval = int(step.get("interval") or 0)
+        rate = float(step["rate"])
+        if interval:
+            end = step.get("end")
+            span_end = minutes if end is None else min(minutes, float(end))
+            if span_end > start:
+                price += math.ceil((span_end - start) / interval) * rate
+        else:
+            price += rate
+    return price
+
+
+def brackets_for(plans: list[dict], electric: bool) -> list[dict] | None:
+    """The standard plan (20 min free, then 1 zł) or the e-bike plan (14 zł/h after 1 h)."""
+    if electric:
+        for plan in plans:
+            for step in plan.get("per_min_pricing") or []:
+                if step.get("interval") and float(step.get("rate") or 0) >= 10:
+                    return plan["per_min_pricing"]
+        return None
+    for plan in plans:
+        steps = plan.get("per_min_pricing") or []
+        if any(step.get("start") == 20 and step.get("rate") == 1 for step in steps):
+            return steps
+    return None
+
+
 def veturilo_pln(minutes: float, electric: bool) -> float:
     """Price of one Veturilo rental. Brackets are the totals from the GBFS plan names (July 2026)."""
     minutes = max(0.0, minutes)

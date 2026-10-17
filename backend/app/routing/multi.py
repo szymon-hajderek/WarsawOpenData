@@ -91,6 +91,7 @@ def query_multi(
     order: str,
     profile: Profile,
     max_options: int = MAX_OPTIONS,
+    when: str | None = None,
 ) -> list[RouteOption]:
     """Options for a trip `frm -> via... -> to`. Empty when some segment has no connection."""
     stops = best_order(frm, via, to, _distance) if order == "optimal" else list(via)
@@ -98,7 +99,7 @@ def query_multi(
 
     per_segment: list[list[RouteOption]] = []
     for a, b in zip(points, points[1:]):
-        options = sorted(engine.query_routes(a, b, profile), key=lambda o: o.durationMin)
+        options = sorted(engine.query_routes(a, b, profile, when=when), key=lambda o: o.durationMin)
         if not options:
             return []
         per_segment.append(options)

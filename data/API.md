@@ -225,6 +225,8 @@ Live ZTM bus or tram positions.
 ```
 
 Error: `400 {"detail": "type must be bus or tram"}`.
+`503 {"detail": "PORTAL_KEY is not set"}` when `.env` has no key.
+`503 {"detail": "live vehicle feed is unavailable"}` when the City Hall feed returns an error.
 
 ### `GET /api/ztm/stops/{stop_id}/lines`
 
@@ -432,11 +434,17 @@ Types:
 ### `POST /api/routes`
 
 Route options between two places, from the GTFS timetable, OSM walk/bike paths and live Veturilo
-availability. Up to 6 options: a walk, a Veturilo ride, direct rides and one transfer.
+availability. Up to 6 options: a walk, a Veturilo ride, a Veturilo ride joined to one direct
+public-transport ride (bike then bus/tram/metro/rail, or the ride then a bike), direct rides and
+one transfer. Boarding stops are one post per stop group, so a big node does not fill the whole list.
+The clock is Europe/Warsaw. Before 04:00 the search uses the previous GTFS service day
+(times at 24:00 and later).
 `profile` `accessible` drops Veturilo and stops or trips marked wheelchair-inaccessible (`"2"`).
 A line that appears in the current ZTM alerts gets the tag `Zmiana na trasie`.
 
-Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow` or `accessible`, default `standard`).
+Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow` or `accessible`, default `standard`),
+`when` (optional, Warsaw local `HH:MM` or an ISO datetime; empty means now),
+`via` (optional list of `Place`, at most 5) and `order` (`given` or `optimal`).
 
 Answer: list of `RouteOption`. Public-transport geometry follows the GTFS shape between the stops
 boarded and alighted. Walk and bike geometry follows the OSM graph (a straight line only when the
@@ -453,7 +461,8 @@ graph has no path).
   "calories": 15, "transfers": 0, "costPln": 3.4, "tags": ["Najszybsza"]}, "..."]
 ```
 
-Errors: `422` when the body is not valid. `503` when the GTFS zip is not on disk.
+Errors: `422` when the body is not valid, or when `when` is not `HH:MM` or an ISO datetime.
+`503` when the GTFS zip is not on disk.
 
 ### `GET /api/geocode`
 
