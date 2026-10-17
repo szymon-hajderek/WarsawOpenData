@@ -7,7 +7,8 @@ the same result every time and calls no external API.
 
 ## Run
 
-From `backend/` (the first run builds the GTFS / OSM caches, then a full run takes about 3 minutes):
+From `backend/` (the first run builds the GTFS / OSM caches). A full run took about 3 minutes before the
+street-matrix change; with it, one `POST /api/routes` takes about 90 s (see Limits) and a full run about 28 minutes.
 
 ```bash
 uv run pytest ../integration            # all
@@ -95,3 +96,6 @@ Do not let the new engine replace `real` before this suite passes. The strict `x
   the `start` dates of the `gtfs` scenarios.
 - The recording is 2 minutes. A longer recording of buses, trams and Veturilo together is the next step.
 - Every planned segment starts "now"; the tests do not wait at intermediate stops.
+- Speed (found by these tests): `osm.route` builds a new `StreetMatrix` (`algorithms/street_matrix.py`) on every
+  call, about 1.7 s, and one route query calls it about 46 times. A stale `data/derived/osm_graph.npz` from the old
+  `Warsaw.osm.pbf` makes `osm.warm()` fail with an `IndexError`: delete it, it is rebuilt.

@@ -165,7 +165,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   Not found -> `available: false`. **Pitfall:** `shape_dist_traveled` in `warsaw.zip` is in km and `mkuran._shape_dist` keeps
   whole units only, so the cached `shape_dist` is useless at stop level; `mkuran._trip_static` computes metres from coordinates. Tuning: `algorithms/simulation/tune_delay_radius.py`, results in `DELAY_RESULTS.md`.
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
-- **Integration tests** (`integration/`, see its README): `uv run pytest ../integration` from `backend/`, ~3 min.
+- **Integration tests** (`integration/`, see its README): `uv run pytest ../integration` from `backend/`, ~28 min
+  (3 min before `osm.route` started to build a `StreetMatrix` per call, ~1.7 s each, ~90 s per route query).
   Simulation mode (`backend/sim/`): one clock (`sim.clock.now()`; all live code must read time there, never
   `time.time()` / `datetime.now()`), a scenario file in `integration/scenarios/` replaces the vehicle feed
   (recorded or made from GTFS by `sim/synth.py`), Veturilo status and alerts. `SIM_SCENARIO=<name>` turns it on

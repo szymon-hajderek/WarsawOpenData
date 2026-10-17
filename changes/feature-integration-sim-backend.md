@@ -15,4 +15,5 @@ Integration tests: synthetic trips on real data, against the whole backend in si
   synthetic user (`journey.py`), `RESULTS.md` with metrics and checks.
 - Found: realistic phone fixes lower top-1 detection to about 80% on the recording; `lateness.py` measures delay
   at the nearest stop (4 min shows as 3 min); the engine returns options that leave hours after the query
-  (night buses for 08:30) and sometimes no option at all (strict xfail in `test_engine_sanity.py`).
+  (night buses for 08:30) and sometimes no option at all (strict xfail in `test_engine_sanity.py`); after the street-matrix merge one route query takes ~90 s, because
+  `osm.route` builds a new `StreetMatrix` on every call.
