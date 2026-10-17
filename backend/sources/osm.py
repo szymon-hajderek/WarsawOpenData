@@ -19,12 +19,12 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components, dijkstra
 from scipy.spatial import cKDTree
 
-from config import BBOX, DERIVED, OSM_DIR, REPO, in_bbox, to_xy
+from config import BBOX, DERIVED, OSM_DIR, REPO, in_bbox, load_json, save_json, to_xy
 
 sys.path.insert(0, str(REPO / "algorithms"))
 from street_graph import StreetGraph  # noqa: E402
 from street_model import (  # noqa: E402
-    FLAG_ELEVATOR, FLAG_METRO, FLAG_PUSH, access_edges, access_flags, edge_wait, entry_wait, junctions,
+    FLAG_ELEVATOR, FLAG_METRO, FLAG_PUSH, FLAG_STEPS, access_edges, access_flags, edge_wait, entry_wait, junctions,
 )
 
 EPS = 1e-3  # s added to every scipy edge, so zero-cost edges stay in the sparse matrix
@@ -37,12 +37,18 @@ CLIP_KEYS = ("highway", "crossing", "railway", "public_transport", "entrance")
 
 # Default speeds in m/s; the path is chosen with them. A trip has three parts: walk_m / WALK_SPEED[mode]
 # + bike_m / BIKE_SPEED + wait_s (a pushed bike walks). Change here for travel profiles.
-# accessible: walk without stairs (uses elevators), e.g. a wheelchair or a stroller.
-SPEED = {"walk": 1.3, "bike": 4.2, "accessible": 1.3}
-WALK_SPEED = {"walk": SPEED["walk"], "bike": SPEED["walk"], "accessible": SPEED["accessible"]}
+# accessible: walk without stairs (uses elevators), for a wheelchair. stroller: the same, but also steps with a
+# stroller ramp (narrow rails), which are not safe for a wheelchair.
+SPEED = {"walk": 1.3, "bike": 4.2, "accessible": 1.3, "stroller": 1.3}
+WALK_SPEED = {"walk": SPEED["walk"], "bike": SPEED["walk"], "accessible": SPEED["accessible"],
+              "stroller": SPEED["stroller"]}
 BIKE_SPEED = SPEED["bike"]
-# Modes that cannot use steps (a bike is pushed along the accessible graph): they take elevators.
-NO_STEPS = {"bike", "accessible"}
+# Modes that cannot use steps (a bike is pushed along the stroller graph): they take elevators.
+NO_STEPS = {"bike", "accessible", "stroller"}
+# Steps with one of these ramps (=yes) are step-free in the mode. A stroller ramp (two rails / gutters) is not safe
+# for a wheelchair, so only the stroller graph (and a pushed bike) takes it. Plain ramp=yes (often bicycle rails)
+# is not enough; ramp=separate is a separate way, already in the graph.
+RAMP_TAGS = {"accessible": ("ramp:wheelchair",), "stroller": ("ramp:wheelchair", "ramp:stroller")}
 # A point (stop, address) joins the graph through up to ACCESS_K nearest nodes that are at most
 # ACCESS_EXTRA_M farther than the nearest one. These short segments are walked (a bike is pushed).
 ACCESS_K = 6
@@ -68,7 +74,7 @@ WAIT = {
     "bike": {"crossing_signals": hcm_delay(90, 20), "crossing": 0.0, "traffic_signals": hcm_delay(90, 30),
              "elevator": ELEVATOR_S},
 }
-WAIT["accessible"] = WAIT["walk"]
+WAIT["accessible"] = WAIT["stroller"] = WAIT["walk"]
 TIMING_TAGS = ("phases", "timing", "cycle_time", "duration", "traffic_signals:phases")
 
 WALK_EXCLUDE = {"abandoned", "bus_guideway", "construction", "motor", "no", "planned", "platform",
@@ -109,6 +115,11 @@ def _private(t) -> bool:
     return t.get("access") in ("private", "no") or t.get("service") == "private"
 
 
+def step_free(t, mode: str = "accessible") -> bool:
+    """A way without steps, or steps with a ramp the mode can use (RAMP_TAGS)."""
+    return t.get("highway") != "steps" or any(t.get(k) == "yes" for k in RAMP_TAGS[mode])
+
+
 def walk_ok(t) -> bool:
     hw = t.get("highway")
     if hw is None or hw in WALK_EXCLUDE or t.get("area") == "yes" and hw != "pedestrian":
@@ -147,7 +158,8 @@ class _Handler(osmium.SimpleHandler):
         self.special = {}  # node id -> kind
         self.timing_tagged = 0
         self.u, self.v, self.ulat, self.ulon, self.vlat, self.vlon = [], [], [], [], [], []
-        self.mode = []  # bit 1 = walk, 2 = bike forward, 4 = bike backward, 8 = accessible walk
+        self.mode = []  # bit 1 = walk, 2 = bike forward, 4 = bike backward, 8 = accessible walk, 16 = steps,
+        # 32 = stroller walk
 
     def node(self, n):
         t = n.tags
@@ -172,10 +184,12 @@ class _Handler(osmium.SimpleHandler):
             return
         walk, bike = walk_ok(t), bike_ok(t)
         hw = t.get("highway")
-        accessible = (walk and hw != "steps") or (hw == "elevator" and not _private(t))
-        if not (walk or bike or accessible):
+        lift = hw == "elevator" and not _private(t)
+        accessible = (walk and step_free(t, "accessible")) or lift
+        stroller = (walk and step_free(t, "stroller")) or lift
+        if not (walk or bike or stroller):
             return
-        bits = (1 if walk else 0) | (8 if accessible else 0)
+        bits = (1 if walk else 0) | (8 if accessible else 0) | (16 if hw == "steps" else 0) | (32 if stroller else 0)
         if bike:
             ow = bike_oneway(t)
             bits |= (2 if ow >= 0 else 0) | (4 if ow <= 0 else 0)
@@ -241,12 +255,15 @@ _EDGES = {}
 _FLAGS = {}
 
 
+WALK_BIT = {"walk": 1, "accessible": 8, "stroller": 32}  # bit of _Handler.mode per walked graph
+
+
 def directed_edges(mode: str):
     """(src, dst, length) of the directed graph for a mode."""
     g = graph()
     m = g["mode"]
-    if mode in ("walk", "accessible"):
-        sel = (m & (1 if mode == "walk" else 8)) > 0
+    if mode in WALK_BIT:
+        sel = (m & WALK_BIT[mode]) > 0
         u, v, ln = g["u"][sel], g["v"][sel], g["length"][sel]
         return np.r_[u, v], np.r_[v, u], np.r_[ln, ln]
     fw, bw = (m & 2) > 0, (m & 4) > 0
@@ -259,13 +276,13 @@ def edges(mode: str):
     per node). Each edge is either walked or ridden. A signal wait is paid once per junction
     (algorithms/street_model.py); an elevator costs ELEVATOR_S.
     Bike: where riding is not allowed (oneway against, footways, elevators) the bike is pushed along the
-    accessible walk graph (no stairs): those edges are walked."""
+    stroller walk graph (no stairs; stroller ramps, which take a bike too): those edges are walked."""
     if mode not in _EDGES:
         g, n = graph(), len(graph()["ids"])
         s, d, ln = directed_edges(mode)
         push = np.zeros(len(s), dtype=bool)
         if mode == "bike":
-            ps, pd, pl = directed_edges("accessible")
+            ps, pd, pl = directed_edges("stroller")
             s, d, ln, push = np.r_[s, ps], np.r_[d, pd], np.r_[ln, pl], np.r_[push, np.ones(len(ps), dtype=bool)]
         # parallel edges between the same two nodes: riding before pushing, then the shortest
         order = np.lexsort((ln, push, d, s))
@@ -276,20 +293,23 @@ def edges(mode: str):
         signal = np.isin(g["kind"], (1, 3)) & (nw > 0)
         jid = junctions(s, d, ln, signal)
         w = edge_wait(s, d, nw, jid)
-        lift_way = ((g["mode"] & 8) > 0) & ((g["mode"] & 1) == 0)  # highway=elevator ways (accessible bit only)
+        lift_way = ((g["mode"] & 8) > 0) & ((g["mode"] & 1) == 0)  # highway=elevator ways (step-free bits only)
         a, b = g["u"][lift_way].astype(np.int64), g["v"][lift_way].astype(np.int64)
         ride = np.isin(s.astype(np.int64) * n + d, np.r_[a * n + b, b * n + a])
         w = np.where(ride, np.maximum(w, WAIT[mode]["elevator"]), w).astype(np.float32)
         elevator = ride | (g["kind"][d] == 4)
+        step_way = (g["mode"] & 16) > 0  # highway=steps (also with a ramp: reported, but step-free)
+        a, b = g["u"][step_way].astype(np.int64), g["v"][step_way].astype(np.int64)
+        stairs = np.isin(s.astype(np.int64) * n + d, np.r_[a * n + b, b * n + a])
         walked = push if mode == "bike" else np.ones(len(s), dtype=bool)
-        _FLAGS[mode] = (elevator * FLAG_ELEVATOR | push * FLAG_PUSH).astype(np.uint8)
+        _FLAGS[mode] = (elevator * FLAG_ELEVATOR | push * FLAG_PUSH | stairs * FLAG_STEPS).astype(np.uint8)
         _EDGES[mode] = (s, d, np.where(walked, ln, 0).astype(np.float32), np.where(walked, 0, ln).astype(np.float32),
                         w, jid)
     return _EDGES[mode]
 
 
 def edge_flags(mode: str) -> np.ndarray:
-    """Per edge of edges(mode): FLAG_ELEVATOR (an elevator node or way), FLAG_PUSH (a pushed bike)."""
+    """Per edge of edges(mode): FLAG_ELEVATOR (an elevator node or way), FLAG_PUSH (a pushed bike), FLAG_STEPS."""
     edges(mode)
     return _FLAGS[mode]
 
@@ -361,11 +381,12 @@ def access(lat, lon, mode: str) -> tuple[np.ndarray, np.ndarray]:
     return nodes[idx], np.where(dist <= dist[:, :1] + ACCESS_EXTRA_M, dist, np.inf)
 
 
-def points_graph(lat, lon, mode: str, entrances=None) -> StreetGraph:
+def points_graph(lat, lon, mode: str, entrances=None, transfers=()) -> StreetGraph:
     """The street graph of a mode + a virtual out node and in node per point (see street_model.access_edges).
     The access segments are walked. `entrances[i]`: a list of (lat, lon) for a metro platform; it joins through
     all of them, + METRO_ACCESS_M walked (+ an elevator in a NO_STEPS mode); empty for any other point.
-    A point farther than MAX_SNAP_M from the graph is not active."""
+    `transfers`: (i, j, walk_m) in-station transfers between two points (metro platforms): an edge out_i -> in_j
+    walked, + an elevator in a NO_STEPS mode. A point farther than MAX_SNAP_M from the graph is not active."""
     s, d, wm, bm, w, jid = edges(mode)
     n, p = len(graph()["ids"]), len(lat)
     entrances = entrances or [[]] * p
@@ -378,12 +399,18 @@ def points_graph(lat, lon, mode: str, entrances=None) -> StreetGraph:
         n, an, ad, owner=owner.astype(int), fixed_m=metro * METRO_ACCESS_M, fixed_s=metro * lift * ELEVATOR_S,
         n_points=p, node_entry=entry_wait(node_wait(mode), jid))
     site_flags = np.where(metro, FLAG_METRO | (FLAG_ELEVATOR if lift else 0), 0)
+    ts = np.array([out_node[i] for i, _, _ in transfers], dtype=int)
+    td = np.array([in_node[j] for _, j, _ in transfers], dtype=int)
+    tm = np.array([m for _, _, m in transfers], dtype=float)
+    tw = np.full(len(transfers), ELEVATOR_S if lift else 0.0)
+    tf = np.full(len(transfers), FLAG_METRO | (FLAG_ELEVATOR if lift else 0), dtype=np.uint8)
     usable = np.zeros(n + 2 * p, dtype=bool)
     usable[_mode_tree(mode)[0]] = True
     return StreetGraph(walk_speed=WALK_SPEED[mode], bike_speed=BIKE_SPEED, access_k=ACCESS_K,
                        access_extra_m=ACCESS_EXTRA_M, max_snap_m=MAX_SNAP_M,
-                       src=np.r_[s, vs], dst=np.r_[d, vd], walk=np.r_[wm, vw_m], bike=np.r_[bm, np.zeros(len(vs))],
-                       wait=np.r_[w, vwait], flags=np.r_[edge_flags(mode), access_flags(ad, site_flags)],
+                       src=np.r_[s, vs, ts], dst=np.r_[d, vd, td], walk=np.r_[wm, vw_m, tm],
+                       bike=np.r_[bm, np.zeros(len(vs) + len(ts))], wait=np.r_[w, vwait, tw],
+                       flags=np.r_[edge_flags(mode), access_flags(ad, site_flags), tf],
                        lon=np.r_[graph()["lon"], lon, lon], lat=np.r_[graph()["lat"], lat, lat], usable=usable,
                        entry_wait=np.r_[entry_wait(node_wait(mode), jid), np.zeros(2 * p)],
                        out_node=out_node, in_node=in_node, active=nearest_many(lat, lon, mode)[1] <= MAX_SNAP_M)
@@ -429,12 +456,12 @@ router = APIRouter(prefix="/api/osm", tags=["OSM street graph"])
 
 def check_mode(mode: str) -> None:
     if mode not in SPEED:
-        raise HTTPException(400, "mode must be walk, bike or accessible")
+        raise HTTPException(400, "mode must be walk, bike, accessible or stroller")
 
 
 @router.get("/graph/summary")
-def api_summary(mode: str = Query("walk", description="walk, bike or accessible")):
-    """Vertex / edge / crossing counts of the walk, bike or accessible graph, speeds and waits."""
+def api_summary(mode: str = Query("walk", description="walk, bike, accessible or stroller")):
+    """Vertex / edge / crossing counts of the walk, bike, accessible or stroller graph, speeds and waits."""
     check_mode(mode)
     return {**counts(mode), "speed_m_s": SPEED[mode], "waits_s": WAIT[mode],
             "nodes_with_signal_timing_tags": int(graph()["timing_tagged"][0])}
@@ -454,7 +481,7 @@ def api_nearest(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., 
 def api_route(from_lat: float = Query(..., ge=-90, le=90), from_lon: float = Query(..., ge=-180, le=180),
               to_lat: float = Query(..., ge=-90, le=90), to_lon: float = Query(..., ge=-180, le=180),
               mode: str = "walk"):
-    """Street path (walk, bike or accessible) from the C++ street router: walk_m, bike_m, wait_s, seconds,
+    """Street path (walk, bike, accessible or stroller) from the C++ street router: walk_m, bike_m, wait_s, seconds,
     geometry. 422 when the start or the end is more than MAX_SNAP_M from the graph (e.g. outside Warsaw)."""
     check_mode(mode)
     import street_router  # backend/street_router.py; imported here so the data side does not depend on it
@@ -462,6 +489,34 @@ def api_route(from_lat: float = Query(..., ge=-90, le=90), from_lon: float = Que
         return street_router.route((from_lat, from_lon), (to_lat, to_lon), mode)
     except street_router.RouteError as e:
         raise HTTPException(e.status, str(e))
+
+
+TRANSPORT_TAGS = ("public_transport", "railway", "highway", "ref", "local_ref", "name", "level", "wheelchair",
+                  "bus", "tram", "train", "subway", "entrance")
+
+
+def transport_objects() -> dict:
+    """OSM transport objects for the station mapping (backend/stations.py), cached in data/derived/:
+    {"nodes": [...], "ways": [...]}. Nodes: platforms / stop positions / bus stops / entrances / stations with their
+    tags. Ways: platforms with their node coordinates. Rebuilt when the .pbf is newer than the cache."""
+    cache = DERIVED / "osm_transport.json"
+    if cache.exists() and cache.stat().st_mtime >= PBF.stat().st_mtime:
+        return load_json(cache)
+    nodes, ways = [], []
+    for o in osmium.FileProcessor(str(PBF)).with_locations():
+        t = o.tags
+        if o.is_node():
+            if (t.get("public_transport") in ("platform", "stop_position") or t.get("highway") == "bus_stop"
+                    or t.get("railway") in ("subway_entrance", "tram_stop", "station", "halt", "platform")):
+                nodes.append({"id": o.id, "lat": o.location.lat, "lon": o.location.lon,
+                              "tags": {k: t[k] for k in TRANSPORT_TAGS if k in t}})
+        elif o.is_way() and (t.get("railway") == "platform" or t.get("public_transport") == "platform"):
+            coords = [[n.lat, n.lon] for n in o.nodes if n.location.valid()]
+            if coords:
+                ways.append({"id": o.id, "coords": coords, "tags": {k: t[k] for k in TRANSPORT_TAGS if k in t}})
+    out = {"nodes": nodes, "ways": ways}
+    save_json(cache, out)
+    return out
 
 
 def warm() -> None:

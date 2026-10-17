@@ -1,4 +1,4 @@
-"""Client of the C++ street router (algorithms/router/): point-to-point paths for walk, bike and accessible.
+"""Client of the C++ street router (algorithms/router/): point-to-point paths for walk, bike, accessible and stroller.
 
 The backend starts the router at startup (start(), from main.py) and stops it at shutdown. Set ROUTER_URL to use
 a router that runs elsewhere; then nothing is started. API and file formats: algorithms/router/README.md.
@@ -39,13 +39,13 @@ def base_url() -> str:
     return URL or f"http://127.0.0.1:{PORT}"
 
 
-def route(a, b, mode: str = "walk", **options) -> dict:
-    """Path from a to b ((lat, lon) each). Extra options are relayed as they are; the router answers 501
-    (NotImplementedError here) for the ones it does not support yet. The answer has seconds, walk_m, bike_m, wait_s,
-    snap_m, path ([lon, lat]) and elevators, plus length_m and geometry ([lat, lon]) for the callers."""
-    body = {"from": [a[0], a[1]], "to": [b[0], b[1]], "mode": mode, **options}
+def _place(p):
+    return p if isinstance(p, str) else [p[0], p[1]]
+
+
+def _post(path: str, body: dict) -> dict:
     try:
-        r = _http.post(f"{base_url()}/route", json=body)
+        r = _http.post(f"{base_url()}{path}", json=body)
     except httpx.TransportError as e:
         raise RouterUnavailable(f"street router not reachable at {base_url()}: {e}") from e
     data = r.json()
@@ -53,9 +53,34 @@ def route(a, b, mode: str = "walk", **options) -> dict:
         raise NotImplementedError(f"street router does not support: {', '.join(data['unimplemented'])}")
     if r.status_code != 200:
         raise RouteError(r.status_code, data.get("error", r.text))
+    return data
+
+
+def route(a, b, mode: str = "walk", **options) -> dict:
+    """Path from a to b ((lat, lon) each, or a location id of stations.json).  Extra options are relayed as they
+    are; the router answers 501 (NotImplementedError here) for the ones it does not support yet. The answer has
+    seconds, walk_m, bike_m, wait_s, snap_m, path ([lon, lat]), elevators and steps, plus length_m and geometry
+    ([lat, lon]) for the callers."""
+    body = {"from": _place(a), "to": _place(b), "mode": mode, **options}
+    data = _post("/route", body)
     data["length_m"] = round(data["walk_m"] + data["bike_m"], 1)
     data["geometry"] = [[lat, lon] for lon, lat in data["path"]]
     return data
+
+
+def access(point, mode: str = "walk", direction: str = "from", limit_s: float = 900, **options) -> list[dict]:
+    """Every station reachable from `point` within limit_s (direction "from"), or from which `point` is reachable
+    ("to"). `point` = (lat, lon) or a location id. Returns [{id, seconds, walk_m, bike_m, wait_s}], nearest first."""
+    body = {"point": list(point) if not isinstance(point, str) else point, "mode": mode, "direction": direction,
+            "limit_s": limit_s, **options}
+    return _post("/access", body)["stations"]
+
+
+def health() -> dict:
+    try:
+        return _http.get(f"{base_url()}/health", timeout=5).json()
+    except httpx.TransportError as e:
+        raise RouterUnavailable(f"street router not reachable at {base_url()}: {e}") from e
 
 
 def healthy() -> bool:
@@ -72,7 +97,11 @@ def start(timeout_s: float = 120) -> None:
         log.info("street router: using %s", URL)
         return
     import preprocess_street  # imported here: it loads GTFS and OSM
+    import stations
 
+    if stations.stale():
+        log.info("street router: building stations.json (the StationLocations overlay)")
+        stations.build()
     if preprocess_street.graphs_stale():
         log.info("street router: writing graph files")
         preprocess_street.write_graphs()

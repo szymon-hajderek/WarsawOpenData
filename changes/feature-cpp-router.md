@@ -16,3 +16,4 @@ Builds on `feature/street-time-split` (PR #59).
   profile's speeds and uses the accessible graph for the accessible profile.
 - `osm.graph()` rebuilds `osm_graph.npz` when the `.pbf` is newer.
 - `POST /api/routes` (Banacha -> Plac Unii): ~3 s instead of ~90 s.
+- Steps: edges of `highway=steps` carry flag 16; the router returns `steps` (where a flight starts) next to `elevators`.

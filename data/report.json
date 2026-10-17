@@ -1,46 +1,46 @@
 {
- "generated": "2026-10-17T22:33:07",
+ "generated": "2026-10-18T00:51:21",
  "reference_date": "20261021",
  "vertices": {
-  "transit_posts": 7145,
-  "transit_stop_groups": 3046,
+  "transit_posts": 7193,
+  "transit_stop_groups": 3047,
   "by_feed": {
-   "ztm": 6955,
-   "wkd": 59,
-   "pkp": 131
+   "ztm": 6893,
+   "wkd": 60,
+   "pkp": 240
   },
   "by_mode": {
-   "bus": 6284,
+   "bus": 6307,
    "tram": 631,
    "metro": 39,
-   "rail": 212
+   "rail": 238
   },
   "veturilo_stations": 349,
   "osm_walk": 1792617,
   "osm_bike": 1222025
  },
  "item1_transit_edges": {
-  "unique_from_to_route": 22611,
-  "unique_from_to": 9772,
+  "unique_from_to_route": 22799,
+  "unique_from_to": 9880,
   "timetable_edges_on_date": 986137,
   "date": "20261021"
  },
  "item2_walk_pairs": {
   "transit": {
-   "n": 7145,
-   "all_pairs_unordered": 25521940,
-   "all_pairs_directed": 51043880,
-   "pairs_within_300m": 14529,
-   "pairs_within_500m": 32609,
-   "pairs_within_1000m": 110180
+   "n": 7193,
+   "all_pairs_unordered": 25866028,
+   "all_pairs_directed": 51732056,
+   "pairs_within_300m": 15093,
+   "pairs_within_500m": 33557,
+   "pairs_within_1000m": 112866
   },
   "transit_plus_veturilo": {
-   "n": 7494,
-   "all_pairs_unordered": 28076271,
-   "all_pairs_directed": 56152542,
-   "pairs_within_300m": 16921,
-   "pairs_within_500m": 38172,
-   "pairs_within_1000m": 130594
+   "n": 7542,
+   "all_pairs_unordered": 28437111,
+   "all_pairs_directed": 56874222,
+   "pairs_within_300m": 17541,
+   "pairs_within_500m": 39205,
+   "pairs_within_1000m": 133631
   }
  },
  "item3_osm": {
@@ -69,7 +69,8 @@
   "speeds_m_s": {
    "walk": 1.3,
    "bike": 4.2,
-   "accessible": 1.3
+   "accessible": 1.3,
+   "stroller": 1.3
   },
   "waits_s": {
    "walk": {
@@ -89,58 +90,64 @@
     "crossing": 2.0,
     "traffic_signals": 0.0,
     "elevator": 60.0
+   },
+   "stroller": {
+    "crossing_signals": 27.22222222222222,
+    "crossing": 2.0,
+    "traffic_signals": 0.0,
+    "elevator": 60.0
    }
   },
   "nodes_with_signal_timing_tags": 0,
   "snap_to_walk_graph_m": {
    "median": 5.2,
-   "p99": 27.2,
+   "p99": 27.7,
    "over_200m": 0
   },
   "benchmarks": [
    {
     "mode": "walk",
-    "points": 7494,
+    "points": 7542,
     "sample_sources": 50,
     "limit_s": null,
-    "seconds_per_source": 0.262,
-    "all_pairs_hours_1_core": 0.5463,
-    "avg_points_reached": 7494.0,
-    "pairs_to_store": 56160036,
-    "dense_matrix_mb_float32": 224.6
+    "seconds_per_source": 0.243,
+    "all_pairs_hours_1_core": 0.5101,
+    "avg_points_reached": 7542.0,
+    "pairs_to_store": 56881764,
+    "dense_matrix_mb_float32": 227.5
    },
    {
     "mode": "walk",
-    "points": 7494,
+    "points": 7542,
     "sample_sources": 50,
     "limit_s": 900,
-    "seconds_per_source": 0.04,
-    "all_pairs_hours_1_core": 0.0837,
-    "avg_points_reached": 27.2,
-    "pairs_to_store": 204136,
-    "dense_matrix_mb_float32": 224.6
+    "seconds_per_source": 0.013,
+    "all_pairs_hours_1_core": 0.0278,
+    "avg_points_reached": 28.1,
+    "pairs_to_store": 211930,
+    "dense_matrix_mb_float32": 227.5
    },
    {
     "mode": "bike",
-    "points": 7494,
+    "points": 7542,
     "sample_sources": 50,
     "limit_s": null,
-    "seconds_per_source": 0.291,
-    "all_pairs_hours_1_core": 0.6067,
-    "avg_points_reached": 7494.0,
-    "pairs_to_store": 56160036,
-    "dense_matrix_mb_float32": 224.6
+    "seconds_per_source": 0.257,
+    "all_pairs_hours_1_core": 0.5391,
+    "avg_points_reached": 7542.0,
+    "pairs_to_store": 56881764,
+    "dense_matrix_mb_float32": 227.5
    },
    {
     "mode": "bike",
-    "points": 7494,
+    "points": 7542,
     "sample_sources": 50,
     "limit_s": 1200,
-    "seconds_per_source": 0.032,
-    "all_pairs_hours_1_core": 0.0673,
-    "avg_points_reached": 304.3,
-    "pairs_to_store": 2280723,
-    "dense_matrix_mb_float32": 224.6
+    "seconds_per_source": 0.023,
+    "all_pairs_hours_1_core": 0.0487,
+    "avg_points_reached": 321.1,
+    "pairs_to_store": 2421736,
+    "dense_matrix_mb_float32": 227.5
    }
   ]
  },
@@ -150,65 +157,22 @@
   "live_lines_in_gtfs": "237/237",
   "live_line_brigade_in_gtfs_blocks": "1113/1115 (date 20261017)",
   "veturilo_to_nearest_stop_m": {
-   "median": 49,
+   "median": 48,
    "p90": 146,
    "within_300m": "336/349"
   },
   "live_stale_positions_dropped": 428,
-  "rail_stations_merged_into_ztm": 63,
-  "rail_platforms_merged_into_ztm": 458,
-  "near_misses": [
-   {
-    "stop": "wkd:prpkp_bus",
-    "name": "PKP Pruszków",
-    "ztm": "ztm:4905",
-    "ztm_name": "Pruszków",
-    "distance_m": 97
-   },
-   {
-    "stop": "wkd:walje_bus_d0",
-    "name": "PKP WKD Aleje Jerozolimskie",
-    "ztm": "ztm:4913",
-    "ztm_name": "Warszawa Aleje Jerozolimskie",
-    "distance_m": 125
-   },
-   {
-    "stop": "wkd:wocho",
-    "name": "Warszawa Ochota WKD",
-    "ztm": "ztm:4901",
-    "ztm_name": "Warszawa Ochota",
-    "distance_m": 94
-   },
-   {
-    "stop": "wkd:wocho_bus_d1",
-    "name": "Plac Zawiszy",
-    "ztm": "ztm:4901",
-    "ztm_name": "Warszawa Ochota",
-    "distance_m": 105
-   },
-   {
-    "stop": "wkd:wsrod_bus_d1",
-    "name": "Dworzec Centralny",
-    "ztm": "ztm:7900",
-    "ztm_name": "Warszawa Centralna",
-    "distance_m": 119
-   },
-   {
-    "stop": "wkd:wzach",
-    "name": "Warszawa Zachodnia WKD",
-    "ztm": "ztm:4900",
-    "ztm_name": "Warszawa Zachodnia",
-    "distance_m": 87
-   }
-  ]
+  "rail_stations_merged_into_ztm": 0,
+  "rail_platforms_merged_into_ztm": 0,
+  "near_misses": []
  },
  "street_matrix": {
-  "points": 7494,
+  "points": 7542,
   "modes": {
    "walk": {
     "shorter_than_straight_line": 0,
     "detour_median": 1.16,
-    "detour_p99": 1.58,
+    "detour_p99": 1.5,
     "walk_symmetry_max_diff_s": 0.0,
     "mode": "walk",
     "points": 7494,
@@ -219,14 +183,14 @@
     "junctions": 2439,
     "junction_interior_nodes": 12542,
     "nan_share_sampled_rows": 0.0,
-    "median_distance_m": 17379,
-    "median_wait_s": 292,
+    "median_distance_m": 18307,
+    "median_wait_s": 301,
     "median_bike_share": 0.0
    },
    "bike": {
     "shorter_than_straight_line": 0,
     "detour_median": 1.21,
-    "detour_p99": 1.64,
+    "detour_p99": 1.6,
     "walk_symmetry_max_diff_s": null,
     "mode": "bike",
     "points": 7494,
@@ -237,32 +201,106 @@
     "junctions": 2359,
     "junction_interior_nodes": 22757,
     "nan_share_sampled_rows": 0.0,
-    "median_distance_m": 19280,
-    "median_wait_s": 211,
+    "median_distance_m": 19037,
+    "median_wait_s": 203,
     "median_bike_share": 1.0
    },
    "accessible": {
     "shorter_than_straight_line": 0,
     "detour_median": 1.17,
-    "detour_p99": 1.61,
+    "detour_p99": 1.6,
     "walk_symmetry_max_diff_s": 0.0,
     "mode": "accessible",
-    "points": 7494,
+    "points": 7542,
     "far_points": 0,
-    "seconds": 328,
-    "file_mb": 674,
+    "seconds": 299,
+    "file_mb": 683,
     "signal_nodes": 8200,
     "junctions": 2439,
     "junction_interior_nodes": 12535,
     "nan_share_sampled_rows": 0.0,
-    "median_distance_m": 17693,
-    "median_wait_s": 349,
+    "median_distance_m": 17762,
+    "median_wait_s": 347,
+    "median_bike_share": 0.0
+   },
+   "stroller": {
+    "shorter_than_straight_line": 0,
+    "detour_median": 1.17,
+    "detour_p99": 1.65,
+    "walk_symmetry_max_diff_s": 0.0,
+    "mode": "stroller",
+    "points": 7542,
+    "far_points": 0,
+    "seconds": 304,
+    "file_mb": 683,
+    "signal_nodes": 8200,
+    "junctions": 2439,
+    "junction_interior_nodes": 12535,
+    "nan_share_sampled_rows": 0.0,
+    "median_distance_m": 18060,
+    "median_wait_s": 342,
     "median_bike_share": 0.0
    }
   },
-  "threads": 16
+  "threads": 12
  },
- "seconds_to_build": 55.3,
+ "stations": {
+  "hash": "6f5618a155bae5798380cd0495b80fa30fde2e22d40fc7d598cf8cee0613c0a4",
+  "built": "2026-10-18T00:34:46",
+  "total": 7542,
+  "kinds": {
+   "bus_post": 6244,
+   "tram_post": 610,
+   "metro_platform": 39,
+   "rail_station": 93,
+   "rail_platform": 207,
+   "veturilo": 349
+  },
+  "matched": {
+   "bus_post": 5518,
+   "tram_post": 598,
+   "metro_platform": 31,
+   "rail_platform": 160
+  },
+  "entrances": {
+   "osm": 260,
+   "gtfs": 2
+  },
+  "mismatches": 40,
+  "mismatch_examples": [
+   {
+    "id": "ztm:104802",
+    "osm_id": 2444668502,
+    "distance_m": 127,
+    "why": "ref too far"
+   },
+   {
+    "id": "ztm:115103",
+    "osm_id": 2845912001,
+    "distance_m": 69,
+    "why": "ref too far"
+   },
+   {
+    "id": "ztm:117401",
+    "osm_id": 1887535590,
+    "distance_m": 59,
+    "why": "ref too far"
+   },
+   {
+    "id": "ztm:133502",
+    "osm_id": 11903611832,
+    "distance_m": 63,
+    "why": "ref too far"
+   },
+   {
+    "id": "ztm:141801",
+    "osm_id": 11978044293,
+    "distance_m": 55,
+    "why": "ref too far"
+   }
+  ]
+ },
+ "seconds_to_build": 49.2,
  "endpoints": [
   {
    "method": "GET",
@@ -352,7 +390,7 @@
   {
    "method": "GET",
    "path": "/api/osm/graph/summary?mode",
-   "doc": "Vertex / edge / crossing counts of the walk, bike or accessible graph, speeds and waits."
+   "doc": "Vertex / edge / crossing counts of the walk, bike, accessible or stroller graph, speeds and waits."
   },
   {
    "method": "GET",
@@ -362,7 +400,7 @@
   {
    "method": "GET",
    "path": "/api/osm/route?from_lat&from_lon&to_lat&to_lon&mode",
-   "doc": "Street path with length, expected waits and total seconds (walk, bike or accessible: walk without stairs)."
+   "doc": "Street path (walk, bike, accessible or stroller) from the C++ street router: walk_m, bike_m, wait_s, seconds,"
   },
   {
    "method": "POST",
@@ -373,6 +411,26 @@
    "method": "GET",
    "path": "/api/live/delay?vehicle",
    "doc": "Estimated delay of one vehicle at its previous stop, shown as the expected delay at the next stop."
+  },
+  {
+   "method": "GET",
+   "path": "/api/stations?kind&feed&source&bbox",
+   "doc": "Transport nodes (posts, platforms, stations, Veturilo) with one position each: OSM when an exact match exists,"
+  },
+  {
+   "method": "GET",
+   "path": "/api/stations/report",
+   "doc": "How the overlay was matched to OSM: counts per kind, posts whose ref is too far away, hash."
+  },
+  {
+   "method": "GET",
+   "path": "/api/stations/health",
+   "doc": "The router's view: loaded modes, the overlay it serves, and whether the stop-to-stop matrices belong to it"
+  },
+  {
+   "method": "GET",
+   "path": "/api/stations/{station_id}",
+   "doc": "One location by its id (e.g. ztm:435102, ztm:7014M:P1, pkp:33506_P2, vet:203610)."
   },
   {
    "method": "POST",

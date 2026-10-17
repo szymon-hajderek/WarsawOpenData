@@ -9,8 +9,9 @@ from scipy.sparse import coo_matrix, csr_matrix
 from scipy.sparse.csgraph import connected_components, dijkstra
 
 JUNCTION_RADIUS_M = 30.0
-# Edge flags (graph file, path output): an elevator ride, a pushed bike, a point's access segment, a metro entrance.
-FLAG_ELEVATOR, FLAG_PUSH, FLAG_ACCESS, FLAG_METRO = 1, 2, 4, 8
+# Edge flags (graph file, path output): an elevator ride, a pushed bike, a point's access segment, a metro entrance,
+# steps (highway=steps; only in walk mode, the other modes have no steps).
+FLAG_ELEVATOR, FLAG_PUSH, FLAG_ACCESS, FLAG_METRO, FLAG_STEPS = 1, 2, 4, 8, 16
 
 
 def junctions(src, dst, length, signal, radius=JUNCTION_RADIUS_M):

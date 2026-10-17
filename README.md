@@ -99,6 +99,8 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
      cmake --build ../algorithms/router/build`. The backend then starts it by itself (port 8090; it writes
      `data/derived/street/graph_*.bin` first if needed, ~30 s). Without it, walk / bike legs and `/api/osm/route`
      answer 503. Optional `.env`: `ROUTER_URL` (use a router that runs elsewhere), `ROUTER_PORT`.
+   - the first start also builds `data/derived/stations.json` (transport nodes mapped to OSM, a few seconds;
+     `uv run python stations.py` rebuilds it and prints the match report)
    - street matrices for every pair of stops (optional): `uv run python preprocess_street.py` (~18 min on 16 threads,
      ~2.4 GB). Details: `algorithms/router/README.md`
    - `uv run pytest tests ../algorithms` runs the tests (pytest is in the `dev` group, installed by `uv sync`)
