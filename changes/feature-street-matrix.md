@@ -23,3 +23,7 @@
 - Paths: `street_matrix <graph> --route I J` prints the path (`[lon, lat]`, ~1 m precision), the elevators and the
   metro entrances used, as JSON lines. Path recording is off in the matrix run. Graph file `SMG2` (node coordinates,
   edge flags); `preprocess_street.py --graph-only` writes just the graphs.
+- Code layout: `algorithms/street_model.py` (cost model), `algorithms/street_graph.py` (`StreetGraph` + file
+  format), `osm.points_graph()` returns a `StreetGraph`. The scipy matrix engine (`--engine python`) is removed;
+  the graph is built only in Python and searched only in C++ (plus `osm.route()` for arbitrary coordinates).
+  Tests check the C++ program against a small scipy oracle (`algorithms/test_street_model.py`).

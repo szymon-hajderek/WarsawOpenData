@@ -1,14 +1,14 @@
-"""Street paths between many points: signal junctions (wait counted once) and distance / wait matrices.
+"""Street cost model: signal junctions (a junction's wait is paid once) and how points join the graph.
 
-Pure functions on numpy / scipy graphs, no I/O. A graph is given as directed edge arrays
-(src, dst, length_m) over nodes 0..n-1.
+Pure numpy / scipy functions, no I/O. Edges are directed arrays (src, dst, length_m) over nodes 0..n-1.
+Used by backend/sources/osm.py to build the street graph; the search itself is the C++ program
+(algorithms/router/preprocess/).
 """
 import numpy as np
 from scipy.sparse import coo_matrix, csr_matrix
 from scipy.sparse.csgraph import connected_components, dijkstra
 
 JUNCTION_RADIUS_M = 30.0
-EPS = 1e-3  # added to every edge so zero-length edges stay in the sparse graph
 # Edge flags (graph file, path output): an elevator ride, a pushed bike, a point's access segment, a metro entrance.
 FLAG_ELEVATOR, FLAG_PUSH, FLAG_ACCESS, FLAG_METRO = 1, 2, 4, 8
 
@@ -25,7 +25,8 @@ def junctions(src, dst, length, signal, radius=JUNCTION_RADIUS_M):
     sig = np.nonzero(signal)[0]
     if len(sig) == 0:
         return jid
-    g = csr_matrix((np.asarray(length, dtype=np.float64) + EPS, (src, dst)), shape=(n, n))
+    # +1 mm keeps zero-length edges in the sparse matrix
+    g = csr_matrix((np.asarray(length, dtype=np.float64) + 1e-3, (src, dst)), shape=(n, n))
     d, pred, owner = dijkstra(g, directed=False, indices=sig, limit=radius,
                               return_predecessors=True, min_only=True)
     # an edge whose two ends belong to different signals joins them when the path through it is short
@@ -96,69 +97,3 @@ def access_flags(dist, site_flags):
     si = np.repeat(np.arange(s), k).reshape(s, k)[np.isfinite(dist)]
     f = FLAG_ACCESS | np.asarray(site_flags, dtype=np.uint8)[si]
     return np.r_[f, f].astype(np.uint8)
-
-
-def save_graph(path, n, src, dst, cost, length, wait, out_ids, in_ids, active, lon=None, lat=None, flags=None):
-    """Write the graph for the C++ program (algorithms/router/preprocess/README.md, `graph_<mode>.bin`).
-    lon / lat per node and flags per edge are only needed to print paths (zeros if not given)."""
-    order = np.argsort(src, kind="stable")
-    offset = np.r_[0, np.cumsum(np.bincount(src, minlength=n))]
-    lon = np.zeros(n) if lon is None else lon
-    lat = np.zeros(n) if lat is None else lat
-    flags = np.zeros(len(src)) if flags is None else flags
-    with open(path, "wb") as f:
-        f.write(b"SMG2")
-        np.array([n, len(src), len(out_ids)], dtype="<u4").tofile(f)
-        for arr, dtype in ((offset, "<u4"), (dst[order], "<u4"), (cost[order], "<f8"), (length[order], "<f4"),
-                           (wait[order], "<f4"), (flags[order], "u1"), (out_ids, "<u4"), (in_ids, "<u4"),
-                           (active, "u1"), (lon, "<f4"), (lat, "<f4")):
-            np.asarray(arr).astype(dtype).tofile(f)
-
-
-class EdgeLookup:
-    """Length and wait of the directed edge (u, v), vectorised. Parallel edges: the cheapest one."""
-
-    def __init__(self, src, dst, length, wait, cost, n):
-        order = np.lexsort((cost, dst, src))
-        key = src[order].astype(np.int64) * n + dst[order]
-        first = np.r_[True, key[1:] != key[:-1]]
-        self.key, self.length, self.wait, self.n = key[first], length[order][first], wait[order][first], n
-
-    def get(self, u, v):
-        i = np.searchsorted(self.key, u.astype(np.int64) * self.n + v)
-        return self.length[i], self.wait[i]
-
-
-def tree_sums(pred, lookup: EdgeLookup):
-    """Sum of length and wait from the root to every node of a shortest path tree (pointer jumping).
-    Nodes that are not reached get NaN."""
-    n = len(pred)
-    has = pred >= 0
-    length = np.zeros(n)
-    wait = np.zeros(n)
-    nodes = np.nonzero(has)[0]
-    length[nodes], wait[nodes] = lookup.get(pred[nodes], nodes)
-    up = np.where(has, pred, -1)
-    while True:
-        m = up >= 0
-        if not m.any():
-            break
-        i = np.nonzero(m)[0]
-        length[i] += length[up[i]]
-        wait[i] += wait[up[i]]
-        up[i] = up[up[i]]
-    return length, wait
-
-
-def matrix_rows(cost_g, lookup: EdgeLookup, src_nodes, tgt_nodes, src_snap, tgt_snap):
-    """Distance (m, incl. snap segments) and wait (s) from each source node to each target node.
-    Rows = sources, cols = targets. No path = NaN."""
-    dist_out = np.full((len(src_nodes), len(tgt_nodes)), np.nan, dtype=np.float32)
-    wait_out = np.full_like(dist_out, np.nan)
-    for r, s in enumerate(src_nodes):
-        cost, pred = dijkstra(cost_g, indices=int(s), return_predecessors=True)
-        length, wait = tree_sums(pred, lookup)
-        reach = np.isfinite(cost[tgt_nodes])
-        dist_out[r, reach] = length[tgt_nodes[reach]] + src_snap[r] + tgt_snap[reach]
-        wait_out[r, reach] = wait[tgt_nodes[reach]]
-    return dist_out, wait_out
