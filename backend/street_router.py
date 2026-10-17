@@ -1,0 +1,99 @@
+"""Client of the C++ street router (algorithms/router/): point-to-point paths for walk, bike and accessible.
+
+The backend starts the router at startup (start(), from main.py) and stops it at shutdown. Set ROUTER_URL to use
+a router that runs elsewhere; then nothing is started. API and file formats: algorithms/router/README.md.
+"""
+import logging
+import os
+import subprocess
+import time
+
+import httpx
+
+from config import DERIVED, REPO
+
+URL = os.getenv("ROUTER_URL", "").rstrip("/")
+PORT = int(os.getenv("ROUTER_PORT", "8090"))
+BINARY = REPO / "algorithms" / "router" / "build" / "street_router"
+GRAPHS = DERIVED / "street"
+LOG = GRAPHS / "router.log"
+log = logging.getLogger("uvicorn.error")
+
+_proc: subprocess.Popen | None = None
+_http = httpx.Client(timeout=30)
+
+
+class RouterUnavailable(RuntimeError):
+    """The router does not answer (not started, crashed, wrong ROUTER_URL)."""
+
+
+class RouteError(ValueError):
+    """The router answered with an error: 400 bad request, 404 no path, 422 point too far from the graph."""
+
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status = status
+
+
+def base_url() -> str:
+    return URL or f"http://127.0.0.1:{PORT}"
+
+
+def route(a, b, mode: str = "walk", **options) -> dict:
+    """Path from a to b ((lat, lon) each). Extra options are relayed as they are; the router answers 501
+    (NotImplementedError here) for the ones it does not support yet. The answer has seconds, walk_m, bike_m, wait_s,
+    snap_m, path ([lon, lat]) and elevators, plus length_m and geometry ([lat, lon]) for the callers."""
+    body = {"from": [a[0], a[1]], "to": [b[0], b[1]], "mode": mode, **options}
+    try:
+        r = _http.post(f"{base_url()}/route", json=body)
+    except httpx.TransportError as e:
+        raise RouterUnavailable(f"street router not reachable at {base_url()}: {e}") from e
+    data = r.json()
+    if r.status_code == 501:
+        raise NotImplementedError(f"street router does not support: {', '.join(data['unimplemented'])}")
+    if r.status_code != 200:
+        raise RouteError(r.status_code, data.get("error", r.text))
+    data["length_m"] = round(data["walk_m"] + data["bike_m"], 1)
+    data["geometry"] = [[lat, lon] for lon, lat in data["path"]]
+    return data
+
+
+def healthy() -> bool:
+    try:
+        return _http.get(f"{base_url()}/health", timeout=2).status_code == 200
+    except httpx.TransportError:
+        return False
+
+
+def start(timeout_s: float = 120) -> None:
+    """Write the graph files if they are missing or stale, start `street_router serve` and wait until it answers."""
+    global _proc
+    if URL:
+        log.info("street router: using %s", URL)
+        return
+    import preprocess_street  # imported here: it loads GTFS and OSM
+
+    if preprocess_street.graphs_stale():
+        log.info("street router: writing graph files")
+        preprocess_street.write_graphs()
+    if not BINARY.exists():
+        raise RouterUnavailable(f"{BINARY} not built, see algorithms/router/README.md")
+    if healthy():
+        log.warning("street router: something already answers on port %s; using it", PORT)
+        return
+    _proc = subprocess.Popen([str(BINARY), "serve", str(GRAPHS), "--port", str(PORT)], stdout=open(LOG, "ab"),
+                             stderr=subprocess.STDOUT)
+    t0 = time.time()
+    while not healthy():
+        if _proc.poll() is not None or time.time() - t0 > timeout_s:
+            raise RouterUnavailable(f"street router did not start, see {LOG}")
+        time.sleep(0.5)
+    log.info("street router: serving on %s (%.0f s)", base_url(), time.time() - t0)
+
+
+def stop() -> None:
+    global _proc
+    if _proc and _proc.poll() is None:
+        _proc.terminate()
+        _proc.wait(timeout=10)
+    _proc = None

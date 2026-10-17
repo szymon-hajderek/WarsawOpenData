@@ -450,26 +450,30 @@ Street path between two points.
 | `from_lat`, `from_lon`, `to_lat`, `to_lon` | number | required | start and end (same ranges as above) |
 | `mode` | string | `walk` | `walk`, `bike` or `accessible` |
 
-The start and the end join the street graph through up to 6 nearest nodes (at most 30 m farther than the
-nearest one); these short access segments are walked (on a bike: pushed).
+Answered by the C++ street router (`algorithms/router/README.md`, `POST /route`). The start and the end join the
+street graph through up to 6 nearest nodes (at most 30 m farther than the nearest one); these short access segments
+are walked.
 
-Answer: `mode`, `seconds` (total time with the default speeds), `length_m` (= `walk_m` + `bike_m`, incl. the access
-segments), `walk_m` (metres walked, also a pushed bike), `bike_m` (metres ridden), `wait_s` (expected waits that do
-not depend on speed: crossings and signals, where signal nodes closer than 30 m by path form one junction paid
-once, and 60 s per elevator), `nodes` (graph nodes on the path),
-`snap_m` (distance from start and end to the nearest graph node, in metres), `geometry` (list of `[lat, lon]`,
-from the start point to the end point).
+Answer: `seconds` (total time with the mode's default speeds), `walk_m` (metres walked, also a pushed bike),
+`bike_m` (metres ridden), `wait_s` (expected waits that do not depend on speed: crossings and signals, where signal
+nodes closer than 30 m by path form one junction paid once, and 60 s per elevator), `length_m` (= `walk_m` +
+`bike_m`), `snap_m` (distance from start and end to the nearest usable graph node, in metres), `path` (list of
+`[lon, lat]`, 5 decimals), `geometry` (the same as `[lat, lon]`), `elevators` (`[lon, lat]` where the path boards
+an elevator).
 
 ```json
-{"mode": "bike", "seconds": 765.7, "length_m": 2452.6, "walk_m": 12.3, "bike_m": 2440.3, "wait_s": 181.7, "nodes": 154,
- "snap_m": [4.0, 4.2], "geometry": [[52.2296943, 21.0122579], [52.229818, 21.0122376], "..."]}
+{"seconds": 1268.5, "walk_m": 88.7, "bike_m": 3988.8, "wait_s": 250.6, "length_m": 4077.5, "snap_m": [4.0, 7.9],
+ "path": [[21.0122, 52.2297], [21.01226, 52.22969], "..."], "geometry": [[52.2297, 21.0122], [52.22969, 21.01226], "..."],
+ "elevators": []}
 ```
 
 Errors:
 - `400 {"detail": "mode must be walk, bike or accessible"}` for a `mode` other than `walk`, `bike` or `accessible`.
 - `422` when the start or the end is more than 1000 m from the street graph (e.g. outside Warsaw):
-  `{"detail": "start is 224509 m from the street graph (max 1000 m)"}` (`start`, `end`, or both).
+  `{"detail": "start is more than 1000 m from the street graph"}` (the first of `start`, `end` that is too far).
 - `404` with a message when no path exists.
+- `503` when the street router is not running (`{"detail": "street router not reachable at ..."}`), and while the
+  server is still starting.
 
 ---
 

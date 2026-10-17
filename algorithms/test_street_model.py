@@ -1,20 +1,26 @@
 """Run from backend/: uv run pytest ../algorithms"""
 import json
+import socket
 import subprocess
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import numpy as np
 import pytest
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import dijkstra
+from scipy.spatial import cKDTree
 
 from street_graph import StreetGraph
 from street_model import FLAG_ELEVATOR, access_edges, access_flags, edge_wait, entry_wait, junctions
 
 W = 27.0  # wait at a signal node
 WALK, BIKE = 1.0, 4.0  # test speeds, m/s
-CPP = Path(__file__).parent / "router" / "preprocess" / "build" / "street_matrix"
-needs_cpp = pytest.mark.skipif(not CPP.exists(), reason="C++ street_matrix not built")
+CPP = Path(__file__).parent / "router" / "build" / "street_router"
+needs_cpp = pytest.mark.skipif(not CPP.exists(), reason="C++ street_router not built")
+K, EXTRA_M, MAX_SNAP_M = 6, 30.0, 1000.0
 
 
 def both_ways(edges):
@@ -65,12 +71,52 @@ def with_points(src, dst, walk, bike, wait, n, nodes, dist, **access):
             out_ids, in_ids, n + 2 * len(out_ids))
 
 
-def street_graph(src, dst, walk, bike, wait, out_ids, in_ids, nodes, active=None, flags=None, lon=None, lat=None):
-    return StreetGraph(src=src, dst=dst, cost=walk / WALK + bike / BIKE + wait, walk=walk, bike=bike, wait=wait,
+def street_graph(src, dst, walk, bike, wait, out_ids, in_ids, nodes, active=None, flags=None, lon=None, lat=None,
+                 usable=None, entry=None):
+    return StreetGraph(walk_speed=WALK, bike_speed=BIKE, access_k=K, access_extra_m=EXTRA_M, max_snap_m=MAX_SNAP_M,
+                       src=src, dst=dst, walk=walk, bike=bike, wait=wait,
                        flags=np.zeros(len(src)) if flags is None else flags,
                        lon=np.zeros(nodes) if lon is None else lon, lat=np.zeros(nodes) if lat is None else lat,
+                       usable=np.zeros(nodes, bool) if usable is None else usable,
+                       entry_wait=np.zeros(nodes) if entry is None else entry,
                        out_node=out_ids, in_node=in_ids,
                        active=np.ones(len(out_ids), bool) if active is None else active)
+
+
+def to_xy(lat, lon):
+    """config.to_xy (the router uses the same projection)."""
+    r = 6371000.0
+    return np.radians(lon) * r * np.cos(np.radians(52.23)), np.radians(lat) * r
+
+
+def snap(lat, lon, node_lat, node_lon, usable):
+    """osm.access(): up to K nearest usable nodes, at most EXTRA_M farther than the nearest -> (nodes, dists)."""
+    idx = np.nonzero(usable)[0]
+    x, y = to_xy(node_lat[idx], node_lon[idx])
+    d, i = cKDTree(np.c_[x, y]).query(np.c_[to_xy(lat, lon)].reshape(1, 2), k=min(K, len(idx)))
+    d, i = np.atleast_1d(d.ravel()), np.atleast_1d(i.ravel())
+    keep = d <= d[0] + EXTRA_M
+    return idx[i[keep]], d[keep]
+
+
+def grid_city():
+    """A 5 x 5 street grid around 52.23 N, 21.0 E (~70 m blocks) with signal waits and one elevator edge."""
+    lat = np.repeat(52.23 + np.arange(5) * 0.0006, 5)
+    lon = np.tile(21.0 + np.arange(5) * 0.001, 5)
+    edges = [(5 * r + c, 5 * r + c + 1) for r in range(5) for c in range(4)]
+    edges += [(5 * r + c, 5 * r + c + 5) for r in range(4) for c in range(5)]
+    u, v = (np.array(x) for x in zip(*edges))
+    src, dst = np.r_[u, v], np.r_[v, u]
+    x, y = to_xy(lat, lon)
+    ln = np.hypot(x[src] - x[dst], y[src] - y[dst])
+    signal = np.zeros(25, bool)
+    signal[[7, 12, 17]] = True
+    nw = np.where(signal, W, 0.0)
+    jid = junctions(src, dst, ln, signal)
+    wait = edge_wait(src, dst, nw, jid).astype(float)
+    lift = ((src == 3) & (dst == 8)) | ((src == 8) & (dst == 3))
+    wait = np.where(lift, 60.0, wait)
+    return lat, lon, src, dst, ln, wait, np.where(lift, FLAG_ELEVATOR, 0), entry_wait(nw, jid)
 
 
 # ---------------------------------------------------------------- cost model
@@ -203,7 +249,8 @@ def test_cpp_matrix_matches_the_oracle(tmp_path):
                                                        n, nodes, dist)
     active = np.array([1, 1, 1, 1, 0], dtype=bool)
     street_graph(S, D, Wm, Bm, Wt, out_ids, in_ids, m, active).save(tmp_path / "g.bin")
-    subprocess.run([str(CPP), str(tmp_path / "g.bin"), str(tmp_path / "out.bin"), "--threads", "2"], check=True)
+    subprocess.run([str(CPP), "matrix", str(tmp_path / "g.bin"), str(tmp_path / "out.bin"), "--threads", "2"],
+                   check=True)
     got = np.fromfile(tmp_path / "out.bin", dtype="<f4").reshape(3, 5, 5)
     want = shortest(S, D, Wm, Bm, Wt, m, out_ids, in_ids)
     for k in range(3):
@@ -214,23 +261,101 @@ def test_cpp_matrix_matches_the_oracle(tmp_path):
     assert np.isnan(got[0, 0, 3]) and np.isnan(got[0, 3, 0])  # isolated point
 
 
+def coordinate_oracle(a, b, speeds=(WALK, BIKE)):
+    """The expected route between two coordinates on grid_city(), built with the Python rules (snap + access)."""
+    lat, lon, src, dst, ln, wait, _, entry = grid_city()
+    n = len(lat)
+    (na, da), (nb, db) = snap(*a, lat, lon, np.ones(n, bool)), snap(*b, lat, lon, np.ones(n, bool))
+    # point A = node n (seeds: walk d, entry wait), point B = node n + 1 (walk d, no wait)
+    S = np.r_[src, np.full(len(na), n), nb]
+    D = np.r_[dst, na, np.full(len(nb), n + 1)]
+    Wm, Wt = np.r_[ln, da, db], np.r_[wait, entry[na], np.zeros(len(nb))]
+    global WALK, BIKE
+    old = WALK, BIKE
+    WALK, BIKE = speeds
+    try:
+        walk, _, w = shortest(S, D, Wm, np.zeros(len(S)), Wt, n + 2, [n], [n + 1])
+    finally:
+        WALK, BIKE = old
+    return walk[0, 0], w[0, 0], walk[0, 0] / speeds[0] + w[0, 0], da[0], db[0]
+
+
+def save_grid(path):
+    lat, lon, src, dst, ln, wait, flags, entry = grid_city()
+    street_graph(src, dst, ln, np.zeros(len(src)), wait, np.zeros(0, int), np.zeros(0, int), len(lat),
+                 flags=flags, lon=lon, lat=lat, usable=np.ones(len(lat), bool), entry=entry).save(path)
+
+
+A, B = (52.2301, 21.0003), (52.2323, 21.0039)  # two coordinates inside the grid, between nodes
+
+
 @needs_cpp
-def test_cpp_route_gives_the_path_and_the_elevator(tmp_path):
-    # street 0 - 1 - 2 - 3 along a line of longitudes; the edge 1 <-> 2 is an elevator
-    src, dst, ln = both_ways([(0, 1, 10), (1, 2, 5), (2, 3, 10)])
-    lift = ((src == 1) & (dst == 2)) | ((src == 2) & (dst == 1))
-    dist = np.array([[2.0], [2.0]])
-    S, D, Wm, Bm, Wt, out_ids, in_ids, m = with_points(src, dst, ln, np.zeros(len(src)), np.where(lift, 60.0, 0.0),
-                                                       4, [[0], [3]], dist)
-    flags = np.r_[np.where(lift, FLAG_ELEVATOR, 0), access_flags(dist, [0, 0])]
-    lon = np.r_[[21.0, 21.0001, 21.0002, 21.0003], [20.9999, 21.0004], [20.9999, 21.0004]]
-    street_graph(S, D, Wm, Bm, Wt, out_ids, in_ids, m, flags=flags, lon=lon, lat=np.full(m, 52.2)).save(
-        tmp_path / "g.bin")
-    out = subprocess.run([str(CPP), str(tmp_path / "g.bin"), "--route", "0", "1", "--route", "1", "0"],
-                         check=True, capture_output=True, text=True).stdout.splitlines()
-    there, back = (json.loads(x) for x in out)
-    assert there["path"] == [[20.9999, 52.2], [21.0, 52.2], [21.0001, 52.2], [21.0002, 52.2], [21.0003, 52.2],
-                             [21.0004, 52.2]]
-    assert np.allclose([there["walk_m"], there["bike_m"], there["wait_s"]], [29, 0, 60])
-    assert there["elevators"] == [[21.0001, 52.2]] and there["metro_entrances"] == []  # where it is boarded
-    assert back["path"] == there["path"][::-1] and back["elevators"] == [[21.0002, 52.2]]
+def test_cpp_route_between_coordinates_matches_the_python_rules(tmp_path):
+    save_grid(tmp_path / "graph_walk.bin")
+    out = subprocess.run([str(CPP), "route", str(tmp_path / "graph_walk.bin"), f"{A[0]},{A[1]}", f"{B[0]},{B[1]}"],
+                         check=True, capture_output=True, text=True).stdout
+    got = json.loads(out)
+    walk, wait, seconds, snap_a, snap_b = coordinate_oracle(A, B)
+    assert np.isclose(got["walk_m"], walk, atol=0.11) and np.isclose(got["wait_s"], wait, atol=0.11)
+    assert np.isclose(got["seconds"], seconds, atol=0.11) and got["bike_m"] == 0
+    assert np.allclose(got["snap_m"], [snap_a, snap_b], atol=0.11)
+    assert got["path"][0] == [A[1], A[0]] and got["path"][-1] == [B[1], B[0]]
+
+
+@needs_cpp
+def test_cpp_route_far_point_is_refused(tmp_path):
+    save_grid(tmp_path / "graph_walk.bin")
+    r = subprocess.run([str(CPP), "route", str(tmp_path / "graph_walk.bin"), "52.30,21.0", f"{B[0]},{B[1]}"],
+                       capture_output=True, text=True)
+    assert r.returncode == 1 and "from the street graph" in json.loads(r.stdout)["error"]
+
+
+def free_port():
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def post(port, body):
+    req = urllib.request.Request(f"http://127.0.0.1:{port}/route", data=json.dumps(body).encode(),
+                                 headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req) as r:
+            return r.status, json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        return e.code, json.loads(e.read())
+
+
+@needs_cpp
+def test_cpp_server(tmp_path):
+    save_grid(tmp_path / "graph_walk.bin")
+    port = free_port()
+    proc = subprocess.Popen([str(CPP), "serve", str(tmp_path), "--port", str(port), "--threads", "2"],
+                            stderr=subprocess.DEVNULL)
+    try:
+        for _ in range(100):
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/health") as r:
+                    assert json.loads(r.read())["modes"]["walk"]["nodes"] == 25
+                break
+            except urllib.error.URLError:
+                time.sleep(0.05)
+        ok = {"from": list(A), "to": list(B), "mode": "walk"}
+        status, got = post(port, ok)
+        assert status == 200 and np.isclose(got["seconds"], coordinate_oracle(A, B)[2], atol=0.11)
+        # the elevator on 3 <-> 8 is used between the two top corners of the column, and reported
+        status, got = post(port, {**ok, "from": [52.2300, 21.0030], "to": [52.2306, 21.0030]})
+        assert status == 200
+        # speeds from the query: a fast walker can pick another path than a slow one; both match the oracle
+        for speeds in ((0.5, BIKE), (6.0, BIKE)):
+            status, got = post(port, {**ok, "speeds": {"walk": speeds[0], "bike": speeds[1]}})
+            assert status == 200 and np.isclose(got["seconds"], coordinate_oracle(A, B, speeds)[2], atol=0.11)
+        assert post(port, {**ok, "preferences": {"maxTransfers": 1}}) == \
+            (501, {"error": "not implemented", "unimplemented": ["preferences"]})
+        assert post(port, {**ok, "speeds": {"walk": 1.0, "scooter": 5}})[0] == 501
+        assert post(port, {**ok, "mode": "car"})[0] == 400
+        assert post(port, {**ok, "speeds": {"walk": 0}})[0] == 400
+        assert post(port, {**ok, "to": [52.30, 21.0]})[0] == 422
+    finally:
+        proc.terminate()
+        proc.wait()

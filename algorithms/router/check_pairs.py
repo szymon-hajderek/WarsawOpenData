@@ -1,8 +1,11 @@
-"""Check the C++ street matrix on 100 stop-level pairs (README.md, "Checks").
+"""Check the C++ street router on 100 stop-level pairs (README.md, "Checks").
 
-Run from backend/: uv run python ../algorithms/router/preprocess/check_pairs.py
-For each pair and mode: the C++ result from the GTFS positions, the same from the OSM platform nodes
-(`ref` = ZTM stop id), and osm.route() (Python). Writes data/derived/street/check_pairs.csv.
+Run from backend/: uv run python ../algorithms/router/check_pairs.py
+For each pair and mode it compares:
+- the matrix value (`street_router matrix`, the points' virtual nodes built in Python);
+- the server's route between the same coordinates (C++ joins the coordinates itself);
+- the matrix value from the OSM platform node of the same post (`ref` = ZTM stop id).
+Writes data/derived/street/check_pairs.csv. Starts the router if none answers.
 """
 import csv
 import json
@@ -17,6 +20,7 @@ import osmium
 
 sys.path.insert(0, ".")
 from config import DERIVED, in_bbox, to_xy  # noqa: E402
+import street_router  # noqa: E402
 from preprocess_street import CPP  # noqa: E402
 from sources import mkuran, osm  # noqa: E402
 
@@ -59,7 +63,7 @@ def pick_pairs(posts: list[dict], seed: int = 11) -> list[tuple[dict, dict]]:
 def cpp_matrix(points: list[dict], mode: str) -> np.ndarray:
     with tempfile.TemporaryDirectory() as tmp:
         osm.points_graph([p["lat"] for p in points], [p["lon"] for p in points], mode).save(Path(tmp) / "graph.bin")
-        subprocess.run([str(CPP), f"{tmp}/graph.bin", f"{tmp}/out.bin"], check=True, capture_output=True)
+        subprocess.run([str(CPP), "matrix", f"{tmp}/graph.bin", f"{tmp}/out.bin"], check=True, capture_output=True)
         return np.fromfile(f"{tmp}/out.bin", dtype="<f4").reshape(3, len(points), len(points))  # walk, bike, wait
 
 
@@ -68,6 +72,7 @@ def main() -> None:
     posts = [v | {"osm": plat[v["raw_id"]]} for v in mkuran.vertices()
              if v["feed"] == "ztm" and v["raw_id"] in plat]
     pairs = pick_pairs(posts)
+    street_router.start()
     # 4 points per pair: GTFS a, GTFS b, OSM a, OSM b
     points = [q for a, b in pairs for q in (a, b, a["osm"], b["osm"])]
     rows = [{"from": f"{a['name']} {a['code']}", "to": f"{b['name']} {b['code']}",
@@ -77,7 +82,7 @@ def main() -> None:
         walk, bike, wait = cpp_matrix(points, mode)
         dist = walk + bike
         for i, ((a, b), row) in enumerate(zip(pairs, rows)):
-            r = osm.route(a["lat"], a["lon"], b["lat"], b["lon"], mode, limit_s=np.inf)
+            r = street_router.route((a["lat"], a["lon"]), (b["lat"], b["lon"]), mode)
             g, o = (4 * i, 4 * i + 1), (4 * i + 2, 4 * i + 3)
             row |= {f"{mode}_m": round(float(dist[g])), f"{mode}_wait_s": round(float(wait[g]), 1),
                     f"{mode}_min": round(float(osm.seconds(mode, walk[g], bike[g], wait[g])) / 60, 1),
@@ -93,7 +98,7 @@ def main() -> None:
     print(f"posts matched to OSM platforms: {len(posts)}; pairs: {len(rows)}")
     for mode in ("walk", "bike"):
         d = np.abs(col(f"{mode}_m") - col(f"{mode}_osm_m"))
-        print(f"{mode}: C++ vs osm.route() max diff {col(f'{mode}_route_diff_m').max():.2f} m, "
+        print(f"{mode}: server route vs matrix max diff {col(f'{mode}_route_diff_m').max():.2f} m, "
               f"{col(f'{mode}_route_diff_s').max():.2f} s | GTFS vs OSM position: median {np.median(d):.0f} m, "
               f"p90 {np.percentile(d, 90):.0f} m, max {d.max():.0f} m")
     for r in rows[:6]:
@@ -102,4 +107,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        street_router.stop()

@@ -26,6 +26,7 @@ from plan_trip import (  # noqa: E402
 
 log = logging.getLogger("uvicorn.error")
 
+import street_router
 from sources import alerts, mkuran, nextbike, osm
 
 from ..models import Place, Profile, RouteLeg, RouteOption
@@ -583,10 +584,12 @@ def _street(a, b, mode: str, profile: Profile):
     speed = table[mode]
     if speed <= 0:
         return None
+    # the C++ router finds the best path for the profile's speeds; walking with the accessible profile avoids steps
+    graph = "accessible" if profile == "accessible" and mode == "walk" else mode
+    speeds = {"walk": PROFILE_SPEED[profile]["walk"], "bike": PROFILE_SPEED[profile]["bike"] or OSM_SPEED["bike"]}
     try:
-        raw = osm.route(a[0], a[1], b[0], b[1], mode)
-        scale = OSM_SPEED[mode] / speed
-        return {"seconds": raw["seconds"] * scale, "length_m": raw["length_m"], "geometry": raw["geometry"]}
+        raw = street_router.route(a, b, graph, speeds=speeds)
+        return {"seconds": raw["seconds"], "length_m": raw["length_m"], "geometry": raw["geometry"]}
     except (ValueError, OSError, FileNotFoundError):
         meters = _distance(a, b) * 1.25
         return {"seconds": meters / speed, "length_m": meters, "geometry": [list(a), list(b)]}
