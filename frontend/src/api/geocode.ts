@@ -1,4 +1,5 @@
 import type { Place } from '../types';
+import { API_URL } from '../config';
 
 interface NominatimItem {
   place_id: number;
@@ -12,8 +13,27 @@ interface NominatimItem {
 // Bounding box of Warsaw (left, top, right, bottom).
 const WARSAW_VIEWBOX = '20.85,52.37,21.28,52.10';
 
-/** Place search (OpenStreetMap Nominatim), limited to Warsaw. Call it debounced. */
+/**
+ * Place search, limited to Warsaw. Call it debounced.
+ *
+ * Uses the backend proxy (`GET /api/geocode`) when `API_URL` is set, and falls back
+ * to calling Nominatim directly when the backend is disabled or unreachable.
+ */
 export async function searchPlaces(query: string): Promise<Place[]> {
+  if (API_URL) {
+    try {
+      const res = await fetch(`${API_URL}/api/geocode?q=${encodeURIComponent(query)}`);
+      if (!res.ok) throw new Error(`Geocoding failed: ${res.status}`);
+      return (await res.json()) as Place[];
+    } catch (err) {
+      console.warn('Backend geocode unavailable, falling back to Nominatim.', err);
+    }
+  }
+  return searchPlacesNominatim(query);
+}
+
+/** Local fallback: query OpenStreetMap Nominatim directly from the browser. */
+async function searchPlacesNominatim(query: string): Promise<Place[]> {
   const params = new URLSearchParams({
     format: 'jsonv2',
     q: query,
