@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
 
-from plan_trip import best_bike_pair, bike_access_pairs, direct_rides, nearby, service_moment, spread_groups, transfer_rides
+from plan_trip import (
+    best_bike_pair, bike_access_pairs, bike_between, direct_rides, nearby, service_moment,
+    spread_groups, transfer_rides,
+)
 
 
 def _distance(a, b):
@@ -110,3 +113,35 @@ def test_best_bike_pair_needs_a_bike_and_a_free_dock():
     pair = best_bike_pair((0, 0), (1, 0), stations, _distance, max_m=5000)
     assert pair[0]["id"] == "1"
     assert pair[1]["id"] == "2"
+
+
+def test_bike_between_puts_veturilo_between_two_rides():
+    def departures(sid, after):
+        if sid == "a" and after is None:
+            return [{"trip_id": "t1", "sec": 1000, "wheelchair": "0", "line": "175"}]
+        if sid == "near" and after is not None:
+            return [{"trip_id": "t2", "sec": int(after) + 60, "wheelchair": "0", "line": "15"}]
+        return []
+
+    def onward(trip_id, stop_id, sec):
+        if trip_id == "t1":
+            return [
+                {"stop_id": "a", "lat": 0, "lon": 0, "arr": 1000, "dep": 1000, "wheelchair": "0"},
+                {"stop_id": "x", "lat": 0, "lon": 1, "arr": 1200, "dep": 1200, "wheelchair": "0"},
+                {"stop_id": "mid", "lat": 0, "lon": 3, "arr": 1600, "dep": 1600, "wheelchair": "0"},
+            ]
+        return [
+            {"stop_id": "near", "lat": 0, "lon": 6.1, "arr": sec, "dep": sec, "wheelchair": "0"},
+            {"stop_id": "dest", "lat": 0, "lon": 10, "arr": sec + 400, "dep": sec + 400, "wheelchair": "0"},
+        ]
+
+    stations = [
+        {"id": "pick", "lat": 0, "lon": 3.1, "bikes": 2, "docks": 1, "renting": True, "returning": True},
+        {"id": "drop", "lat": 0, "lon": 6, "bikes": 0, "docks": 3, "renting": True, "returning": True},
+    ]
+    stops = [{"id": "near", "lat": 0, "lon": 6.1}, {"id": "mid", "lat": 0, "lon": 3}]
+    found = bike_between(["a"], {"dest"}, (0, 10), departures, onward, stations, stops, _distance, False)
+    assert found["first"]["dep"]["line"] == "175"
+    assert found["second"]["dep"]["line"] == "15"
+    assert found["pickup"]["id"] == "pick"
+    assert found["dropoff"]["id"] == "drop"

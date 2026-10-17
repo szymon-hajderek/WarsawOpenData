@@ -484,8 +484,10 @@ Types:
 
 Route options between two places, from the GTFS timetable, OSM walk/bike paths and live Veturilo
 availability. Up to 6 options: a walk, a Veturilo ride, a Veturilo ride joined to one direct
-public-transport ride (bike then bus/tram/metro/rail, or the ride then a bike), direct rides and
-one transfer. Boarding stops are one post per stop group, so a big node does not fill the whole list.
+public-transport ride (bike then bus/tram/metro/rail, or the ride then a bike), Veturilo between
+two rides, direct rides and one transfer. A live bus or tram that is behind its timetable adds an
+`opóźnienie N min` tag and shifts departure and arrival. Shape distances in the GTFS file are
+kilometers and are stored as meters. Boarding stops are one post per stop group, so a big node does not fill the whole list.
 The clock is Europe/Warsaw. Before 04:00 the search uses the previous GTFS service day
 (times at 24:00 and later).
 `profile` `accessible` drops Veturilo and stops or trips marked wheelchair-inaccessible (`"2"`).

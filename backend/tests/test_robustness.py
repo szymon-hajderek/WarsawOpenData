@@ -130,13 +130,25 @@ def test_gtfs_cache_build_runs_once(tmp_path, monkeypatch):
         time.sleep(0.2)  # the real build takes 25 s: other threads must wait, not start a second build
         config.save_json(tmp_path / "gtfs_stops.json", [{"zone": ""}])
         config.save_json(tmp_path / "gtfs_trips.json", [])
-        config.save_npz(tmp_path / "gtfs_stop_times.npz", shape_dist=np.zeros(1))
+        config.save_npz(tmp_path / "gtfs_stop_times.npz", shape_dist=np.array([1200]))
 
     monkeypatch.setattr(mkuran, "_build", fake_build)
     threads = [threading.Thread(target=mkuran._ensure_built) for _ in range(6)]
     [t.start() for t in threads]
     [t.join() for t in threads]
     assert len(builds) == 1
+
+
+def test_old_kilometer_shape_cache_is_rebuilt(tmp_path, monkeypatch):
+    """Caches from before shape distances were stored as meters max out around 20."""
+    monkeypatch.setattr(mkuran, "DERIVED", tmp_path)
+    config.save_json(tmp_path / "gtfs_stops.json", [{"zone": "1"}])
+    config.save_json(tmp_path / "gtfs_trips.json", [])
+    config.save_npz(tmp_path / "gtfs_stop_times.npz", shape_dist=np.array([12]))
+    called = []
+    monkeypatch.setattr(mkuran, "_build", lambda: called.append(1))
+    mkuran._ensure_built()
+    assert called == [1]
 
 
 def test_gtfs_cache_without_the_marker_file_is_rebuilt(tmp_path, monkeypatch):
