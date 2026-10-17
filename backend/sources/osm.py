@@ -24,7 +24,7 @@ from config import BBOX, DERIVED, OSM_DIR, REPO, in_bbox, to_xy
 sys.path.insert(0, str(REPO / "algorithms"))
 from street_graph import StreetGraph  # noqa: E402
 from street_model import (  # noqa: E402
-    FLAG_ELEVATOR, FLAG_METRO, FLAG_PUSH, access_edges, access_flags, edge_wait, entry_wait, junctions,
+    FLAG_ELEVATOR, FLAG_METRO, FLAG_PUSH, FLAG_STEPS, access_edges, access_flags, edge_wait, entry_wait, junctions,
 )
 
 EPS = 1e-3  # s added to every scipy edge, so zero-cost edges stay in the sparse matrix
@@ -281,15 +281,18 @@ def edges(mode: str):
         ride = np.isin(s.astype(np.int64) * n + d, np.r_[a * n + b, b * n + a])
         w = np.where(ride, np.maximum(w, WAIT[mode]["elevator"]), w).astype(np.float32)
         elevator = ride | (g["kind"][d] == 4)
+        step_way = ((g["mode"] & 1) > 0) & ((g["mode"] & 8) == 0)  # walkable but not step-free = highway=steps
+        a, b = g["u"][step_way].astype(np.int64), g["v"][step_way].astype(np.int64)
+        stairs = np.isin(s.astype(np.int64) * n + d, np.r_[a * n + b, b * n + a])
         walked = push if mode == "bike" else np.ones(len(s), dtype=bool)
-        _FLAGS[mode] = (elevator * FLAG_ELEVATOR | push * FLAG_PUSH).astype(np.uint8)
+        _FLAGS[mode] = (elevator * FLAG_ELEVATOR | push * FLAG_PUSH | stairs * FLAG_STEPS).astype(np.uint8)
         _EDGES[mode] = (s, d, np.where(walked, ln, 0).astype(np.float32), np.where(walked, 0, ln).astype(np.float32),
                         w, jid)
     return _EDGES[mode]
 
 
 def edge_flags(mode: str) -> np.ndarray:
-    """Per edge of edges(mode): FLAG_ELEVATOR (an elevator node or way), FLAG_PUSH (a pushed bike)."""
+    """Per edge of edges(mode): FLAG_ELEVATOR (an elevator node or way), FLAG_PUSH (a pushed bike), FLAG_STEPS."""
     edges(mode)
     return _FLAGS[mode]
 

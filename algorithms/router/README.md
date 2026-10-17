@@ -146,10 +146,11 @@ Answer:
 
 ```json
 {"seconds": 2870.5, "walk_m": 3634.9, "bike_m": 0.0, "wait_s": 74.4, "snap_m": [7.0, 4.5],
- "path": [[21.0122, 52.2297], [21.01228, 52.22966], "..."], "elevators": []}
+ "path": [[21.0122, 52.2297], [21.01228, 52.22966], "..."], "elevators": [], "steps": [[21.01139, 52.22944], "..."]}
 ```
 
 - `path`: `[lon, lat]`, 5 decimals (about 1 m), from `from` to `to`. `elevators`: where the path boards one.
+  `steps`: where a flight of steps starts (only in walk mode; the other modes have no steps).
 - `snap_m`: distance from each point to its nearest usable graph node.
 - Errors: `400` bad body / unknown mode / bad speeds, `422` a point is more than 1000 m from the graph, `404` no path.
 - A coordinate joins up to 6 nearest usable nodes, at most 30 m farther than the nearest. The access segment is
@@ -172,7 +173,7 @@ nodes incl. 2 virtual nodes per fixed point, m = directed edges.
 | offset | `uint32` | n + 1 | CSR: the edges of node `u` are `offset[u] .. offset[u+1]` |
 | target | `uint32` | m | edge target node |
 | walk, bike, wait | `float32` | m each | metres walked, metres ridden, seconds of wait |
-| flags | `uint8` | m | 1 = elevator, 2 = pushed bike, 4 = a point's access segment, 8 = metro entrance segment |
+| flags | `uint8` | m | 1 = elevator, 2 = pushed bike, 4 = a point's access segment, 8 = metro entrance segment, 16 = steps |
 | out_node, in_node | `uint32` | p each | virtual nodes of each fixed point |
 | active | `uint8` | p | 1 = point is on the graph (≤ 1000 m), 0 = its row and column are `NaN` |
 | lon, lat | `float64` | n each | node coordinates (a fixed point's virtual nodes get the point's position) |

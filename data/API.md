@@ -458,12 +458,12 @@ Answer: `seconds` (total time with the mode's default speeds), `walk_m` (metres 
 nodes closer than 30 m by path form one junction paid once, and 60 s per elevator), `length_m` (= `walk_m` +
 `bike_m`), `snap_m` (distance from start and end to the nearest usable graph node, in metres), `path` (list of
 `[lon, lat]`, 5 decimals), `geometry` (the same as `[lat, lon]`), `elevators` (`[lon, lat]` where the path boards
-an elevator).
+an elevator), `steps` (`[lon, lat]` where a flight of steps starts; walk mode only).
 
 ```json
 {"seconds": 1268.5, "walk_m": 88.7, "bike_m": 3988.8, "wait_s": 250.6, "length_m": 4077.5, "snap_m": [4.0, 7.9],
  "path": [[21.0122, 52.2297], [21.01226, 52.22969], "..."], "geometry": [[52.2297, 21.0122], [52.22969, 21.01226], "..."],
- "elevators": []}
+ "elevators": [], "steps": []}
 ```
 
 Errors:

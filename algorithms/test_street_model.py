@@ -14,7 +14,7 @@ from scipy.sparse.csgraph import dijkstra
 from scipy.spatial import cKDTree
 
 from street_graph import StreetGraph
-from street_model import FLAG_ELEVATOR, access_edges, access_flags, edge_wait, entry_wait, junctions
+from street_model import FLAG_ELEVATOR, FLAG_STEPS, access_edges, access_flags, edge_wait, entry_wait, junctions
 
 W = 27.0  # wait at a signal node
 WALK, BIKE = 1.0, 4.0  # test speeds, m/s
@@ -115,8 +115,10 @@ def grid_city():
     jid = junctions(src, dst, ln, signal)
     wait = edge_wait(src, dst, nw, jid).astype(float)
     lift = ((src == 3) & (dst == 8)) | ((src == 8) & (dst == 3))
+    stairs = ((src == 21) & (dst == 22)) | ((src == 22) & (dst == 21))
     wait = np.where(lift, 60.0, wait)
-    return lat, lon, src, dst, ln, wait, np.where(lift, FLAG_ELEVATOR, 0), entry_wait(nw, jid)
+    flags = np.where(lift, FLAG_ELEVATOR, 0) | np.where(stairs, FLAG_STEPS, 0)
+    return lat, lon, src, dst, ln, wait, flags, entry_wait(nw, jid)
 
 
 # ---------------------------------------------------------------- cost model
@@ -343,9 +345,11 @@ def test_cpp_server(tmp_path):
         ok = {"from": list(A), "to": list(B), "mode": "walk"}
         status, got = post(port, ok)
         assert status == 200 and np.isclose(got["seconds"], coordinate_oracle(A, B)[2], atol=0.11)
-        # the elevator on 3 <-> 8 is used between the two top corners of the column, and reported
+        # the elevator on 3 <-> 8 and the steps on 21 <-> 22 are reported where the path enters them
         status, got = post(port, {**ok, "from": [52.2300, 21.0030], "to": [52.2306, 21.0030]})
-        assert status == 200
+        assert status == 200 and got["elevators"] == [[21.003, 52.23]]
+        status, got = post(port, {**ok, "from": [52.2324, 21.0010], "to": [52.2324, 21.0020]})
+        assert status == 200 and got["steps"] == [[21.001, 52.2324]]
         # speeds from the query: a fast walker can pick another path than a slow one; both match the oracle
         for speeds in ((0.5, BIKE), (6.0, BIKE)):
             status, got = post(port, {**ok, "speeds": {"walk": speeds[0], "bike": speeds[1]}})

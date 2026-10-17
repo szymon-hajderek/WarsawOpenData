@@ -72,10 +72,14 @@ std::expected<json, Error> route(const Mode& mode, Search& search, double lat1, 
     const auto& t = targets[*hit];
     const auto edges = search.path_to(t.node);
     const auto start = edges.empty() ? t.node : edges.front().first;
-    json path = json::array({{round_to(lon1, 5), round_to(lat1, 5)}, lonlat(g, start)}), elevators = json::array();
+    json path = json::array({{round_to(lon1, 5), round_to(lat1, 5)}, lonlat(g, start)}), elevators = json::array(),
+         steps = json::array();
+    bool on_steps = false;
     for (const auto& [u, e] : edges) {
         path.push_back(lonlat(g, g.target[e]));
         if (g.flags[e] & kElevator) elevators.push_back(lonlat(g, u));  // where it is boarded
+        if ((g.flags[e] & kSteps) && !on_steps) steps.push_back(lonlat(g, u));  // where a flight of steps starts
+        on_steps = g.flags[e] & kSteps;
     }
     path.push_back({round_to(lon2, 5), round_to(lat2, 5)});
     return json{{"seconds", round_to(search.cost(t.node) + t.cost, 1)},
@@ -84,7 +88,8 @@ std::expected<json, Error> route(const Mode& mode, Search& search, double lat1, 
                 {"wait_s", round_to(search.wait(t.node) + t.wait, 1)},
                 {"snap_m", {round_to(snap1, 1), round_to(snap2, 1)}},
                 {"path", path},
-                {"elevators", elevators}};
+                {"elevators", elevators},
+                {"steps", steps}};
 }
 
 void write_at(int fd, std::span<const float> data, std::uint64_t offset) {

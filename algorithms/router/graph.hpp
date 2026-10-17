@@ -9,7 +9,7 @@
 #include <vector>
 
 // Edge flags, as in algorithms/street_model.py.
-constexpr std::uint8_t kElevator = 1, kMetro = 8;
+constexpr std::uint8_t kElevator = 1, kMetro = 8, kSteps = 16;
 
 struct Graph {
     std::uint32_t n = 0, m = 0, p = 0, access_k = 0;            // nodes, edges, fixed points
