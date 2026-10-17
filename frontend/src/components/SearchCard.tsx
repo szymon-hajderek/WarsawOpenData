@@ -110,13 +110,17 @@ export default function SearchCard({
   const [drag, setDrag] = useState<{ from: number; to: number; offset: number; rowH: number } | null>(null);
   const [focusStop, setFocusStop] = useState<number | null>(null);
 
+  // Rows are [start, ...stops, destination]; any row can be moved to any position, so a stop can become
+  // the start or the destination and the other way round.
   const reorder = (from: number, to: number) => {
     if (from === to) return;
-    const next = [...stops];
-    const [item] = next.splice(from, 1);
-    next.splice(to, 0, item);
-    onStopsChange(next);
-    // moving a stop by hand means the user wants their own order
+    const rows = [origin, ...stops, destination];
+    const [item] = rows.splice(from, 1);
+    rows.splice(to, 0, item);
+    onOriginChange(rows[0]);
+    onStopsChange(rows.slice(1, -1));
+    onDestinationChange(rows[rows.length - 1]);
+    // moving a row by hand means the user wants their own order
     if (order !== 'given') onOrderChange('given');
   };
 
@@ -125,7 +129,7 @@ export default function SearchCard({
     if (focusStop === null) return;
     handleRefs.current[focusStop]?.focus();
     setFocusStop(null);
-  }, [focusStop, stops]);
+  }, [focusStop, stops, origin, destination]);
 
   const onHandleDown = (i: number, e: ReactPointerEvent<HTMLElement>) => {
     startY.current = e.clientY;
@@ -139,7 +143,7 @@ export default function SearchCard({
   const onHandleMove = (e: ReactPointerEvent<HTMLElement>) => {
     if (!drag) return;
     const offset = e.clientY - startY.current;
-    const to = Math.min(stops.length - 1, Math.max(0, Math.round(drag.from + offset / drag.rowH)));
+    const to = Math.min(count - 1, Math.max(0, Math.round(drag.from + offset / drag.rowH)));
     setDrag({ ...drag, offset, to });
   };
   const endDrag = (commit: boolean) => {
@@ -148,13 +152,13 @@ export default function SearchCard({
   };
   const onHandleKey = (i: number, e: ReactKeyboardEvent<HTMLElement>) => {
     const to = e.key === 'ArrowUp' ? i - 1 : e.key === 'ArrowDown' ? i + 1 : i;
-    if (to === i || to < 0 || to >= stops.length) return;
+    if (to === i || to < 0 || to >= count) return;
     e.preventDefault();
     reorder(i, to);
     setFocusStop(to);
   };
 
-  /** Vertical shift of a stop row while another one is dragged: the rows it passes make room. */
+  /** Vertical shift of a row while another one is dragged: the rows it passes make room. */
   const shift = (i: number) => {
     if (!drag) return 0;
     if (i === drag.from) return drag.offset;
@@ -163,6 +167,48 @@ export default function SearchCard({
     return 0;
   };
 
+
+  const rowName = (index: number) => (index === 0 ? 'Start' : index === count - 1 ? 'Cel' : `Przystanek ${index}`);
+
+  /** Handle that drags a row (also usable with ArrowUp / ArrowDown); nothing to reorder without stops. */
+  const handle = (index: number) =>
+    stops.length === 0 ? null : (
+      <IconButton
+        size="small"
+        ref={(el) => {
+          handleRefs.current[index] = el;
+        }}
+        aria-label={`${rowName(index)} (pozycja ${index + 1} z ${count}): przeciągnij albo użyj strzałek w górę i w dół, aby zmienić kolejność`}
+        onPointerDown={(e) => onHandleDown(index, e)}
+        onPointerMove={onHandleMove}
+        onPointerUp={() => endDrag(true)}
+        onPointerCancel={() => endDrag(false)}
+        onKeyDown={(e) => onHandleKey(index, e)}
+        sx={{ touchAction: 'none', cursor: drag?.from === index ? 'grabbing' : 'grab', color: 'text.secondary' }}
+      >
+        <DragIndicator fontSize="small" />
+      </IconButton>
+    );
+
+  /** Same width as the remove button, so the handles of all rows line up. */
+  const spacer = stops.length === 0 ? null : <Box sx={{ width: 34, flexShrink: 0 }} />;
+
+  const rowExtra = (index: number) => ({
+    ref: (el: HTMLElement | null) => {
+      rowRefs.current[index] = el;
+    },
+    sx: {
+      position: 'relative',
+      zIndex: drag?.from === index ? 3 : 0,
+      transform: `translateY(${shift(index)}px)`,
+      transition: drag && drag.from !== index ? 'transform 0.15s ease' : 'none',
+      ...(drag?.from === index && {
+        bgcolor: 'background.paper',
+        borderRadius: RADIUS.tile,
+        boxShadow: 6,
+      }),
+    },
+  });
 
   const row = (
     index: number,
@@ -218,6 +264,11 @@ export default function SearchCard({
             showLocateButton
             onLocate={onLocate}
           />,
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {handle(0)}
+            {spacer}
+          </Box>,
+          rowExtra(0),
         )}
 
         {stops.map((stop, i) =>
@@ -246,23 +297,7 @@ export default function SearchCard({
               autoFocus={stop === null}
             />,
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              {stops.length > 1 && (
-                <IconButton
-                  size="small"
-                  ref={(el) => {
-                    handleRefs.current[i] = el;
-                  }}
-                  aria-label={`Przystanek ${i + 1} z ${stops.length}: przeciągnij albo użyj strzałek w górę i w dół, aby zmienić kolejność`}
-                  onPointerDown={(e) => onHandleDown(i, e)}
-                  onPointerMove={onHandleMove}
-                  onPointerUp={() => endDrag(true)}
-                  onPointerCancel={() => endDrag(false)}
-                  onKeyDown={(e) => onHandleKey(i, e)}
-                  sx={{ touchAction: 'none', cursor: drag?.from === i ? 'grabbing' : 'grab', color: 'text.secondary' }}
-                >
-                  <DragIndicator fontSize="small" />
-                </IconButton>
-              )}
+              {handle(i + 1)}
               <IconButton
                 size="small"
                 aria-label={`Usuń przystanek ${i + 1}`}
@@ -271,22 +306,7 @@ export default function SearchCard({
                 <Close fontSize="small" />
               </IconButton>
             </Box>,
-            {
-              ref: (el) => {
-                rowRefs.current[i] = el;
-              },
-              sx: {
-                position: 'relative',
-                zIndex: drag?.from === i ? 3 : 0,
-                transform: `translateY(${shift(i)}px)`,
-                transition: drag && drag.from !== i ? 'transform 0.15s ease' : 'none',
-                ...(drag?.from === i && {
-                  bgcolor: 'background.paper',
-                  borderRadius: RADIUS.tile,
-                  boxShadow: 6,
-                }),
-              },
-            },
+            rowExtra(i + 1),
           ),
         )}
 
@@ -299,6 +319,11 @@ export default function SearchCard({
             placeholder="Dokąd jedziesz?"
             currentLocation={currentLocation}
           />,
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {handle(count - 1)}
+            {spacer}
+          </Box>,
+          rowExtra(count - 1),
         )}
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', pl: 4.5, pt: 0.5 }}>
