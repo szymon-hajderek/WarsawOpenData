@@ -95,9 +95,10 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Backend: Python + FastAPI
 - Database: none for now. Raw files in `data/`, parsed by Python modules on first use.
   PostgreSQL + PostGIS (or SQLite) later if needed.
-- Routing: a long-running **C++ engine** keeps the graph + live state in memory; Python
-  (FastAPI) is a thin backend that pushes updates and asks it for routes. (OpenTripPlanner
-  was the earlier idea; the team chose a custom C++ engine instead.)
+- Routing: a long-running **C++ engine** builds its own graph at startup and keeps it in memory.
+  After that, Python pushes only live data and values derived from it (vehicle positions, Veturilo
+  availability, alerts, delays), then asks the engine for routes. Python does not send the graph.
+  (OpenTripPlanner was the earlier idea; the team chose a custom C++ engine instead.)
 - Deployment: Docker
 
 ### Folder structure
@@ -254,8 +255,9 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Routing is behind a `RouteEngine` seam (`app/routing/engine.py`): `query_routes(...)` and
   `update_state(...)`. Current impl is `RealRouteEngine` (GTFS + OSM + Veturilo). `StubRouteEngine`
   is the old mock. A `CppRouteEngine` can replace the real engine later; nothing else changes.
-- The Python<->C++ wire format is owned by the C++ team (not defined yet). Python will keep the
-  C++ service current via `update_state` (live data) and delegate routing via `query_routes`.
+- The Python<->C++ wire format is owned by the C++ team (not defined yet). C++ builds the graph
+  itself when it starts. `update_state` then carries only live data and derivatives of that live
+  data, not a new graph. `query_routes` asks C++ for routes. Nothing calls `update_state` yet.
 - Config via env vars (all optional): `CORS_ORIGINS`, `NOMINATIM_URL`, `NOMINATIM_USER_AGENT`.
 
 ### Decisions and notes

@@ -26,7 +26,7 @@ Done:
 
 Planned:
 
-- **Real routing** with a custom C++ engine (keeps the graph + live state in memory; Python feeds it data).
+- **Real routing** with a custom C++ engine. It builds its own graph at startup. Python then sends only live data and values derived from it.
 - **Multi-stop routes.** Plan one trip through many places, with many means of transport.
 - **Online route planning.** Change the route while the user travels.
 - **Live delays.** Use real-time vehicle data to find the fastest route now.
@@ -100,4 +100,4 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    The package `backend/app/` is the route engine imported by `main.py`. `requirements.txt` is only
    the old slim app and cannot load the timetable (it has no numpy/scipy).
 6. **Database, Docker.** Not set up yet (PostgreSQL + PostGIS, Docker). The C++ routing engine is
-   planned (a long-running service that keeps the graph + live state in memory).
+   planned (a long-running service that builds its own graph at startup; Python then sends only live updates).
