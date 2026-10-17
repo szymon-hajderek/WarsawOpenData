@@ -1,0 +1,9 @@
+{
+ "title": "Dworzec Wilenski -> Rondo Waszyngtona with the tram 4 min late",
+ "source": "gtfs",
+ "start": "2026-10-21T08:30:00",
+ "trip": {"from": {"id": "dworzec-wilenski", "label": "Dworzec Wileński", "position": [52.25450, 21.03500]},
+          "to": {"id": "rondo-waszyngtona", "label": "Rondo Waszyngtona", "position": [52.23900, 21.05100]},
+          "profile": "standard"},
+ "test": {"delay_s": 240}
+}

@@ -7,6 +7,7 @@ Alternative (more detail, non-standard): https://maps2.nextbike.net/maps/nextbik
 import httpx
 from fastapi import APIRouter, HTTPException
 
+from sim import scenario
 from config import GBFS_DIR, TTLCache, load_json, save_json
 
 BASE = "https://gbfs.nextbike.net/maps/gbfs/v2/nextbike_vw"
@@ -33,6 +34,8 @@ def download() -> list[str]:
 
 
 def _get(name: str, live: bool) -> dict:
+    if live and scenario.current():
+        return scenario.current().gbfs(name)
     if live:
         return _cache.get(name, lambda: fetch(name))
     return load_json(GBFS_DIR / f"veturilo_{name}.json")

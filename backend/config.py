@@ -107,7 +107,12 @@ class TTLCache:
         self._lock = threading.Lock()
 
     def peek(self, key):
-        """The cached value, or None when the key is missing or too old."""
+        """The cached value, or None when the key is missing or too old. Always None in simulation mode,
+        where the clock jumps and live answers must follow it."""
+        from sim import clock
+
+        if clock.simulated():
+            return None
         with self._lock:
             hit = self._data.get(key)
             if hit and time.monotonic() - hit[0] < self.ttl:

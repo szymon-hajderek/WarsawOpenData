@@ -20,7 +20,7 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 - Examples below are real answers from a running server. Long lists are cut to 1-2 items and end with `"..."`.
 - Coordinates are WGS84 `lat` / `lon` in degrees. Times are Warsaw local time.
 - Endpoints: 27 (data API 24: meta 2, GTFS 8, live and City Hall 4, bus detection 2, Veturilo 5, OSM 3;
-  routing API 3).
+  routing API 3), plus 4 simulation endpoints that exist only in simulation mode (`SIM_SCENARIO`).
 
 | Group | Prefix | Source file |
 |---|---|---|
@@ -31,6 +31,7 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 | [Veturilo](#veturilo-city-bikes) | `/api/veturilo` | `backend/sources/nextbike.py` |
 | [OSM](#osm-street-graph) | `/api/osm` | `backend/sources/osm.py` |
 | [Routing API](#routing-api-backendapp) | `/api/routes`, `/api/geocode`, `/health` | `backend/app/` |
+| [Simulation](#simulation-only-with-sim_scenario) | `/api/sim` | `backend/sim/api.py` |
 
 ## IDs
 
@@ -550,3 +551,82 @@ when Nominatim fails. The server keeps answers for 10 minutes, so a repeated sea
 ### `GET /health`
 
 Liveness check: `{"status": "ok"}`.
+
+---
+
+## Simulation (only with `SIM_SCENARIO`)
+
+For integration tests and demos. Start the server with `SIM_SCENARIO=<name>` (a file
+`integration/scenarios/<name>.json`, see `integration/README.md`). Then:
+
+- the live feeds replay the scenario on a simulated clock: `GET /api/live/vehicles` (recorded or made from
+  GTFS), Veturilo status (saved GBFS file + changes from the scenario) and ZTM alerts. No external API is called,
+  and `PORTAL_KEY` is not needed;
+- `/api/live/nearest-buses`, `/api/live/delay` and departures use the simulated time. The route engine reads the
+  real clock: send the simulated `time` from `GET /api/sim/state` as `when` in `POST /api/routes`;
+- the 3 s vehicle poller is off: each `POST /api/sim/clock` reads the feed once.
+
+Without `SIM_SCENARIO` these endpoints do not exist (`404`).
+`t` and `start` are epoch seconds; `time` is Warsaw local time.
+
+### `GET /api/sim/state`
+
+Clock time and the loaded scenario.
+
+```json
+{"scenario": "trip-gorczewska-daszynskiego", "source": "gtfs", "start": 1792564200.0,
+ "title": "Osiedle Gorczewska -> Rondo Daszynskiego by bus and tram", "t": 1792564200.0,
+ "time": "2026-10-21T08:30:00", "elapsed_s": 0.0}
+```
+
+### `POST /api/sim/clock`
+
+Set and / or move the clock, then bus detection reads the feed at the new time. Answer: same as `GET /api/sim/state`.
+
+| Body field | Type | Meaning |
+|---|---|---|
+| `t` | number, optional | set the clock to this epoch (s) |
+| `step_s` | number 0-3600, optional | then move it forward by this many seconds |
+
+```json
+{"step_s": 60}
+```
+
+```json
+{"scenario": "trip-gorczewska-daszynskiego", "source": "gtfs", "start": 1792564200.0,
+ "title": "Osiedle Gorczewska -> Rondo Daszynskiego by bus and tram", "t": 1792564260.0,
+ "time": "2026-10-21T08:31:00", "elapsed_s": 60.0}
+```
+
+### `GET /api/sim/scenario`
+
+The loaded scenario file as JSON (`title`, `source`, `start`, `trip`, `test`, and optional `recording`,
+`delays`, `alerts`, `veturilo`).
+
+```json
+{"title": "Osiedle Gorczewska -> Rondo Daszynskiego by bus and tram", "source": "gtfs", "start": "2026-10-21T08:30:00",
+ "trip": {"from": {"id": "os-gorczewska", "label": "Osiedle Górczewska", "position": [52.2397, 20.907]}, "...": "..."}}
+```
+
+### `POST /api/sim/scenario`
+
+Load another scenario, forget all vehicles of the previous one and set the clock to its start.
+Body: `{"name": "recorded-bus-ride"}` (lowercase letters, digits and `-`, else `422`).
+Answer: same as `GET /api/sim/state`.
+
+```json
+{"scenario": "recorded-bus-ride", "source": "recorded", "start": 1792243404.1179507,
+ "title": "Which bus am I on? (2-minute recording)", "t": 1792243404.1179507,
+ "time": "2026-10-17T15:23:24", "elapsed_s": 0.0}
+```
+
+Error: `404 {"detail": "unknown scenario"}`.
+
+In simulation mode `GET /api/live/vehicles` keeps its form. A vehicle made from GTFS has
+`vehicle` = `S<line>-<brigade>` (e.g. `S521-3`); a recorded one keeps its real number:
+
+```json
+[{"line": "161", "brigade": "2", "lat": 52.162864, "lon": 21.212823, "time": "2026-10-17 15:23:04",
+  "vehicle": "1000", "mode": "bus", "route_id": "ztm:161"}, "..."]
+```
+

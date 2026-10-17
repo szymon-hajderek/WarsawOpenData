@@ -3,6 +3,7 @@
 Run from backend/: uv run uvicorn main:app --reload
 """
 import logging
+import os
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -18,6 +19,7 @@ from app.api import routes as route_api
 from app.config import settings
 from config import DATA, MissingKey, UpstreamError, load_json
 from sources import mkuran, nextbike, osm, um_warszawa
+from sim import api as sim_api
 from sources.registry import SOURCES
 
 
@@ -94,6 +96,11 @@ app.include_router(bus_detect.router)
 app.include_router(route_api.router)
 app.include_router(geocode.router)
 app.include_router(history.router)
+
+# Simulation mode (integration tests, demo): the live feeds replay a scenario on a movable clock.
+if os.getenv("SIM_SCENARIO"):
+    sim_api.activate(os.environ["SIM_SCENARIO"], poll=False)
+    app.include_router(sim_api.router)
 
 
 @app.get("/api/sources", tags=["meta"])

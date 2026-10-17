@@ -5,14 +5,14 @@ from fastapi import APIRouter, HTTPException
 
 from ..models import RouteOption, RouteRequest
 from ..routing.engine import RouteEngine
+from ..routing.factory import make_engine
 from ..routing.multi import query_multi
-from ..routing.real_engine import RealRouteEngine
 
 router = APIRouter(prefix="/api", tags=["routes"])
 log = logging.getLogger("uvicorn.error")
 
-# Real timetable + street graph. The stub stays in the repo as the reference for the old mock.
-engine: RouteEngine = RealRouteEngine()
+# ROUTE_ENGINE picks it (default: real timetable + street graph). The stub is the old mock.
+engine: RouteEngine = make_engine()
 
 
 @router.post("/routes", response_model=list[RouteOption])

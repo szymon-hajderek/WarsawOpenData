@@ -22,3 +22,5 @@ dist/
 data/**/*.pb
 # Parsed caches, rebuilt from the raw files by backend/sources/*
 data/derived/
+# Integration test output (tracks for the replay page), rebuilt by each run
+integration/report/

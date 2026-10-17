@@ -10,6 +10,7 @@ import logging
 import httpx
 
 from config import PLK_KEY, TTLCache
+from sim import scenario
 
 log = logging.getLogger("uvicorn.error")
 
@@ -22,7 +23,10 @@ PLK_URL = "https://pdp-api.plk-sa.pl/api/v1/operations?carriersInclude=KM,SKM&wi
 
 
 def delays_by_trip() -> dict[str, int]:
-    """GTFS-RT trip id -> delay in seconds. Both the raw id and the feed-prefixed id are stored."""
+    """GTFS-RT trip id -> delay in seconds. Both the raw id and the feed-prefixed id are stored.
+    Empty in simulation mode (train delays are not simulated)."""
+    if scenario.current():
+        return {}
     try:
         return _CACHE.get("gtfs-rt", _trip_updates) or {}
     except Exception as exc:
@@ -32,7 +36,7 @@ def delays_by_trip() -> dict[str, int]:
 
 def delays_by_station() -> dict[str, int]:
     """PLK station id -> delay in seconds. Empty when `PLK_KEY` is not set."""
-    if not PLK_KEY:
+    if not PLK_KEY or scenario.current():
         return {}
     try:
         return _CACHE.get("plk", _plk) or {}

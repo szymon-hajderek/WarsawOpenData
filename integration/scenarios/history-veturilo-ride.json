@@ -1,0 +1,9 @@
+{
+ "title": "Speed history from a walk + Veturilo ride",
+ "source": "gtfs",
+ "start": "2026-10-21T17:00:00",
+ "trip": {"from": {"id": "metro-kabaty", "label": "Metro Kabaty", "position": [52.13120, 21.06570]},
+          "to": {"id": "ursynow-polnocny", "label": "Ursynów Północny", "position": [52.15890, 21.02790]},
+          "profile": "standard"},
+ "test": {"record_every_s": 4, "noise_m": 5, "tolerance": 0.1}
+}

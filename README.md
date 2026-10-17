@@ -98,6 +98,12 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
      `uv run python preprocess_street.py` (~10 min on 16 threads, ~1.6 GB in `data/derived/street/`).
      Details: `algorithms/router/preprocess/README.md`
    - `uv run pytest tests ../algorithms` runs the tests (pytest is in the `dev` group, installed by `uv sync`)
+   - `uv run pytest ../integration` runs the integration tests: synthetic trips on real data in simulation mode,
+     about 6 minutes, no keys needed (`-m recorded` / `-m gtfs` for one kind). Results: `integration/RESULTS.md`.
+     See `integration/README.md`
+   - optional `SIM_SCENARIO=<name>` starts the server in simulation mode with `integration/scenarios/<name>.json`
+     (simulated clock, replayed feeds, `/api/sim/*` endpoints, no `PORTAL_KEY` needed)
+   - optional `ROUTE_ENGINE` picks the route engine: `real` (default) or `stub`
    - bus detection simulation: `uv run python ../algorithms/simulation/simulate_nearest_buses.py`
      (uses the committed sample; record a new one with `uv run python ../algorithms/simulation/record_buses.py`, needs `PORTAL_KEY`)
    - rebuild the results page `artifacts/bus-detection-simulation.html`: `uv run python ../algorithms/simulation/export_viz.py`
