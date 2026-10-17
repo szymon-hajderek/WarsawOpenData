@@ -19,7 +19,7 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 - No authentication on our side. The keys for City Hall endpoints live in `.env` on the server (`ACCESS.md`).
 - Examples below are real answers from a running server. Long lists are cut to 1-2 items and end with `"..."`.
 - Coordinates are WGS84 `lat` / `lon` in degrees. Times are Warsaw local time.
-- Endpoint groups are listed below, plus 4 simulation endpoints that exist only in simulation mode (`SIM_SCENARIO`).
+- Endpoint groups are listed below, plus 6 simulation endpoints that exist only in simulation mode (`SIM_SCENARIO`).
 
 | Group | Prefix | Source file |
 |---|---|---|
@@ -705,6 +705,51 @@ Answer: same as `GET /api/sim/state`.
 ```
 
 Error: `404 {"detail": "unknown scenario"}`.
+
+### `GET /api/sim/scenarios`
+
+Every scenario file in `integration/scenarios/` (the demo lists them). `trip` is `null` for a scenario
+without a planned trip.
+
+```json
+[{"name": "trip-gorczewska-daszynskiego", "title": "Osiedle Gorczewska -> Rondo Daszynskiego by bus and tram",
+  "source": "gtfs",
+  "trip": {"from": {"id": "os-gorczewska", "label": "Osiedle Górczewska", "position": [52.2397, 20.907]},
+           "to": {"id": "rondo-daszynskiego", "label": "Rondo Daszyńskiego", "position": [52.2303, 20.984]},
+           "profile": "standard"}}, "..."]
+```
+
+### `POST /api/sim/ride`
+
+Simulate a user who travels a route option and return the whole timeline (the demo plays it back). The user leaves at
+`option.departure`, walks, waits for a synthetic vehicle of the planned line, rides it and walks on. Takes 30-60 s for a
+long trip, one ride at a time (`409` if no scenario is loaded). Afterwards the clock and the vehicles go back to the
+scenario start, so the next ride starts from the same state.
+
+| Body field | Type | Meaning |
+|---|---|---|
+| `option` | object | a `RouteOption` as `POST /api/routes` returns it |
+| `profile` | string, default `standard` | walking / cycling pace profile (`standard`, `slow`, `accessible`) |
+| `noiseM` | number 0-100, default 15 | GPS error, standard deviation per axis (m) |
+| `seed` | integer, default 1 | the same seed gives the same ride |
+
+Answer: `ok` / `reason` (the ride failed, e.g. no vehicle came in 30 min), `start` / `end` (epoch s), `plan` (legs with
+`mode`, `line`, `path`), `fixes` (every 5 s: `lat` / `lon` what the phone reports, `trueLat` / `trueLon` where the user is,
+`leg` index, `vehicle` id while riding), `events` (`board` / `alight`), `detections` (every 10 s while riding: the
+candidates `POST /api/live/nearest-buses` returned for the last 3 fixes).
+
+```json
+{"ok": true, "reason": "", "start": 1792564260.0, "end": 1792566410.0,
+ "plan": [{"mode": "walk", "line": null, "path": [[52.2397, 20.907], "..."]}, "..."],
+ "fixes": [{"t": 1792564265.0, "lat": 52.239712, "lon": 20.907031, "trueLat": 52.239701, "trueLon": 20.907018,
+            "leg": 0, "vehicle": null}, "..."],
+ "events": [{"t": 1792565100.0, "event": "board", "line": "11", "vehicle": "tram-S11-3", "waitedS": 120.0}, "..."],
+ "detections": [{"t": 1792565130.0, "vehicle": "tram-S11-3",
+                 "candidates": [{"id": "tram-S11-3", "mode": "tram", "line": "11", "direction": "Sielce",
+                                 "vehicle": "S11-3", "brigade": "3", "rmse_m": 20.1}, "..."]}, "..."]}
+```
+
+Errors: `422 {"detail": "bad option: ..."}` (a broken option), `409 {"detail": "no scenario loaded"}`.
 
 In simulation mode `GET /api/live/vehicles` keeps its form. A vehicle made from GTFS has
 `vehicle` = `S<line>-<brigade>` (e.g. `S521-3`); a recorded one keeps its real number:

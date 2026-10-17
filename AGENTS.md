@@ -197,6 +197,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   ~750 m (network) apart. Report: `uv run python siting_report.py` -> `data/SITING_REPORT.md`, `artifacts/veturilo-siting.html`
   (Leaflet + OSM tiles; the tiles do not load when published as a claude.ai artifact, its CSP blocks images from other hosts).
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
+- **Ride demo** (`./demo.sh [scenario]`): Demo tab in the frontend, shown only when `GET /api/sim/state` answers (backend in
+  simulation mode). `POST /api/sim/ride` (`backend/sim/api.py`, `backend/sim/journey.py`) computes the whole ride (30-60 s), the page
+  (`DemoPage.tsx`, `useRidePlayback`, `sim/ride.ts::sampleRide`) plays it back (pause, 1x / 10x / 60x, slider, GPS error). Route
+  options for a free route are asked with `when` = simulated date + hour. `journey.py` lives in `backend/sim/`, not in `integration/`.
 - **Integration tests** (`integration/`, see its README): `uv run pytest ../integration` from `backend/`, ~6 min.
   Simulation mode (`backend/sim/`): one clock (`sim.clock.now()`; live data code reads time there, never
   `time.time()` / `datetime.now()`; the route engine does not, so send `when`), a scenario file in `integration/scenarios/` replaces the vehicle feed

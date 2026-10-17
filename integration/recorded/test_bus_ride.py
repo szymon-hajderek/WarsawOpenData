@@ -14,7 +14,7 @@ import pytest
 
 import results
 from config import haversine_m
-from journey import GpsNoise, interpolate
+from sim.journey import GpsNoise, interpolate
 from sim import api as sim_api
 
 pytestmark = pytest.mark.recorded

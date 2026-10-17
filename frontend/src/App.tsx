@@ -8,6 +8,8 @@ import VehicleSheet from './components/VehicleSheet';
 import { useSnapHeights, type SheetSnap } from './components/SnapSheet';
 import BottomNav, { type Tab } from './components/BottomNav';
 import PreferencesPage from './components/PreferencesPage';
+import DemoPage from './components/DemoPage';
+import { simState } from './api/sim';
 import FilterSheet from './components/FilterSheet';
 import { useColorMode } from './colorMode';
 import { requestLinePopup } from './api/vehicle';
@@ -43,6 +45,11 @@ export default function App() {
   const [stopFields, setStopFields] = useState<(Place | null)[]>([]);
   const [stopOrder, setStopOrder] = useState<StopOrder>('given');
   const [tab, setTab] = useState<Tab>('map');
+  // The Demo tab exists only when the backend runs in simulation mode (SIM_SCENARIO).
+  const [simulation, setSimulation] = useState(false);
+  useEffect(() => {
+    void simState().then((s) => setSimulation(s !== null));
+  }, []);
   const { effective, activeRule } = usePreferences();
   const { tracker } = useHistory();
   // Filters apply to the current search only; they start from the saved preferences.
@@ -149,7 +156,10 @@ export default function App() {
   return (
     <Box sx={{ position: 'fixed', inset: 0, bgcolor: 'background.default' }}>
       {/* Under the Preferences page the map and panels cannot take focus or be read by a screen reader. */}
-      <Box {...(tab === 'preferences' ? ({ inert: '' } as object) : {})}>
+      <Box
+        {...(tab !== 'map' ? ({ inert: '' } as object) : {})}
+        sx={tab === 'demo' ? { visibility: 'hidden' } : undefined}
+      >
         <MapView
           paletteMode={mode}
           onToggleMode={toggle}
@@ -276,7 +286,8 @@ export default function App() {
       )}
 
       {tab === 'preferences' && <PreferencesPage />}
-      <BottomNav tab={tab} onChange={setTab} />
+      {tab === 'demo' && <DemoPage paletteMode={mode} onToggleMode={toggle} />}
+      <BottomNav tab={tab} onChange={setTab} demo={simulation} />
 
       <Snackbar
         open={geoError}
