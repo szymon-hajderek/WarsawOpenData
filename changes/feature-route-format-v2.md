@@ -10,3 +10,4 @@ New route format from the user (see `data/API.md`):
 - Speed history: `veturilo` and `bike` legs both count as cycling. Integration tests use the `veturilo` mode.
 - Assumptions: `walkDistance` / `bikeDistance` in metres like `distanceM`; the request field `body` is kept (weight, height, age and sex are accepted but unused); `algorithms/fares.py` and the fare readers in `sources/mkuran.py` stay in the repo, unused by the route engine (delete them if the price is gone for good).
 - Not checked: the real engine against real data (needs the GTFS / OSM files; Git LFS pointers on this machine), integration tests (`integration/`, need those files). Backend tests (`backend/tests`, `algorithms`) and the frontend tests pass; one test (`test_upstream_failure_gives_502_without_the_key`) fails on `main` as well.
+- `formatCost` (`frontend/src/utils/format.ts`) is kept, unused for now, because the price display comes back soon.
