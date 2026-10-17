@@ -1,4 +1,4 @@
-"""Which vehicle is the user on? Polls live bus and tram positions every 10 s, keeps a short history
+"""Which vehicle is the user on? Polls live bus and tram positions every 3 s, keeps a short history
 per vehicle and ranks them by MSE against the user's last 1-3 positions (algorithms/nearest_buses.py).
 
 Direction comes from the GTFS trip with the same line and brigade (trip_headsign).
@@ -22,7 +22,7 @@ from nearest_buses import rank_buses  # noqa: E402
 # When LIVE_BUSES_URL is set, only that feed is polled (mode taken from type=).
 # Otherwise both the bus and the tram feeds of this server are polled.
 _CUSTOM = os.getenv("LIVE_BUSES_URL")
-POLL_S = 10
+POLL_S = 3  # the feed changes about every 10 s; 3 s catches a new position soon after it appears
 HISTORY = 3  # positions kept per vehicle
 CANDIDATES = 4  # the popup shows the most likely vehicle + 3 others
 

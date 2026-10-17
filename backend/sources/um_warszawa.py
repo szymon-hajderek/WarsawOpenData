@@ -22,6 +22,7 @@ TIMES_ID = "e923fa0e-d96c-43f9-ae6e-60518c9f3238"
 VEHICLE_TYPES = {"bus": 1, "tram": 2}
 
 _cache = TTLCache(30)
+_veh_cache = TTLCache(3)  # bus detection polls the vehicle feed every 3 s
 
 
 # ---------------------------------------------------------------- id mapping
@@ -131,10 +132,10 @@ router = APIRouter(prefix="/api", tags=["um.warszawa.pl (live)"])
 @router.get("/live/vehicles")
 def api_vehicles(type: str = Query("bus", description="bus or tram"), line: str | None = None,
                  max_age_s: int = Query(300, description="drop positions older than this")):
-    """Live ZTM bus / tram positions (30 s cache). route_id matches /api/gtfs/routes."""
+    """Live ZTM bus / tram positions (3 s cache). route_id matches /api/gtfs/routes."""
     if type not in VEHICLE_TYPES:
         raise HTTPException(400, "type must be bus or tram")
-    data = fresh(_cache.get(("veh", type), lambda: fetch_vehicles(type)), max_age_s)
+    data = fresh(_veh_cache.get(("veh", type), lambda: fetch_vehicles(type)), max_age_s)
     return [v for v in data if not line or v["line"] == line]
 
 

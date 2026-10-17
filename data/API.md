@@ -198,7 +198,7 @@ Rail stations merged across feeds (distance < 150 m, same name) and near misses.
 ## Live vehicles and City Hall
 
 Data from `api.um.warszawa.pl`. These endpoints need `PORTAL_KEY` / `WAW_API_KEY` in `.env` on the server.
-Answers are cached for 30 s.
+Answers are cached for 30 s, except `GET /api/live/vehicles` (3 s).
 
 ### `GET /api/live/vehicles`
 
@@ -254,7 +254,7 @@ Error: `404 {"detail": "unknown line"}`.
 
 ## Bus detection
 
-Answers "which vehicle is the user on?". The server polls live bus and tram positions every 10 s and keeps
+Answers "which vehicle is the user on?". The server polls live bus and tram positions every 3 s and keeps
 the last 3 positions of each vehicle. It ranks them by the error against the last 1-3 user positions
 (`algorithms/nearest_buses.py`). `direction` is the GTFS headsign of the trip with the same line and brigade.
 
