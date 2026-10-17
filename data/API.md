@@ -3,13 +3,15 @@
 This file is the **contract** of the backend API (FastAPI, `backend/`). Frontend and backend code must match it.
 To change the API, edit this file first, then the code, in the same PR (see `AGENTS.md`).
 
-- Base URL in development: `http://localhost:8000` (`cd backend && uv run uvicorn main:app --reload`).
+- Base URL in development: `http://localhost:8000`. Two apps: the data API (`cd backend && uv run uvicorn main:app --reload`)
+  and the routing API (`cd backend && uvicorn app.main:app --reload`, section at the end). Run one at a time.
 - Interactive docs generated from the code: `/docs`, schema: `/openapi.json`.
 - All answers are JSON. Errors have the form `{"detail": "<message>"}`.
 - No authentication on our side. The keys for City Hall endpoints live in `.env` on the server (`ACCESS.md`).
 - Examples below are real answers from a running server. Long lists are cut to 1-2 items and end with `"..."`.
 - Coordinates are WGS84 `lat` / `lon` in degrees. Times are Warsaw local time.
-- Endpoints: 23 (meta 2, GTFS 8, live and City Hall 4, bus detection 1, Veturilo 5, OSM 3).
+- Endpoints: 26 (data API 23: meta 2, GTFS 8, live and City Hall 4, bus detection 1, Veturilo 5, OSM 3;
+  routing API 3).
 
 | Group | Prefix | Source file |
 |---|---|---|
@@ -19,6 +21,7 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 | [Bus detection](#bus-detection) | `/api/live` | `backend/bus_detect.py` |
 | [Veturilo](#veturilo-city-bikes) | `/api/veturilo` | `backend/sources/nextbike.py` |
 | [OSM](#osm-street-graph) | `/api/osm` | `backend/sources/osm.py` |
+| [Routing API](#routing-api-backendapp) | `/api/routes`, `/api/geocode`, `/health` | `backend/app/` |
 
 ## IDs
 
@@ -394,3 +397,60 @@ Answer: `mode`, `seconds` (total time with waits), `length_m`, `wait_s` (expecte
 
 Errors: `404` with a message when no path exists. A point far outside Warsaw snaps to the edge of the graph
 (`snap_m` is large) and does not fail. A `mode` other than `walk` or `bike` returns `400 {"detail": "mode must be walk or bike"}`.
+
+---
+
+## Routing API (`backend/app/`)
+
+Second FastAPI app: serves the frontend. Start: `cd backend && uvicorn app.main:app --reload`
+(venv + `requirements.txt`, see `backend/README.md`). It is a separate app from the data API above and both
+default to port 8000: run one at a time or give one a different `--port`. CORS allows the origins in
+`CORS_ORIGINS` (default the Vite dev server). JSON keys are camelCase and match `frontend/src/types.ts`.
+
+Types:
+
+| Type | Fields |
+|---|---|
+| `LatLng` | `[lat, lon]` |
+| `Place` | `id`, `label`, `sublabel` (optional), `position` (`LatLng`), `isCurrentLocation` (optional bool) |
+| `RouteLeg` | `mode` (`walk`, `bike`, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names), `line` (or `null`), `durationMin`, `distanceM`, `path` (list of `LatLng`) |
+| `RouteOption` | `id`, `title`, `legs`, `departure`, `arrival` (`HH:MM`), `durationMin`, `distanceM`, `calories`, `transfers`, `costPln`, `tags` |
+
+### `POST /api/routes`
+
+Route options between two places. Today a stub engine answers (the ported frontend mock, rough estimates);
+the real engine comes later behind the same endpoint.
+
+Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow` or `accessible`, default `standard`).
+
+Answer: list of `RouteOption`.
+
+```json
+[{"id": "bike", "title": "Veturilo",
+  "legs": [{"mode": "walk", "from": "Start", "to": "Stacja Veturilo", "line": null,
+            "durationMin": 1, "distanceM": 83.4,
+            "path": [[52.2297, 21.0122], [52.22994, 21.01252], "..."]}, "..."],
+  "departure": "15:59", "arrival": "16:10", "durationMin": 11, "distanceM": 2084.6,
+  "calories": 71, "transfers": 0, "costPln": 0.0, "tags": ["Najszybsza"]}, "..."]
+```
+
+Error: `422` when the body is not valid.
+
+### `GET /api/geocode`
+
+Place search: proxy to OpenStreetMap Nominatim, limited to Warsaw, up to 6 results, duplicates removed.
+
+| Query | Type | Default | Meaning |
+|---|---|---|---|
+| `q` | string, at least 1 character | required | search text |
+
+```json
+[{"id": "osm-177963717", "label": "Dworzec Centralny", "sublabel": "Aleje Jerozolimskie 54, Śródmieście",
+  "position": [52.2288747, 21.0040358], "isCurrentLocation": null}, "..."]
+```
+
+Errors: `422` for an empty `q`; `502 {"detail": "Geocoding failed: ..."}` when Nominatim fails.
+
+### `GET /health`
+
+Liveness check: `{"status": "ok"}`.
