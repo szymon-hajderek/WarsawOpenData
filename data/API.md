@@ -7,6 +7,15 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
   and the routing API (`cd backend && uvicorn app.main:app --reload`, section at the end). Run one at a time.
 - Interactive docs generated from the code: `/docs`, schema: `/openapi.json`.
 - All answers are JSON. Errors have the form `{"detail": "<message>"}`.
+- Errors that any endpoint can return (they are not repeated below):
+  - `422` for a query value that is out of range or in the wrong form (e.g. `limit=-1`, `lat=999`, `bbox=1,2`).
+  - `502 {"detail": "external data source failed, try again later"}` when an external API (City Hall, Nextbike)
+    fails. The message never contains the URL or a key.
+  - `503` when a key in the server `.env` is empty (the message names it), or, for `/api/gtfs`, `/api/osm`,
+    `/api/routes` and `/api/live/nearest-buses`, while the server loads its caches at start (about 1-2 minutes
+    after a start, longer on the first run). The header `Retry-After: 30` is set.
+  - `404` when a data file is missing on the server (run `download.py`, or `report.py` for `/api/stats`).
+- Users never call external APIs. Only the server does, and it caches the answers.
 - No authentication on our side. The keys for City Hall endpoints live in `.env` on the server (`ACCESS.md`).
 - Examples below are real answers from a running server. Long lists are cut to 1-2 items and end with `"..."`.
 - Coordinates are WGS84 `lat` / `lon` in degrees. Times are Warsaw local time.
@@ -85,7 +94,7 @@ Boarding points (posts / platforms). Merged rail duplicates are hidden unless `i
 |---|---|---|---|
 | `mode` | string | all | `bus`, `tram`, `metro` or `rail` |
 | `feed` | string | all | `ztm`, `wkd` or `pkp` |
-| `bbox` | string | ZTM area | `min_lat,min_lon,max_lat,max_lon` |
+| `bbox` | string | ZTM area | `min_lat,min_lon,max_lat,max_lon` (four numbers, min <= max, else `422`) |
 | `include_merged` | bool | `false` | also return stops merged into another station |
 
 Answer: list of stops. Fields: `id`, `feed`, `raw_id`, `name`, `code`, `lat`, `lon`, `location_type`,
@@ -160,7 +169,7 @@ Next departures from a stop. A merged rail station also lists the trains of the 
 |---|---|---|---|
 | `date` | string `YYYYMMDD` | today | service day |
 | `time` | string `HH:MM` | now | earliest departure |
-| `limit` | int | `20` | maximum number of rows |
+| `limit` | int `1-200` | `20` | maximum number of rows |
 
 ```json
 [{"time": "15:47:00", "sec": 56820, "line": "182", "mode": "bus", "route_id": "ztm:182",
@@ -168,7 +177,7 @@ Next departures from a stop. A merged rail station also lists the trains of the 
   "headsign": "Okęcie", "wheelchair": "1", "feed": "ztm"}, "..."]
 ```
 
-Error: `404 {"detail": "unknown stop_id"}`.
+Errors: `404 {"detail": "unknown stop_id"}`; `422` for a `date` or `time` in the wrong form.
 
 ### `GET /api/gtfs/edges`
 
@@ -176,8 +185,8 @@ Unique "stop to next stop" edges per route (canonical stop ids). For building a 
 
 | Query | Type | Default | Meaning |
 |---|---|---|---|
-| `limit` | int | `1000` | page size |
-| `offset` | int | `0` | first item |
+| `limit` | int `1-10000` | `1000` | page size |
+| `offset` | int `>= 0` | `0` | first item |
 
 ```json
 {"total": 22611, "items": [{"from": "ztm:100101", "to": "ztm:200101", "route": "ztm:123"}, "..."]}
@@ -207,8 +216,8 @@ Live ZTM bus or tram positions.
 | Query | Type | Default | Meaning |
 |---|---|---|---|
 | `type` | string | `bus` | `bus` or `tram` |
-| `line` | string | all | keep one line only |
-| `max_age_s` | int | `300` | drop positions older than this (the feed holds old positions) |
+| `line` | string, up to 10 chars | all | keep one line only |
+| `max_age_s` | int `1-86400` | `300` | drop positions older than this (the feed holds old positions) |
 
 ```json
 [{"line": "161", "brigade": "2", "lat": 52.163409, "lon": 21.208935, "time": "2026-10-17 15:47:36",
@@ -283,7 +292,7 @@ Answer:
  "updated_at": 1760712345.6}
 ```
 
-Errors: `400 {"detail": "send at least one point"}`; `503` when the first poll has no data yet.
+Errors: `400 {"detail": "send at least one point"}`; `503` when there is no live vehicle data yet. The server forgets a vehicle that has not reported for 5 minutes.
 
 ---
 
@@ -371,7 +380,7 @@ Nearest graph node to a point.
 
 | Query | Type | Default | Meaning |
 |---|---|---|---|
-| `lat`, `lon` | number | required | point |
+| `lat`, `lon` | number | required | point (`lat` -90..90, `lon` -180..180, else `422`) |
 | `mode` | string | `walk` | `walk` or `bike` |
 
 ```json
@@ -386,7 +395,7 @@ Street path between two points.
 
 | Query | Type | Default | Meaning |
 |---|---|---|---|
-| `from_lat`, `from_lon`, `to_lat`, `to_lon` | number | required | start and end |
+| `from_lat`, `from_lon`, `to_lat`, `to_lon` | number | required | start and end (same ranges as above) |
 | `mode` | string | `walk` | `walk` or `bike` |
 
 Answer: `mode`, `seconds` (total time with waits), `length_m`, `wait_s` (expected wait at crossings),
@@ -459,7 +468,8 @@ Place search: proxy to OpenStreetMap Nominatim, limited to Warsaw, up to 6 resul
   "position": [52.2288747, 21.0040358], "isCurrentLocation": null}, "..."]
 ```
 
-Errors: `422` for an empty `q`; `502 {"detail": "Geocoding failed: ..."}` when Nominatim fails.
+Errors: `422` for an empty `q` or a `q` longer than 200 characters; `502 {"detail": "Geocoding service failed"}`
+when Nominatim fails. The server keeps answers for 10 minutes, so a repeated search does not reach Nominatim.
 
 ### `GET /health`
 

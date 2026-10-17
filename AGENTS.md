@@ -245,6 +245,13 @@ Everything in this repo (files, commits, PRs) is written in English.
 - In the Vite dev server, editing a file re-runs effects (hot reload), which resets the UI step.
 - The browser pane has no geolocation, so the start must be typed when testing.
 
+- **Users never call external APIs.** Only the app server does (City Hall, Nextbike, Nominatim, ...). The
+  frontend talks to our backend, which caches the answers. Heavy work (cache builds) also runs on the server at
+  start, never inside a user request.
+- Backend robustness (see `config.py`): files are written atomically (`atomic_write`, `save_json`, `save_npz`),
+  lazy builds sit behind a lock (`osm._LOCK`, `mkuran._BUILD_LOCK`), `TTLCache` is thread-safe and bounded.
+  `main.py` turns `UpstreamError` / `httpx.HTTPError` into 502, `MissingKey` into 503, a missing data file into 404,
+  and answers 503 while `READY` is cleared (cache warm-up at start, `mkuran.warm()` + `osm.warm()`).
 - API keys live only in `.env`, which is git-ignored. Never commit `.env` or paste a key into a file, commit or chat.
 - `ACCESS.md` lists the keys (`PORTAL_KEY`, `WAW_API_KEY`, `PLK_KEY`), how to get them and how to send them.
 - Empty folders are kept in git with `.gitkeep`.

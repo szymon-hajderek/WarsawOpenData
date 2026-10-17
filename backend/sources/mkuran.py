@@ -13,6 +13,7 @@ ZTM stop_id = stop group (zespół, 4 digits) + post (słupek, 2 digits): "7009"
 """
 import csv
 import io
+import threading
 import zipfile
 from collections import defaultdict
 from datetime import date, datetime, timedelta
@@ -22,7 +23,8 @@ import httpx
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 
-from config import BBOX, DERIVED, GTFS_DIR, haversine_m, in_bbox, load_json, save_json
+from config import (BBOX, DERIVED, GTFS_DIR, atomic_write, haversine_m, in_bbox, load_json, save_json,
+                    save_npz)
 
 FEEDS = {
     "ztm": ("warsaw.zip", "https://mkuran.pl/gtfs/warsaw.zip"),
@@ -43,7 +45,7 @@ def download() -> list[str]:
         for name, url in FEEDS.values():
             with client.stream("GET", url) as r:
                 r.raise_for_status()
-                with open(GTFS_DIR / name, "wb") as f:
+                with atomic_write(GTFS_DIR / name) as f:
                     for chunk in r.iter_bytes(1 << 20):
                         f.write(chunk)
             done.append(name)
@@ -105,14 +107,14 @@ def services() -> dict:
     out: dict[str, set] = defaultdict(set)
     days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
     for feed in FEEDS:
-        for c in _rows(feed, "calendar.txt") or []:
+        for c in _rows(feed, "calendar.txt"):
             d = datetime.strptime(c["start_date"], "%Y%m%d").date()
             end = datetime.strptime(c["end_date"], "%Y%m%d").date()
             while d <= end:
                 if c[days[d.weekday()]] == "1":
                     out[f"{feed}:{c['service_id']}"].add(d.strftime("%Y%m%d"))
                 d += timedelta(days=1)
-        for c in _rows(feed, "calendar_dates.txt") or []:
+        for c in _rows(feed, "calendar_dates.txt"):
             key = f"{feed}:{c['service_id']}"
             if c["exception_type"] == "1":
                 out[key].add(c["date"])
@@ -215,7 +217,7 @@ def _build() -> None:
     runs = np.ones(len(trips), dtype=np.int32)
     freq = defaultdict(list)
     for feed in FEEDS:
-        for f in _rows(feed, "frequencies.txt") or []:
+        for f in _rows(feed, "frequencies.txt"):
             ti = trip_index.get(f"{feed}:{f['trip_id']}")
             if ti is None:
                 continue
@@ -268,15 +270,24 @@ def _build() -> None:
         s["same_as"] = merged.get(sid)
         stops_out.append(s)
 
-    np.savez_compressed(DERIVED / "gtfs_stop_times.npz", **st, runs=runs,
-                        trip_route_type=trip_route_type)
+    # Every file is written atomically. The .npz goes last: _ensure_built() treats it as "cache is complete".
     save_json(DERIVED / "gtfs_stops.json", stops_out)
     save_json(DERIVED / "gtfs_trips.json", trips)
     save_json(DERIVED / "gtfs_merge.json", {"merged": merged, "unmatched_near": unmatched_near})
     save_json(DERIVED / "gtfs_frequencies.json", {str(k): v for k, v in freq.items()})
+    save_npz(DERIVED / "gtfs_stop_times.npz", **st, runs=runs, trip_route_type=trip_route_type)
+
+
+_BUILD_LOCK = threading.Lock()
 
 
 def _ensure_built():
+    """Build the cache once. Threads wait for each other, so only one runs the 25 s build."""
+    with _BUILD_LOCK:
+        _ensure_built_locked()
+
+
+def _ensure_built_locked():
     npz = DERIVED / "gtfs_stop_times.npz"
     stops_path = DERIVED / "gtfs_stops.json"
     trips_path = DERIVED / "gtfs_trips.json"
@@ -327,6 +338,24 @@ def stop_times() -> dict:
 def frequencies() -> dict:
     _ensure_built()
     return {int(k): v for k, v in load_json(DERIVED / "gtfs_frequencies.json").items()}
+
+
+def warm() -> None:
+    """Load every cache the routing endpoints use (build files on the first run). Called once at server start."""
+    stops_by_id()
+    trips()
+    merge_info()
+    frequencies()
+    services()
+    routes()
+    _trip_ids()
+    _trip_bounds()
+    _rows_by_stop()
+    _brigades()
+    _stop_ids()
+    _shapes()
+    fare_table()
+    _pairs()
 
 
 def canonical(stop_id: str) -> str:
@@ -645,13 +674,24 @@ def reference_date() -> str:
 router = APIRouter(prefix="/api/gtfs", tags=["mkuran GTFS"])
 
 
+def parse_bbox(text: str) -> tuple[float, float, float, float]:
+    """'min_lat,min_lon,max_lat,max_lon' -> tuple. 422 when it is not four numbers in order."""
+    try:
+        box = tuple(float(x) for x in text.split(","))
+    except ValueError:
+        box = ()
+    if len(box) != 4 or box[0] > box[2] or box[1] > box[3]:
+        raise HTTPException(422, "bbox must be min_lat,min_lon,max_lat,max_lon (four numbers, min <= max)")
+    return box
+
+
 @router.get("/stops")
 def api_stops(mode: str | None = Query(None, description="bus, tram, metro, rail"),
               feed: str | None = Query(None, description="ztm, wkd, pkp"),
               bbox: str | None = Query(None, description="min_lat,min_lon,max_lat,max_lon"),
               include_merged: bool = False):
     """Boarding points (posts / platforms). Merged duplicates are hidden unless include_merged."""
-    box = tuple(map(float, bbox.split(","))) if bbox else BBOX
+    box = parse_bbox(bbox) if bbox else BBOX
     out = []
     for s in stops():
         if s["location_type"] != 0 or not s["served"]:
@@ -701,12 +741,14 @@ def api_route_stops(route_id: str):
     try:
         return {"route": routes()[route_id], "variants": route_stops(route_id)}
     except KeyError:
-        raise HTTPException(404, "unknown route_id (use the feed prefix, e.g. ztm:131)")
+        raise HTTPException(404, "unknown route_id (use the feed prefix, e.g. ztm:131)") from None
 
 
 @router.get("/stops/{stop_id}/departures")
-def api_departures(stop_id: str, date_: str | None = Query(None, alias="date", description="YYYYMMDD"),
-                   time: str | None = Query(None, description="HH:MM"), limit: int = 20):
+def api_departures(stop_id: str,
+                   date_: str | None = Query(None, alias="date", description="YYYYMMDD", pattern=r"^\d{8}$"),
+                   time: str | None = Query(None, description="HH:MM", pattern=r"^\d{1,2}:\d{2}$"),
+                   limit: int = Query(20, ge=1, le=200)):
     """Next departures from a stop (all feeds; a merged rail station includes KM / IC trains)."""
     now = datetime.now()
     d = date_ or now.strftime("%Y%m%d")
@@ -714,11 +756,11 @@ def api_departures(stop_id: str, date_: str | None = Query(None, alias="date", d
     try:
         return departures(stop_id, d, _sec(t + ":00"), limit)
     except KeyError:
-        raise HTTPException(404, "unknown stop_id")
+        raise HTTPException(404, "unknown stop_id") from None
 
 
 @router.get("/edges")
-def api_edges(limit: int = 1000, offset: int = 0):
+def api_edges(limit: int = Query(1000, ge=1, le=10000), offset: int = Query(0, ge=0)):
     """Unique stop -> next stop edges per route (canonical stop ids)."""
     e = edges()
     return {"total": e["unique_from_to_route"], "items": e["list"][offset:offset + limit]}
