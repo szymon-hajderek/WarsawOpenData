@@ -395,8 +395,11 @@ Answer: `mode`, `seconds` (total time with waits), `length_m`, `wait_s` (expecte
  "snap_m": [4.0, 4.2], "geometry": [[52.2296943, 21.0122579], [52.229818, 21.0122376], "..."]}
 ```
 
-Errors: `404` with a message when no path exists. A point far outside Warsaw snaps to the edge of the graph
-(`snap_m` is large) and does not fail. A `mode` other than `walk` or `bike` returns `400 {"detail": "mode must be walk or bike"}`.
+Errors:
+- `400 {"detail": "mode must be walk or bike"}` for a `mode` other than `walk` or `bike`.
+- `422` when the start or the end is more than 1000 m from the street graph (e.g. outside Warsaw):
+  `{"detail": "start is 224509 m from the street graph (max 1000 m)"}` (`start`, `end`, or both).
+- `404` with a message when no path exists.
 
 ---
 

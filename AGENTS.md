@@ -139,6 +139,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   (each user point paired with the bus point closest in time), `algorithms/nearest_buses.py`. Returns 4
   (1 + 3 for the popup), no distance cut-off. Feed time is read as server local time (Warsaw).
 - Tests: `cd backend && uv run pytest ../algorithms`.
+- `/api/osm/route` returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`) from the graph;
+  `osm.route()` / `osm.nearest()` in Python have no limit (`report.py` snaps far stops).
 - Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
   `WAIT` in `osm.py`). OSM has no signal timing tags in Warsaw.
 
