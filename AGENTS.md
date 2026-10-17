@@ -145,7 +145,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   `POST /api/live/nearest-buses` ranks buses by MSE (m^2) between the user's 1-3 points and each bus track
   (each user point paired with the bus point closest in time), `algorithms/nearest_buses.py`. Returns 4
   (1 + 3 for the popup), no distance cut-off. Feed time is read as server local time (Warsaw).
-- Tests: `cd backend && uv run pytest tests ../algorithms` (`algorithms/` = pure functions, `backend/tests/` = API-level logic that needs no data files).
+- Tests: `cd backend && uv run pytest tests ../algorithms` (integration tests: `uv run pytest ../integration`) (`algorithms/` = pure functions, `backend/tests/` = API-level logic that needs no data files).
 - Simulation (`algorithms/simulation/`): `record_buses.py` records 2 min of live buses (needs `PORTAL_KEY`) to
   `data/live/bus_track_sample.json` (committed); `simulate_nearest_buses.py` puts users on bus polylines with a GPS
   radius (10-100 m). Results in `algorithms/simulation/RESULTS.md`: own bus always in top-4, top-1 96-100% with
@@ -154,9 +154,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   `rank_buses` is O(V*K*H + V log V), ~2 ms per request for ~880 buses.
 - Visualization: `artifacts/bus-detection-simulation.html` (charts, one mini map per line, table), rebuilt with
   `uv run python ../algorithms/simulation/export_viz.py` (same seed, so the same numbers as RESULTS.md).
-- Known issue: `bus_detect._epoch` reads feed times in the server's time zone. On a machine in UTC (this dev
-  laptop is) bus times end up 2 h ahead of the user's, so time pairing picks the oldest bus report. Fix: parse
-  with `ZoneInfo("Europe/Warsaw")` (needs `tzdata` on Windows).
+- Time zone: feed times and GTFS service midnights are Europe/Warsaw (`sim/clock.py`: `warsaw_epoch`,
+  `warsaw_time`, `zoneinfo` + the `tzdata` package), whatever the server's zone. `record_buses.py` still stores
+  vehicle `t` in the recorder's zone; `sim/scenario.py` undoes that with the poll time.
 - Delay estimate (`algorithms/bus_delay.py`, `GET /api/live/delay?vehicle=bus-1234`): the poller also keeps a per-vehicle
   buffer (longest scheduled stop-to-stop time of the brigade's current trip + 60 s, else 10 min) with a midpoint between feed
   points (~5 s) unless a poll failed in between or the gap is > 25 s. The vehicle is projected on the GTFS shape of the trip with
@@ -171,6 +171,19 @@ Everything in this repo (files, commits, PRs) is written in English.
   between the two best neighbours; score = share of passes shown within 30 s. On the 2026-10-17 recording: 30 m 95.0%, best 80 m 96.5%
   (flat from 80 m); default still 30 m.
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
+- **Integration tests** (`integration/`, see its README): `uv run pytest ../integration` from `backend/`, ~6 min.
+  Simulation mode (`backend/sim/`): one clock (`sim.clock.now()`; live data code reads time there, never
+  `time.time()` / `datetime.now()`; the route engine does not, so send `when`), a scenario file in `integration/scenarios/` replaces the vehicle feed
+  (recorded or made from GTFS by `sim/synth.py`), Veturilo status and alerts. `SIM_SCENARIO=<name>` turns it on
+  in the server and mounts `/api/sim/*`. Two kinds: `recorded/` and `gtfs/` (pytest markers). `ROUTE_ENGINE`
+  (`app/routing/factory.py`) picks the engine; a new engine (C++) must pass this suite before it replaces `real`.
+- **Do not change the route engine to make an integration test pass.** The engine (`backend/app/routing/`,
+  `algorithms/plan_trip.py`, `algorithms/lateness.py`) and the street routing code have their own maintainers. When a
+  test finds an engine bug: open a GitHub issue (symptom, a `curl` to reproduce, measurements, cause if known), mark
+  the case as strict xfail with the issue number, and tell the user. Simulation mode does not touch the engine either:
+  tests send the simulated time as `when`.
+- Engine bugs found so far: #63 (options leave hours after the query, night buses for 08:30), #64 (no option or no
+  transit option at all), #65 (direct bus / tram options dropped after PR #56), #66 (`lateness.py` shows 4 min as 3).
 - `/api/osm/route` returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`) from the graph;
   `osm.route()` / `osm.nearest()` in Python have no limit (`report.py` snaps far stops).
 - Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
