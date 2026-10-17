@@ -452,14 +452,15 @@ Street path between two points.
 The start and the end join the street graph through up to 6 nearest nodes (at most 30 m farther than the
 nearest one); these short access segments are walked (on a bike: pushed).
 
-Answer: `mode`, `seconds` (total time with waits), `length_m` (incl. the access segments), `wait_s` (expected
-wait at crossings; signal nodes closer than 30 m by path form one junction, paid once; on a bike also the extra
-time of pushing it on the access segments), `nodes` (graph nodes on the path),
+Answer: `mode`, `seconds` (total time with the default speeds), `length_m` (= `walk_m` + `bike_m`, incl. the access
+segments), `walk_m` (metres walked, also a pushed bike), `bike_m` (metres ridden), `wait_s` (expected waits that do
+not depend on speed: crossings and signals, where signal nodes closer than 30 m by path form one junction paid
+once, and 60 s per elevator), `nodes` (graph nodes on the path),
 `snap_m` (distance from start and end to the nearest graph node, in metres), `geometry` (list of `[lat, lon]`,
 from the start point to the end point).
 
 ```json
-{"mode": "bike", "seconds": 765.7, "length_m": 2452.6, "wait_s": 181.7, "nodes": 154,
+{"mode": "bike", "seconds": 765.7, "length_m": 2452.6, "walk_m": 12.3, "bike_m": 2440.3, "wait_s": 181.7, "nodes": 154,
  "snap_m": [4.0, 4.2], "geometry": [[52.2296943, 21.0122579], [52.229818, 21.0122376], "..."]}
 ```
 

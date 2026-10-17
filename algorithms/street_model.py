@@ -65,30 +65,31 @@ def edge_wait(src, dst, node_wait, jid):
     return np.where(same, 0.0, entry_wait(node_wait, jid)[dst]).astype(np.float32)
 
 
-def access_edges(n, nodes, dist, extra_s_per_m=0.0, owner=None, fixed_s=None, n_points=None, node_entry=None):
+def access_edges(n, nodes, dist, owner=None, fixed_m=None, fixed_s=None, n_points=None, node_entry=None):
     """Virtual nodes that join points to the graph (a multi-source Dijkstra with start costs).
 
     Point i gets an out-node n + i with edges to its access nodes and an in-node n + P + i with edges from
     them (two nodes, so no path can pass through another point). `nodes` / `dist` are (S, k) arrays, one row
     per access site; an infinite dist means no edge. By default site i = point i. With `owner`, site s belongs
     to point owner[s], so one point can have many sites (a metro platform: all entrances of its station).
-    Edge length = straight distance; wait = distance * extra_s_per_m (e.g. the extra time of pushing a bike)
-    + fixed_s[s] (e.g. the time to go down to a metro platform). `node_entry` (per graph node, see entry_wait)
-    is paid on the edges into the graph, like entering that node from a street: then A -> B and B -> A pay
-    the same waits even when a point sits at a signal.
-    Returns (src, dst, length, wait, out_ids, in_ids)."""
+    These segments are walked: walk_m = straight distance + fixed_m[s] (e.g. the walk down to a metro platform);
+    wait = fixed_s[s] (e.g. an elevator). `node_entry` (per graph node, see entry_wait) is paid on the edges
+    into the graph, like entering that node from a street: then A -> B and B -> A pay the same waits even when
+    a point sits at a signal.
+    Returns (src, dst, walk_m, wait, out_ids, in_ids)."""
     s, k = nodes.shape
     owner = np.arange(s) if owner is None else np.asarray(owner)
-    fixed = np.zeros(s) if fixed_s is None else np.asarray(fixed_s, dtype=float)
+    fixed_m = np.zeros(s) if fixed_m is None else np.asarray(fixed_m, dtype=float)
+    fixed_s = np.zeros(s) if fixed_s is None else np.asarray(fixed_s, dtype=float)
     p = s if n_points is None else n_points
     out_ids, in_ids = n + np.arange(p), n + p + np.arange(p)
     ok = np.isfinite(dist)
     si = np.repeat(np.arange(s), k).reshape(s, k)[ok]
     pi, nd, d = owner[si], nodes[ok], dist[ok]
-    ln = np.r_[d, d]
+    walk = np.r_[d + fixed_m[si], d + fixed_m[si]]
     entry = np.zeros(len(nd)) if node_entry is None else np.asarray(node_entry)[nd]
-    wait = ln * extra_s_per_m + np.r_[fixed[si] + entry, fixed[si]]
-    return np.r_[out_ids[pi], nd], np.r_[nd, in_ids[pi]], ln, wait, out_ids, in_ids
+    wait = np.r_[fixed_s[si] + entry, fixed_s[si]]
+    return np.r_[out_ids[pi], nd], np.r_[nd, in_ids[pi]], walk, wait, out_ids, in_ids
 
 
 def access_flags(dist, site_flags):

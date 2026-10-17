@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-17T20:55:50",
+ "generated": "2026-10-17T22:33:07",
  "reference_date": "20261021",
  "vertices": {
   "transit_posts": 7145,
@@ -76,7 +76,7 @@
     "crossing_signals": 27.22222222222222,
     "crossing": 2.0,
     "traffic_signals": 0.0,
-    "elevator": 0.0
+    "elevator": 60.0
    },
    "bike": {
     "crossing_signals": 27.22222222222222,
@@ -103,8 +103,8 @@
     "points": 7494,
     "sample_sources": 50,
     "limit_s": null,
-    "seconds_per_source": 0.23,
-    "all_pairs_hours_1_core": 0.4778,
+    "seconds_per_source": 0.262,
+    "all_pairs_hours_1_core": 0.5463,
     "avg_points_reached": 7494.0,
     "pairs_to_store": 56160036,
     "dense_matrix_mb_float32": 224.6
@@ -114,8 +114,8 @@
     "points": 7494,
     "sample_sources": 50,
     "limit_s": 900,
-    "seconds_per_source": 0.002,
-    "all_pairs_hours_1_core": 0.0047,
+    "seconds_per_source": 0.04,
+    "all_pairs_hours_1_core": 0.0837,
     "avg_points_reached": 27.2,
     "pairs_to_store": 204136,
     "dense_matrix_mb_float32": 224.6
@@ -125,8 +125,8 @@
     "points": 7494,
     "sample_sources": 50,
     "limit_s": null,
-    "seconds_per_source": 0.242,
-    "all_pairs_hours_1_core": 0.5029,
+    "seconds_per_source": 0.291,
+    "all_pairs_hours_1_core": 0.6067,
     "avg_points_reached": 7494.0,
     "pairs_to_store": 56160036,
     "dense_matrix_mb_float32": 224.6
@@ -136,8 +136,8 @@
     "points": 7494,
     "sample_sources": 50,
     "limit_s": 1200,
-    "seconds_per_source": 0.009,
-    "all_pairs_hours_1_core": 0.019,
+    "seconds_per_source": 0.032,
+    "all_pairs_hours_1_core": 0.0673,
     "avg_points_reached": 304.3,
     "pairs_to_store": 2280723,
     "dense_matrix_mb_float32": 224.6
@@ -211,17 +211,17 @@
     "detour_p99": 1.58,
     "walk_symmetry_max_diff_s": 0.0,
     "mode": "walk",
-    "engine": "cpp",
     "points": 7494,
     "far_points": 0,
-    "seconds": 208,
-    "file_mb": 449,
+    "seconds": 347,
+    "file_mb": 674,
     "signal_nodes": 8200,
     "junctions": 2439,
     "junction_interior_nodes": 12542,
     "nan_share_sampled_rows": 0.0,
-    "median_distance_m": 17376,
-    "median_wait_s": 292
+    "median_distance_m": 17379,
+    "median_wait_s": 292,
+    "median_bike_share": 0.0
    },
    "bike": {
     "shorter_than_straight_line": 0,
@@ -229,17 +229,17 @@
     "detour_p99": 1.64,
     "walk_symmetry_max_diff_s": null,
     "mode": "bike",
-    "engine": "cpp",
     "points": 7494,
     "far_points": 0,
-    "seconds": 242,
-    "file_mb": 449,
+    "seconds": 427,
+    "file_mb": 674,
     "signal_nodes": 12592,
     "junctions": 2359,
     "junction_interior_nodes": 22757,
     "nan_share_sampled_rows": 0.0,
-    "median_distance_m": 19278,
-    "median_wait_s": 266
+    "median_distance_m": 19280,
+    "median_wait_s": 211,
+    "median_bike_share": 1.0
    },
    "accessible": {
     "shorter_than_straight_line": 0,
@@ -247,22 +247,22 @@
     "detour_p99": 1.61,
     "walk_symmetry_max_diff_s": 0.0,
     "mode": "accessible",
-    "engine": "cpp",
     "points": 7494,
     "far_points": 0,
-    "seconds": 221,
-    "file_mb": 449,
+    "seconds": 328,
+    "file_mb": 674,
     "signal_nodes": 8200,
     "junctions": 2439,
     "junction_interior_nodes": 12535,
     "nan_share_sampled_rows": 0.0,
-    "median_distance_m": 17692,
-    "median_wait_s": 351
+    "median_distance_m": 17693,
+    "median_wait_s": 349,
+    "median_bike_share": 0.0
    }
   },
   "threads": 16
  },
- "seconds_to_build": 40.5,
+ "seconds_to_build": 55.3,
  "endpoints": [
   {
    "method": "GET",

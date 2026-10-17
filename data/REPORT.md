@@ -1,6 +1,6 @@
 # Data report
 
-Generated 2026-10-17T20:55:50 by `backend/report.py`. Reference day for timetables: 20261021.
+Generated 2026-10-17T22:33:07 by `backend/report.py`. Reference day for timetables: 20261021.
 Numbers come from the files in `data/`. Re-run the script after a new download.
 
 ## Where the data comes from
@@ -161,24 +161,24 @@ Measured: one-to-all Dijkstra (scipy, 1 core) from random sample sources, extrap
 
 | Mode | Limit | s / source | All sources, 1 core (min) | Avg points reached | Pairs to store | Dense matrix (float32) |
 |---|---|---|---|---|---|---|
-| walk | none | 0.23 | 28.7 | 7 494 | 56 160 036 | 224.6 MB |
-| walk | 15 min | 0.002 | 0.3 | 27 | 204 136 | 224.6 MB |
-| bike | none | 0.242 | 30.2 | 7 494 | 56 160 036 | 224.6 MB |
-| bike | 20 min | 0.009 | 1.1 | 304 | 2 280 723 | 224.6 MB |
+| walk | none | 0.262 | 32.8 | 7 494 | 56 160 036 | 224.6 MB |
+| walk | 15 min | 0.04 | 5.0 | 27 | 204 136 | 224.6 MB |
+| bike | none | 0.291 | 36.4 | 7 494 | 56 160 036 | 224.6 MB |
+| bike | 20 min | 0.032 | 4.0 | 304 | 2 280 723 | 224.6 MB |
 
 Conclusion: full precomputation is feasible offline (done in section 5). The street paths for the first / last mile from an arbitrary address still need an online Dijkstra with a limit (one call to `/api/osm/route` style code).
 
 ### 5. Street matrix: every pair of stops / stations
 
-Built by `cd backend && uv run python preprocess_street.py` into `data/derived/street/` (git-ignored): `points.csv` (index, id, kind, lat, lon, snap per mode) and `walk.bin` / `bike.bin` / `accessible.bin` (float32, shape (2, N, N): `[0]` distance_m, `[1]` wait_s; row = from, col = to; NaN = no path). Each point joins the graph through up to 6 nearest nodes (at most 30 m farther than the nearest), a multi-source Dijkstra via virtual nodes; these access segments are walked (a bike is pushed, the extra time is in wait_s). Time with the default speeds = distance_m / speed + wait_s.
+Built by `cd backend && uv run python preprocess_street.py` into `data/derived/street/` (git-ignored): `points.csv` (index, id, kind, lat, lon, snap per mode) and `walk.bin` / `bike.bin` / `accessible.bin` (float32, shape (3, N, N): `[0]` walk_m, `[1]` bike_m, `[2]` wait_s; row = from, col = to; NaN = no path). Each point joins the graph through up to 6 nearest nodes (at most 30 m farther than the nearest), a multi-source Dijkstra via virtual nodes; these access segments are walked. Time = walk_m / walk speed + bike_m / bike speed + wait_s.
 
 Points: 7 494. Threads (C++): 16.
 
 | Mode | Build (min) | File | Far points (> 1000 m) | Signal nodes | Junctions | Island nodes | Median distance | Median wait |
 |---|---|---|---|---|---|---|---|---|
-| walk | 3.5 | 449 MB | 0 | 8 200 | 2 439 | 12 542 | 17 376 m | 292 s |
-| bike | 4.0 | 449 MB | 0 | 12 592 | 2 359 | 22 757 | 19 278 m | 266 s |
-| accessible | 3.7 | 449 MB | 0 | 8 200 | 2 439 | 12 535 | 17 692 m | 351 s |
+| walk | 5.8 | 674 MB | 0 | 8 200 | 2 439 | 12 542 | 17 379 m | 292 s |
+| bike | 7.1 | 674 MB | 0 | 12 592 | 2 359 | 22 757 | 19 280 m | 211 s |
+| accessible | 5.5 | 674 MB | 0 | 8 200 | 2 439 | 12 535 | 17 693 m | 349 s |
 
 Checks on 200 random rows (all columns; metro platforms left out of the straight-line checks, they join the graph through their station entrances):
 

@@ -87,10 +87,11 @@ def street_matrix(seed: int = 1) -> dict | None:
     for mode in ("walk", "bike", "accessible"):
         if mode not in meta:
             continue
-        mm = np.memmap(out_dir / f"{mode}.bin", dtype=np.float32, mode="r", shape=(2, n, n))
+        mm = np.memmap(out_dir / f"{mode}.bin", dtype=np.float32, mode="r", shape=(3, n, n))  # walk, bike, wait
         rows = rng.choice(n, size=200, replace=False)
-        dist, wait = np.asarray(mm[0, rows]), np.asarray(mm[1, rows])
-        s, d, _, _, jid = osm.edges(mode)
+        walk, bike, wait = (np.asarray(mm[k, rows]) for k in range(3))
+        dist = walk + bike
+        s, d, _, _, _, jid = osm.edges(mode)
         nw = osm.node_wait(mode)
         signal = np.isin(osm.graph()["kind"], (1, 3)) & (nw > 0)
         # sanity: path >= straight line, detour factor, walk symmetry (end points outside junctions)
@@ -106,7 +107,7 @@ def street_matrix(seed: int = 1) -> dict | None:
         if mode != "bike":
             node = osm.nearest_many(lat[rows], lon[rows], mode)[0]
             ok = rows[jid[node] < 0]
-            cost = mm[0][np.ix_(ok, ok)] / osm.SPEED[mode] + mm[1][np.ix_(ok, ok)]
+            cost = osm.seconds(mode, *(mm[k][np.ix_(ok, ok)] for k in range(3)))
             sym = round(float(np.nanmax(np.abs(cost - cost.T))), 2)
         out["modes"][mode] = {
             "shorter_than_straight_line": int(((dist < air - 1) & plain).sum()),
@@ -117,6 +118,7 @@ def street_matrix(seed: int = 1) -> dict | None:
             "junction_interior_nodes": int(((jid >= 0) & ~signal).sum()),
             "nan_share_sampled_rows": round(float(np.isnan(dist).mean()), 4),
             "median_distance_m": round(float(np.nanmedian(dist))), "median_wait_s": round(float(np.nanmedian(wait))),
+            "median_bike_share": round(float(np.nanmedian(bike / np.where(dist > 0, dist, np.nan))), 2),
         }
     out["threads"] = meta.get("threads")
     return out
@@ -335,10 +337,10 @@ def write_md(r: dict, eps) -> str:
         L += ["### 5. Street matrix: every pair of stops / stations", "",
               "Built by `cd backend && uv run python preprocess_street.py` into `data/derived/street/` (git-ignored): "
               "`points.csv` (index, id, kind, lat, lon, snap per mode) and `walk.bin` / `bike.bin` / `accessible.bin` "
-              "(float32, shape (2, N, N): `[0]` distance_m, `[1]` wait_s; row = from, col = to; NaN = no path). "
+              "(float32, shape (3, N, N): `[0]` walk_m, `[1]` bike_m, `[2]` wait_s; row = from, col = to; NaN = no path). "
               "Each point joins the graph through up to 6 nearest nodes (at most 30 m farther than the nearest), "
-              "a multi-source Dijkstra via virtual nodes; these access segments are walked (a bike is pushed, "
-              "the extra time is in wait_s). Time with the default speeds = distance_m / speed + wait_s.", "",
+              "a multi-source Dijkstra via virtual nodes; these access segments are walked. "
+              "Time = walk_m / walk speed + bike_m / bike speed + wait_s.", "",
               f"Points: {fmt(sm['points'])}. Threads (C++): {sm['threads']}.", "",
               "| Mode | Build (min) | File | Far points (> 1000 m) | Signal nodes | Junctions | Island nodes | "
               "Median distance | Median wait |",
