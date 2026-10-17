@@ -1,12 +1,24 @@
 """Run from the repo root or `backend/`: `pytest ../algorithms`."""
 import pytest
 
-from stop_order import MAX_STOPS, best_order, path_length
+from stop_order import MAX_STOPS, best_order, path_length, travel_seconds
 
 
 def d(a: float, b: float) -> float:
     """Distance on a line."""
     return abs(a - b)
+
+
+def test_time_order_can_differ_from_straight_line_order():
+    # Three slow walks (600 m) cost more than one transit hop that backtracks,
+    # so the time order is not the shortest path in metres.
+    def metres(a, b):
+        return abs(a - b)
+
+    by_distance = best_order(0, [600, 1300], 2000, metres)
+    by_time = best_order(0, [600, 1300], 2000, lambda a, b: travel_seconds(metres(a, b)))
+    assert by_distance == [600, 1300]
+    assert by_time == [1300, 600]
 
 
 def test_no_or_one_stop_is_unchanged():

@@ -22,7 +22,12 @@ from scipy.spatial import cKDTree
 from config import BBOX, DERIVED, OSM_DIR, REPO, in_bbox, to_xy
 
 sys.path.insert(0, str(REPO / "algorithms"))
-from street_matrix import EPS, EdgeLookup, access_edges, edge_wait, entry_wait, junctions  # noqa: E402
+from street_graph import StreetGraph  # noqa: E402
+from street_model import (  # noqa: E402
+    FLAG_ELEVATOR, FLAG_METRO, FLAG_PUSH, access_edges, access_flags, edge_wait, entry_wait, junctions,
+)
+
+EPS = 1e-3  # s added to every scipy edge, so zero-cost edges stay in the sparse matrix
 
 # download() fetches the Geofabrik region (300 MB) once and keeps a small cut of it: the ZTM area (config.BBOX)
 # and only the objects we use (see _clip).
@@ -227,6 +232,7 @@ def node_wait(mode: str) -> np.ndarray:
 
 _CSR = {}
 _EDGES = {}
+_FLAGS = {}
 
 
 def directed_edges(mode: str):
@@ -244,7 +250,7 @@ def directed_edges(mode: str):
 
 def edges(mode: str):
     """Directed edges of a mode without parallel duplicates: (src, dst, length_m, wait_s, junction id per node).
-    A signal wait is paid once per junction (see algorithms/street_matrix.py).
+    A signal wait is paid once per junction (see algorithms/street_model.py).
     Bike: where riding is not allowed (oneway against, footways, elevators) the bike can be pushed along the
     accessible walk graph (no stairs) at walking speed; the extra time over riding is in the wait."""
     if mode not in _EDGES:
@@ -269,17 +275,28 @@ def edges(mode: str):
             ride = np.isin(s.astype(np.int64) * n + d, np.r_[a * n + b, b * n + a])
             w = np.where(ride, np.maximum(w, WAIT[mode]["elevator"]), w).astype(np.float32)
         w = (w + push * ln * (1 / SPEED["walk"] - 1 / SPEED[mode])).astype(np.float32)
+        lift_ways = ((graph()["mode"] & 8) > 0) & ((graph()["mode"] & 1) == 0)
+        n = len(graph()["ids"])
+        lw = np.r_[graph()["u"][lift_ways].astype(np.int64) * n + graph()["v"][lift_ways],
+                   graph()["v"][lift_ways].astype(np.int64) * n + graph()["u"][lift_ways]]
+        elevator = (graph()["kind"][d] == 4) | np.isin(s.astype(np.int64) * n + d, lw)
+        _FLAGS[mode] = (elevator * FLAG_ELEVATOR | push * FLAG_PUSH).astype(np.uint8)
         _EDGES[mode] = (s, d, ln, w, jid)
     return _EDGES[mode]
 
 
+def edge_flags(mode: str) -> np.ndarray:
+    """Per edge of edges(mode): FLAG_ELEVATOR (an elevator node or way), FLAG_PUSH (a pushed bike)."""
+    edges(mode)
+    return _FLAGS[mode]
+
+
 def csr(mode: str):
-    """Sparse graphs (cost in s, length in m, wait in s). Cost = length / speed + wait."""
+    """Sparse cost graph of the street edges (s = length / speed + wait), for scipy."""
     if mode not in _CSR:
         s, d, ln, w, _ = edges(mode)
         n = len(graph()["ids"])
-        cost = ln / SPEED[mode] + w + EPS  # +1 ms: keep zero-length edges
-        _CSR[mode] = tuple(csr_matrix((x, (s, d)), shape=(n, n)) for x in (cost, ln + EPS, w + EPS))
+        _CSR[mode] = csr_matrix((ln / SPEED[mode] + w + EPS, (s, d)), shape=(n, n))
     return _CSR[mode]
 
 
@@ -336,13 +353,12 @@ def access(lat, lon, mode: str) -> tuple[np.ndarray, np.ndarray]:
     return nodes[idx], np.where(dist <= dist[:, :1] + ACCESS_EXTRA_M, dist, np.inf)
 
 
-def points_graph(lat, lon, mode: str, entrances=None):
-    """Street graph + a virtual out-node and in-node per point (see street_matrix.access_edges).
+def points_graph(lat, lon, mode: str, entrances=None) -> StreetGraph:
+    """The street graph of a mode + a virtual out node and in node per point (see street_model.access_edges).
     `entrances[i]`: a list of (lat, lon) for a metro platform (it joins through all of them, + METRO_ACCESS_S
-    + the elevator wait of the mode),
-    empty for any other point. Returns (nodes, src, dst, cost, length, wait, out_ids, in_ids). On a bike the
-    access segments cost walking time: the extra time over riding is in their wait, so
-    time = length / SPEED[mode] + wait still holds."""
+    + the elevator wait of the mode), empty for any other point. On a bike the access segments cost walking
+    time: the extra time over riding is in their wait, so time = length / SPEED[mode] + wait still holds.
+    A point farther than MAX_SNAP_M from the graph is not active."""
     s, d, ln, w, jid = edges(mode)
     n, p = len(graph()["ids"]), len(lat)
     entrances = entrances or [[]] * p
@@ -351,18 +367,16 @@ def points_graph(lat, lon, mode: str, entrances=None):
     sites += [(i, la, lo, down) for i, ent in enumerate(entrances) for la, lo in ent]
     owner, slat, slon, fixed = (np.array(x) for x in zip(*sites))
     an, ad = access(slat, slon, mode)
-    vs, vd, vl, vw, out_ids, in_ids = access_edges(n, an, ad, 1 / SPEED["walk"] - 1 / SPEED[mode],
-                                                   owner=owner.astype(int), fixed_s=fixed, n_points=p,
-                                                   node_entry=entry_wait(node_wait(mode), jid))
-    src, dst, length, wait = np.r_[s, vs], np.r_[d, vd], np.r_[ln, vl], np.r_[w, vw]
-    return n + 2 * len(out_ids), src, dst, length / SPEED[mode] + wait, length, wait, out_ids, in_ids
-
-
-def graph_with_points(lat, lon, mode: str):
-    """points_graph() as (cost csr, EdgeLookup, out_ids, in_ids) for scipy."""
-    m, src, dst, cost, length, wait, out_ids, in_ids = points_graph(lat, lon, mode)
-    return (csr_matrix((cost + EPS, (src, dst)), shape=(m, m)), EdgeLookup(src, dst, length, wait, cost, m),
-            out_ids, in_ids)
+    vs, vd, vl, vw, out_node, in_node = access_edges(n, an, ad, 1 / SPEED["walk"] - 1 / SPEED[mode],
+                                                     owner=owner.astype(int), fixed_s=fixed, n_points=p,
+                                                     node_entry=entry_wait(node_wait(mode), jid))
+    metro = FLAG_METRO | (FLAG_ELEVATOR if WAIT[mode]["elevator"] else 0)  # every entrance has an elevator
+    length, wait = np.r_[ln, vl], np.r_[w, vw]
+    return StreetGraph(src=np.r_[s, vs], dst=np.r_[d, vd], cost=length / SPEED[mode] + wait, length=length,
+                       wait=wait, flags=np.r_[edge_flags(mode), access_flags(ad, np.where(fixed > 0, metro, 0))],
+                       lon=np.r_[graph()["lon"], lon, lon], lat=np.r_[graph()["lat"], lat, lat],
+                       out_node=out_node, in_node=in_node,
+                       active=nearest_many(lat, lon, mode)[1] <= MAX_SNAP_M)
 
 
 _USABLE = {}
@@ -371,7 +385,7 @@ _USABLE = {}
 def _mode_tree(mode: str):
     """KD-tree over the largest strongly connected component of a mode (snapping elsewhere = dead end)."""
     if mode not in _USABLE:
-        _, labels = connected_components(csr(mode)[0], directed=True, connection="strong")
+        _, labels = connected_components(csr(mode), directed=True, connection="strong")
         nodes = np.nonzero(labels == np.bincount(labels).argmax())[0]
         x, y = to_xy(graph()["lat"][nodes], graph()["lon"][nodes])
         _USABLE[mode] = (nodes, cKDTree(np.c_[x, y]))
@@ -379,24 +393,27 @@ def _mode_tree(mode: str):
 
 
 def route(lat1, lon1, lat2, lon2, mode: str = "walk", limit_s: float = 7200) -> dict:
-    """Street path between two points. Length and wait include the access segments (see ACCESS_K)."""
-    cost_g, lookup, out_ids, in_ids = graph_with_points([lat1, lat2], [lon1, lon2], mode)
-    a, b = int(out_ids[0]), int(in_ids[1])
-    dist, pred = dijkstra(cost_g, indices=a, return_predecessors=True, limit=limit_s)
+    """Street path between two points on points_graph() (scipy; the same model as the C++ program).
+    Length and wait include the access segments (see ACCESS_K)."""
+    g = points_graph([lat1, lat2], [lon1, lon2], mode)
+    shape = (g.nodes, g.nodes)
+    a, b = int(g.out_node[0]), int(g.in_node[1])
+    dist, pred = dijkstra(csr_matrix((g.cost + EPS, (g.src, g.dst)), shape=shape), indices=a,
+                          return_predecessors=True, limit=limit_s)
     if not np.isfinite(dist[b]):
         raise ValueError("no path within the limit")
     path = [b]
     while path[-1] != a:
         path.append(int(pred[path[-1]]))
     path.reverse()
-    length, wait = lookup.get(np.array(path[:-1]), np.array(path[1:]))
-    g = graph()
-    real = path[1:-1]
+    edge_id = csr_matrix((np.arange(1, len(g.src) + 1), (g.src, g.dst)), shape=shape)  # (u, v) -> edge + 1
+    used = np.array([edge_id[u, v] for u, v in zip(path, path[1:])]) - 1
     snap = access([lat1, lat2], [lon1, lon2], mode)[1][:, 0]
-    return {"mode": mode, "seconds": round(float(dist[b]) - EPS * (len(path) - 1), 1),
-            "length_m": round(float(length.sum()), 1), "wait_s": round(float(wait.sum()), 1), "nodes": len(real),
-            "snap_m": [round(float(snap[0]), 1), round(float(snap[1]), 1)],
-            "geometry": [[lat1, lon1]] + [[float(g["lat"][p]), float(g["lon"][p])] for p in real] + [[lat2, lon2]]}
+    street = path[1:-1]
+    return {"mode": mode, "seconds": round(float(g.cost[used].sum()), 1),
+            "length_m": round(float(g.length[used].sum()), 1), "wait_s": round(float(g.wait[used].sum()), 1),
+            "nodes": len(street), "snap_m": [round(float(snap[0]), 1), round(float(snap[1]), 1)],
+            "geometry": [[lat1, lon1]] + [[float(g.lat[v]), float(g.lon[v])] for v in street] + [[lat2, lon2]]}
 
 
 def benchmark(points: list[tuple[float, float]], mode: str, sample: int = 50, limit_s: float | None = None,
@@ -405,7 +422,7 @@ def benchmark(points: list[tuple[float, float]], mode: str, sample: int = 50, li
     rng = np.random.default_rng(seed)
     snapped = np.array([nearest(lat, lon, mode)[0] for lat, lon in points])
     pick = rng.choice(len(snapped), size=min(sample, len(snapped)), replace=False)
-    cost_g = csr(mode)[0]
+    cost_g = csr(mode)
     t0 = time.perf_counter()
     dist = dijkstra(cost_g, indices=snapped[pick], limit=limit_s if limit_s else np.inf)
     per_source = (time.perf_counter() - t0) / len(pick)

@@ -20,8 +20,8 @@ def get_routes(req: RouteRequest) -> list[RouteOption]:
     log.info("route query %s -> %s", req.from_.label, req.to.label)
     try:
         if req.via:
-            return query_multi(engine, req.from_, req.to, req.via, req.order, req.profile, when=req.when)
-        return engine.query_routes(req.from_, req.to, req.profile, when=req.when)
+            return query_multi(engine, req.from_, req.to, req.via, req.order, req.profile, when=req.when, search=req)
+        return engine.query_routes(req.from_, req.to, req.profile, when=req.when, search=req)
     except FileNotFoundError as exc:
         raise HTTPException(503, f"timetable data is missing: {exc}")
     except ValueError as exc:

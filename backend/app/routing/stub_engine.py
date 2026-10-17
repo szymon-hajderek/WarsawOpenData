@@ -234,7 +234,7 @@ class StubRouteEngine(RouteEngine):
         # The stub has no live state to update.
         return None
 
-    def query_routes(self, frm: Place, to: Place, profile: Profile, when: str | None = None) -> list[RouteOption]:
+    def query_routes(self, frm: Place, to: Place, profile: Profile, when: str | None = None, search=None) -> list[RouteOption]:
         distance_m = haversine(frm.position, to.position)
         seed = abs(round_half_up((frm.position[0] + to.position[1]) * 1000))
         departure = datetime.now() + timedelta(minutes=2)

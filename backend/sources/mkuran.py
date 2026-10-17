@@ -598,18 +598,17 @@ def shape_slice(shape_id: str, dist_from: int, dist_to: int) -> list[list[float]
     return [[round(float(lat[k]), 6), round(float(lon[k]), 6)] for k in range(i, j)]
 
 
-@lru_cache
-def fare_table() -> list[dict]:
-    """ZTM fares from warsaw.zip: price, max duration, zones the fare contains, routes it is limited to."""
+def _load_fares(feed: str) -> list[dict]:
+    """One feed's fare_attributes. A fare with no rules is feed-wide (WKD)."""
     rules_zones: dict[str, set] = defaultdict(set)
     rules_routes: dict[str, set] = defaultdict(set)
-    for rule in _rows("ztm", "fare_rules.txt"):
+    for rule in _rows(feed, "fare_rules.txt"):
         if rule.get("contains_id"):
             rules_zones[rule["fare_id"]].add(rule["contains_id"])
         if rule.get("route_id"):
             rules_routes[rule["fare_id"]].add(rule["route_id"])
     out = []
-    for fare in _rows("ztm", "fare_attributes.txt"):
+    for fare in _rows(feed, "fare_attributes.txt"):
         duration = fare.get("transfer_duration") or ""
         transfers = fare.get("transfers") or ""
         out.append({
@@ -621,6 +620,66 @@ def fare_table() -> list[dict]:
             "routes": rules_routes.get(fare["fare_id"], set()),
         })
     return out
+
+
+@lru_cache
+def fare_table() -> list[dict]:
+    """ZTM fares from warsaw.zip: price, max duration, zones the fare contains, routes it is limited to."""
+    return _load_fares("ztm")
+
+
+@lru_cache
+def fare_table_for(feed: str) -> list[dict]:
+    """Fares of one feed. WKD has prices and durations and no zones. KM has no fare file."""
+    return _load_fares(feed)
+
+
+@lru_cache
+def plk_ids() -> dict[str, str]:
+    """`pkp:<stop_id>` -> PLK station id, for the live operations feed."""
+    out = {}
+    for row in _rows("pkp", "stops.txt"):
+        plk = row.get("plk_secondary_id") or ""
+        if plk:
+            out[f"pkp:{row['stop_id']}"] = plk
+    return out
+
+
+@lru_cache
+def transfer_links() -> tuple:
+    """`(from_id, to_id, min_seconds)` from every feed's transfers.txt. Type 3 is skipped.
+
+    Stop ids wear the feed prefix (`pkp:...`). A missing min time becomes 60 seconds.
+    """
+    out = []
+    for feed in FEEDS:
+        for row in _rows(feed, "transfers.txt"):
+            if row.get("transfer_type") == "3":
+                continue
+            raw = row.get("min_transfer_time") or ""
+            out.append((f"{feed}:{row['from_stop_id']}", f"{feed}:{row['to_stop_id']}", int(raw) if raw else 60))
+    return tuple(out)
+
+
+@lru_cache
+def pathway_links(step_free: bool = False) -> tuple:
+    """`(from_id, to_id, meters, seconds)` from pathways.txt. Stairs and escalators drop when step-free.
+
+    Warsaw extracts have no pathways.txt today, so this is empty until a feed grows one.
+    """
+    out = []
+    for feed in FEEDS:
+        for row in _rows(feed, "pathways.txt"):
+            mode = row.get("pathway_mode") or ""
+            if step_free and mode in {"2", "4"}:
+                continue
+            length = float(row.get("length") or 0)
+            sec = int(row.get("traversal_time") or 0) or max(30, int(length))
+            a, b = f"{feed}:{row['from_stop_id']}", f"{feed}:{row['to_stop_id']}"
+            out.append((a, b, length, sec))
+            if row.get("is_bidirectional", "1") != "0":
+                out.append((b, a, length, sec))
+    return tuple(out)
 
 
 @lru_cache

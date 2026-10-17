@@ -179,9 +179,9 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
   `WAIT` in `osm.py`). OSM has no signal timing tags in Warsaw. The wait is per edge (`osm.edges()`):
   signal nodes < 30 m apart by path form one junction (plus the nodes between them, e.g. islands),
-  paid once (`algorithms/street_matrix.py`).
+  paid once (`algorithms/street_model.py`).
 - A point (stop, address) joins the street graph through up to 6 nearest nodes (<= 30 m farther than the
-  nearest; `osm.access`, `osm.graph_with_points`): virtual out / in nodes = multi-source Dijkstra with start
+  nearest; `osm.access`, `osm.points_graph` -> `StreetGraph`): virtual out / in nodes = multi-source Dijkstra with start
   costs. Access segments are walked; on a bike pushed (extra time in `wait_s`). Used by `osm.route()` and the matrix.
   Known gap: a pedestrian crosses a road only where OSM connects the two sidewalks (e.g. Wolica 01 / 02: 59 m apart, 695 m walk).
 - ZTM posts in OSM: `public_transport=platform` nodes with `ref` = ZTM stop_id (`Grójecka 02` = `ref=435102`);
@@ -258,22 +258,22 @@ Everything in this repo (files, commits, PRs) is written in English.
   switches to "Moja kolejność") and a remove button per stop, and the chips "Moja kolejność" / "Optymalna"; the swap button reverses the whole trip. `fetchRouteOptions`
   takes `{ from, to, profile, via, order }` and sends `via` + `order` to `POST /api/routes`. Backend: `RouteRequest.via` / `order`, `RouteOption.waypoints`
   (start, stops in visiting order, destination), `RouteLeg.stop` (1-based number of the stop the leg ends at); `backend/app/routing/multi.py` asks the
-  engine once per segment and chains the n-th best option of every segment (max 3 options); "optimal" = `algorithms/stop_order.py` (exact, straight-line distance,
-  start and destination fixed). Simplifications: every segment is planned from "now", no time at a stop. The frontend mock does the same in `src/api/multiStop.ts`.
-- Preferences + filters are UI only (route selection is the backend's job). Model, level tables (default speeds), time
+  engine once per segment and chains the n-th best option of every segment (max 3 options); "optimal" = `algorithms/stop_order.py` (exact, a walk under 700 m otherwise a wait plus transit time,
+  start and destination fixed). The next segment starts at the previous arrival plus 2 minutes. The frontend mock does the same chaining in `src/api/multiStop.ts` without the wait.
+- Preferences are sent with the search (`walkKmh`, `bikeKmh`, `stepFree`, `maxTransfers`, excluded areas, `body`). Vehicles and max walking time still filter the list in the browser. Model, level tables (default speeds), time
   rules and list filtering: `src/preferences/model.ts`; storage in localStorage key `preferences`
   (`src/preferences/PreferencesProvider.tsx`). Preferences page: `src/components/PreferencesPage.tsx`; reusable fields
   (levels + custom km/h, wheelchair, priorities, excluded districts / own points): `src/components/preferences/`.
   Time rules (`RuleDialog.tsx`) override any section for given days and hours (may cross midnight); the latest started
   active rule wins. `FilterSheet.tsx` = filters for the current search only (sorting, max transfers, vehicles, max walking
-  time, step-free, pace / wheelchair, excluded areas, and "Zaawansowane" = all preferences as overrides). Only list-like
-  filters really change the (mock) list, client-side (`applyListFilters`); speeds, wheelchair and areas are stored only and
-  not passed to `fetchRouteOptions` yet.
+  time, step-free, pace / wheelchair, excluded areas, and "Zaawansowane" = all preferences as overrides). Vehicles and max walking
+  time still filter the list in the browser (`applyListFilters`).
+  `fetchRouteOptions` sends `walkKmh`, `bikeKmh`, `stepFree`, `maxTransfers`, excluded districts and points, and `body`.
 - Calories (device-side): `Preferences.body` (weight, height, age, sex; all optional, defaults 70 kg / 170 cm / 35 y) is edited in the "Kalorie" section of the
   Preferences page only (`components/preferences/BodySection.tsx`); rules and filters never override it (`applyOverrides` keeps it). `routeKcal(route, prefs)` in
   `src/preferences/model.ts` computes NET kcal of the walk / bike legs (MET from the Compendium of Physical Activities interpolated by the user's km/h x weight x hours
   minus resting energy (Mifflin-St Jeor); manual wheelchair uses a rough table from Conger and Bassett 2011, electric = 0; transit legs count as resting). It replaces
-  `RouteOption.calories` in the route list, details and the "most active" sort. Not modelled yet: slope, carried load, bike type, wind. Backend `calories` is unchanged (flat kcal/km).
+  `RouteOption.calories` in the route list, details and the "most active" sort. The backend uses the same formula when `body` is sent. Not modelled yet: slope, carried load, bike type, wind.
 - Speed history (device-side, privacy first): in the route view "Rozpocznij przejazd" / "Zakończ" records GPS points (memory only, one every 4 s,
   Screen Wake Lock while recording) and sends the track once to `POST /api/history/records` (`backend/app/api/history.py`,
   `algorithms/speed_history.py::split_track`: shares the moving distance between the route's legs by planned distance, ignores standing

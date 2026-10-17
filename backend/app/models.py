@@ -56,6 +56,21 @@ class RouteOption(BaseModel):
     waypoints: list[Place] = Field(default_factory=list)
 
 
+class ExcludedPoint(BaseModel):
+    position: LatLng
+    radiusM: float = Field(default=300, ge=50, le=5000)
+
+
+class RouteBody(BaseModel):
+    """Optional body data for the calorie estimate. Missing fields use a typical adult."""
+
+    weightKg: Optional[float] = Field(None, ge=30, le=250)
+    heightCm: Optional[float] = Field(None, ge=120, le=230)
+    age: Optional[int] = Field(None, ge=10, le=100)
+    sex: Optional[Literal["female", "male"]] = None
+    wheelchair: Literal["none", "manual", "electric"] = "none"
+
+
 class RouteRequest(BaseModel):
     """Body of `POST /api/routes` — the backend seam for the frontend's
     `fetchRouteOptions(from, to, profile)`.
@@ -72,6 +87,15 @@ class RouteRequest(BaseModel):
     # them for the shortest trip (start and destination stay fixed).
     via: list[Place] = Field(default_factory=list, max_length=MAX_VIA)
     order: Literal["given", "optimal"] = "given"
+    # Pace and access. Empty speeds keep the profile table. `bikeKmh` 0 means no Veturilo.
+    walkKmh: Optional[float] = Field(None, ge=1, le=10)
+    bikeKmh: Optional[float] = Field(None, ge=0, le=45)
+    stepFree: bool = False
+    # None = up to two transfers. 0 = direct rides only.
+    maxTransfers: Optional[int] = Field(None, ge=0, le=2)
+    excludedDistricts: list[str] = Field(default_factory=list, max_length=18)
+    excludedPoints: list[ExcludedPoint] = Field(default_factory=list, max_length=20)
+    body: Optional[RouteBody] = None
 
 
 # ---- speed history (stateless: nothing is stored, tracks are not kept) --------------------------
