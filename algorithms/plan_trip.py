@@ -228,3 +228,73 @@ def bike_access_pairs(origin, dest, stations: list[dict], stops: list[dict], dis
         if len(out) >= limit:
             break
     return out
+
+
+def bike_between(boards, dest_ids, dest_point, departures, onward, stations, stops, distance, accessible):
+    """Transit, then Veturilo, then transit. One result, or None.
+
+    The bike is dropped well before the destination, next to a stop that still has a ride there.
+    """
+    for stop_id in list(boards)[:3]:
+        for dep in departures(stop_id, None)[:2]:
+            if accessible and dep.get("wheelchair") == "2":
+                continue
+            calls = onward(dep["trip_id"], stop_id, dep["sec"])
+            mids = []
+            for index, call in enumerate(calls[2:], start=2):
+                if call["arr"] - dep["sec"] > 35 * 60:
+                    break
+                if call["stop_id"] in dest_ids:
+                    continue
+                mids.append((index, call))
+            if not mids:
+                continue
+            index, mid = mids[len(mids) // 2]
+            here = (mid["lat"], mid["lon"])
+            span = distance(here, dest_point)
+            drops = []
+            for station in stations:
+                if not can_return(station):
+                    continue
+                ride_m = distance(here, (station["lat"], station["lon"]))
+                left = distance((station["lat"], station["lon"]), dest_point)
+                if 700 <= ride_m <= 5000 and 800 < left < span - 400:
+                    drops.append((ride_m, station))
+            drops.sort(key=lambda item: item[0])
+            for ride_m, drop in drops[:3]:
+                pickup = None
+                pick_m = None
+                for station in stations:
+                    if station.get("bikes", 0) <= 0 or station.get("id") == drop.get("id"):
+                        continue
+                    if station.get("renting") is False:
+                        continue
+                    gap = distance(here, (station["lat"], station["lon"]))
+                    if gap <= 600 and (pick_m is None or gap < pick_m):
+                        pickup, pick_m = station, gap
+                if pickup is None:
+                    continue
+                near = None
+                near_m = None
+                for stop in stops:
+                    if stop["id"] in dest_ids or stop["id"] == mid["stop_id"]:
+                        continue
+                    gap = distance((drop["lat"], drop["lon"]), (stop["lat"], stop["lon"]))
+                    if gap <= 400 and (near_m is None or gap < near_m):
+                        near, near_m = stop, gap
+                if near is None:
+                    continue
+                bike_s = ((pick_m or 0) + ride_m + (near_m or 0)) / 4.2
+                second = direct_rides(
+                    [near["id"]], dest_ids,
+                    lambda sid, after, _after=mid["arr"] + bike_s: departures(sid, _after),
+                    onward, accessible, per_board=4)
+                if not second:
+                    continue
+                return {
+                    "first": {"dep": dep, "calls": calls[:index + 1]},
+                    "second": second[0],
+                    "pickup": pickup,
+                    "dropoff": drop,
+                }
+    return None
