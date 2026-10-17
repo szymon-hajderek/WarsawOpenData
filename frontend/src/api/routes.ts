@@ -1,3 +1,4 @@
+import type { RouteSearchBody } from '../preferences/model';
 import type { LatLng, Place, Profile, RouteLeg, RouteOption, StopOrder, TransportMode } from '../types';
 import { buildPath, haversine, slicePath } from '../utils/geo';
 import { formatTime } from '../utils/format';
@@ -20,6 +21,8 @@ export interface RouteQuery {
   via?: Place[];
   /** Keep the stops as given, or reorder them for the shortest trip (start and destination stay fixed). */
   order?: StopOrder;
+  /** Pace, transfers, excluded areas and body data. Omitted fields keep the backend defaults. */
+  search?: RouteSearchBody;
 }
 
 export interface RouteResult {
@@ -38,7 +41,7 @@ export async function fetchRouteOptions(query: RouteQuery, signal?: AbortSignal)
         signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(via.length ? { from, to, profile, via, order } : { from, to, profile }),
+        body: JSON.stringify({ from, to, profile, ...(via.length ? { via, order } : {}), ...query.search }),
       });
       if (!res.ok) throw new Error(`Routing failed: ${res.status}`);
       const data: unknown = await res.json();

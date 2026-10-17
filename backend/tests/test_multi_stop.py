@@ -28,7 +28,7 @@ class FakeEngine(RouteEngine):
         self.table = table or {}
         self.calls: list[tuple[str, str]] = []
 
-    def query_routes(self, frm, to, profile, when=None):
+    def query_routes(self, frm, to, profile, when=None, search=None):
         self.calls.append((frm.id, to.id))
         return self.table.get((frm.id, to.id), [option(f"{frm.id}{to.id}", 10, leg_to=to.label)])
 
@@ -45,8 +45,8 @@ def test_given_order_is_kept_and_totals_are_summed():
     assert engine.calls == [("A", "S2"), ("S2", "S1"), ("S1", "B")]
     trip = result[0]
     assert [p.id for p in trip.waypoints] == ["A", "S2", "S1", "B"]
-    assert trip.durationMin == 30
-    assert trip.arrival == "10:30"
+    assert trip.durationMin == 34  # 3 x 10 min plus 2 min standing at each of the two stops
+    assert trip.arrival == "10:34"
     assert trip.distanceM == pytest.approx(2400)
     assert len(trip.legs) == 3
 
@@ -75,7 +75,7 @@ def test_nth_best_options_are_chained_and_the_count_is_limited():
         ("S1", "B"): [option("b1", 6), option("b2", 9)],
     }
     result = query_multi(FakeEngine(table), A, B, [S1], "given", "standard")
-    assert [o.durationMin for o in result] == [11, 17, 20]  # 5+6, 8+9, 11+9 (the last option is reused)
+    assert [o.durationMin for o in result] == [13, 19, 22]  # 5+6, 8+9, 11+9, plus 2 min at the stop
     assert len(result) <= 3
 
 

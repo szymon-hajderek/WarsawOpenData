@@ -17,6 +17,17 @@ def path_length(points: Sequence[T], dist: Callable[[T, T], float]) -> float:
     return sum(dist(a, b) for a, b in zip(points, points[1:]))
 
 
+def travel_seconds(meters: float) -> float:
+    """Rough door-to-door time for ordering stops.
+
+    A short gap is a walk. A longer gap pays a fixed wait and then moves at urban
+    transit speed, so two short hops can cost more than one longer ride.
+    """
+    if meters <= 700:
+        return meters / 1.3
+    return 180.0 + meters / 7.5
+
+
 def best_order(start: T, stops: Sequence[T], end: T, dist: Callable[[T, T], float]) -> list[T]:
     """The stops in the order that gives the shortest path `start -> stops -> end`.
 

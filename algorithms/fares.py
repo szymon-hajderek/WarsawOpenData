@@ -8,6 +8,25 @@ from __future__ import annotations
 import math
 
 
+def open_fare(fares: list[dict], seconds: int) -> float | None:
+    """Cheapest feed-wide fare (no zone and no route limit) that covers `seconds`.
+
+    An empty `duration_s` means the ticket does not expire. Used for WKD, whose
+    GTFS fare file has a price and a transfer duration but no zones.
+    """
+    best = None
+    for fare in fares:
+        if fare.get("routes") or fare.get("zones"):
+            continue
+        duration = fare.get("duration_s")
+        if duration is not None and seconds > duration:
+            continue
+        price = float(fare["price"])
+        if best is None or price < best:
+            best = price
+    return best
+
+
 def cheapest_fare(fares: list[dict], zones: set[str], seconds: int, route_ids: set[str]) -> float | None:
     """Cheapest fare that covers these zones, this ride time and these route ids.
 
