@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 import bus_detect
+import street_router
 from app.api import geocode, history
 from app.api import routes as route_api
 from app.config import settings
@@ -35,8 +36,9 @@ def _warm_up() -> None:
     try:
         mkuran.warm()
         osm.warm()
+        street_router.start()  # the C++ street router (writes its graph files first if they are stale)
     except Exception:
-        log.exception("cache warm-up failed; endpoints will try to build the caches on demand")
+        log.exception("warm-up failed; endpoints will try to build the caches on demand")
     finally:
         READY.set()
 
@@ -47,6 +49,7 @@ async def lifespan(app: FastAPI):
     threading.Thread(target=_warm_up, daemon=True, name="cache-warmup").start()
     bus_detect.start_poller()
     yield
+    street_router.stop()
 
 
 app = FastAPI(lifespan=lifespan, title="WarsawOpenData data API",
@@ -71,7 +74,8 @@ async def upstream_failed(request: Request, exc: Exception):
 
 
 @app.exception_handler(MissingKey)
-async def key_missing(request: Request, exc: MissingKey):
+@app.exception_handler(street_router.RouterUnavailable)
+async def key_missing(request: Request, exc: Exception):
     return JSONResponse({"detail": str(exc)}, status_code=503)
 
 

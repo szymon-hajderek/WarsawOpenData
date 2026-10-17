@@ -92,11 +92,13 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - `uv run python report.py` rebuilds `data/REPORT.md` (sources, ID links, graph sizes, endpoints)
    - the server builds the GTFS / OSM caches in `data/derived/` at start (~25 s / ~17 s on the first run, a minute or two
      with a ready cache). Until then `/api/gtfs`, `/api/osm` and `/api/routes` answer 503 (`Retry-After: 30`)
-   - street matrix (walk / bike / accessible, every pair of stops): needs CMake and a C++23 compiler
-     (GCC 14+ or Clang 19+). Build once: `cmake -S ../algorithms/router/preprocess -B ../algorithms/router/preprocess/build
-     -DCMAKE_BUILD_TYPE=Release && cmake --build ../algorithms/router/preprocess/build`, then
-     `uv run python preprocess_street.py` (~10 min on 16 threads, ~1.6 GB in `data/derived/street/`).
-     Details: `algorithms/router/preprocess/README.md`
+   - **street router (C++)**: needs CMake and a C++23 compiler (GCC 14+ or Clang 19+). Build once:
+     `cmake -S ../algorithms/router -B ../algorithms/router/build -DCMAKE_BUILD_TYPE=Release &&
+     cmake --build ../algorithms/router/build`. The backend then starts it by itself (port 8090; it writes
+     `data/derived/street/graph_*.bin` first if needed, ~30 s). Without it, walk / bike legs and `/api/osm/route`
+     answer 503. Optional `.env`: `ROUTER_URL` (use a router that runs elsewhere), `ROUTER_PORT`.
+   - street matrices for every pair of stops (optional): `uv run python preprocess_street.py` (~18 min on 16 threads,
+     ~2.4 GB). Details: `algorithms/router/README.md`
    - `uv run pytest tests ../algorithms` runs the tests (pytest is in the `dev` group, installed by `uv sync`)
    - bus detection simulation: `uv run python ../algorithms/simulation/simulate_nearest_buses.py`
      (uses the committed sample; record a new one with `uv run python ../algorithms/simulation/record_buses.py`, needs `PORTAL_KEY`)

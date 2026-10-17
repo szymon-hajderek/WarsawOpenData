@@ -96,6 +96,8 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Database: none for now. Raw files in `data/`, parsed by Python modules on first use.
   PostgreSQL + PostGIS (or SQLite) later if needed.
 - Routing: a long-running **C++ engine** builds its own graph at startup and keeps it in memory.
+  Today the street part runs (`algorithms/router/`, see Backend notes); transit routing is still Python
+  (`backend/app/routing/real_engine.py`).
   After that, Python pushes only live data and values derived from it (vehicle positions, Veturilo
   availability, alerts, delays), then asks the engine for routes. Python does not send the graph.
   (OpenTripPlanner was the earlier idea; the team chose a custom C++ engine instead.)
@@ -187,10 +189,14 @@ Everything in this repo (files, commits, PRs) is written in English.
   elevator every entrance is assumed to have (+60 s).
   GTFS entrances match OSM `railway=subway_entrance` (251/253 within 30 m). GTFS `trips.txt` has
   `wheelchair_accessible` per trip (1 = yes for 96%).
-- Street matrix: `backend/preprocess_street.py` prepares points + `graph_<mode>.bin`, the C++ program
-  `algorithms/router/preprocess/street_matrix` (C++23, CMake) runs all-pairs Dijkstra (~3.5 min / mode, 16 threads)
-  into `data/derived/street/<mode>.bin` (float32 (2, N, N): distance_m, wait_s; row = from).
-  Full docs (deliverable, formats, model): `algorithms/router/preprocess/README.md` (keep it current).
+- Street router (C++, `algorithms/router/`, binary `street_router`): Python builds `graph_<mode>.bin` (SMG4) with
+  the cost model (`osm.points_graph`, `preprocess_street.py --graph-only`); C++ does every street search.
+  `street_router serve` (started by `main.py` via `backend/street_router.py`, port 8090, `ROUTER_URL` for an
+  external one) answers `POST /route` {from, to, mode, speeds} between any coordinates (~1 ms nearby, ~0.4 s across
+  the city); other keys get 501 "not implemented" (Veturilo, preferences come later). Router down = 503.
+  `street_router matrix` builds the stop-to-stop matrices (float32 (3, N, N): walk_m, bike_m, wait_s).
+  `osm.route()` is gone; `/api/osm/route` and `real_engine._street()` call the router. Full docs:
+  `algorithms/router/README.md` (keep it current).
 - Rail platforms: ZTM `warsaw.zip` has one stop per rail station (no platforms); `polish_trains.zip` has
   stations with children per platform + track (`33506_RAIL_2_20` = "2 t. 20"), also for SKM. The rail merge
   collapses them to the ZTM stop, so platform info is lost (possible follow-up). Platform coordinates in
