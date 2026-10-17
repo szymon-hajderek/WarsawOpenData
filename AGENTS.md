@@ -165,15 +165,15 @@ Everything in this repo (files, commits, PRs) is written in English.
   Not found -> `available: false`. **Pitfall:** `shape_dist_traveled` in `warsaw.zip` is in km and `mkuran._shape_dist` keeps
   whole units only, so the cached `shape_dist` is useless at stop level; `mkuran._trip_static` computes metres from coordinates. Tuning: `algorithms/simulation/tune_delay_radius.py`, results in `DELAY_RESULTS.md`.
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
-- **Integration tests** (`integration/`, see its README): `uv run pytest ../integration` from `backend/`, ~28 min
-  (3 min before `osm.route` started to build a `StreetMatrix` per call, ~1.7 s each, ~90 s per route query).
+- **Integration tests** (`integration/`, see its README): `uv run pytest ../integration` from `backend/`, ~6 min.
   Simulation mode (`backend/sim/`): one clock (`sim.clock.now()`; all live code must read time there, never
   `time.time()` / `datetime.now()`), a scenario file in `integration/scenarios/` replaces the vehicle feed
   (recorded or made from GTFS by `sim/synth.py`), Veturilo status and alerts. `SIM_SCENARIO=<name>` turns it on
   in the server and mounts `/api/sim/*`. Two kinds: `recorded/` and `gtfs/` (pytest markers). `ROUTE_ENGINE`
   (`app/routing/factory.py`) picks the engine; a new engine (C++) must pass this suite before it replaces `real`.
 - Engine bugs found by `integration/gtfs/test_engine_sanity.py` (strict xfail): options that leave hours after the
-  query (night buses for an 08:30 query) and trips with no option at all. Options are sorted by duration only.
+  query (night buses for an 08:30 query) and trips with no option at all (Politechnika -> Wilanów at 12:02) or no transit
+  option (Tarchomin -> Młociny). The Python route search (PR #56) fixed Dworzec Wschodni -> Plac Zamkowy and returns fewer options.
 - `/api/osm/route` returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`) from the graph;
   `osm.route()` / `osm.nearest()` in Python have no limit (`report.py` snaps far stops).
 - Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,

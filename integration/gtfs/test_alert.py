@@ -12,7 +12,7 @@ TAG = "Zmiana na trasie"
 
 
 def test_alert_tags_the_line(client, gtfs_ready, osm_ready, scenario):
-    sc = scenario("alert-banacha-unii")
+    sc = scenario("alert-wilenski-waszyngtona")
     trip, after_s = sc.spec["trip"], sc.spec["test"]["alert_after_s"]
     first = surface_transit(plan(client, trip))
     assert first, "no bus / tram option"
@@ -31,7 +31,7 @@ def test_alert_tags_the_line(client, gtfs_ready, osm_ready, scenario):
         ("every option with the line has the tag", all(TAG in o["tags"] for o in with_line)),
         ("no option without the line has the tag", not any(TAG in o["tags"] for o in without)),
     ]
-    results.record("alert-banacha-unii", sc.spec["title"], "gtfs", {
+    results.record("alert-wilenski-waszyngtona", sc.spec["title"], "gtfs", {
         "alerted line": line, "options after": len(late), "options with the line": len(with_line),
         "titles": ", ".join(f"{o['title']} [{', '.join(o['tags'])}]" for o in late),
     }, checks)

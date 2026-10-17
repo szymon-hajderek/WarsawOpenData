@@ -99,7 +99,7 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
      Details: `algorithms/router/preprocess/README.md`
    - `uv run pytest tests ../algorithms` runs the tests (pytest is in the `dev` group, installed by `uv sync`)
    - `uv run pytest ../integration` runs the integration tests: synthetic trips on real data in simulation mode,
-     about 28 minutes now (see `integration/README.md`, Limits), no keys needed (`-m recorded` / `-m gtfs` for one kind). Results: `integration/RESULTS.md`.
+     about 6 minutes, no keys needed (`-m recorded` / `-m gtfs` for one kind). Results: `integration/RESULTS.md`.
      See `integration/README.md`
    - optional `SIM_SCENARIO=<name>` starts the server in simulation mode with `integration/scenarios/<name>.json`
      (simulated clock, replayed feeds, `/api/sim/*` endpoints, no `PORTAL_KEY` needed)

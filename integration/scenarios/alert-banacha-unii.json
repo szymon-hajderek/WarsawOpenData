@@ -1,9 +1,0 @@
-{
- "title": "Banacha -> Plac Unii with a ZTM alert on the planned line",
- "source": "gtfs",
- "start": "2026-10-21T12:00:00",
- "trip": {"from": {"id": "banacha", "label": "Szpital Banacha", "position": [52.21110, 20.98600]},
-          "to": {"id": "plac-unii", "label": "Plac Unii Lubelskiej", "position": [52.21170, 21.02150]},
-          "profile": "standard"},
- "test": {"alert_after_s": 120}
-}

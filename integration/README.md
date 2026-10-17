@@ -7,8 +7,7 @@ the same result every time and calls no external API.
 
 ## Run
 
-From `backend/` (the first run builds the GTFS / OSM caches). A full run took about 3 minutes before the
-street-matrix change; with it, one `POST /api/routes` takes about 90 s (see Limits) and a full run about 28 minutes.
+From `backend/` (the first run builds the GTFS / OSM caches, then a full run takes about 6 minutes):
 
 ```bash
 uv run pytest ../integration            # all
@@ -51,12 +50,12 @@ Do not let the new engine replace `real` before this suite passes. The strict `x
 | File | Test | What it checks |
 |---|---|---|
 | `recorded-bus-ride` | `recorded/test_bus_ride.py` | 30 users on real buses, GPS error 10/30/50 m: own bus in the top 4 / first |
-| `trip-centrum-mokotow` | `gtfs/test_trip.py` | plan, walk, wait, ride, walk: arrival vs plan, ridden vehicle detected |
-| `delay-zbawiciela-wilanowska` | `gtfs/test_delay.py` | tram 4 min late: arrival moves, delay tag, user still catches it |
+| `trip-gorczewska-daszynskiego` | `gtfs/test_trip.py` | plan, walk, wait, ride, walk: arrival vs plan, ridden vehicle detected |
+| `delay-wilenski-waszyngtona` | `gtfs/test_delay.py` | tram 4 min late: arrival moves, delay tag, user still catches it |
 | `veturilo-kabaty-ursynow` | `gtfs/test_veturilo.py` | pickup station empty after 5 min: routes stop using it |
-| `alert-banacha-unii` | `gtfs/test_alert.py` | ZTM alert on the line after 2 min: "Zmiana na trasie" tag on exactly those options |
+| `alert-wilenski-waszyngtona` | `gtfs/test_alert.py` | ZTM alert on the line after 2 min: "Zmiana na trasie" tag on exactly those options |
 | `history-veturilo-ride` | `gtfs/test_history.py` | walk + bike track (a fix every 4 s) -> history API averages match the simulated speeds |
-| `engine-sanity` | `gtfs/test_engine_sanity.py` | 6 trips: there are options, none leaves more than 60 min after the query |
+| `engine-sanity` | `gtfs/test_engine_sanity.py` | 8 trips: there are options, none leaves more than 60 min after the query |
 
 ## Scenario file (`scenarios/<name>.json`)
 
@@ -96,6 +95,8 @@ Do not let the new engine replace `real` before this suite passes. The strict `x
   the `start` dates of the `gtfs` scenarios.
 - The recording is 2 minutes. A longer recording of buses, trams and Veturilo together is the next step.
 - Every planned segment starts "now"; the tests do not wait at intermediate stops.
-- Speed (found by these tests): `osm.route` builds a new `StreetMatrix` (`algorithms/street_matrix.py`) on every
-  call, about 1.7 s, and one route query calls it about 46 times. A stale `data/derived/osm_graph.npz` from the old
-  `Warsaw.osm.pbf` makes `osm.warm()` fail with an `IndexError`: delete it, it is rebuilt.
+- A stale `data/derived/osm_graph.npz` from the old `Warsaw.osm.pbf` makes `osm.warm()` fail with an
+  `IndexError`: delete it, it is rebuilt (issue #60).
+- Train delays (`sources/realtime.py`) are empty in simulation mode; only buses and trams have a simulated feed.
+- The engine changes which options it returns. When a scenario test fails with "no bus / tram option", first ask
+  the engine for that trip; pick another trip if the engine now prefers metro or rail there.

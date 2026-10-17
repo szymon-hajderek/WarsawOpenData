@@ -572,9 +572,9 @@ Without `SIM_SCENARIO` these endpoints do not exist (`404`).
 Clock time and the loaded scenario.
 
 ```json
-{"scenario": "trip-centrum-mokotow", "source": "gtfs", "start": 1792562400.0,
- "title": "Palace of Culture -> Galeria Mokotow by bus or tram", "t": 1792562400.0,
- "time": "2026-10-21T08:00:00", "elapsed_s": 0.0}
+{"scenario": "trip-gorczewska-daszynskiego", "source": "gtfs", "start": 1792564200.0,
+ "title": "Osiedle Gorczewska -> Rondo Daszynskiego by bus and tram", "t": 1792564200.0,
+ "time": "2026-10-21T08:30:00", "elapsed_s": 0.0}
 ```
 
 ### `POST /api/sim/clock`
@@ -591,9 +591,9 @@ Set and / or move the clock, then bus detection reads the feed at the new time. 
 ```
 
 ```json
-{"scenario": "trip-centrum-mokotow", "source": "gtfs", "start": 1792562400.0,
- "title": "Palace of Culture -> Galeria Mokotow by bus or tram", "t": 1792562460.0,
- "time": "2026-10-21T08:01:00", "elapsed_s": 60.0}
+{"scenario": "trip-gorczewska-daszynskiego", "source": "gtfs", "start": 1792564200.0,
+ "title": "Osiedle Gorczewska -> Rondo Daszynskiego by bus and tram", "t": 1792564260.0,
+ "time": "2026-10-21T08:31:00", "elapsed_s": 60.0}
 ```
 
 ### `GET /api/sim/scenario`
@@ -602,8 +602,8 @@ The loaded scenario file as JSON (`title`, `source`, `start`, `trip`, `test`, an
 `delays`, `alerts`, `veturilo`).
 
 ```json
-{"title": "Palace of Culture -> Galeria Mokotow by bus or tram", "source": "gtfs", "start": "2026-10-21T08:00:00",
- "trip": {"from": {"id": "pkin", "label": "Pałac Kultury i Nauki", "position": [52.2318, 21.0059]}, "...": "..."}}
+{"title": "Osiedle Gorczewska -> Rondo Daszynskiego by bus and tram", "source": "gtfs", "start": "2026-10-21T08:30:00",
+ "trip": {"from": {"id": "os-gorczewska", "label": "Osiedle Górczewska", "position": [52.2397, 20.907]}, "...": "..."}}
 ```
 
 ### `POST /api/sim/scenario`

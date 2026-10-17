@@ -1,9 +1,0 @@
-{
- "title": "Plac Zbawiciela -> Wilanowska with the tram 4 min late",
- "source": "gtfs",
- "start": "2026-10-21T08:30:00",
- "trip": {"from": {"id": "plac-zbawiciela", "label": "Plac Zbawiciela", "position": [52.21960, 21.01660]},
-          "to": {"id": "wilanowska", "label": "Metro Wilanowska", "position": [52.18100, 21.02300]},
-          "profile": "standard"},
- "test": {"delay_s": 240}
-}

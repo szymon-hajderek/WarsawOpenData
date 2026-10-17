@@ -21,7 +21,7 @@ END_RADIUS_M = 150
 
 
 def test_travel_the_planned_trip(client, gtfs_ready, osm_ready, scenario):
-    sc = scenario("trip-centrum-mokotow")
+    sc = scenario("trip-gorczewska-daszynskiego")
     trip = sc.spec["trip"]
     options = plan(client, trip)
     option = surface_transit(options)
@@ -48,7 +48,7 @@ def test_travel_the_planned_trip(client, gtfs_ready, osm_ready, scenario):
          [b["line"] for b in boards] == [leg["line"] for leg in option["legs"] if leg["mode"] in ("bus", "tram")]),
         ("bus detection has the ridden vehicle in the top 4 for at least 90% of requests", top4 >= 0.9),
     ]
-    results.record("trip-centrum-mokotow", sc.spec["title"], "gtfs", {
+    results.record("trip-gorczewska-daszynskiego", sc.spec["title"], "gtfs", {
         "option": option["title"], "planned": f"{option['departure']}-{option['arrival']}",
         "leaves after the query (min)": (run["start"] - asked) / 60,
         "planned duration (min)": option["durationMin"], "travel time (min)": (t.end - run["start"]) / 60,

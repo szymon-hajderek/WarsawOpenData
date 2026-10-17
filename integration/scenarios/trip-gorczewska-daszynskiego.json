@@ -1,0 +1,8 @@
+{
+ "title": "Osiedle Gorczewska -> Rondo Daszynskiego by bus and tram",
+ "source": "gtfs",
+ "start": "2026-10-21T08:30:00",
+ "trip": {"from": {"id": "os-gorczewska", "label": "Osiedle Górczewska", "position": [52.23970, 20.90700]},
+          "to": {"id": "rondo-daszynskiego", "label": "Rondo Daszyńskiego", "position": [52.23030, 20.98400]},
+          "profile": "standard"}
+}

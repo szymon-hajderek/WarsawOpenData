@@ -14,7 +14,7 @@ pytestmark = pytest.mark.gtfs
 
 
 def test_delay_moves_the_route(client, gtfs_ready, osm_ready, scenario):
-    sc = scenario("delay-zbawiciela-wilanowska")
+    sc = scenario("delay-wilenski-waszyngtona")
     trip, delay = sc.spec["trip"], sc.spec["test"]["delay_s"]
     asked = clock.now()
     before = surface_transit(plan(client, trip))
@@ -42,7 +42,7 @@ def test_delay_moves_the_route(client, gtfs_ready, osm_ready, scenario):
         (f"travel finished ({run['trip'].reason or 'ok'})", run["trip"].ok),
         ("the user leaving at the new time arrives no later than the new plan + 3 min", late_s <= 180),
     ]
-    results.record("delay-zbawiciela-wilanowska", sc.spec["title"], "gtfs", {
+    results.record("delay-wilenski-waszyngtona", sc.spec["title"], "gtfs", {
         "option": before["title"], "delayed vehicle": f"line {ride['line']}, brigade {ride['brigade']}",
         "set delay (s)": delay, "plan before": f"{before['departure']}-{before['arrival']}",
         "plan after": f"{after['departure']}-{after['arrival']}", "arrival shift (s)": shift,
