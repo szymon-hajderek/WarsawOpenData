@@ -536,14 +536,24 @@ Answer: `seconds` (total time with the mode's default speeds), `walk_m` (metres 
 `bike_m` (metres ridden), `wait_s` (expected waits that do not depend on speed: crossings and signals, where signal
 nodes closer than 30 m by path form one junction paid once, and 60 s per elevator), `length_m` (= `walk_m` +
 `bike_m`), `snap_m` (distance from start and end to the nearest usable graph node, in metres), `path` (list of
-`[lon, lat]`, 5 decimals), `geometry` (the same as `[lat, lon]`), `elevators` (`[lon, lat]` where the path boards
+`[lon, lat]`, 5 decimals), `geometry` (the same as `[lat, lon]`), `legs` (one leg: `mode` `walk` / `bike`, `from` /
+`to` as `{"id": null, "lonlat": [lon, lat]}`, `seconds`, `walk_m`, `bike_m`, `wait_s`, `path`, and `segments`: parts
+of one kind covering the path, `{"kind", "path", "length_m"}`, kind `ride` / `push` (bike ridden / pushed) / `walk` /
+`steps` / `elevator` / `metro_access`; ridden metres add up to `bike_m`, the rest to `walk_m`), `elevators` (`[lon, lat]` where the path boards
 an elevator), `steps` (`[lon, lat]` where a flight of steps starts; in `accessible` / `stroller` only steps with a ramp the mode
 may use, in `bike` none).
 
 ```json
 {"seconds": 1268.5, "walk_m": 88.7, "bike_m": 3988.8, "wait_s": 250.6, "length_m": 4077.5, "snap_m": [4.0, 7.9],
  "path": [[21.0122, 52.2297], [21.01226, 52.22969], "..."], "geometry": [[52.2297, 21.0122], [52.22969, 21.01226], "..."],
- "elevators": [], "steps": []}
+ "elevators": [], "steps": [],
+ "legs": [{"mode": "bike", "from": {"id": null, "lonlat": [21.0122, 52.2297]}, "to": {"id": null, "lonlat": [20.9652, 52.2196]},
+           "seconds": 1268.5, "walk_m": 88.7, "bike_m": 3988.8, "wait_s": 250.6, "path": ["..."],
+           "segments": [{"kind": "push", "length_m": 4.0, "path": [[21.0122, 52.2297], [21.01226, 52.22969]]},
+                        {"kind": "ride", "length_m": 2867.1, "path": [[21.01226, 52.22969], "..."]},
+                        {"kind": "push", "length_m": 10.1, "path": ["..."]},
+                        {"kind": "ride", "length_m": 1121.7, "path": ["..."]},
+                        {"kind": "push", "length_m": 74.6, "path": ["...", [20.9652, 52.2196]]}]}]}
 ```
 
 Errors:

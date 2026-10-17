@@ -14,7 +14,7 @@ from scipy.sparse.csgraph import dijkstra
 from scipy.spatial import cKDTree
 
 from street_graph import StreetGraph
-from street_model import FLAG_ELEVATOR, FLAG_STEPS, access_edges, access_flags, edge_wait, entry_wait, junctions
+from street_model import FLAG_ELEVATOR, FLAG_PUSH, FLAG_STEPS, access_edges, access_flags, edge_wait, entry_wait, junctions
 
 W = 27.0  # wait at a signal node
 WALK, BIKE = 1.0, 4.0  # test speeds, m/s
@@ -395,6 +395,65 @@ def test_cpp_server(tmp_path):
         assert post(port, {**ok, "mode": "car"})[0] == 400
         assert post(port, {**ok, "speeds": {"walk": 0}})[0] == 400
         assert post(port, {**ok, "to": [52.30, 21.0]})[0] == 422
+    finally:
+        proc.terminate()
+        proc.wait()
+
+
+@needs_cpp
+def test_cpp_route_segments_split_a_bike_path_into_ride_and_push(tmp_path):
+    # the toy grid as a bike graph: the bottom row (nodes 0-4) and the right column are ridden, the rest pushed
+    lat, lon, src, dst, ln, wait, flags, entry = grid_city()
+    ride = np.isin(src, range(5)) & np.isin(dst, range(5)) | (src % 5 == 4) & (dst % 5 == 4)
+    street = tmp_path / "street"
+    street.mkdir()
+    street_graph(src, dst, np.where(ride, 0, ln), np.where(ride, ln, 0), wait, np.zeros(0, int), np.zeros(0, int),
+                 len(lat), flags=flags | np.where(ride, 0, FLAG_PUSH), lon=lon, lat=lat,
+                 usable=np.ones(len(lat), bool), entry=entry).save(street / "graph_bike.bin")
+    save_overlay(tmp_path / "stations.json")
+    port = free_port()
+    proc = subprocess.Popen([str(CPP), "serve", str(street), "--port", str(port), "--threads", "2"],
+                            stderr=subprocess.DEVNULL)
+    try:
+        for _ in range(100):
+            try:
+                urllib.request.urlopen(f"http://127.0.0.1:{port}/health")
+                break
+            except urllib.error.URLError:
+                time.sleep(0.05)
+        # from near node 5 (pushed street) to near node 24 (top right): push to the bottom row, ride, push at the end
+        status, got = post(port, {"from": [lat[5] + 0.00002, lon[5]], "to": [lat[24] + 0.00002, lon[24]],
+                                  "mode": "bike"})
+        assert status == 200
+        leg, = got["legs"]
+        assert leg["mode"] == "bike" and leg["from"]["id"] is None and leg["path"] == got["path"]
+        segs = leg["segments"]
+        kinds = [s["kind"] for s in segs]
+        assert set(kinds) <= {"ride", "push", "elevator"} and "ride" in kinds and "push" in kinds
+        assert all(a != b for a, b in zip(kinds, kinds[1:]))  # consecutive parts of one kind are merged
+        # the segments cover the path end to end and their metres add up to the totals
+        assert segs[0]["path"][0] == got["path"][0] and segs[-1]["path"][-1] == got["path"][-1]
+        assert all(a["path"][-1] == b["path"][0] for a, b in zip(segs, segs[1:]))
+        ridden = sum(s["length_m"] for s in segs if s["kind"] == "ride")
+        assert np.isclose(ridden, got["bike_m"], atol=0.5)
+        assert np.isclose(sum(s["length_m"] for s in segs) - ridden, got["walk_m"], atol=0.5)
+    finally:
+        proc.terminate()
+        proc.wait()
+
+
+@needs_cpp
+def test_cpp_route_segments_mark_the_metro_walk_down(tmp_path):
+    proc, port, _ = start_server(tmp_path)
+    lat, lon, *_ = grid_city()
+    try:
+        status, got = post(port, {"from": [lat[1], lon[1]], "to": "ztm:M:P1", "mode": "walk"})
+        assert status == 200
+        leg, = got["legs"]
+        assert leg["to"]["id"] == "ztm:M:P1" and leg["mode"] == "walk"
+        assert [s["kind"] for s in leg["segments"]][-1] == "metro_access"
+        assert leg["segments"][-1]["length_m"] >= METRO_ACCESS_M
+        assert np.isclose(sum(s["length_m"] for s in leg["segments"]), got["walk_m"], atol=0.5)
     finally:
         proc.terminate()
         proc.wait()

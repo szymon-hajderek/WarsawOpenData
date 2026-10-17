@@ -195,6 +195,20 @@ Answer:
   `steps`: where a flight of steps starts (in `accessible` / `stroller` only steps with a ramp the mode may use;
   `bike` has none).
 - `snap_m`: distance from each point to its nearest usable graph node.
+- `legs`: the user-visible parts of the trip; a street route is **one** leg (the same shape whole trips will use
+  later, with transit legs). A leg: `mode` (`walk`, or `bike` in bike mode), `from` / `to` (`{"id": location id or
+  null, "lonlat": [lon, lat]}`), `seconds`, `walk_m`, `bike_m`, `wait_s`, `path`, `segments`.
+- `segments`: consecutive parts of one kind that together cover `path`, each `{"kind", "path", "length_m"}`.
+  Kinds:
+  - `ride`: a bike is ridden;
+  - `push`: a bike is pushed, also the access ends in bike mode;
+  - `walk`;
+  - `steps`;
+  - `elevator`;
+  - `metro_access`: the walk between a metro platform and the street, through an entrance; `length_m` includes the
+    fixed 150 m.
+
+  Ridden `length_m` adds up to `bike_m`, the rest to `walk_m`.
 - Errors: `400` bad body / unknown mode / bad speeds, `422` a point is more than 1000 m from the graph, `404` no path
   or an unknown location id.
 - A coordinate joins up to 6 nearest usable nodes, at most 30 m farther than the nearest. The access segment is

@@ -114,12 +114,41 @@ std::expected<json, Error> route(const Mode& mode, Search& search, const Place& 
         on_steps = g.flags[e] & kSteps;
     }
     path.push_back(lonlat(to.lon, to.lat));
-    json out{{"seconds", round_to(search.cost(t.node) + t.cost, 1)},
-             {"walk_m", round_to(search.walk(t.node) + t.walk, 1)},
-             {"bike_m", round_to(search.bike(t.node), 1)},
-             {"wait_s", round_to(search.wait(t.node) + t.wait, 1)},
-             {"snap_m", {round_to(from.snap_m, 1), round_to(to.snap_m, 1)}},
-             {"path", path}, {"elevators", elevators}, {"steps", steps}};
+    // segments: consecutive parts of one kind (ride / push / walk / steps / elevator / metro_access), each with its
+    // own path and metres; together they cover `path`. The ends (place -> graph) are walked, a bike is pushed there.
+    const bool bike_mode = mode.name == "bike";
+    const char* foot = bike_mode ? "push" : "walk";
+    auto end_kind = [&](const Place& p) { return p.location && p.location->kind == "metro_platform" ? "metro_access" : foot; };
+    json segments = json::array();
+    auto add = [&](const char* kind, json a, json b, double metres) {
+        if (!segments.empty() && segments.back()["kind"] == kind) {
+            segments.back()["path"].push_back(std::move(b));
+            segments.back()["length_m"] = segments.back()["length_m"].get<double>() + metres;
+        } else {
+            segments.push_back({{"kind", kind}, {"path", json::array({std::move(a), std::move(b)})}, {"length_m", metres}});
+        }
+    };
+    add(end_kind(from), lonlat(from.lon, from.lat), lonlat(g, start), search.walk(start));
+    for (const auto& [u, e] : edges) {
+        const auto f = g.flags[e];
+        const char* kind = (f & kElevator) ? "elevator" : (f & kMetro) ? "metro_access" : (f & kSteps) ? "steps"
+                           : g.bike[e] > 0 ? "ride" : foot;
+        add(kind, lonlat(g, u), lonlat(g, g.target[e]), g.walk[e] + g.bike[e]);
+    }
+    add(end_kind(to), lonlat(g, t.node), lonlat(to.lon, to.lat), t.walk);
+    for (auto& seg : segments) seg["length_m"] = round_to(seg["length_m"].get<double>(), 1);
+    const double seconds = search.cost(t.node) + t.cost, walk_m = search.walk(t.node) + t.walk,
+                 bike_m = search.bike(t.node), wait_s = search.wait(t.node) + t.wait;
+    auto end = [](const Place& p) {
+        return json{{"id", p.location ? json(p.location->id) : json()}, {"lonlat", lonlat(p.lon, p.lat)}};
+    };
+    // legs: the user-visible parts of the trip (the format RAPTOR answers will use too); a street route is one leg
+    json leg{{"mode", bike_mode ? "bike" : "walk"}, {"from", end(from)}, {"to", end(to)},
+             {"seconds", round_to(seconds, 1)}, {"walk_m", round_to(walk_m, 1)}, {"bike_m", round_to(bike_m, 1)},
+             {"wait_s", round_to(wait_s, 1)}, {"path", path}, {"segments", segments}};
+    json out{{"seconds", round_to(seconds, 1)}, {"walk_m", round_to(walk_m, 1)}, {"bike_m", round_to(bike_m, 1)},
+             {"wait_s", round_to(wait_s, 1)}, {"snap_m", {round_to(from.snap_m, 1), round_to(to.snap_m, 1)}},
+             {"path", path}, {"elevators", elevators}, {"steps", steps}, {"legs", json::array({leg})}};
     if (from.location) out["from_id"] = from.location->id;
     if (to.location) out["to_id"] = to.location->id;
     return out;
