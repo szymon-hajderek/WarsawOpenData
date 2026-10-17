@@ -4,7 +4,7 @@ import MapView, { type MapPadding } from './components/MapView';
 import SearchCard from './components/SearchCard';
 import RouteOptionsSheet from './components/RouteOptionsSheet';
 import RouteDetailsSheet from './components/RouteDetailsSheet';
-import VehicleSheet from './components/VehicleSheet';
+import VehicleSheet, { type VehicleSnap } from './components/VehicleSheet';
 import BottomNav, { type Tab } from './components/BottomNav';
 import PreferencesPage from './components/PreferencesPage';
 import FilterSheet from './components/FilterSheet';
@@ -23,7 +23,7 @@ import {
   type TripFilters,
 } from './preferences/model';
 import { BOTTOM_NAV_HEIGHT } from './layout';
-import type { LatLng, Place, RouteOption, VehicleCandidate } from './types';
+import type { LatLng, Place, RouteOption, StopOrder, VehicleCandidate } from './types';
 
 type Step = 'search' | 'options' | 'route';
 
@@ -36,6 +36,9 @@ export default function App() {
   const [geoError, setGeoError] = useState(false);
   const [origin, setOrigin] = useState<Place | null>(null);
   const [destination, setDestination] = useState<Place | null>(null);
+  // Intermediate stops (`null` = an empty field the user has just added) and how they are ordered.
+  const [stopFields, setStopFields] = useState<(Place | null)[]>([]);
+  const [stopOrder, setStopOrder] = useState<StopOrder>('given');
   const [tab, setTab] = useState<Tab>('map');
   const { effective, activeRule } = usePreferences();
   const { tracker } = useHistory();
@@ -54,7 +57,7 @@ export default function App() {
   const [vehicleLines, setVehicleLines] = useState<string[]>([]);
   const [manualVehicle, setManualVehicle] = useState<VehicleCandidate | null>(null);
   const [vehiclesLoading, setVehiclesLoading] = useState(true);
-  const [vehicleOpen, setVehicleOpen] = useState(true);
+  const [vehicleSnap, setVehicleSnap] = useState<VehicleSnap>('middle');
   const [vehicleDismissed, setVehicleDismissed] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [confirmedVehicle, setConfirmedVehicle] = useState<VehicleCandidate | null>(null);
@@ -95,7 +98,7 @@ export default function App() {
     const onRequest = () => {
       setDetectRun((n) => n + 1);
       setVehicleDismissed(false);
-      setVehicleOpen(true);
+      setVehicleSnap('middle');
     };
     window.addEventListener(BUS_POPUP_REQUEST_EVENT, onRequest);
     return () => window.removeEventListener(BUS_POPUP_REQUEST_EVENT, onRequest);
@@ -126,6 +129,11 @@ export default function App() {
     if (currentLocation) setOrigin((prev) => prev ?? currentLocation);
   }, [currentLocation]);
 
+  // Only the stops that are filled in go into the search; the key keeps empty fields from refetching.
+  const viaKey = stopFields.map((p) => p?.id ?? '').join('|');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const via = useMemo(() => stopFields.filter((p): p is Place => p !== null), [viaKey]);
+
   // Fetch connections as soon as both points are set.
   useEffect(() => {
     setFilters(DEFAULT_FILTERS);
@@ -140,7 +148,7 @@ export default function App() {
     setStep('options');
     setChosenId(null);
     setLoading(true);
-    fetchRouteOptions(origin, destination, 'standard')
+    fetchRouteOptions({ from: origin, to: destination, profile: 'standard', via, order: stopOrder })
       .then((result) => {
         if (cancelled) return;
         setOptions(result);
@@ -150,16 +158,18 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [origin, destination]);
+  }, [origin, destination, via, stopOrder]);
 
   const handleLocateOrigin = () => {
     if (currentLocation) setOrigin(currentLocation);
     else locate();
   };
 
+  // Reverses the whole trip: start <-> destination and the stops in reverse order.
   const swap = () => {
     setOrigin(destination);
     setDestination(origin);
+    setStopFields((prev) => [...prev].reverse());
   };
 
   // Preferences of this search = the ones valid now + this search's overrides.
@@ -193,6 +203,8 @@ export default function App() {
         route={preview}
         detailed={step === 'route'}
         padding={padding}
+        stops={via}
+        controlsOffset={step === 'route' ? 0 : 40 + stopFields.length * 56}
         onDetectVehicle={step === 'search' ? requestLinePopup : undefined}
       />
 
@@ -200,9 +212,13 @@ export default function App() {
         <SearchCard
           origin={origin}
           destination={destination}
+          stops={stopFields}
+          order={stopOrder}
           currentLocation={currentLocation}
           onOriginChange={setOrigin}
           onDestinationChange={setDestination}
+          onStopsChange={setStopFields}
+          onOrderChange={setStopOrder}
           onSwap={swap}
           onLocate={handleLocateOrigin}
         />
@@ -214,10 +230,10 @@ export default function App() {
           lines={vehicleLines}
           manual={manualVehicle}
           loading={vehiclesLoading}
-          open={vehicleOpen}
+          snap={vehicleSnap}
           selectedId={selectedVehicleId}
           confirmed={confirmedVehicle}
-          onOpenChange={setVehicleOpen}
+          onSnapChange={setVehicleSnap}
           onSelect={setSelectedVehicleId}
           onManualLine={(line) => {
             const v = manualCandidate(line);
@@ -232,7 +248,7 @@ export default function App() {
           onConfirm={() => {
             const all = manualVehicle ? [...vehicles, manualVehicle] : vehicles;
             setConfirmedVehicle(all.find((v) => v.id === selectedVehicleId) ?? null);
-            setVehicleOpen(false);
+            setVehicleSnap('bar');
           }}
           onDismiss={() => setVehicleDismissed(true)}
         />

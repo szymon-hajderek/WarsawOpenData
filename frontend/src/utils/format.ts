@@ -25,3 +25,10 @@ export function transfersLabel(n: number): string {
   if (n >= 2 && n <= 4) return `${n} przesiadki`;
   return `${n} przesiadek`;
 }
+
+/** "1 przystanek", "2 przystanki", "5 przystanków". */
+export function stopsLabel(n: number): string {
+  if (n === 1) return '1 przystanek';
+  if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) return `${n} przystanki`;
+  return `${n} przystanków`;
+}

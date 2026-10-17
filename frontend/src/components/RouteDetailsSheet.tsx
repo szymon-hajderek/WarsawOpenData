@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { Alert, alpha, Box, Button, Chip, CircularProgress, Collapse, IconButton, Paper, Typography, useTheme } from '@mui/material';
 import FiberManualRecord from '@mui/icons-material/FiberManualRecord';
 import ArrowBack from '@mui/icons-material/ArrowBack';
@@ -8,7 +9,7 @@ import LegChain from './LegChain';
 import { MODE_META, modeColor } from '../modes';
 import { useHistory } from '../history/HistoryProvider';
 import { usePreferences } from '../preferences/PreferencesProvider';
-import { formatCost, formatDistance, formatDuration, transfersLabel } from '../utils/format';
+import { formatCost, formatDistance, formatDuration, stopsLabel, transfersLabel } from '../utils/format';
 import type { Place, RouteLeg, RouteOption } from '../types';
 import { RADIUS } from '../layout';
 
@@ -124,6 +125,8 @@ export default function RouteDetailsSheet({
   // The longest leg sets the icon of the whole route
   const mainLeg = route.legs.reduce((a, b) => (b.durationMin > a.durationMin ? b : a));
   const MainIcon = MODE_META[mainLeg.mode].icon;
+  // intermediate stops: waypoints without the start and the destination
+  const stopCount = Math.max(0, (route.waypoints?.length ?? 0) - 2);
 
   return (
     <>
@@ -153,6 +156,7 @@ export default function RouteDetailsSheet({
           </Typography>
           <Typography variant="body2" color="text.secondary" noWrap>
             {route.departure} – {route.arrival} · {transfersLabel(route.transfers)}
+            {stopCount > 0 && ` · ${stopsLabel(stopCount)}`}
           </Typography>
         </Paper>
       </Box>
@@ -241,8 +245,10 @@ export default function RouteDetailsSheet({
               const color = modeColor(leg.mode, palette);
               const Icon = MODE_META[leg.mode].icon;
               const last = i === route.legs.length - 1;
+              const stopPlace = leg.stop ? route.waypoints?.[leg.stop] : undefined;
               return (
-                <Box key={i} sx={{ display: 'flex', gap: 1.5 }}>
+                <Fragment key={i}>
+                <Box sx={{ display: 'flex', gap: 1.5 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <Box
                       sx={{
@@ -268,6 +274,34 @@ export default function RouteDetailsSheet({
                     </Typography>
                   </Box>
                 </Box>
+                {leg.stop && (
+                  <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'stretch' }}>
+                    <Box sx={{ width: 36, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <Box
+                        sx={(t) => ({
+                          width: 26,
+                          height: 26,
+                          borderRadius: '50%',
+                          display: 'grid',
+                          placeItems: 'center',
+                          fontSize: 13,
+                          fontWeight: 700,
+                          bgcolor: t.palette.primary.main,
+                          color: t.palette.primary.contrastText,
+                        })}
+                      >
+                        {leg.stop}
+                      </Box>
+                      <Box sx={{ flex: 1, width: 2, my: 0.5, bgcolor: 'divider', minHeight: 12 }} />
+                    </Box>
+                    <Box sx={{ pb: 1.5, pt: 0.25 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        Przystanek {leg.stop}: {stopPlace?.label ?? leg.to}
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
+                </Fragment>
               );
             })}
           </Collapse>
