@@ -91,12 +91,18 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - run every backend command from `backend/`
    - `uv run uvicorn main:app --reload` starts the API at http://localhost:8000 (docs at `/docs`).
      This one process serves the data, geocode and `POST /api/routes` (real GTFS + OSM + Veturilo).
+   - building searches use mapped public entrances from `https://www.openstreetmap.org/api/0.6/`
+     when available (cached for one day). Allow outbound HTTPS to OSM as well as Nominatim; no key,
+     extra dependency or data download is needed. Without a mapped entrance or when OSM is unavailable,
+     search keeps the Nominatim point. Restart the backend and reselect existing start/destination
+     search results to pick up corrected entrance coordinates.
    - `uv run python report.py` rebuilds `data/REPORT.md` (sources, ID links, graph sizes, endpoints)
    - the server builds the GTFS / OSM caches in `data/derived/` at start (~25 s / ~17 s on the first run, a minute or two
      with a ready cache). Until then `/api/gtfs`, `/api/osm` and `/api/routes` answer 503 (`Retry-After: 30`)
    - GTFS caches carry a format version in `gtfs_stop_times.npz`. The first backend restart after this update
      rebuilds old or unversioned caches from the existing GTFS zips automatically; no data download or manual
-     cache deletion is needed. This restores metre distances and the actual metro geometry from GTFS shapes.
+     cache deletion is needed. This restores metre distances and the actual bus, tram, metro and rail
+     geometry from GTFS shapes.
    - **street router (C++)**: needs CMake and a C++23 compiler (GCC 14+ or Clang 19+). Build once:
      `cmake -S ../algorithms/router -B ../algorithms/router/build -DCMAKE_BUILD_TYPE=Release &&
      cmake --build ../algorithms/router/build`. The backend then starts it by itself (port 8090; it writes

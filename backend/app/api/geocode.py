@@ -4,6 +4,7 @@ OpenStreetMap Nominatim (limited to Warsaw) for addresses and other places.
 The local part answers from memory from 2 characters on and matches the start of words ("marszalk"),
 which Nominatim does not. It also keeps working when Nominatim is down.
 """
+import asyncio
 import logging
 import sys
 from functools import lru_cache
@@ -15,6 +16,7 @@ from fastapi import APIRouter, HTTPException, Query
 from config import REPO, TTLCache
 
 from ..config import settings
+from ..geocode_access import building_position
 from ..models import Place
 
 sys.path.insert(0, str(REPO / "algorithms"))
@@ -91,6 +93,7 @@ async def geocode(
         "q": q,
         "limit": "6",
         "addressdetails": "1",
+        "extratags": "1",  # building metadata is also needed for attractions such as the Palace of Culture
         "viewbox": WARSAW_VIEWBOX,
         "bounded": "1",
         "countrycodes": "pl",
@@ -101,7 +104,9 @@ async def geocode(
         async with httpx.AsyncClient(timeout=10) as client:
             res = await client.get(settings.nominatim_url, params=params, headers=headers)
             res.raise_for_status()
-            items = res.json()
+            items = [item for item in res.json()
+                     if item.get("osm_type") in ("node", "way", "relation") and item.get("osm_id")]
+            positions = await asyncio.gather(*(building_position(client, item, headers) for item in items))
     except (httpx.HTTPError, ValueError) as exc:  # ValueError: the answer was not JSON
         log.warning("geocoding failed (%s)", type(exc).__name__)
         if local:  # our own stops and stations are still a useful answer
@@ -109,9 +114,7 @@ async def geocode(
         raise HTTPException(status_code=502, detail="Geocoding service failed") from exc
 
     places: list[Place] = []
-    for item in items:
-        if item.get("osm_type") not in ("node", "way", "relation") or not item.get("osm_id"):
-            continue
+    for item, position in zip(items, positions):
         address = item.get("address") or {}
         street = " ".join(x for x in [address.get("road"), address.get("house_number")] if x)
         label = item.get("name") or street or item["display_name"].split(",")[0]
@@ -130,7 +133,7 @@ async def geocode(
                 id=f"osm:{item['osm_type']}:{item['osm_id']}",
                 label=label,
                 sublabel=sublabel or None,
-                position=(float(item["lat"]), float(item["lon"])),
+                position=position,
             )
         )
 

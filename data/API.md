@@ -552,8 +552,9 @@ implies `accessible` routing and no Veturilo; `weightKg`, `heightCm`, `age` and 
 previous arrival plus 2 minutes at the stop. `order` `optimal` minimises a time estimate, not straight-line distance.
 
 Answer: list of `RouteOption`. Public-transport geometry follows the GTFS shape between the stops
-boarded and alighted. Walk and bike geometry follows the OSM graph (a straight line only when the
-graph has no path).
+boarded and alighted. Walk and bike geometry follows the OSM graph, including access segments from
+the supplied coordinates to the graph. Options with a missing street path or GTFS shape are omitted;
+the backend does not replace missing geometry with straight lines. The answer can be an empty list.
 
 ```json
 [{"id": "pt-ztm:trip", "title": "175",
@@ -579,6 +580,12 @@ Place search for the start and destination fields, limited to Warsaw. The answer
 accents (`marszalk` finds `Marszałkowska`). Then come OpenStreetMap Nominatim results (addresses and other places, up to 6, duplicates
 and places already listed removed), only for texts of 3 or more characters.
 Nominatim place IDs use `osm:<osm_type>:<osm_id>`; Nominatim results without an OSM object reference are omitted.
+For building ways and relations, `position` uses a mapped public entrance on the outer building boundary
+when available (`entrance=main` first, then `entrance=yes`; private or forbidden pedestrian entrances are
+excluded). The original object ID and label are preserved. Entrance nodes come from the public OSM API
+and are cached for one day. If no such entrance is mapped or that lookup fails, the Nominatim point is
+kept. This resolves building searches for every route mode; it does not alter supplied GPS coordinates
+or guarantee obstacle-free access for buildings without mapped entrances.
 
 | Query | Type | Default | Meaning |
 |---|---|---|---|

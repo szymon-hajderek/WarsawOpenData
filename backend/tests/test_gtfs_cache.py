@@ -74,10 +74,11 @@ def test_cache_version_is_not_a_stop_time_array(tmp_path, monkeypatch):
     assert arrays["shape_dist"].tolist() == [0, 21, 1126]
 
 
-def test_build_stamps_cache_and_preserves_fractional_kilometres(tmp_path, monkeypatch):
+@pytest.mark.parametrize("route_type", [0, 1, 2, 3])
+def test_build_stamps_cache_and_preserves_fractional_kilometres(tmp_path, monkeypatch, route_type):
     monkeypatch.setattr(mkuran, "DERIVED", tmp_path)
     monkeypatch.setattr(mkuran, "FEEDS", {"ztm": ("unused.zip", "unused")})
-    monkeypatch.setattr(mkuran, "routes", lambda: {"ztm:M1": {"type": 1}})
+    monkeypatch.setattr(mkuran, "routes", lambda: {"ztm:M1": {"type": route_type}})
     stops = [
         {"id": f"ztm:{sid}", "feed": "ztm", "raw_id": sid, "name": sid, "code": "",
          "lat": 52.2, "lon": 21.0, "location_type": 0, "parent": None, "wheelchair": "1", "zone": "1"}

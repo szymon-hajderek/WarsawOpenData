@@ -294,6 +294,8 @@ class RealRouteEngine(RouteEngine):
                 elif ride["dep"]["sec"] < prev["arr"] - CATCH_SLACK_S:
                     return None
             path = _ride_path(ride["dep"]["trip_id"], calls)
+            if len(path) < 2:
+                return None
             meters = sum(_distance(path[i], path[i + 1]) for i in range(len(path) - 1))
             seconds = max(0, calls[-1]["arr"] - calls[0]["dep"])
             dep = ride["dep"]
@@ -527,10 +529,11 @@ def _street(a, b, mode: str, profile: Profile):
     speeds = {"walk": PROFILE_SPEED[profile]["walk"], "bike": PROFILE_SPEED[profile]["bike"] or OSM_SPEED["bike"]}
     try:
         raw = street_router.route(a, b, graph, speeds=speeds)
+        if len(raw["geometry"]) < 2:
+            return None
         return {"seconds": raw["seconds"], "length_m": raw["length_m"], "geometry": raw["geometry"]}
     except (ValueError, OSError, FileNotFoundError):
-        meters = _distance(a, b) * 1.25
-        return {"seconds": meters / speed, "length_m": meters, "geometry": [list(a), list(b)]}
+        return None
 
 
 def _stations() -> list[dict]:
@@ -576,7 +579,7 @@ def _ride_path(trip_id: str, calls: list[dict]) -> list[list[float]]:
         shape = []
     if len(shape) >= 2:
         return shape
-    return [[c["lat"], c["lon"]] for c in calls]
+    return []
 
 
 def _leg(mode, frm, to, line, street) -> RouteLeg:

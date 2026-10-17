@@ -274,6 +274,14 @@ Everything in this repo (files, commits, PRs) is written in English.
   stops and Veturilo stations first (`algorithms/place_search.py`: start-of-word match, accents folded, distance as a tie-break), then Nominatim; stops still come when Nominatim is down.
   Without the backend the same search runs in the browser on `src/data/places.json` (about 3300 stop names and stations, 130 KB, a separate chunk loaded on first use;
   `src/utils/placeSearch.ts` is the TypeScript twin of `place_search.py`). Regenerate the file after a timetable or station change: `cd backend && uv run python export_places.py`.
+- Building search coordinates: `backend/app/geocode_access.py` resolves building ways/relations to public
+  outer-boundary entrances from the OSM API (main before ordinary, cached for one day), preserving the
+  building ID. Missing entrances/upstream errors keep the Nominatim point. Re-select existing search
+  results after restarting the API. GPS points are not adjusted; the street graph does not contain
+  building obstacles, so arbitrary point-to-graph access can still cross a footprint.
+- Real route geometry is required: `_street` omits legs rejected by the C++ router; `_ride_path` returns
+  no path when a GTFS shape is missing, and `_transit_option` drops that variant. Never substitute
+  straight-line paths for missing street/transit geometry. Router downtime still returns 503.
 - Colours: one palette, the Warsaw colours (red + yellow): `src/map/palette.ts` (`PALETTE`, light / dark). Red is the main
   colour in light mode, yellow the accent at night. It sets the map colours, the round map buttons / markers AND the accent
   of the whole UI (the MUI theme in `src/theme.ts` is built from it). The old lavender look and the look switch were removed.
