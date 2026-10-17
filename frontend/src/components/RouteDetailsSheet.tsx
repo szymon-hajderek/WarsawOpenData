@@ -7,6 +7,7 @@ import LegChain from './LegChain';
 import { MODE_META, modeColor } from '../modes';
 import { formatCost, formatDistance, formatDuration, transfersLabel } from '../utils/format';
 import type { Place, RouteLeg, RouteOption } from '../types';
+import { RADIUS } from '../layout';
 
 function instruction(leg: RouteLeg): string {
   const dist = formatDistance(leg.distanceM);
@@ -22,7 +23,7 @@ function instruction(leg: RouteLeg): string {
 
 function Tile({ label, value }: { label: string; value: string }) {
   return (
-    <Box sx={(t) => ({ p: 1.5, borderRadius: 3, bgcolor: alpha(t.palette.primary.main, 0.08) })}>
+    <Box sx={(t) => ({ p: 1.5, borderRadius: RADIUS.tile, bgcolor: alpha(t.palette.primary.main, 0.08) })}>
       <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
@@ -79,7 +80,7 @@ export default function RouteDetailsSheet({
         >
           <ArrowBack />
         </IconButton>
-        <Paper elevation={4} sx={{ flex: 1, minWidth: 0, px: 2.5, py: 1, borderRadius: 999 }}>
+        <Paper elevation={4} sx={{ flex: 1, minWidth: 0, px: 2.5, py: 1, borderRadius: RADIUS.pill }}>
           <Typography noWrap sx={{ fontWeight: 700 }}>
             {route.title}
           </Typography>
@@ -93,7 +94,7 @@ export default function RouteDetailsSheet({
         <Box sx={{ overflowY: 'auto', px: 2, pb: 2 }}>
           {/* start -> finish */}
           <Box sx={{ display: 'flex', alignItems: 'stretch', position: 'relative', gap: 1 }}>
-            <Box sx={(t) => ({ flex: 1, minWidth: 0, p: 1.5, borderRadius: 4, bgcolor: alpha(t.palette.primary.main, 0.08), pr: 4 })}>
+            <Box sx={(t) => ({ flex: 1, minWidth: 0, p: 1.5, borderRadius: RADIUS.tile, bgcolor: alpha(t.palette.primary.main, 0.08), pr: 4 })}>
               <Typography variant="caption" color="text.secondary">
                 Start · {route.departure}
               </Typography>
@@ -101,7 +102,7 @@ export default function RouteDetailsSheet({
                 {origin.label}
               </Typography>
             </Box>
-            <Box sx={(t) => ({ flex: 1, minWidth: 0, p: 1.5, borderRadius: 4, bgcolor: alpha(t.palette.primary.main, 0.08), textAlign: 'right', pl: 4 })}>
+            <Box sx={(t) => ({ flex: 1, minWidth: 0, p: 1.5, borderRadius: RADIUS.tile, bgcolor: alpha(t.palette.primary.main, 0.08), textAlign: 'right', pl: 4 })}>
               <Typography variant="caption" color="text.secondary">
                 Cel · {route.arrival}
               </Typography>
@@ -136,7 +137,7 @@ export default function RouteDetailsSheet({
                 key={i}
                 sx={{
                   flex: leg.durationMin,
-                  borderRadius: 5,
+                  borderRadius: RADIUS.pill,
                   bgcolor: modeColor(leg.mode, palette),
                   opacity: leg.mode === 'walk' ? 0.55 : 1,
                 }}

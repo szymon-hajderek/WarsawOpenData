@@ -20,7 +20,7 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { MODE_META, modeColor } from '../modes';
 import type { VehicleCandidate } from '../types';
-import { PANEL_BOTTOM } from '../layout';
+import { PANEL_BOTTOM, RADIUS } from '../layout';
 import { formatDistance } from '../utils/format';
 
 const vehicleName = (v: VehicleCandidate) => `${MODE_META[v.mode].label} ${v.line}`;
@@ -103,7 +103,7 @@ interface Props {
 
 /**
  * "Which vehicle am I in?" window. Open from the start; swipe down (or tap the handle) to hide it
- * into a bar, swipe up (or tap the bar) to bring it back. Coloured by the theme, so it follows the map look.
+ * into a bar, swipe up (or tap the bar) to bring it back. Coloured by the theme.
  */
 export default function VehicleSheet({
   candidates,
@@ -162,7 +162,7 @@ export default function VehicleSheet({
         maxHeight: { xs: '62vh', sm: 'calc(100vh - 200px)' },
         display: 'flex',
         flexDirection: 'column',
-        borderRadius: '28px',
+        borderRadius: RADIUS.sheet,
         overflow: 'hidden',
       }}
     >
@@ -175,7 +175,7 @@ export default function VehicleSheet({
         sx={{ touchAction: 'none', cursor: 'grab', userSelect: 'none', px: 2.5, pb: open ? 1 : 1.5 }}
       >
         <Box sx={{ display: 'grid', placeItems: 'center', py: 1.25 }}>
-          <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'text.disabled', opacity: 0.5 }} />
+          <Box sx={{ width: 36, height: 4, borderRadius: RADIUS.pill, bgcolor: 'text.disabled', opacity: 0.5 }} />
         </Box>
 
         {open ? (
@@ -242,7 +242,7 @@ export default function VehicleSheet({
           {suggested && (
             <Box
               {...pressable(suggested)}
-              sx={[{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, borderRadius: 4 }, cardSx(suggested.id === selectedId)]}
+              sx={[{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, borderRadius: RADIUS.tile }, cardSx(suggested.id === selectedId)]}
             >
               <ModeBadge vehicle={suggested} size={52} />
               <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -272,7 +272,7 @@ export default function VehicleSheet({
                     key={c.id}
                     {...pressable(c)}
                     sx={[
-                      { p: 1.25, borderRadius: 3.5, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, textAlign: 'center', minWidth: 0 },
+                      { p: 1.25, borderRadius: RADIUS.tile, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, textAlign: 'center', minWidth: 0 },
                       cardSx(c.id === selectedId),
                     ]}
                   >
@@ -306,7 +306,7 @@ export default function VehicleSheet({
             <Box
               {...pressable(manual)}
               sx={[
-                { display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, mt: 1, borderRadius: 3.5 },
+                { display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, mt: 1, borderRadius: RADIUS.tile },
                 cardSx(manual.id === selectedId),
               ]}
             >

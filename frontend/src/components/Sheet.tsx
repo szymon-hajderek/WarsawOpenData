@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Box, Paper } from '@mui/material';
-import { PANEL_BOTTOM } from '../layout';
+import { PANEL_BOTTOM, RADIUS } from '../layout';
 
 interface Props {
   children: ReactNode;
@@ -24,7 +24,7 @@ export default function Sheet({ children, onHandleClick, maxHeight }: Props) {
         maxHeight: maxHeight ?? { xs: '46vh', sm: 'calc(100vh - 200px)' },
         display: 'flex',
         flexDirection: 'column',
-        borderRadius: '28px',
+        borderRadius: RADIUS.sheet,
         overflow: 'hidden',
       }}
     >
@@ -34,7 +34,7 @@ export default function Sheet({ children, onHandleClick, maxHeight }: Props) {
         aria-label={onHandleClick ? 'Zwiń lub rozwiń panel' : undefined}
         sx={{ py: 1.25, display: 'grid', placeItems: 'center', cursor: onHandleClick ? 'pointer' : 'default' }}
       >
-        <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'text.disabled', opacity: 0.5 }} />
+        <Box sx={{ width: 36, height: 4, borderRadius: RADIUS.pill, bgcolor: 'text.disabled', opacity: 0.5 }} />
       </Box>
       {children}
     </Paper>
