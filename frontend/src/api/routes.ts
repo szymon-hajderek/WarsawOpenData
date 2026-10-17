@@ -11,7 +11,8 @@ import { bestOrder, combineSegments } from './multiStop';
  *
  * `fetchRouteOptions` is the single seam between the UI and the backend. It calls
  * the FastAPI backend (`POST /api/routes`) when `API_URL` is set, and falls back to
- * the local mock (`mockRouteOptions`) when the backend is disabled or unreachable.
+ * the local mock (`mockRouteOptions`) only when the backend is switched off (`VITE_API_URL=""`);
+ * when it is switched on but unreachable, the search fails with `BackendOfflineError`.
  */
 export interface RouteQuery {
   from: Place;
@@ -33,6 +34,20 @@ export interface RouteResult {
   mock: boolean;
 }
 
+/** The backend could not be reached or sent an answer we cannot use (so the user is told, no made-up routes are shown). */
+export class BackendOfflineError extends Error {
+  constructor() {
+    super('Backend unavailable');
+  }
+}
+
+/** The backend answered, but refused the query (4xx): not a connection problem. */
+class HttpError extends Error {
+  constructor(readonly status: number) {
+    super(`Routing failed: ${status}`);
+  }
+}
+
 export async function fetchRouteOptions(query: RouteQuery, signal?: AbortSignal): Promise<RouteResult> {
   const { from, to, profile } = query;
   const via = query.via ?? [];
@@ -45,15 +60,18 @@ export async function fetchRouteOptions(query: RouteQuery, signal?: AbortSignal)
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ from, to, profile, ...(via.length ? { via, order } : {}), ...(query.when ? { when: query.when } : {}), ...query.search }),
       });
-      if (!res.ok) throw new Error(`Routing failed: ${res.status}`);
+      if (!res.ok) throw new HttpError(res.status);
       const data: unknown = await res.json();
       if (!isRouteOptions(data)) throw new Error('Routing answer has an unexpected shape');
       return { options: data, mock: false };
     } catch (err) {
       if (signal?.aborted) throw err;
-      console.warn('Backend unavailable, falling back to mock routing.', err);
+      if (err instanceof HttpError && err.status < 500) throw err;
+      console.warn('Backend unavailable.', err);
+      throw new BackendOfflineError();
     }
   }
+  // Example routes only when the backend is switched off on purpose (`VITE_API_URL=""`).
   const options = via.length ? await mockMultiStop(query) : await mockRouteOptions(from, to, profile);
   return { options, mock: true };
 }

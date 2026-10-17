@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchRouteOptions } from '../api/routes';
+import { BackendOfflineError, fetchRouteOptions } from '../api/routes';
 import type { RouteSearchBody } from '../preferences/model';
 import type { Place, RouteOption, StopOrder } from '../types';
 
@@ -16,10 +16,12 @@ export function useRouteSearch({ origin, destination, via, order, search }: Quer
   const [options, setOptions] = useState<RouteOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [mock, setMock] = useState(false);
 
   useEffect(() => {
     setError(false);
+    setOffline(false);
     if (!origin || !destination) {
       setOptions([]);
       setLoading(false);
@@ -37,11 +39,13 @@ export function useRouteSearch({ origin, destination, via, order, search }: Quer
         if (ac.signal.aborted) return;
         console.warn('Route search failed', err);
         setOptions([]);
+        setMock(false);
+        setOffline(err instanceof BackendOfflineError);
         setError(true);
         setLoading(false);
       });
     return () => ac.abort();
   }, [origin, destination, via, order, search]);
 
-  return { options, loading, error, mock };
+  return { options, loading, error, offline, mock };
 }

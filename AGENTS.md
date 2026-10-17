@@ -257,8 +257,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   list of connection options (with preview on the map) -> chosen route (clean route on the map,
   summary, steps). State lives in `src/App.tsx` (`step`: search / options / route).
 - **Routing seam.** `src/api/routes.ts` (`fetchRouteOptions`) calls the backend (`POST /api/routes`)
-  when `API_URL` is set, and falls back to the in-browser mock (`mockRouteOptions`) if the backend
-  is off/unreachable. Types in `src/types.ts`. The mock's costs and speeds are rough estimates.
+  when `API_URL` is set. If the backend is unreachable or answers badly, the call throws `BackendOfflineError` and the app says "Nie połączono z serwerem" (no made-up routes).
+  The in-browser mock (`mockRouteOptions`) is used only when the backend is switched off on purpose (`VITE_API_URL=""`). Types in `src/types.ts`. The mock's speeds are rough estimates.
 - Backend URL: `src/config.ts` reads `VITE_API_URL` (default `http://localhost:8000`;
   set `VITE_API_URL=""` in `frontend/.env` to force the mock).
 - Place search: `src/api/geocode.ts` (`searchPlaces`, `MIN_QUERY`), debounced (300 ms), limited to Warsaw. Calls the backend (`GET /api/geocode`) when `API_URL` is set
@@ -294,7 +294,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   and the bus button on the map (start screen only, also brings the window back after "Nie jadę komunikacją") detect again;
   "Jadę tą linią" confirms. Data: `src/api/vehicle.ts` `detectVehicle` sends the user's last 1-3 positions (memory only,
   one every 10 s) to `POST /api/live/nearest-buses` and returns `{ candidates, lines }` (candidates carry `distanceM` =
-  `rmse_m`, `vehicleNo`, `brigade`); falls back to mock data when the backend is down or there is no location.
+  `rmse_m`, `vehicleNo`, `brigade`); when the backend is down it returns `offline: true` (the window says "Nie połączono z serwerem" with a retry button), with no location it returns nothing;
+  mock data only when `API_URL` is empty.
   Delay: after "Jadę tą linią" `useVehicleDetection` starts `src/api/delay.ts` `watchDelay`, which polls `GET /api/live/delay` every 10 s and sends a `bus-delay`
   event on `window` (`BusDelayDetail` in `types.ts`); stops on a new detection or "Nie jadę komunikacją". No UI shows it yet.
   Detection runs once after start and on `requestLinePopup()`. Each detection also sends a `bus-popup` event on `window`
@@ -338,7 +339,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   enough trips, `applyHistory` in `src/preferences/model.ts` replaces the level / typed speed and the selector is locked). History can be cleared on the Preferences page.
 - Backend calls: every call builds its URL with `apiUrl(path)` from `src/config.ts` (routes, geocode, history, vehicle). An empty
   `API_URL` turns all of them to the in-browser mock. Answers are checked in `src/api/validate.ts`; a wrong shape counts as "backend down".
-- **Example data is marked.** When a call falls back to the mock, `fetchRouteOptions` / `detectVehicle` return `mock: true`; the app shows
+- **A missing backend is said out loud.** With `API_URL` set, a network error, a 5xx or a wrong shape means "not connected": a red snackbar "Nie połączono z serwerem. Sprawdź, czy backend działa."
+  plus the same text in the route list (`useRouteSearch` `offline`) and the vehicle window (`useVehicleDetection` `offline`). A 4xx (the backend refused the query) stays the generic "Nie udało się pobrać tras".
+- **Example data is marked.** When the backend is switched off on purpose (`VITE_API_URL=""`), `fetchRouteOptions` / `detectVehicle` return `mock: true`; the app shows
   one snackbar and a "Dane przykładowe" chip on the route list and the vehicle window.
 - Hooks (`src/hooks/`): `useLocationTrack` (one `watchPosition` + the last 3 positions, cleaned up on unmount), `useRouteSearch`,
   `useVehicleDetection`. `App.tsx` only wires them. `ErrorBoundary` wraps the app. Selection and step are derived while rendering
