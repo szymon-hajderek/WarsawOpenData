@@ -2,7 +2,7 @@
 
 - Add the `ui/` folder for the UI feature.
 - Add `ui/concept-art/` for concept graphics.
-- `CLAUDE.md`: add `ui/` to the folder structure.
+- `AGENTS.md`: add `ui/` to the folder structure.
 
 # Changes on `feature/update-claude-md`
 
@@ -21,3 +21,13 @@
 # Changes on `add-readme`
 
 - Add `README.md`: project name, tagline, status note, 3 planned features, 1 data source.
+
+# Changes on `feature/add-agents-md`
+
+- Added `AGENTS.md` with all the rules and the "Project Knowledge" section (moved from `CLAUDE.md`), because Cursor reads `AGENTS.md`.
+- `CLAUDE.md` now only imports `AGENTS.md` (`@AGENTS.md`), so the rules live in one place.
+- Added a note about the workspace layout (workspace root is `hackathon`, repo is in `WarsawOpenData`).
+
+# Changes on `update-agent-docs`
+
+- `AGENTS.md`: every new branch now starts with the `deep-planning` skill. `CLAUDE.md` imports `AGENTS.md`, so it gets the rule too.
