@@ -45,6 +45,40 @@ export interface RouteOption {
   waypoints?: Place[];
 }
 
+/** A stop in the delay estimate. Times are Warsaw local `HH:MM:SS`. */
+export interface DelayStop {
+  id: string;
+  name: string;
+  scheduled: string;
+  /** Previous stop only: when the vehicle passed it (null when not found). */
+  passedAt?: string | null;
+  /** Next stop only: scheduled + delay (null when the delay is not available). */
+  expected?: string | null;
+}
+
+/** Detail of the `bus-delay` event = answer of `GET /api/live/delay` (see data/API.md). */
+export interface BusDelayDetail {
+  vehicleId: string;
+  vehicle?: string;
+  line?: string;
+  brigade?: string;
+  mode?: string;
+  tripId?: string | null;
+  headsign?: string | null;
+  /** false = "Dane o opóźnieniu niedostępne". */
+  available: boolean;
+  /** Why not available: no_trip, outside_trip, no_pass_in_radius; frontend only: unknown_vehicle, backend_unavailable. */
+  reason: string | null;
+  /** Seconds; negative = early. Null when not available. */
+  delaySec: number | null;
+  /** Stop K-1, where the delay was measured. */
+  prevStop: DelayStop | null;
+  /** Stop K, where the delay is shown. */
+  nextStop: DelayStop | null;
+  radiusM?: number;
+  updatedAt?: number | null;
+}
+
 /** Public transport vehicles the user can be inside of (no walking / Veturilo). */
 export type VehicleMode = Exclude<TransportMode, 'walk' | 'bike'>;
 

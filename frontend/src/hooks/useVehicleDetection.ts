@@ -6,6 +6,7 @@ import {
   requestLinePopup,
   type TrackPoint,
 } from '../api/vehicle';
+import { watchDelay } from '../api/delay';
 import type { VehicleSnap } from '../components/VehicleSheet';
 import type { LatLng, VehicleCandidate } from '../types';
 
@@ -18,6 +19,8 @@ interface Input {
 /**
  * State of the "which vehicle am I in?" window. Detects once after start (first location, or none
  * after a geolocation error), then only when asked through `requestLinePopup()`.
+ * After "Jadę tą linią" it polls the delay of that vehicle (`bus-delay` events, `api/delay.ts`) until a new
+ * detection or "Nie jadę komunikacją".
  */
 export function useVehicleDetection({ position, geoError, getTrack }: Input) {
   const [vehicles, setVehicles] = useState<VehicleCandidate[]>([]);
@@ -30,6 +33,7 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<VehicleCandidate | null>(null);
   const [run, setRun] = useState(0);
+  const [delayVehicleId, setDelayVehicleId] = useState<string | null>(null);
 
   useEffect(() => {
     if (position || geoError) setRun((n) => n || 1);
@@ -38,6 +42,7 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
   useEffect(() => {
     const onRequest = () => {
       setRun((n) => n + 1);
+      setDelayVehicleId(null);
       setDismissed(false);
       setSnap('middle');
     };
@@ -68,6 +73,8 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [run]);
 
+  useEffect(() => (delayVehicleId ? watchDelay(delayVehicleId) : undefined), [delayVehicleId]);
+
   const selectManualLine = useCallback((line: string) => {
     const v = manualCandidate(line);
     setManual(v);
@@ -81,7 +88,9 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
 
   const confirm = useCallback(() => {
     const all = manual ? [...vehicles, manual] : vehicles;
-    setConfirmed(all.find((v) => v.id === selectedId) ?? null);
+    const picked = all.find((v) => v.id === selectedId) ?? null;
+    setConfirmed(picked);
+    setDelayVehicleId(picked?.id ?? null);
     setSnap('bar');
   }, [manual, vehicles, selectedId]);
 
@@ -100,7 +109,10 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
     selectManualLine,
     clearManual,
     confirm,
-    dismiss: () => setDismissed(true),
+    dismiss: () => {
+      setDismissed(true);
+      setDelayVehicleId(null);
+    },
     redetect: requestLinePopup,
   };
 }

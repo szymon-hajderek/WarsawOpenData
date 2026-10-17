@@ -19,7 +19,7 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 - No authentication on our side. The keys for City Hall endpoints live in `.env` on the server (`ACCESS.md`).
 - Examples below are real answers from a running server. Long lists are cut to 1-2 items and end with `"..."`.
 - Coordinates are WGS84 `lat` / `lon` in degrees. Times are Warsaw local time.
-- Endpoints: 26 (data API 23: meta 2, GTFS 8, live and City Hall 4, bus detection 1, Veturilo 5, OSM 3;
+- Endpoints: 27 (data API 24: meta 2, GTFS 8, live and City Hall 4, bus detection 2, Veturilo 5, OSM 3;
   routing API 3).
 
 | Group | Prefix | Source file |
@@ -295,6 +295,55 @@ Answer:
 ```
 
 Errors: `400 {"detail": "send at least one point"}`; `503` when there is no live vehicle data yet. The server forgets a vehicle that has not reported for 5 minutes.
+
+### `GET /api/live/delay`
+
+Estimated delay of one live bus or tram (`algorithms/bus_delay.py`). The server buffers each vehicle's positions
+for the longest scheduled time between two stops of its trip (+ 60 s; 10 min when no trip matches), with an extra
+point in the middle of every two feed points (about every 5 s) when no poll failed between them and they are at most
+25 s apart. The vehicle's position is projected on the GTFS shape of its trip (same line + brigade, running now ± 15 min,
+shape closer than 100 m; of those, the trip whose timetable at that point is closest to now); the last stop passed is K-1, the next one K. Delay = time the vehicle was closest to K-1
+(within `DELAY_RADIUS_M`, default 30 m) - scheduled departure at K-1. It is shown as the expected delay at K.
+
+| Query | Type | Meaning |
+|---|---|---|
+| `vehicle` | string | vehicle id as in `nearest-buses` candidates, e.g. `bus-5914`, `tram-3120` |
+
+Answer:
+
+| Field | Meaning |
+|---|---|
+| `vehicleId`, `vehicle`, `line`, `brigade`, `mode` | the vehicle |
+| `tripId`, `headsign` | matched GTFS trip, `null` when none matches |
+| `available` | `false` = "delay data unavailable" |
+| `reason` | `null` when available, else `no_trip`, `outside_trip` (before the first / at the last stop) or `no_pass_in_radius` |
+| `delaySec` | seconds, negative = early; `null` when not available |
+| `prevStop` | stop K-1: `id`, `name`, `scheduled` (`HH:MM:SS`), `passedAt` (`HH:MM:SS` or `null`); `null` when unknown |
+| `nextStop` | stop K: `id`, `name`, `scheduled`, `expected` (scheduled + delay, `null` when not available); `null` when unknown |
+| `radiusM` | radius used |
+| `updatedAt` | Unix time (seconds) of the last poll |
+
+```json
+{"vehicleId": "bus-2246", "vehicle": "2246", "line": "517", "brigade": "3", "mode": "bus",
+ "tripId": "ztm:2026-10-17:517:SbS:3:1853", "headsign": "Ursus-Niedźwiadek", "available": true, "reason": null,
+ "delaySec": 8,
+ "prevStop": {"id": "ztm:703302", "name": "Krucza", "scheduled": "18:57:00", "passedAt": "18:57:08"},
+ "nextStop": {"id": "ztm:701306", "name": "Centrum", "scheduled": "18:59:00", "expected": "18:59:08"},
+ "radiusM": 30.0, "updatedAt": 1792249203.8}
+```
+
+Not available (the vehicle passed K-1 but no buffered point was within the radius):
+
+```json
+{"vehicleId": "bus-1862", "vehicle": "1862", "line": "117", "brigade": "1", "mode": "bus",
+ "tripId": "ztm:2026-10-17:117:SbS:1:1832", "headsign": "Dw. Centralny", "available": false,
+ "reason": "no_pass_in_radius", "delaySec": null,
+ "prevStop": {"id": "ztm:703302", "name": "Krucza", "scheduled": "18:55:00", "passedAt": null},
+ "nextStop": {"id": "ztm:701306", "name": "Centrum", "scheduled": "18:57:00", "expected": null},
+ "radiusM": 30.0, "updatedAt": 1792249203.8}
+```
+
+Errors: `404 {"detail": "unknown vehicle"}`; `503` when there is no live vehicle data yet.
 
 ---
 

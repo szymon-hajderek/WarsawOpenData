@@ -155,6 +155,13 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Known issue: `bus_detect._epoch` reads feed times in the server's time zone. On a machine in UTC (this dev
   laptop is) bus times end up 2 h ahead of the user's, so time pairing picks the oldest bus report. Fix: parse
   with `ZoneInfo("Europe/Warsaw")` (needs `tzdata` on Windows).
+- Delay estimate (`algorithms/bus_delay.py`, `GET /api/live/delay?vehicle=bus-1234`): the poller also keeps a per-vehicle
+  buffer (longest scheduled stop-to-stop time of the brigade's current trip + 60 s, else 10 min) with a midpoint between feed
+  points (~5 s) unless a poll failed in between or the gap is > 25 s. The vehicle is projected on the GTFS shape of the trip with
+  the same line + brigade (running now +- 15 min, < 100 m, timetable at that point closest to now; loops: the stretch nearest the last projection); last stop passed = K-1.
+  Delay = time closest to K-1 within `DELAY_RADIUS_M` (default 30 m) - scheduled departure at K-1, shown at stop K; may be negative.
+  Not found -> `available: false`. **Pitfall:** `shape_dist_traveled` in `warsaw.zip` is in km and `mkuran._shape_dist` keeps
+  whole units only, so the cached `shape_dist` is useless at stop level; `mkuran._trip_static` computes metres from coordinates. Tuning: `algorithms/simulation/tune_delay_radius.py`, results in `DELAY_RESULTS.md`.
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
 - `/api/osm/route` returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`) from the graph;
   `osm.route()` / `osm.nearest()` in Python have no limit (`report.py` snaps far stops).
@@ -204,6 +211,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   "Jadę tą linią" confirms. Data: `src/api/vehicle.ts` `detectVehicle` sends the user's last 1-3 positions (memory only,
   one every 10 s) to `POST /api/live/nearest-buses` and returns `{ candidates, lines }` (candidates carry `distanceM` =
   `rmse_m`, `vehicleNo`, `brigade`); falls back to mock data when the backend is down or there is no location.
+  Delay: after "Jadę tą linią" `useVehicleDetection` starts `src/api/delay.ts` `watchDelay`, which polls `GET /api/live/delay` every 10 s and sends a `bus-delay`
+  event on `window` (`BusDelayDetail` in `types.ts`); stops on a new detection or "Nie jadę komunikacją". No UI shows it yet.
   Detection runs once after start and on `requestLinePopup()`. Each detection also sends a `bus-popup` event on `window`
   (`{ candidates, lines, points }`). Direction is the GTFS `trip_headsign` for that line and brigade.
   The poller reads buses and trams. Concept: `ui/concept-art/current-line-popup.paint`.
