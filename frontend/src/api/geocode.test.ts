@@ -20,10 +20,21 @@ describe('searchPlaces', () => {
     expect(MIN_QUERY).toBe(2);
   });
 
-  it('does not ask Nominatim directly for a short text when the backend is down', async () => {
+  it('answers from the bundled list when the backend is down, without asking Nominatim for a short text', async () => {
     const fetchMock = vi.fn(async () => new Response('x', { status: 500 }));
     vi.stubGlobal('fetch', fetchMock);
-    expect(await searchPlaces('ce')).toEqual([]);
-    expect(fetchMock).toHaveBeenCalledTimes(1); // only the backend, no Nominatim
+    const places = await searchPlaces('marszalk');
+    expect(places.length).toBeGreaterThan(0);
+    expect(places[0].label).toContain('Marszałkowska');
+    expect(fetchMock).toHaveBeenCalledTimes(2); // the backend, then Nominatim for addresses (8 characters)
+    fetchMock.mockClear();
+    expect((await searchPlaces('ma')).length).toBeGreaterThan(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1); // only the backend: 2 characters never go to Nominatim
+  });
+
+  it('keeps the stops when Nominatim fails too', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('offline'))));
+    const places = await searchPlaces('politechn');
+    expect(places.some((p) => p.label.includes('Politechnika'))).toBe(true);
   });
 });
