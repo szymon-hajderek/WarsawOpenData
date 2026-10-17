@@ -104,6 +104,7 @@ Everything in this repo (files, commits, PRs) is written in English.
 
 - `frontend/` — React + TypeScript + Vite app
 - `ui/` — UI feature work; `ui/concept-art/` holds concept graphics
+- `artifacts/` — self-contained HTML pages (visualizations); rebuilt by scripts, templates in `artifacts/templates/`
 - `backend/` — FastAPI app
 - `algorithms/` — algorithms (mandatory folder): pure functions + their pytest files (`nearest_buses.py`, `stop_order.py`)
 - `db/` — database files and setup
@@ -145,6 +146,11 @@ Everything in this repo (files, commits, PRs) is written in English.
   `data/live/bus_track_sample.json` (committed); `simulate_nearest_buses.py` puts users on bus polylines with a GPS
   radius (10-100 m). Results in `algorithms/simulation/RESULTS.md`: own bus always in top-4, top-1 96-100% with
   3 points, 80-89% with 1 point.
+- Visualization: `artifacts/bus-detection-simulation.html` (charts, one mini map per line, table), rebuilt with
+  `uv run python ../algorithms/simulation/export_viz.py` (same seed, so the same numbers as RESULTS.md).
+- Known issue: `bus_detect._epoch` reads feed times in the server's time zone. On a machine in UTC (this dev
+  laptop is) bus times end up 2 h ahead of the user's, so time pairing picks the oldest bus report. Fix: parse
+  with `ZoneInfo("Europe/Warsaw")` (needs `tzdata` on Windows).
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
 - `/api/osm/route` returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`) from the graph;
   `osm.route()` / `osm.nearest()` in Python have no limit (`report.py` snaps far stops).
