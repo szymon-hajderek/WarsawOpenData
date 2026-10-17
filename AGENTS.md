@@ -141,6 +141,11 @@ Everything in this repo (files, commits, PRs) is written in English.
   (each user point paired with the bus point closest in time), `algorithms/nearest_buses.py`. Returns 4
   (1 + 3 for the popup), no distance cut-off. Feed time is read as server local time (Warsaw).
 - Tests: `cd backend && uv run pytest tests ../algorithms` (`algorithms/` = pure functions, `backend/tests/` = API-level logic that needs no data files).
+- Simulation (`algorithms/simulation/`): `record_buses.py` records 2 min of live buses (needs `PORTAL_KEY`) to
+  `data/live/bus_track_sample.json` (committed); `simulate_nearest_buses.py` puts users on bus polylines with a GPS
+  radius (10-100 m). Results in `algorithms/simulation/RESULTS.md`: own bus always in top-4, top-1 96-100% with
+  3 points, 80-89% with 1 point.
+- Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
 - `/api/osm/route` returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`) from the graph;
   `osm.route()` / `osm.nearest()` in Python have no limit (`report.py` snaps far stops).
 - Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
