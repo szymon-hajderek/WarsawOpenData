@@ -46,6 +46,14 @@ export interface VehicleCandidate {
   mode: VehicleMode;
   /** Line name, e.g. "17", "175", "M1". */
   line: string;
-  /** Direction of travel, e.g. "Annopol". */
+  /** Direction of travel, e.g. "Annopol". Empty when unknown (live buses have no direction yet). */
   direction: string;
+  /** Vehicle number from the live data. */
+  vehicleNo?: string;
+  /** Brigade from the live data. */
+  brigade?: string;
+  /** How far the vehicle is from the user, metres (RMSE of the match). */
+  distanceM?: number;
+  /** Chosen by hand from the list of lines, not detected. */
+  manual?: boolean;
 }

@@ -167,13 +167,15 @@ Everything in this repo (files, commits, PRs) is written in English.
   - The old OSM raster map (v1) was removed. CARTO basemaps return "API KEY REQUIRED", so do not use them.
     OpenFreeMap has no SLA; there is no fallback.
 - "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): open on the start screen, swipe down / tap to hide
-  into a bar, swipe up / tap to bring it back. Shows the suggested vehicle (mode + line + direction) and 3 others;
-  "Jadę tą linią" confirms, "Nie jadę komunikacją" closes it until reload. Data: `src/api/vehicle.ts`
-  (`detectVehicle`) sends the user's last 1-3 positions (memory only, one every 10 s) to
-  `POST /api/live/nearest-buses`; falls back to mock data when the backend is down. Detection runs once
-  after start and again on `requestLinePopup()` (for a "choose my line" button). Each detection sends a
-  `bus-popup` event on `window` (`{ candidates, lines, points }`; `lines` = all live lines, for manual choice).
-  Live buses have no direction yet (`direction: ""`). Concept: `ui/concept-art/current-line-popup.paint`.
+  into a bar, swipe up / tap to bring it back. Shows the suggested vehicle (mode + line, direction and distance when known)
+  and 3 others; "Inna linia" (autocomplete over all live lines) adds a hand-picked card; "Wykryj ponownie" (in the window)
+  and the bus button on the map (start screen only, also brings the window back after "Nie jadę komunikacją") detect again;
+  "Jadę tą linią" confirms. Data: `src/api/vehicle.ts` `detectVehicle` sends the user's last 1-3 positions (memory only,
+  one every 10 s) to `POST /api/live/nearest-buses` and returns `{ candidates, lines }` (candidates carry `distanceM` =
+  `rmse_m`, `vehicleNo`, `brigade`); falls back to mock data when the backend is down or there is no location.
+  Detection runs once after start and on `requestLinePopup()`. Each detection also sends a `bus-popup` event on `window`
+  (`{ candidates, lines, points }`). Live buses have no direction yet (`direction: ""`): the UI hides "kier." when it is empty.
+  Concept: `ui/concept-art/current-line-popup.paint`.
 - Navigation: bottom bar (`src/components/BottomNav.tsx`) with tabs Mapa and Preferencje; floating panels sit above it
   (`src/layout.ts`: `BOTTOM_NAV_HEIGHT`, `PANEL_BOTTOM`). The Preferences page is an overlay, the map stays mounted below.
 - Preferences + filters are UI only (route selection is the backend's job). Model, level tables (default speeds), time

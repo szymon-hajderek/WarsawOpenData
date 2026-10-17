@@ -6,7 +6,7 @@ import type { LatLng, VehicleCandidate } from '../types';
  * `detectVehicle` answers "which public transport vehicle is the user inside of?". It sends the
  * user's last 1-3 positions (kept only in memory, one every 10 s) to the backend
  * (`POST /api/live/nearest-buses`), which compares them with the live bus positions using MSE.
- * Returns the most likely vehicle first, then up to 3 other possible ones.
+ * Returns the most likely vehicle first, then up to 3 other possible ones, and all live lines.
  *
  * After each detection a `bus-popup` event is sent on `window` with `BusPopupDetail`.
  * `requestLinePopup()` asks the app to detect again and reopen the popup (manual line choice).
@@ -81,11 +81,31 @@ function mockCandidates(position: LatLng | null): VehicleCandidate[] {
 // ---------------------------------------------------------------- API
 
 interface NearestBusesResponse {
-  candidates: { id: string; line: string; mode: 'bus'; direction: string }[];
+  candidates: {
+    id: string;
+    line: string;
+    mode: 'bus';
+    direction: string;
+    vehicle?: string;
+    brigade?: string;
+    rmse_m?: number;
+  }[];
   lines: string[];
 }
 
-export async function detectVehicle(position: LatLng | null): Promise<VehicleCandidate[]> {
+export interface DetectionResult {
+  /** The most likely vehicle first, then up to 3 other possible ones. */
+  candidates: VehicleCandidate[];
+  /** All lines in the live data, for choosing the line by hand. */
+  lines: string[];
+}
+
+/** A line picked by hand from the list of lines. */
+export function manualCandidate(line: string): VehicleCandidate {
+  return { id: `manual-${line}`, mode: 'bus', line, direction: '', manual: true };
+}
+
+export async function detectVehicle(position: LatLng | null): Promise<DetectionResult> {
   const points = currentTrack(position);
   let detail: BusPopupDetail;
   try {
@@ -98,7 +118,15 @@ export async function detectVehicle(position: LatLng | null): Promise<VehicleCan
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data: NearestBusesResponse = await r.json();
     detail = {
-      candidates: data.candidates.map(({ id, mode, line, direction }) => ({ id, mode, line, direction })),
+      candidates: data.candidates.map(({ id, mode, line, direction, vehicle, brigade, rmse_m }) => ({
+        id,
+        mode,
+        line,
+        direction,
+        vehicleNo: vehicle,
+        brigade,
+        distanceM: rmse_m,
+      })),
       lines: data.lines,
       points,
     };
@@ -108,7 +136,7 @@ export async function detectVehicle(position: LatLng | null): Promise<VehicleCan
     detail = { candidates, lines: candidates.map((c) => c.line), points };
   }
   window.dispatchEvent(new CustomEvent<BusPopupDetail>(BUS_POPUP_EVENT, { detail }));
-  return detail.candidates;
+  return { candidates: detail.candidates, lines: detail.lines };
 }
 
 /** Detect again with the last 1-3 positions and reopen the popup (wire a "choose my line" button to it). */
