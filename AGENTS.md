@@ -118,6 +118,8 @@ Everything in this repo (files, commits, PRs) is written in English.
 - In the Vite dev server, editing a file re-runs effects (hot reload), which resets the UI step.
 - The browser pane has no geolocation, so the start must be typed when testing.
 
+- API keys live only in `.env`, which is git-ignored. Never commit `.env` or paste a key into a file, commit or chat.
+- `ACCESS.md` lists the keys (`PORTAL_KEY`, `WAW_API_KEY`, `PLK_KEY`), how to get them and how to send them.
 - Empty folders are kept in git with `.gitkeep`.
 - Docker files (`docker-compose.yml`, `Dockerfile`) are not added yet.
 - The user writes in Polish; replies to the user are in Polish, repo content is in English.
