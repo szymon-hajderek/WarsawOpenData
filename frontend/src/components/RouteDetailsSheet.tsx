@@ -1,11 +1,15 @@
-import { alpha, Box, Button, Collapse, IconButton, Paper, Typography, useTheme } from '@mui/material';
+import { Fragment } from 'react';
+import { Alert, alpha, Box, Button, Chip, CircularProgress, Collapse, IconButton, Paper, Typography, useTheme } from '@mui/material';
+import FiberManualRecord from '@mui/icons-material/FiberManualRecord';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import Sheet from './Sheet';
 import LegChain from './LegChain';
 import { MODE_META, modeColor } from '../modes';
-import { formatCost, formatDistance, formatDuration, transfersLabel } from '../utils/format';
+import { useHistory } from '../history/HistoryProvider';
+import { usePreferences } from '../preferences/PreferencesProvider';
+import { formatCost, formatDistance, formatDuration, stopsLabel, transfersLabel } from '../utils/format';
 import type { Place, RouteLeg, RouteOption } from '../types';
 import { RADIUS } from '../layout';
 
@@ -28,6 +32,70 @@ function Tile({ label, value }: { label: string; value: string }) {
         {label}
       </Typography>
       <Typography sx={{ fontWeight: 700 }}>{value}</Typography>
+    </Box>
+  );
+}
+
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+/** Records the ride with GPS so the app can learn the user's real pace (see `src/history/`). */
+function TripRecorder({ route }: { route: RouteOption }) {
+  const { tracker } = useHistory();
+  const { effective } = usePreferences();
+  const walkAs = effective.wheelchair.type !== 'none' ? 'wheelchair' : 'walking';
+  const legs = route.legs.map((l) => ({ mode: l.mode, distanceM: l.distanceM }));
+  const { status } = tracker;
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      {status === 'tracking' ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Chip
+            icon={<FiberManualRecord sx={{ fontSize: 14 }} />}
+            color="error"
+            label={`Zapisuję przejazd · ${clock(tracker.elapsedS)}`}
+            sx={{ flex: 1, justifyContent: 'flex-start' }}
+          />
+          <Button variant="contained" onClick={() => void tracker.stop()}>
+            Zakończ
+          </Button>
+        </Box>
+      ) : status === 'saving' ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <CircularProgress size={20} />
+          <Typography variant="body2">Zapisuję przejazd…</Typography>
+        </Box>
+      ) : (
+        <>
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<FiberManualRecord sx={{ color: 'error.main' }} />}
+            onClick={() => tracker.start(legs, walkAs)}
+          >
+            Rozpocznij przejazd
+          </Button>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75, textAlign: 'center' }}>
+            Zapiszemy Twoje tempo i podpowiemy średnią prędkość w Preferencjach.
+          </Typography>
+        </>
+      )}
+      {tracker.message && status !== 'tracking' && status !== 'saving' && (
+        <Alert
+          severity={status === 'error' ? 'error' : 'success'}
+          sx={{ mt: 1.5 }}
+          onClose={tracker.dismiss}
+          action={
+            status === 'error' && tracker.message.includes('serwerem') ? (
+              <Button color="inherit" size="small" onClick={() => void tracker.retry()}>
+                Ponów
+              </Button>
+            ) : undefined
+          }
+        >
+          {tracker.message}
+        </Alert>
+      )}
     </Box>
   );
 }
@@ -57,6 +125,8 @@ export default function RouteDetailsSheet({
   // The longest leg sets the icon of the whole route
   const mainLeg = route.legs.reduce((a, b) => (b.durationMin > a.durationMin ? b : a));
   const MainIcon = MODE_META[mainLeg.mode].icon;
+  // intermediate stops: waypoints without the start and the destination
+  const stopCount = Math.max(0, (route.waypoints?.length ?? 0) - 2);
 
   return (
     <>
@@ -86,6 +156,7 @@ export default function RouteDetailsSheet({
           </Typography>
           <Typography variant="body2" color="text.secondary" noWrap>
             {route.departure} – {route.arrival} · {transfersLabel(route.transfers)}
+            {stopCount > 0 && ` · ${stopsLabel(stopCount)}`}
           </Typography>
         </Paper>
       </Box>
@@ -156,6 +227,8 @@ export default function RouteDetailsSheet({
             <Tile label="Koszt (szac.)" value={`${route.costPln > 0 ? '~' : ''}${formatCost(route.costPln)}`} />
           </Box>
 
+          <TripRecorder route={route} />
+
           {/* steps */}
           <Button
             fullWidth
@@ -172,8 +245,10 @@ export default function RouteDetailsSheet({
               const color = modeColor(leg.mode, palette);
               const Icon = MODE_META[leg.mode].icon;
               const last = i === route.legs.length - 1;
+              const stopPlace = leg.stop ? route.waypoints?.[leg.stop] : undefined;
               return (
-                <Box key={i} sx={{ display: 'flex', gap: 1.5 }}>
+                <Fragment key={i}>
+                <Box sx={{ display: 'flex', gap: 1.5 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <Box
                       sx={{
@@ -199,6 +274,34 @@ export default function RouteDetailsSheet({
                     </Typography>
                   </Box>
                 </Box>
+                {leg.stop && (
+                  <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'stretch' }}>
+                    <Box sx={{ width: 36, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <Box
+                        sx={(t) => ({
+                          width: 26,
+                          height: 26,
+                          borderRadius: '50%',
+                          display: 'grid',
+                          placeItems: 'center',
+                          fontSize: 13,
+                          fontWeight: 700,
+                          bgcolor: t.palette.primary.main,
+                          color: t.palette.primary.contrastText,
+                        })}
+                      >
+                        {leg.stop}
+                      </Box>
+                      <Box sx={{ flex: 1, width: 2, my: 0.5, bgcolor: 'divider', minHeight: 12 }} />
+                    </Box>
+                    <Box sx={{ pb: 1.5, pt: 0.25 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        Przystanek {leg.stop}: {stopPlace?.label ?? leg.to}
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
+                </Fragment>
               );
             })}
           </Collapse>

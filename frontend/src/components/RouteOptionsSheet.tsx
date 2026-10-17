@@ -4,7 +4,7 @@ import Schedule from '@mui/icons-material/Schedule';
 import LocalFireDepartment from '@mui/icons-material/LocalFireDepartment';
 import Sheet from './Sheet';
 import LegChain from './LegChain';
-import { formatCost, formatDuration, transfersLabel } from '../utils/format';
+import { formatCost, formatDuration, stopsLabel, transfersLabel } from '../utils/format';
 import type { FilterChip, TimeRule } from '../preferences/model';
 import type { RouteOption } from '../types';
 import { RADIUS } from '../layout';
@@ -139,6 +139,7 @@ export default function RouteOptionsSheet({
                   </Box>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
                     {o.departure} – {o.arrival} · {transfersLabel(o.transfers)}
+                    {o.waypoints && o.waypoints.length > 2 && ` · ${stopsLabel(o.waypoints.length - 2)}`}
                   </Typography>
                   <LegChain legs={o.legs} />
                 </Box>

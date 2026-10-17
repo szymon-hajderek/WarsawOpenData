@@ -1,7 +1,8 @@
-import type { LatLng, Place, Profile, RouteLeg, RouteOption, TransportMode } from '../types';
+import type { LatLng, Place, Profile, RouteLeg, RouteOption, StopOrder, TransportMode } from '../types';
 import { buildPath, haversine, slicePath } from '../utils/geo';
 import { formatTime } from '../utils/format';
 import { API_URL } from '../config';
+import { bestOrder, combineSegments } from './multiStop';
 
 /**
  * ROUTING SERVICE.
@@ -10,17 +11,26 @@ import { API_URL } from '../config';
  * the FastAPI backend (`POST /api/routes`) when `API_URL` is set, and falls back to
  * the local mock (`mockRouteOptions`) when the backend is disabled or unreachable.
  */
-export async function fetchRouteOptions(
-  from: Place,
-  to: Place,
-  profile: Profile,
-): Promise<RouteOption[]> {
+export interface RouteQuery {
+  from: Place;
+  to: Place;
+  profile: Profile;
+  /** Intermediate stops (at most `MAX_STOPS`). */
+  via?: Place[];
+  /** Keep the stops as given, or reorder them for the shortest trip (start and destination stay fixed). */
+  order?: StopOrder;
+}
+
+export async function fetchRouteOptions(query: RouteQuery): Promise<RouteOption[]> {
+  const { from, to, profile } = query;
+  const via = query.via ?? [];
+  const order = query.order ?? 'given';
   if (API_URL) {
     try {
       const res = await fetch(`${API_URL}/api/routes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, to, profile }),
+        body: JSON.stringify(via.length ? { from, to, profile, via, order } : { from, to, profile }),
       });
       if (!res.ok) throw new Error(`Routing failed: ${res.status}`);
       return (await res.json()) as RouteOption[];
@@ -28,7 +38,15 @@ export async function fetchRouteOptions(
       console.warn('Backend unavailable, falling back to mock routing.', err);
     }
   }
-  return mockRouteOptions(from, to, profile);
+  return via.length ? mockMultiStop(query) : mockRouteOptions(from, to, profile);
+}
+
+/** Local fallback for trips with stops: one mock query per segment, chained like the backend does. */
+async function mockMultiStop({ from, to, profile, via = [], order = 'given' }: RouteQuery): Promise<RouteOption[]> {
+  const stops = order === 'optimal' ? bestOrder(from, via, to) : via;
+  const points = [from, ...stops, to];
+  const perSegment = await Promise.all(points.slice(1).map((p, i) => mockRouteOptions(points[i], p, profile, 0)));
+  return combineSegments(perSegment, points);
 }
 
 interface TemplateLeg {
@@ -237,8 +255,9 @@ async function mockRouteOptions(
   from: Place,
   to: Place,
   profile: Profile,
+  latencyMs = 700,
 ): Promise<RouteOption[]> {
-  await sleep(700); // simulates network latency
+  await sleep(latencyMs); // simulates network latency
 
   const distanceM = haversine(from.position as LatLng, to.position as LatLng);
   const seed = Math.abs(Math.round((from.position[0] + to.position[1]) * 1000));

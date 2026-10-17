@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import bus_detect
-from app.api import geocode
+from app.api import geocode, history
 from app.api import routes as route_api
 from app.config import settings
 from config import load_json, DATA
@@ -36,6 +36,7 @@ for module in (mkuran, um_warszawa, nextbike, osm):
 app.include_router(bus_detect.router)
 app.include_router(route_api.router)
 app.include_router(geocode.router)
+app.include_router(history.router)
 
 
 @app.get("/api/sources", tags=["meta"])

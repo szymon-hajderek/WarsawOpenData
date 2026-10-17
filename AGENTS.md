@@ -105,7 +105,7 @@ Everything in this repo (files, commits, PRs) is written in English.
 - `frontend/` — React + TypeScript + Vite app
 - `ui/` — UI feature work; `ui/concept-art/` holds concept graphics
 - `backend/` — FastAPI app
-- `algorithms/` — algorithms (mandatory folder): pure functions + their pytest files (`nearest_buses.py`)
+- `algorithms/` — algorithms (mandatory folder): pure functions + their pytest files (`nearest_buses.py`, `stop_order.py`)
 - `db/` — database files and setup
 - `routing/` — OpenTripPlanner config
 - `data/` — datasets, one subfolder per data type: `gtfs/`, `gbfs/`, `osm/`, `geojson/`;
@@ -140,7 +140,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   `POST /api/live/nearest-buses` ranks buses by MSE (m^2) between the user's 1-3 points and each bus track
   (each user point paired with the bus point closest in time), `algorithms/nearest_buses.py`. Returns 4
   (1 + 3 for the popup), no distance cut-off. Feed time is read as server local time (Warsaw).
-- Tests: `cd backend && uv run pytest ../algorithms`.
+- Tests: `cd backend && uv run pytest tests ../algorithms` (`algorithms/` = pure functions, `backend/tests/` = API-level logic that needs no data files).
 - Simulation (`algorithms/simulation/`): `record_buses.py` records 2 min of live buses (needs `PORTAL_KEY`) to
   `data/live/bus_track_sample.json` (committed); `simulate_nearest_buses.py` puts users on bus polylines with a GPS
   radius (10-100 m). Results in `algorithms/simulation/RESULTS.md`: own bus always in top-4, top-1 96-100% with
@@ -177,8 +177,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   pill 999). **Pitfall:** in MUI `sx` a numeric `borderRadius` is multiplied by `theme.shape.borderRadius` (12), so
   `borderRadius: 4` is 48 px and swallows the content. Nested corners: inner radius = outer radius - padding.
 - The line in the search card (start -> destination) is a gradient from `routeStart` to `routeEnd` of the palette.
-- "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): open on the start screen, swipe down / tap to hide
-  into a bar, swipe up / tap to bring it back. Shows the suggested vehicle (mode + line, direction and distance when known)
+- "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): shown on the start screen. It follows the finger and
+  settles on 3 heights (`VehicleSnap`: `bar`, `middle` = suggested vehicle + confirm, about 1/3 of the screen and the start
+  state, `full` = everything); a quick flick skips a level, a tap steps up (full -> middle), Enter / arrow keys work too.
+  Content below the visible height is `inert`. Shows the suggested vehicle (mode + line, direction and distance when known)
   and 3 others; "Inna linia" (autocomplete over all live lines) adds a hand-picked card; "Wykryj ponownie" (in the window)
   and the bus button on the map (start screen only, also brings the window back after "Nie jadę komunikacją") detect again;
   "Jadę tą linią" confirms. Data: `src/api/vehicle.ts` `detectVehicle` sends the user's last 1-3 positions (memory only,
@@ -189,6 +191,12 @@ Everything in this repo (files, commits, PRs) is written in English.
   The poller reads buses and trams. Concept: `ui/concept-art/current-line-popup.paint`.
 - Navigation: bottom bar (`src/components/BottomNav.tsx`) with tabs Mapa and Preferencje; floating panels sit above it
   (`src/layout.ts`: `BOTTOM_NAV_HEIGHT`, `PANEL_BOTTOM`). The Preferences page is an overlay, the map stays mounted below.
+- Trips with intermediate stops (up to 5, `MAX_STOPS` / `MAX_VIA`): `SearchCard.tsx` has "Dodaj przystanek", per stop up / down arrows
+  (only in "Moja kolejność"), remove, and the chips "Moja kolejność" / "Optymalna"; the swap button reverses the whole trip. `fetchRouteOptions`
+  takes `{ from, to, profile, via, order }` and sends `via` + `order` to `POST /api/routes`. Backend: `RouteRequest.via` / `order`, `RouteOption.waypoints`
+  (start, stops in visiting order, destination), `RouteLeg.stop` (1-based number of the stop the leg ends at); `backend/app/routing/multi.py` asks the
+  engine once per segment and chains the n-th best option of every segment (max 3 options); "optimal" = `algorithms/stop_order.py` (exact, straight-line distance,
+  start and destination fixed). Simplifications: every segment is planned from "now", no time at a stop. The frontend mock does the same in `src/api/multiStop.ts`.
 - Preferences + filters are UI only (route selection is the backend's job). Model, level tables (default speeds), time
   rules and list filtering: `src/preferences/model.ts`; storage in localStorage key `preferences`
   (`src/preferences/PreferencesProvider.tsx`). Preferences page: `src/components/PreferencesPage.tsx`; reusable fields
@@ -198,6 +206,15 @@ Everything in this repo (files, commits, PRs) is written in English.
   time, step-free, pace / wheelchair, excluded areas, and "Zaawansowane" = all preferences as overrides). Only list-like
   filters really change the (mock) list, client-side (`applyListFilters`); speeds, wheelchair and areas are stored only and
   not passed to `fetchRouteOptions` yet.
+- Speed history (device-side, privacy first): in the route view "Rozpocznij przejazd" / "Zakończ" records GPS points (memory only, one every 4 s,
+  Screen Wake Lock while recording) and sends the track once to `POST /api/history/records` (`backend/app/api/history.py`,
+  `algorithms/speed_history.py::split_track`: shares the moving distance between the route's legs by planned distance, ignores standing
+  still and GPS jumps, rejects implausible speeds, walking legs count as `walkAs` = walking or wheelchair). The response has no coordinates;
+  the device keeps only these records in localStorage `trip-history` (`src/history/HistoryProvider.tsx`, max 200). The backend stores and logs nothing.
+  `POST /api/history/summary` (`summarize`: moving speed = distance / moving time, latest 20 records per mode, outliers ignored, "enough" from 5 trips)
+  gives the average per mode; the frontend falls back to `localSummary` when the backend is down. Preferences: each of Pieszo / Rower / Wózek shows
+  "Twoja średnia z historii" with "Użyj X km/h" (when it differs by 10% or more) and the switch "Zawsze używaj średniej z historii" (`autoSpeed`; when on and
+  enough trips, `applyHistory` in `src/preferences/model.ts` replaces the level / typed speed and the selector is locked). History can be cleared on the Preferences page.
 - Vite proxies `/api` to the backend at http://localhost:8000.
 - Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with
