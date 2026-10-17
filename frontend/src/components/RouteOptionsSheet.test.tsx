@@ -11,9 +11,9 @@ const route = (id: string, title: string): RouteOption => ({
   arrival: '10:05',
   durationMin: 5,
   distanceM: 300,
-  calories: 10,
+  walkDistance: 300,
+  bikeDistance: 0,
   transfers: 0,
-  costPln: 0,
   tags: [],
 });
 

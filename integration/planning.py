@@ -27,7 +27,7 @@ def surface_transit(options: list[dict]) -> dict | None:
 
 
 def bike_option(options: list[dict]) -> dict | None:
-    return next((o for o in options if [leg["mode"] for leg in o["legs"]] == ["walk", "bike", "walk"]), None)
+    return next((o for o in options if [leg["mode"] for leg in o["legs"]] == ["walk", "veturilo", "walk"]), None)
 
 
 def rides(option: dict) -> list[dict]:

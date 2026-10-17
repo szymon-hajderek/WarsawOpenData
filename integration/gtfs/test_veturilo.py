@@ -40,7 +40,7 @@ def test_empty_station_is_avoided(client, gtfs_ready, osm_ready, scenario):
     later_all = plan(client, trip)
     later = bike_option(later_all)
     later_pickup = later["legs"][1]["from"] if later else None
-    used = [o["title"] for o in later_all if any(leg["mode"] == "bike" and leg["from"] == pickup for leg in o["legs"])]
+    used = [o["title"] for o in later_all if any(leg["mode"] == "veturilo" and leg["from"] == pickup for leg in o["legs"])]
 
     checks = [
         ("the pickup station has bikes at the start", bikes_before > 0),

@@ -483,10 +483,14 @@ Types:
 
 | Type | Fields |
 |---|---|
-| `LatLng` | `[lat, lon]` |
+| `LatLng` | `[lat, lon]` (used in `path` and `Place.position`) |
+| `LonLat` | `[lon, lat]` (GPS / GeoJSON order, used in a leg's `start` and `end`) |
 | `Place` | `id`, `label`, `sublabel` (optional), `position` (`LatLng`), `isCurrentLocation` (optional bool) |
-| `RouteLeg` | `mode` (`walk`, `bike`, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names), `line` (or `null`), `durationMin`, `distanceM`, `path` (list of `LatLng`) |
-| `RouteOption` | `id`, `title`, `legs`, `departure`, `arrival` (`HH:MM`), `durationMin`, `distanceM`, `calories`, `transfers`, `costPln`, `tags` |
+| `RouteLeg` | `mode` (`walk`, `bike` = own bike, `veturilo` = rented Veturilo bike, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names of the start and end stop or place), `line` (or `null`), `durationMin`, `distanceM`, `start`, `end` (`LonLat`, the first and last point of `path`), `path` (list of `LatLng`), `stop` (optional, 1-based number of the intermediate stop the leg ends at) |
+| `RouteOption` | `id`, `title`, `legs`, `departure`, `arrival` (`HH:MM`), `durationMin`, `distanceM`, `walkDistance`, `bikeDistance`, `transfers`, `tags`, `waypoints` (optional, trips with stops) |
+
+`walkDistance` is the sum of the `walk` legs and `bikeDistance` the sum of the `bike` and `veturilo` legs, in metres; `distanceM` is the whole trip.
+There are no `costPln` and `calories` any more: calories are worked out from the legs (`mode`, `distanceM`, `durationMin`; see `algorithms/calories.py`).
 
 ### `POST /api/routes`
 
@@ -499,7 +503,6 @@ timetable, a GTFS-RT trip update, or a PKP PLK delay (when `PLK_KEY` is set) add
 `opóźnienie N min` tag and shifts departure and arrival. Shape distances in the GTFS file are
 kilometers and are stored as meters. Boarding stops are one post per stop group, so a big node does not fill the whole list.
 Changes between platforms use `transfers.txt` and `pathways.txt` when a feed has them, and posts of the same stop group otherwise.
-WKD price comes from its GTFS fare file. SKM uses the ZTM ticket. KM has no fare file, so a KM ride is 7 zł.
 The clock is Europe/Warsaw. Before 04:00 the search uses the previous GTFS service day
 (times at 24:00 and later).
 `profile` `accessible` drops Veturilo and stops or trips marked wheelchair-inaccessible (`"2"`).
@@ -510,8 +513,8 @@ Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow` or 
 `via` (optional list of `Place`, at most 5) and `order` (`given` or `optimal`).
 Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Veturilo), `stepFree` (bool),
 `maxTransfers` (`0`, `1`, `2` or `null` = up to two), `excludedDistricts` (Warsaw district names),
-`excludedPoints` (`position`, `radiusM`) and `body` (`weightKg`, `heightCm`, `age`, `sex`, `wheelchair`
-`none` | `manual` | `electric`) for net calories. A trip with stops plans the next leg from the
+`excludedPoints` (`position`, `radiusM`) and `body` (`wheelchair` `none` | `manual` | `electric`; a wheelchair
+implies `accessible` routing and no Veturilo; `weightKg`, `heightCm`, `age` and `sex` are accepted but not used by the route search). A trip with stops plans the next leg from the
 previous arrival plus 2 minutes at the stop. `order` `optimal` minimises a time estimate, not straight-line distance.
 
 Answer: list of `RouteOption`. Public-transport geometry follows the GTFS shape between the stops
@@ -522,11 +525,13 @@ graph has no path).
 [{"id": "pt-ztm:trip", "title": "175",
   "legs": [{"mode": "walk", "from": "Start", "to": "Marszałkowska", "line": null,
             "durationMin": 4, "distanceM": 280,
+            "start": [21.0122, 52.2297], "end": [21.015, 52.231],
             "path": [[52.2297, 21.0122], [52.231, 21.015], "..."]},
            {"mode": "bus", "from": "Marszałkowska", "to": "Metro Politechnika", "line": "175",
-            "durationMin": 12, "distanceM": 2400, "path": [[52.231, 21.015], "..."]}],
+            "durationMin": 12, "distanceM": 2400,
+            "start": [21.015, 52.231], "end": [21.0054, 52.2194], "path": [[52.231, 21.015], "..."]}],
   "departure": "15:59", "arrival": "16:18", "durationMin": 19, "distanceM": 2800,
-  "calories": 15, "transfers": 0, "costPln": 3.4, "tags": ["Najszybsza"]}, "..."]
+  "walkDistance": 280, "bikeDistance": 0, "transfers": 0, "tags": ["Najszybsza"]}, "..."]
 ```
 
 Errors: `422` when the body is not valid, or when `when` is not `HH:MM` or an ISO datetime.

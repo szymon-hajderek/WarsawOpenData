@@ -134,3 +134,9 @@ def test_modes_are_separate_and_always_present():
     s = summarize([rec("walking", 5, "2026-10-01")])
     assert set(s) == {"walking", "cycling", "wheelchair"}
     assert s["cycling"] == {"trips": 0, "distanceKm": 0.0, "avgKmh": None, "medianKmh": None, "enough": False}
+
+
+def test_a_veturilo_leg_counts_as_cycling():
+    legs = [{"mode": "walk", "distanceM": 500}, {"mode": "veturilo", "distanceM": 2000}]
+    records = split_track(track([(500, 5), (2000, 15)]), legs)
+    assert one(records, "cycling")["kmh"] == pytest.approx(15.0, abs=0.2)

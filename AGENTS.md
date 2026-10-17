@@ -284,8 +284,12 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Calories (device-side): `Preferences.body` (weight, height, age, sex; all optional, defaults 70 kg / 170 cm / 35 y) is edited in the "Kalorie" section of the
   Preferences page only (`components/preferences/BodySection.tsx`); rules and filters never override it (`applyOverrides` keeps it). `routeKcal(route, prefs)` in
   `src/preferences/model.ts` computes NET kcal of the walk / bike legs (MET from the Compendium of Physical Activities interpolated by the user's km/h x weight x hours
-  minus resting energy (Mifflin-St Jeor); manual wheelchair uses a rough table from Conger and Bassett 2011, electric = 0; transit legs count as resting). It replaces
-  `RouteOption.calories` in the route list, details and the "most active" sort. The backend uses the same formula when `body` is sent. Not modelled yet: slope, carried load, bike type, wind.
+  minus resting energy (Mifflin-St Jeor); manual wheelchair uses a rough table from Conger and Bassett 2011, electric = 0; transit legs count as resting). The speed of a leg is its distance over its time
+  (the pace from the preferences is the fallback). Routes carry no `calories` or `costPln` any more; kcal is worked out from the legs in the route list, details and the "most active"
+  sort. `algorithms/calories.py` (`net_kcal`) is the same formula for any consumer of the route format. Not modelled yet: slope, carried load, bike type, wind.
+- Route format (`data/API.md`): `RouteLeg.mode` is `walk`, `bike` (own bike, nothing produces it yet), `veturilo` (rented), `bus`, `tram`, `metro`, `rail`; a leg also has
+  `start` / `end` as `[lon, lat]` (the `path` stays `[lat, lng]`). `RouteOption` has `walkDistance` and `bikeDistance` (m) and no price: the backend's fare code
+  (`algorithms/fares.py`) is not used by the route engine any more. Only "Najszybsza" is a backend tag; the frontend sort "Najaktywniejsze" uses `routeKcal`.
 - Speed history (device-side, privacy first): in the route view "Rozpocznij przejazd" / "Zakończ" records GPS points (memory only, one every 4 s,
   Screen Wake Lock while recording) and sends the track once to `POST /api/history/records` (`backend/app/api/history.py`,
   `algorithms/speed_history.py::split_track`: shares the moving distance between the route's legs by planned distance, ignores standing

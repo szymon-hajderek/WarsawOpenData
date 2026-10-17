@@ -64,9 +64,7 @@ def combine(index: int, segments: list[RouteOption], waypoints: list[Place]) -> 
         arrival=_add_minutes(departure, duration),
         durationMin=duration,
         distanceM=sum(seg.distanceM for seg in segments),
-        calories=sum(seg.calories for seg in segments),
         transfers=sum(seg.transfers for seg in segments),
-        costPln=round(sum(seg.costPln for seg in segments), 2),
         tags=[],
         waypoints=waypoints,
     )
@@ -76,14 +74,6 @@ def _tag(options: list[RouteOption]) -> None:
     if not options:
         return
     options[0].tags.append("Najszybsza")  # options are sorted by duration
-    if len(options) > 1:
-        min_cost = min(o.costPln for o in options)
-        cheapest = [o for o in options if o.costPln == min_cost]
-        if len(cheapest) == 1:
-            cheapest[0].tags.append("Najtańsza")
-        most_active = max(options, key=lambda o: o.calories)
-        if most_active.calories > 0 and len(most_active.tags) < 2:
-            most_active.tags.append("Najaktywniejsza")
 
 
 def query_multi(

@@ -1,6 +1,8 @@
 """Net calories of a walked or cycled route, from the same tables the app uses.
 
-Public-transport legs count as rest. An electric wheelchair burns nothing on a
+Works on the legs of a `RouteOption` (`mode`, `distanceM`, `durationMin`): walking legs and cycling legs
+(`bike` = own bike, `veturilo` = rented bike). The speed of a leg is its distance over its time when the
+leg has both, else the pace given by the caller. Public-transport legs count as rest. An electric wheelchair burns nothing on a
 walk. Flat ground: slope, load, bike type and wind are not in the model.
 """
 from __future__ import annotations
@@ -32,22 +34,37 @@ def resting_kcal_per_day(body: dict | None) -> float:
     return base + (5 if sex == "male" else -161 if sex == "female" else -78)
 
 
+CYCLING = ("bike", "veturilo")
+
+
+def _get(leg, key, default=0):
+    value = getattr(leg, key, None) if hasattr(leg, "mode") else leg.get(key)
+    return default if value is None else value
+
+
+def leg_kmh(leg, fallback: float) -> float:
+    """Speed of a leg from its own distance and time; the fallback when the leg has no time."""
+    minutes = float(_get(leg, "durationMin"))
+    metres = float(_get(leg, "distanceM"))
+    return metres / 1000 / (minutes / 60) if minutes > 0 and metres > 0 else fallback
+
+
 def net_kcal(legs: list, walk_kmh: float, bike_kmh: float, body: dict | None = None,
              wheelchair: str = "none") -> int:
-    """Net kcal above resting. `legs` need `mode` and `distanceM`."""
+    """Net kcal above resting. `legs` need `mode` and `distanceM` (and `durationMin` for the leg's own speed)."""
     weight = float((body or {}).get("weightKg") or DEFAULTS["weightKg"])
     rest_per_hour = resting_kcal_per_day(body) / 24
     total = 0.0
     for leg in legs:
-        mode = leg.mode if hasattr(leg, "mode") else leg["mode"]
-        distance = leg.distanceM if hasattr(leg, "distanceM") else leg["distanceM"]
+        mode = _get(leg, "mode", "")
+        distance = float(_get(leg, "distanceM"))
         if mode == "walk" and wheelchair == "electric":
             continue
         if mode == "walk":
-            kmh = walk_kmh
+            kmh = leg_kmh(leg, walk_kmh)
             table = WHEELCHAIR_MET if wheelchair == "manual" else WALK_MET
-        elif mode == "bike":
-            kmh = bike_kmh or 13.0
+        elif mode in CYCLING:
+            kmh = leg_kmh(leg, bike_kmh or 13.0)
             table = BIKE_MET
         else:
             continue

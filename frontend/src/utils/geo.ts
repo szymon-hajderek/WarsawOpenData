@@ -1,7 +1,14 @@
-import type { LatLng } from '../types';
+import type { LatLng, LonLat, RouteLeg, TransportMode } from '../types';
 
 const EARTH_RADIUS_M = 6371000;
 const toRad = (deg: number) => (deg * Math.PI) / 180;
+
+/** `[lat, lng]` -> `[lon, lat]`. */
+export const lonLat = (p: LatLng): LonLat => [p[1], p[0]];
+
+/** Total distance (m) of the legs that use one of the modes. */
+export const sumDistance = (legs: RouteLeg[], modes: TransportMode[]): number =>
+  Math.round(legs.filter((l) => modes.includes(l.mode)).reduce((s, l) => s + l.distanceM, 0) * 10) / 10;
 
 export function haversine(a: LatLng, b: LatLng): number {
   const dLat = toRad(b[0] - a[0]);
