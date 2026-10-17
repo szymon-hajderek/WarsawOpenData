@@ -1,0 +1,23 @@
+# Secrets: keys live only in .env (see ACCESS.md)
+.env
+.env.*
+!.env.example
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+.venv/
+*.sqlite
+
+# Node
+node_modules/
+dist/
+
+# Large downloaded data (GTFS, GTFS-RT, OSM extracts)
+data/**/*.zip
+data/**/*.pb
+data/**/*.osm.pbf
