@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Box, Button, Snackbar, Typography, useMediaQuery, useTheme } from '@mui/material';
 import MapView, { type MapPadding } from './components/MapView';
 import SearchCard from './components/SearchCard';
 import RouteOptionsSheet from './components/RouteOptionsSheet';
 import RouteDetailsSheet from './components/RouteDetailsSheet';
-import VehicleSheet, { type VehicleSnap } from './components/VehicleSheet';
+import VehicleSheet from './components/VehicleSheet';
 import BottomNav, { type Tab } from './components/BottomNav';
 import PreferencesPage from './components/PreferencesPage';
 import FilterSheet from './components/FilterSheet';
 import { useColorMode } from './colorMode';
-import { fetchRouteOptions } from './api/routes';
-import { BUS_POPUP_REQUEST_EVENT, detectVehicle, manualCandidate, requestLinePopup } from './api/vehicle';
+import { requestLinePopup } from './api/vehicle';
+import { useLocationTrack } from './hooks/useLocationTrack';
+import { useRouteSearch } from './hooks/useRouteSearch';
+import { useVehicleDetection } from './hooks/useVehicleDetection';
 import { usePreferences } from './preferences/PreferencesProvider';
 import { useHistory } from './history/HistoryProvider';
 import {
@@ -22,8 +24,8 @@ import {
   summarize,
   type TripFilters,
 } from './preferences/model';
-import { BOTTOM_NAV_HEIGHT } from './layout';
-import type { LatLng, Place, RouteOption, StopOrder, VehicleCandidate } from './types';
+import { BOTTOM_NAV_HEIGHT, MAP_PADDING } from './layout';
+import type { Place, StopOrder } from './types';
 
 type Step = 'search' | 'options' | 'route';
 
@@ -32,8 +34,7 @@ export default function App() {
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up('sm'));
 
-  const [userPosition, setUserPosition] = useState<LatLng | null>(null);
-  const [geoError, setGeoError] = useState(false);
+  const { position: userPosition, geoError, clearGeoError, locate, getTrack } = useLocationTrack();
   const [origin, setOrigin] = useState<Place | null>(null);
   const [destination, setDestination] = useState<Place | null>(null);
   // Intermediate stops (`null` = an empty field the user has just added) and how they are ordered.
@@ -45,22 +46,12 @@ export default function App() {
   // Filters apply to the current search only; they start from the saved preferences.
   const [filters, setFilters] = useState<TripFilters>(DEFAULT_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [step, setStep] = useState<Step>('search');
-  const [options, setOptions] = useState<RouteOption[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pickedId, setPickedId] = useState<string | null>(null);
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [stepsExpanded, setStepsExpanded] = useState(false);
 
   // "Which vehicle am I in?" window: open from the start, can be hidden and brought back.
-  const [vehicles, setVehicles] = useState<VehicleCandidate[]>([]);
-  const [vehicleLines, setVehicleLines] = useState<string[]>([]);
-  const [manualVehicle, setManualVehicle] = useState<VehicleCandidate | null>(null);
-  const [vehiclesLoading, setVehiclesLoading] = useState(true);
-  const [vehicleSnap, setVehicleSnap] = useState<VehicleSnap>('middle');
-  const [vehicleDismissed, setVehicleDismissed] = useState(false);
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
-  const [confirmedVehicle, setConfirmedVehicle] = useState<VehicleCandidate | null>(null);
+  const vehicle = useVehicleDetection({ position: userPosition, geoError, getTrack });
 
   const currentLocation = useMemo<Place | null>(
     () =>
@@ -69,60 +60,6 @@ export default function App() {
         : null,
     [userPosition],
   );
-
-  const locate = useCallback(() => {
-    if (!navigator.geolocation) {
-      setGeoError(true);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setUserPosition([pos.coords.latitude, pos.coords.longitude]),
-      () => setGeoError(true),
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
-  }, []);
-
-  useEffect(() => locate(), [locate]);
-
-  // Detect the vehicle once after start (first location, or none after a geolocation error),
-  // then only when asked through requestLinePopup().
-  const [detectRun, setDetectRun] = useState(0);
-  const userPositionRef = useRef(userPosition);
-  userPositionRef.current = userPosition;
-
-  useEffect(() => {
-    if (userPosition || geoError) setDetectRun((n) => n || 1);
-  }, [userPosition, geoError]);
-
-  useEffect(() => {
-    const onRequest = () => {
-      setDetectRun((n) => n + 1);
-      setVehicleDismissed(false);
-      setVehicleSnap('middle');
-    };
-    window.addEventListener(BUS_POPUP_REQUEST_EVENT, onRequest);
-    return () => window.removeEventListener(BUS_POPUP_REQUEST_EVENT, onRequest);
-  }, []);
-
-  useEffect(() => {
-    if (detectRun === 0) return;
-    let cancelled = false;
-    setVehiclesLoading(true);
-    detectVehicle(userPositionRef.current)
-      .then((found) => {
-        if (cancelled) return;
-        setVehicles(found.candidates);
-        setVehicleLines(found.lines);
-        setManualVehicle(null);
-        setSelectedVehicleId((prev) =>
-          found.candidates.some((v) => v.id === prev) ? prev : found.candidates[0]?.id ?? null,
-        );
-      })
-      .finally(() => !cancelled && setVehiclesLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [detectRun]);
 
   // The start defaults to the user's location.
   useEffect(() => {
@@ -134,31 +71,30 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const via = useMemo(() => stopFields.filter((p): p is Place => p !== null), [viaKey]);
 
-  // Fetch connections as soon as both points are set.
+  const { options, loading, error: searchError, mock: routesMock } = useRouteSearch({
+    origin,
+    destination,
+    via,
+    order: stopOrder,
+  });
+
+  // A new search starts clean: no filters, no chosen route.
   useEffect(() => {
     setFilters(DEFAULT_FILTERS);
-    if (!origin || !destination) {
-      setOptions([]);
-      setSelectedId(null);
-      setChosenId(null);
-      setStep('search');
-      return;
-    }
-    let cancelled = false;
-    setStep('options');
+    setPickedId(null);
     setChosenId(null);
-    setLoading(true);
-    fetchRouteOptions({ from: origin, to: destination, profile: 'standard', via, order: stopOrder })
-      .then((result) => {
-        if (cancelled) return;
-        setOptions(result);
-        setSelectedId(result[0]?.id ?? null);
-      })
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
   }, [origin, destination, via, stopOrder]);
+
+  // Example data is announced once, with a snackbar; a chip stays on the panel that shows it.
+  const mockShown = routesMock || vehicle.mock;
+  const [mockNoticeOpen, setMockNoticeOpen] = useState(false);
+  const [mockNoticeDone, setMockNoticeDone] = useState(false);
+  useEffect(() => {
+    if (mockShown && !mockNoticeDone) {
+      setMockNoticeOpen(true);
+      setMockNoticeDone(true);
+    }
+  }, [mockShown, mockNoticeDone]);
 
   const handleLocateOrigin = () => {
     if (currentLocation) setOrigin(currentLocation);
@@ -177,123 +113,119 @@ export default function App() {
   const visible = useMemo(() => applyListFilters(options, trip, filters), [options, trip, filters]);
   const chips = useMemo(() => filterChips(filters, trip), [filters, trip]);
 
-  // Keep the selection inside the filtered list.
-  useEffect(() => {
-    if (selectedId && !visible.some((o) => o.id === selectedId)) setSelectedId(visible[0]?.id ?? null);
-    if (!selectedId && visible.length > 0) setSelectedId(visible[0].id);
-  }, [visible, selectedId]);
+  // The selection always points into the filtered list.
+  const selectedId = visible.some((o) => o.id === pickedId) ? pickedId : visible[0]?.id ?? null;
 
   const chosen = options.find((o) => o.id === chosenId) ?? null;
+  const step: Step = !origin || !destination ? 'search' : chosen ? 'route' : 'options';
   const preview = step === 'route' ? chosen : step === 'options' ? visible.find((o) => o.id === selectedId) ?? null : null;
 
   // Parts of the map covered by the panels, so the route stays in the visible area.
   const padding: MapPadding = desktop
-    ? { top: 60, left: 500, bottom: 60, right: 90 }
-    : { top: step === 'route' ? 100 : 190, left: 40, bottom: BOTTOM_NAV_HEIGHT + (step === 'route' ? (stepsExpanded ? 450 : 380) : 430), right: 70 };
+    ? MAP_PADDING.desktop
+    : {
+        top: step === 'route' ? 100 : 190,
+        left: 40,
+        bottom: BOTTOM_NAV_HEIGHT + (step === 'route' ? (stepsExpanded ? 450 : 380) : 430),
+        right: 70,
+      };
 
   return (
     <Box sx={{ position: 'fixed', inset: 0, bgcolor: 'background.default' }}>
-      <MapView
-        paletteMode={mode}
-        onToggleMode={toggle}
-        userPosition={userPosition}
-        onLocate={locate}
-        origin={origin}
-        destination={destination}
-        route={preview}
-        detailed={step === 'route'}
-        padding={padding}
-        stops={via}
-        controlsOffset={step === 'route' ? 0 : 40 + stopFields.length * 56}
-        onDetectVehicle={step === 'search' ? requestLinePopup : undefined}
-      />
-
-      {step !== 'route' && (
-        <SearchCard
+      {/* Under the Preferences page the map and panels cannot take focus or be read by a screen reader. */}
+      <Box {...(tab === 'preferences' ? ({ inert: '' } as object) : {})}>
+        <MapView
+          paletteMode={mode}
+          onToggleMode={toggle}
+          userPosition={userPosition}
+          onLocate={locate}
           origin={origin}
           destination={destination}
-          stops={stopFields}
-          order={stopOrder}
-          currentLocation={currentLocation}
-          onOriginChange={setOrigin}
-          onDestinationChange={setDestination}
-          onStopsChange={setStopFields}
-          onOrderChange={setStopOrder}
-          onSwap={swap}
-          onLocate={handleLocateOrigin}
+          route={preview}
+          detailed={step === 'route'}
+          padding={padding}
+          stops={via}
+          controlsOffset={step === 'route' ? 0 : 40 + stopFields.length * 56}
+          onDetectVehicle={step === 'search' ? requestLinePopup : undefined}
         />
-      )}
 
-      {step === 'search' && !vehicleDismissed && (
-        <VehicleSheet
-          candidates={vehicles}
-          lines={vehicleLines}
-          manual={manualVehicle}
-          loading={vehiclesLoading}
-          snap={vehicleSnap}
-          selectedId={selectedVehicleId}
-          confirmed={confirmedVehicle}
-          onSnapChange={setVehicleSnap}
-          onSelect={setSelectedVehicleId}
-          onManualLine={(line) => {
-            const v = manualCandidate(line);
-            setManualVehicle(v);
-            setSelectedVehicleId(v.id);
-          }}
-          onClearManual={() => {
-            setManualVehicle(null);
-            setSelectedVehicleId(vehicles[0]?.id ?? null);
-          }}
-          onRedetect={requestLinePopup}
-          onConfirm={() => {
-            const all = manualVehicle ? [...vehicles, manualVehicle] : vehicles;
-            setConfirmedVehicle(all.find((v) => v.id === selectedVehicleId) ?? null);
-            setVehicleSnap('bar');
-          }}
-          onDismiss={() => setVehicleDismissed(true)}
+        {step !== 'route' && (
+          <SearchCard
+            origin={origin}
+            destination={destination}
+            stops={stopFields}
+            order={stopOrder}
+            currentLocation={currentLocation}
+            onOriginChange={setOrigin}
+            onDestinationChange={setDestination}
+            onStopsChange={setStopFields}
+            onOrderChange={setStopOrder}
+            onSwap={swap}
+            onLocate={handleLocateOrigin}
+          />
+        )}
+
+        {step === 'search' && !vehicle.dismissed && (
+          <VehicleSheet
+            candidates={vehicle.vehicles}
+            lines={vehicle.lines}
+            manual={vehicle.manual}
+            loading={vehicle.loading}
+            mock={vehicle.mock}
+            snap={vehicle.snap}
+            selectedId={vehicle.selectedId}
+            confirmed={vehicle.confirmed}
+            onSnapChange={vehicle.setSnap}
+            onSelect={vehicle.setSelectedId}
+            onManualLine={vehicle.selectManualLine}
+            onClearManual={vehicle.clearManual}
+            onRedetect={vehicle.redetect}
+            onConfirm={vehicle.confirm}
+            onDismiss={vehicle.dismiss}
+          />
+        )}
+
+        {step === 'options' && (
+          <RouteOptionsSheet
+            options={visible}
+            foundCount={options.length}
+            loading={loading}
+            error={searchError}
+            mock={routesMock}
+            selectedId={selectedId}
+            summary={summarize(trip)}
+            activeRule={activeRule}
+            chips={chips}
+            onSelect={setPickedId}
+            onOpenFilters={() => setFiltersOpen(true)}
+            onClearChip={(id) => setFilters((f) => clearFilter(f, id))}
+            onClearAll={() => setFilters(DEFAULT_FILTERS)}
+            onConfirm={() => setChosenId(selectedId)}
+          />
+        )}
+
+        {step === 'route' && chosen && origin && destination && (
+          <RouteDetailsSheet
+            route={chosen}
+            origin={origin}
+            destination={destination}
+            expanded={stepsExpanded}
+            onExpandedChange={setStepsExpanded}
+            onBack={() => setChosenId(null)}
+          />
+        )}
+
+        <FilterSheet
+          open={filtersOpen}
+          onClose={() => setFiltersOpen(false)}
+          filters={filters}
+          onChange={setFilters}
+          effective={effective}
+          trip={trip}
+          resultCount={visible.length}
         />
-      )}
 
-      {step === 'options' && (
-        <RouteOptionsSheet
-          options={visible}
-          foundCount={options.length}
-          loading={loading}
-          selectedId={selectedId}
-          summary={summarize(trip)}
-          activeRule={activeRule}
-          chips={chips}
-          onSelect={setSelectedId}
-          onOpenFilters={() => setFiltersOpen(true)}
-          onClearChip={(id) => setFilters((f) => clearFilter(f, id))}
-          onClearAll={() => setFilters(DEFAULT_FILTERS)}
-          onConfirm={() => {
-            setChosenId(selectedId);
-            setStep('route');
-          }}
-        />
-      )}
-
-      {step === 'route' && chosen && origin && destination && (
-        <RouteDetailsSheet
-          route={chosen}
-          origin={origin}
-          destination={destination}
-          expanded={stepsExpanded}
-          onExpandedChange={setStepsExpanded}
-          onBack={() => setStep('options')}
-        />
-      )}
-
-      <FilterSheet
-        open={filtersOpen}
-        onClose={() => setFiltersOpen(false)}
-        filters={filters}
-        onChange={setFilters}
-        effective={effective}
-        trip={trip}
-        resultCount={visible.length}
-      />
+      </Box>
 
       {tracker.status === 'tracking' && step !== 'route' && (
         <Box
@@ -330,12 +262,24 @@ export default function App() {
       <Snackbar
         open={geoError}
         autoHideDuration={6000}
-        onClose={() => setGeoError(false)}
+        onClose={clearGeoError}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         sx={{ top: { xs: 150 } }}
       >
-        <Alert severity="info" variant="filled" onClose={() => setGeoError(false)}>
+        <Alert severity="info" variant="filled" onClose={clearGeoError}>
           Nie udało się ustalić lokalizacji. Wpisz punkt startowy ręcznie.
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={mockNoticeOpen}
+        autoHideDuration={8000}
+        onClose={() => setMockNoticeOpen(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{ top: { xs: 150 } }}
+      >
+        <Alert severity="warning" variant="filled" onClose={() => setMockNoticeOpen(false)}>
+          Serwer jest niedostępny lub odpowiedział błędnie. Pokazuję dane przykładowe.
         </Alert>
       </Snackbar>
     </Box>

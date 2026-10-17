@@ -29,10 +29,20 @@ export default function Sheet({ children, onHandleClick, maxHeight }: Props) {
       }}
     >
       <Box
+        component={onHandleClick ? 'button' : 'div'}
+        type={onHandleClick ? 'button' : undefined}
         onClick={onHandleClick}
-        role={onHandleClick ? 'button' : undefined}
         aria-label={onHandleClick ? 'Zwiń lub rozwiń panel' : undefined}
-        sx={{ py: 1.25, display: 'grid', placeItems: 'center', cursor: onHandleClick ? 'pointer' : 'default' }}
+        sx={{
+          py: 1.25,
+          display: 'grid',
+          placeItems: 'center',
+          cursor: onHandleClick ? 'pointer' : 'default',
+          border: 0,
+          bgcolor: 'transparent',
+          width: '100%',
+          '&:focus-visible': { outline: (t) => `2px solid ${t.palette.primary.main}`, outlineOffset: -2 },
+        }}
       >
         <Box sx={{ width: 36, height: 4, borderRadius: RADIUS.pill, bgcolor: 'text.disabled', opacity: 0.5 }} />
       </Box>

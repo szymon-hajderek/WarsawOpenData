@@ -1,4 +1,6 @@
 import type { LatLng, VehicleCandidate } from '../types';
+import { API_URL, apiUrl } from '../config';
+import { isNearestBuses } from './validate';
 
 /**
  * VEHICLE DETECTION.
@@ -29,34 +31,9 @@ export interface BusPopupDetail {
 export const BUS_POPUP_EVENT = 'bus-popup';
 export const BUS_POPUP_REQUEST_EVENT = 'bus-popup-request';
 
-const SAMPLE_MS = 10_000;
-const MAX_POINTS = 3;
-
-// ---------------------------------------------------------------- location buffer (memory only)
-
-let latest: TrackPoint | null = null;
-const track: TrackPoint[] = [];
-
-if (typeof navigator !== 'undefined' && navigator.geolocation) {
-  navigator.geolocation.watchPosition(
-    (pos) => {
-      latest = { lat: pos.coords.latitude, lon: pos.coords.longitude, time_ms: Date.now() };
-      if (track.length === 0) track.push(latest);
-    },
-    () => {
-      /* no location: detection uses the position passed in, or the fallback */
-    },
-    { enableHighAccuracy: true },
-  );
-  setInterval(() => {
-    if (!latest) return;
-    track.push({ ...latest, time_ms: Date.now() });
-    track.splice(0, track.length - MAX_POINTS);
-  }, SAMPLE_MS);
-}
-
-function currentTrack(position: LatLng | null): TrackPoint[] {
-  if (track.length > 0) return [...track];
+/** The user's track: the last 1-3 positions, or just the current one when there is no track yet. */
+function trackOrPosition(track: TrackPoint[], position: LatLng | null): TrackPoint[] {
+  if (track.length > 0) return track;
   return position ? [{ lat: position[0], lon: position[1], time_ms: Date.now() }] : [];
 }
 
@@ -80,20 +57,9 @@ function mockCandidates(position: LatLng | null): VehicleCandidate[] {
 
 // ---------------------------------------------------------------- API
 
-interface NearestBusesResponse {
-  candidates: {
-    id: string;
-    line: string;
-    mode: 'bus';
-    direction: string;
-    vehicle?: string;
-    brigade?: string;
-    rmse_m?: number;
-  }[];
-  lines: string[];
-}
-
 export interface DetectionResult {
+  /** True when the candidates are made-up example data (the backend is off or sent a bad answer). */
+  mock: boolean;
   /** The most likely vehicle first, then up to 3 other possible ones. */
   candidates: VehicleCandidate[];
   /** All lines in the live data, for choosing the line by hand. */
@@ -105,18 +71,26 @@ export function manualCandidate(line: string): VehicleCandidate {
   return { id: `manual-${line}`, mode: 'bus', line, direction: '', manual: true };
 }
 
-export async function detectVehicle(position: LatLng | null): Promise<DetectionResult> {
-  const points = currentTrack(position);
+export async function detectVehicle(
+  track: TrackPoint[],
+  position: LatLng | null,
+  signal?: AbortSignal,
+): Promise<DetectionResult> {
+  const points = trackOrPosition(track, position);
   let detail: BusPopupDetail;
+  let mock = false;
   try {
+    if (!API_URL) throw new Error('backend disabled');
     if (points.length === 0) throw new Error('no location');
-    const r = await fetch('/api/live/nearest-buses', {
+    const r = await fetch(apiUrl('/api/live/nearest-buses'), {
+      signal,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ points }),
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data: NearestBusesResponse = await r.json();
+    const data: unknown = await r.json();
+    if (!isNearestBuses(data)) throw new Error('Unexpected answer shape');
     detail = {
       candidates: data.candidates.map(({ id, mode, line, direction, vehicle, brigade, rmse_m }) => ({
         id,
@@ -131,12 +105,14 @@ export async function detectVehicle(position: LatLng | null): Promise<DetectionR
       points,
     };
   } catch (e) {
+    if (signal?.aborted) throw e;
+    mock = true;
     console.warn('Bus detection unavailable, using mock data:', e);
     const candidates = mockCandidates(position);
     detail = { candidates, lines: candidates.map((c) => c.line), points };
   }
   window.dispatchEvent(new CustomEvent<BusPopupDetail>(BUS_POPUP_EVENT, { detail }));
-  return { candidates: detail.candidates, lines: detail.lines };
+  return { candidates: detail.candidates, lines: detail.lines, mock };
 }
 
 /** Detect again with the last 1-3 positions and reopen the popup (wire a "choose my line" button to it). */

@@ -123,7 +123,7 @@ export default function RouteDetailsSheet({
   const palette = theme.palette.mode;
 
   // The longest leg sets the icon of the whole route
-  const mainLeg = route.legs.reduce((a, b) => (b.durationMin > a.durationMin ? b : a));
+  const mainLeg = route.legs.reduce((a, b) => (b.durationMin > a.durationMin ? b : a), route.legs[0]);
   const MainIcon = MODE_META[mainLeg.mode].icon;
   // intermediate stops: waypoints without the start and the destination
   const stopCount = Math.max(0, (route.waypoints?.length ?? 0) - 2);
@@ -205,7 +205,7 @@ export default function RouteDetailsSheet({
           <Box sx={{ display: 'flex', gap: '3px', mt: 2, height: 10 }}>
             {route.legs.map((leg, i) => (
               <Box
-                key={i}
+                key={`${i}-${leg.mode}`}
                 sx={{
                   flex: leg.durationMin,
                   borderRadius: RADIUS.pill,
@@ -233,6 +233,7 @@ export default function RouteDetailsSheet({
           <Button
             fullWidth
             color="inherit"
+            aria-expanded={expanded}
             onClick={() => onExpandedChange(!expanded)}
             endIcon={expanded ? <ExpandLess /> : <ExpandMore />}
             sx={{ mt: 1.5, justifyContent: 'space-between', fontWeight: 700 }}
@@ -247,7 +248,7 @@ export default function RouteDetailsSheet({
               const last = i === route.legs.length - 1;
               const stopPlace = leg.stop ? route.waypoints?.[leg.stop] : undefined;
               return (
-                <Fragment key={i}>
+                <Fragment key={`${i}-${leg.mode}`}>
                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <Box

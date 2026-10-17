@@ -4,6 +4,7 @@ import Schedule from '@mui/icons-material/Schedule';
 import LocalFireDepartment from '@mui/icons-material/LocalFireDepartment';
 import Sheet from './Sheet';
 import LegChain from './LegChain';
+import { pressableProps } from './pressable';
 import { formatCost, formatDuration, stopsLabel, transfersLabel } from '../utils/format';
 import type { FilterChip, TimeRule } from '../preferences/model';
 import type { RouteOption } from '../types';
@@ -15,6 +16,10 @@ interface Props {
   /** How many routes were found before filtering. */
   foundCount: number;
   loading: boolean;
+  /** The search failed (no routes, not even example ones). */
+  error: boolean;
+  /** The routes are made-up example data. */
+  mock: boolean;
   selectedId: string | null;
   /** Short summary of the preferences the routes follow. */
   summary: string[];
@@ -34,6 +39,8 @@ export default function RouteOptionsSheet({
   options,
   foundCount,
   loading,
+  error,
+  mock,
   selectedId,
   summary,
   activeRule,
@@ -70,6 +77,7 @@ export default function RouteOptionsSheet({
               sx={{ flexShrink: 0 }}
             />
           )}
+          {mock && <Chip label="Dane przykładowe" size="small" color="warning" sx={{ flexShrink: 0 }} />}
           {chips.map((c) => (
             <Chip
               key={c.id}
@@ -95,7 +103,11 @@ export default function RouteOptionsSheet({
         {!loading && options.length === 0 && (
           <Box sx={{ py: 4, textAlign: 'center' }}>
             <Typography color="text.secondary">
-              {foundCount > 0 ? 'Żadna trasa nie spełnia wybranych filtrów.' : 'Nie znaleziono połączeń.'}
+              {error
+                ? 'Nie udało się pobrać tras. Spróbuj zmienić punkty.'
+                : foundCount > 0
+                  ? 'Żadna trasa nie spełnia wybranych filtrów.'
+                  : 'Nie znaleziono połączeń.'}
             </Typography>
             {foundCount > 0 && (
               <Button onClick={onClearAll} sx={{ mt: 1 }}>
@@ -110,11 +122,7 @@ export default function RouteOptionsSheet({
             return (
               <Box
                 key={o.id}
-                role="button"
-                tabIndex={0}
-                aria-pressed={selected}
-                onClick={() => onSelect(o.id)}
-                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(o.id)}
+                {...pressableProps(selected, () => onSelect(o.id))}
                 sx={(t) => ({
                   display: 'flex',
                   gap: 1.5,
