@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { alpha, Box, Button, Chip, IconButton, Typography } from '@mui/material';
+import { alpha, Box, Button, Chip, FormControlLabel, IconButton, Switch, Typography } from '@mui/material';
 import Add from '@mui/icons-material/Add';
 import Delete from '@mui/icons-material/Delete';
 import Edit from '@mui/icons-material/Edit';
@@ -26,7 +26,7 @@ const OVERRIDE_LABELS: Record<keyof PreferenceOverrides, string> = {
 /** Preferences tab: how the user moves, priorities and time rules. */
 export default function PreferencesPage() {
   const { base, rules, activeRule, autoUsed, setBase, setRules, reset } = usePreferences();
-  const { summary, records, clear } = useHistory();
+  const { summary, records, clear, shareJourneys, setShareJourneys } = useHistory();
   const [editing, setEditing] = useState<TimeRule | 'new' | null>(null);
 
   const saveRule = (rule: TimeRule) => {
@@ -151,11 +151,25 @@ export default function PreferencesPage() {
               </Box>
             )}
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-              Ślad GPS jest wysyłany do serwera tylko na chwilę zapisu i nie jest przechowywany. Zapisujemy wyłącznie dystans, czas ruchu i prędkość, bez współrzędnych.
+              Ślad GPS jest wysyłany do serwera na czas obliczeń i nie jest przechowywany. Historia na tym urządzeniu zawiera wyłącznie dystans, czas ruchu i prędkość, bez współrzędnych.
             </Typography>
             <Button variant="outlined" color="inherit" disabled={records.length === 0} onClick={clear}>
               Wyczyść historię przejazdów
             </Button>
+          </Section>
+        </Box>
+
+        <Box sx={{ mt: 1.5 }}>
+          <Section icon={<HistoryIcon />} title="Statystyki podróży" hint="Pomóż nam lepiej planować transport w Warszawie.">
+            <FormControlLabel
+              control={<Switch checked={shareJourneys} onChange={(_, enabled) => setShareJourneys(enabled)} />}
+              label="Udostępniaj start i cel zakończonych przejazdów"
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
+              Po zakończeniu nagrywanego przejazdu zliczymy wybrane miejsca startu i celu, bez identyfikatora
+              użytkownika i śladu GPS. Twoją lokalizację zastąpimy najbliższym przystankiem lub stacją Veturilo.
+              Zgodę możesz wyłączyć w każdej chwili. Dotyczy nowych przejazdów.
+            </Typography>
           </Section>
         </Box>
 
