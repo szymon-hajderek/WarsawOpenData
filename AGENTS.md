@@ -105,8 +105,9 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Frontend: React + TypeScript + Vite
 - Map: Leaflet + OpenStreetMap
 - Backend: Python + FastAPI
-- Database: none for now. Raw files in `data/`, parsed by Python modules on first use.
-  PostgreSQL + PostGIS (or SQLite) later if needed.
+- Database: SQLite for optional journey statistics (`db/journey_stats.sqlite`, git-ignored).
+  Source datasets remain raw files in `data/`, parsed by Python modules on first use.
+  PostgreSQL + PostGIS for source datasets later if needed.
 - Routing: a long-running **C++ engine** builds its own graph at startup and keeps it in memory.
   Today the street part runs (`algorithms/router/`, see Backend notes); transit routing is still Python
   (`backend/app/routing/real_engine.py`).
@@ -198,6 +199,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   ~750 m (network) apart. Report: `uv run python siting_report.py` -> `data/SITING_REPORT.md`, `artifacts/veturilo-siting.html`
   (own canvas map with pan / zoom, no external scripts: Leaflet from a CDN failed to load for the user and broke the page).
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
+- **Ride demo** (`./demo.sh [scenario]`): Demo tab in the frontend, shown only when `GET /api/sim/state` answers (backend in
+  simulation mode). `POST /api/sim/ride` (`backend/sim/api.py`, `backend/sim/journey.py`) computes the whole ride (30-60 s), the page
+  (`DemoPage.tsx`, `useRidePlayback`, `sim/ride.ts::sampleRide`) plays it back (pause, 1x / 10x / 60x, slider, GPS error). Route
+  options for a free route are asked with `when` = simulated date + hour. `journey.py` lives in `backend/sim/`, not in `integration/`.
 - **Integration tests** (`integration/`, see its README): `uv run pytest ../integration` from `backend/`, ~6 min.
   Simulation mode (`backend/sim/`): one clock (`sim.clock.now()`; live data code reads time there, never
   `time.time()` / `datetime.now()`; the route engine does not, so send `when`), a scenario file in `integration/scenarios/` replaces the vehicle feed
@@ -258,8 +263,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   is off/unreachable. Types in `src/types.ts`. The mock's costs and speeds are rough estimates.
 - Backend URL: `src/config.ts` reads `VITE_API_URL` (default `http://localhost:8000`;
   set `VITE_API_URL=""` in `frontend/.env` to force the mock).
-- Place search: `src/api/geocode.ts` (`searchPlaces`), debounced, limited to Warsaw. Calls the
-  backend geocode proxy when `API_URL` is set, else Nominatim directly (≈1 request/second limit).
+- Place search: `src/api/geocode.ts` (`searchPlaces`, `MIN_QUERY`), debounced (300 ms), limited to Warsaw. Calls the backend (`GET /api/geocode`) when `API_URL` is set
+  (from 2 characters; sends the user's position as `lat` / `lon`), else Nominatim directly (3 characters, ≈1 request/second limit). The backend answers with our own
+  stops and Veturilo stations first (`algorithms/place_search.py`: start-of-word match, accents folded, distance as a tie-break), then Nominatim; stops still come when Nominatim is down.
 - Colours: one palette, the Warsaw colours (red + yellow): `src/map/palette.ts` (`PALETTE`, light / dark). Red is the main
   colour in light mode, yellow the accent at night. It sets the map colours, the round map buttons / markers AND the accent
   of the whole UI (the MUI theme in `src/theme.ts` is built from it). The old lavender look and the look switch were removed.
@@ -349,6 +355,18 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Run: `npm install`, `npm run dev` (http://localhost:5173), `npm run build` (type-check + build).
 
 ### Backend — routing API (`backend/app/`)
+
+- Journey statistics (#52): `POST /api/journeys` records only the whole-trip start/destination of explicitly
+  finished real GPS recordings after separate opt-in (off by default, localStorage `journey-statistics-enabled`).
+  `backend/journey_stats.py` initializes SQLite and the local GTFS/GBFS anchor catalog at startup in both apps;
+  optional `JOURNEY_STATS_DB` overrides `db/journey_stats.sqlite`. No cache builds or network calls in this request.
+  Concrete object IDs and exact object coordinates are kept; current-location endpoints map to the geographically
+  nearest boarding stop/platform or Veturilo station (no distance cutoff; ties by ID). Daily Warsaw-time counters,
+  plus random per-recording token-only receipts for atomic retry deduplication; no full tracks, user/device IDs or
+  precise journey timestamps. No public read/export endpoint. Counts and receipts stay until the DB is cleared.
+  The recorder snapshots endpoints and opt-in at start; revocation invalidates the current submission. Mock,
+  interrupted and GPS-less recordings do not count; statistics failures do not block local speed history.
+  Geocoded places use `osm:<node|way|relation>:<osm_id>` instead of Nominatim's temporary `place_id`.
 
 - Separate package `backend/app/` holds the route models and `RealRouteEngine`. `backend/main.py`
   mounts it, so one uv process serves data, geocode and `POST /api/routes`.

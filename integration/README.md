@@ -86,7 +86,7 @@ Found so far: #63, #64, #65 (direct bus / tram options dropped), #66 (`lateness.
   (`set_delay`, `add_alert`, `set_station` in `backend/sim/scenario.py`). `brigade: null` delays the whole line.
 - `from_s` counts from `start`.
 
-## How the synthetic user moves (`journey.py`)
+## How the synthetic user moves (`backend/sim/journey.py`)
 
 - Walk and bike legs: along the leg geometry at the profile speed (`PROFILE_SPEED` in `real_engine.py`).
 - Bus and tram legs: the user waits at the first point of the leg for a synthetic vehicle of the planned line

@@ -23,6 +23,8 @@ export interface RouteQuery {
   order?: StopOrder;
   /** Pace, transfers, excluded areas and body data. Omitted fields keep the backend defaults. */
   search?: RouteSearchBody;
+  /** Warsaw local departure, ISO datetime or `HH:MM`. Empty = now (the demo sends the simulated time). */
+  when?: string;
 }
 
 export interface RouteResult {
@@ -41,7 +43,7 @@ export async function fetchRouteOptions(query: RouteQuery, signal?: AbortSignal)
         signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, to, profile, ...(via.length ? { via, order } : {}), ...query.search }),
+        body: JSON.stringify({ from, to, profile, ...(via.length ? { via, order } : {}), ...(query.when ? { when: query.when } : {}), ...query.search }),
       });
       if (!res.ok) throw new Error(`Routing failed: ${res.status}`);
       const data: unknown = await res.json();

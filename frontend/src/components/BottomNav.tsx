@@ -1,12 +1,13 @@
 import { BottomNavigation, BottomNavigationAction, Paper } from '@mui/material';
 import MapOutlined from '@mui/icons-material/MapOutlined';
 import Tune from '@mui/icons-material/Tune';
+import Science from '@mui/icons-material/Science';
 import { BOTTOM_NAV_HEIGHT, RADIUS } from '../layout';
 
-export type Tab = 'map' | 'preferences';
+export type Tab = 'map' | 'preferences' | 'demo';
 
-/** Bottom navigation bar: Map and Preferences tabs. */
-export default function BottomNav({ tab, onChange }: { tab: Tab; onChange: (tab: Tab) => void }) {
+/** Bottom navigation bar: Map and Preferences tabs, and Demo when the backend runs in simulation mode. */
+export default function BottomNav({ tab, onChange, demo = false }: { tab: Tab; onChange: (tab: Tab) => void; demo?: boolean }) {
   return (
     <Paper
       elevation={8}
@@ -32,6 +33,7 @@ export default function BottomNav({ tab, onChange }: { tab: Tab; onChange: (tab:
       >
         <BottomNavigationAction value="map" label="Mapa" icon={<MapOutlined />} />
         <BottomNavigationAction value="preferences" label="Preferencje" icon={<Tune />} />
+        {demo && <BottomNavigationAction value="demo" label="Demo" icon={<Science />} />}
       </BottomNavigation>
     </Paper>
   );

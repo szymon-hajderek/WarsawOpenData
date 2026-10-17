@@ -1,8 +1,10 @@
-import type { Place } from '../types';
+import type { LatLng, Place } from '../types';
 import { API_URL, apiUrl } from '../config';
 
 interface NominatimItem {
   place_id: number;
+  osm_type?: 'node' | 'way' | 'relation';
+  osm_id?: number;
   lat: string;
   lon: string;
   name?: string;
@@ -13,16 +15,21 @@ interface NominatimItem {
 // Bounding box of Warsaw (left, top, right, bottom).
 const WARSAW_VIEWBOX = '20.85,52.37,21.28,52.10';
 
+/** Shortest text to search: the backend finds stops from 2 characters, Nominatim needs 3. */
+export const MIN_QUERY = API_URL ? 2 : 3;
+
 /**
  * Place search, limited to Warsaw. Call it debounced.
  *
- * Uses the backend proxy (`GET /api/geocode`) when `API_URL` is set, and falls back
- * to calling Nominatim directly when the backend is disabled or unreachable.
+ * Uses the backend (`GET /api/geocode`: our stops and Veturilo stations, then Nominatim) when `API_URL` is set,
+ * and falls back to calling Nominatim directly when the backend is disabled or unreachable.
+ * `near` (the user's position) orders equally good stops by distance.
  */
-export async function searchPlaces(query: string, signal?: AbortSignal): Promise<Place[]> {
+export async function searchPlaces(query: string, signal?: AbortSignal, near?: LatLng): Promise<Place[]> {
   if (API_URL) {
     try {
-      const res = await fetch(apiUrl(`/api/geocode?q=${encodeURIComponent(query)}`), { signal });
+      const where = near ? `&lat=${near[0]}&lon=${near[1]}` : '';
+      const res = await fetch(apiUrl(`/api/geocode?q=${encodeURIComponent(query)}${where}`), { signal });
       if (!res.ok) throw new Error(`Geocoding failed: ${res.status}`);
       return (await res.json()) as Place[];
     } catch (err) {
@@ -30,6 +37,7 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
       console.warn('Backend geocode unavailable, falling back to Nominatim.', err);
     }
   }
+  if (query.trim().length < 3) return []; // Nominatim does not answer short texts well
   return searchPlacesNominatim(query, signal);
 }
 
@@ -49,14 +57,14 @@ async function searchPlacesNominatim(query: string, signal?: AbortSignal): Promi
   if (!res.ok) throw new Error(`Geocoding failed: ${res.status}`);
   const items: NominatimItem[] = await res.json();
 
-  const places = items.map((item) => {
+  const places = items.filter((item) => item.osm_type && item.osm_id).map((item) => {
     const a = item.address ?? {};
     const street = [a.road, a.house_number].filter(Boolean).join(' ');
     const label = item.name || street || item.display_name.split(',')[0];
     const area = a.suburb || a.neighbourhood || a.city_district || a.city || a.town;
     const sublabel = [item.name && street ? street : undefined, area].filter(Boolean).join(', ');
     return {
-      id: `osm-${item.place_id}`,
+      id: `osm:${item.osm_type}:${item.osm_id}`,
       label,
       sublabel: sublabel || undefined,
       position: [parseFloat(item.lat), parseFloat(item.lon)] as [number, number],
