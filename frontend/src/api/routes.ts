@@ -254,6 +254,8 @@ function buildOption(
       distanceM: distM,
       start: lonLat(path[0]),
       end: lonLat(path[path.length - 1]),
+      fromId: null,
+      toId: null,
       path,
     };
   });

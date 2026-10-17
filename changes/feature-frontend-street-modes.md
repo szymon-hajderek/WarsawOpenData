@@ -1,0 +1,11 @@
+# feature/frontend-street-modes
+
+Frontend side of the StationLocations work (backend issue #79, counterpart issue #83). Scope: `frontend/` only.
+
+- **What was true about the issue:** `GET /api/stations`, router mode `stroller` and `steps` exist only in the open PR #78; `fromId` / `toId` come with #79. On `main` `/api/osm/route` knows `walk`, `bike`, `accessible`. So everything new is optional / tolerant and tested on recorded answers; stroller shows "Ten tryb nie jest jeszcze dostępny na serwerze" until #78 is merged.
+- Contract in `types.ts` / `validate.ts`: `RouteLeg.fromId?` / `toId?` (string or null), `elevators?` / `steps?`; `isRouteOptions` accepts legs with or without them, rejects `fromId: 5` and `start: [1]`. Mock legs carry `fromId` / `toId: null`.
+- Travel mode chips in the search card; street-only trips through `src/api/streetRoute.ts` (walk, wheelchair = `accessible`, stroller, own bike = `bike`), with stops chained by `combineSegments`. No mock / straight line fallback; readable Polish errors; `useRouteSearch` has `travel` and `errorMessage`.
+- Stop overlay: `api/stations.ts`, `hooks/useRouteStations.ts`, `utils/overlay.ts` (pure, tested) and `MapView`: markers at the stops, legs joined at them, metro rides dashed and muted, metro entrance where the walk goes down, elevator / steps icons.
+- Tests: recorded `/api/osm/route` answers for the four modes, the 422 / 404 / 503 / 400 messages, no fallback for accessible / stroller, `isRouteOptions` cases, `parseStation`, overlay helper (73 tests in all).
+- Assumptions: the mode choice is the chips (not Preferences), not saved; the overlay loads only the stops of the shown route, by id (`GET /api/stations/{id}`) instead of a bbox query; the station mock fallback of the issue is not done (it would contradict PR #81: a missing backend is said out loud, nothing is made up); a street route lasts at least 1 minute; the duration is `seconds` of the router (default speeds), not scaled to the user's pace; filters do not apply to street trips.
+- Not done (needs backend PRs): transit tests with real `fromId` / `toId` (after #79), requiring `fromId` / `toId` in `isRouteOptions`, the optional all-stops layer (not asked for), `segments` drawing.

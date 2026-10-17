@@ -19,6 +19,18 @@ describe('isRouteOptions', () => {
     expect(isRouteOptions([{ ...option, legs: [{ ...leg, path: [[1, 'x']] }] }])).toBe(false);
   });
 
+  it('accepts legs with or without fromId / toId and start / end', () => {
+    expect(isRouteOptions([option])).toBe(true);
+    const withIds = { ...leg, fromId: 'ztm:435102', toId: null, start: [21.0, 52.2], end: [21.01, 52.21] };
+    expect(isRouteOptions([{ ...option, legs: [withIds] }])).toBe(true);
+  });
+
+  it('rejects a numeric fromId and a broken start', () => {
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, fromId: 5 }] }])).toBe(false);
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, toId: 7 }] }])).toBe(false);
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, start: [1] }] }])).toBe(false);
+  });
+
   it('rejects an answer that is not a list', () => {
     expect(isRouteOptions({ detail: 'error' })).toBe(false);
     expect(isRouteOptions(null)).toBe(false);

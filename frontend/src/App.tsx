@@ -15,6 +15,7 @@ import { useColorMode } from './colorMode';
 import { requestLinePopup } from './api/vehicle';
 import { geoErrorText, useLocationTrack } from './hooks/useLocationTrack';
 import { useRouteSearch } from './hooks/useRouteSearch';
+import type { TravelMode } from './travel';
 import { useVehicleDetection } from './hooks/useVehicleDetection';
 import { usePreferences } from './preferences/PreferencesProvider';
 import { useHistory } from './history/HistoryProvider';
@@ -44,6 +45,8 @@ export default function App() {
   // Intermediate stops (`null` = an empty field the user has just added) and how they are ordered.
   const [stopFields, setStopFields] = useState<(Place | null)[]>([]);
   const [stopOrder, setStopOrder] = useState<StopOrder>('given');
+  // Public transport (default) or a street-only trip: walking, wheelchair, stroller, own bike.
+  const [travel, setTravel] = useState<TravelMode>('transit');
   const [tab, setTab] = useState<Tab>('map');
   // The Demo tab exists only when the backend runs in simulation mode (SIM_SCENARIO).
   const [simulation, setSimulation] = useState(false);
@@ -86,12 +89,13 @@ export default function App() {
   const trip = useMemo(() => applyOverrides(effective, filters.overrides), [effective, filters.overrides]);
   const search = useMemo(() => routeSearchBody(trip), [trip]);
 
-  const { options, loading, error: searchError, offline: routesOffline, mock: routesMock } = useRouteSearch({
+  const { options, loading, error: searchError, offline: routesOffline, errorMessage, mock: routesMock } = useRouteSearch({
     origin,
     destination,
     via,
     order: stopOrder,
     search,
+    travel,
   });
 
   // A new search starts clean: no filters, no chosen route.
@@ -99,7 +103,7 @@ export default function App() {
     setFilters(DEFAULT_FILTERS);
     setPickedId(null);
     setChosenId(null);
-  }, [origin, destination, via, stopOrder]);
+  }, [origin, destination, via, stopOrder, travel]);
 
   // Example data is announced once, with a snackbar; a chip stays on the panel that shows it.
   const mockShown = routesMock || vehicle.mock;
@@ -133,7 +137,11 @@ export default function App() {
   };
 
   // Preferences of this search = the ones valid now + this search's overrides.
-  const visible = useMemo(() => applyListFilters(options, trip, filters), [options, trip, filters]);
+  // Filters and sorting are about transit options; a street trip is a single path.
+  const visible = useMemo(
+    () => (travel === 'transit' ? applyListFilters(options, trip, filters) : options),
+    [options, trip, filters, travel],
+  );
   const chips = useMemo(() => filterChips(filters, trip), [filters, trip]);
 
   // The selection always points into the filtered list.
@@ -178,7 +186,7 @@ export default function App() {
           detailed={step === 'route'}
           padding={padding}
           stops={via}
-          controlsOffset={step === 'route' ? 0 : 40 + stopFields.length * 56}
+          controlsOffset={step === 'route' ? 0 : 84 + stopFields.length * 56}
           onDetectVehicle={step === 'search' ? requestLinePopup : undefined}
         />
 
@@ -188,6 +196,8 @@ export default function App() {
             destination={destination}
             stops={stopFields}
             order={stopOrder}
+            travel={travel}
+            onTravelChange={setTravel}
             currentLocation={currentLocation}
             onOriginChange={setOrigin}
             onDestinationChange={setDestination}
@@ -225,6 +235,7 @@ export default function App() {
             foundCount={options.length}
             loading={loading}
             error={searchError}
+            errorMessage={errorMessage}
             offline={routesOffline}
             mock={routesMock}
             selectedId={selectedId}

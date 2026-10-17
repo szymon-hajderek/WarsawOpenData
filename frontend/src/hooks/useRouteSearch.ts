@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BackendOfflineError, fetchRouteOptions } from '../api/routes';
+import { fetchStreetTrip, StreetRouteError } from '../api/streetRoute';
+import { isStreetMode, type TravelMode } from '../travel';
 import type { RouteSearchBody } from '../preferences/model';
 import type { Place, RouteOption, StopOrder } from '../types';
 
@@ -9,19 +11,23 @@ interface Query {
   via: Place[];
   order: StopOrder;
   search?: RouteSearchBody;
+  /** `transit` = the normal search; the other modes are street-only trips. */
+  travel?: TravelMode;
 }
 
 /** Fetches the connections as soon as both points are set; a new query cancels the old one. */
-export function useRouteSearch({ origin, destination, via, order, search }: Query) {
+export function useRouteSearch({ origin, destination, via, order, search, travel = 'transit' }: Query) {
   const [options, setOptions] = useState<RouteOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [mock, setMock] = useState(false);
 
   useEffect(() => {
     setError(false);
     setOffline(false);
+    setErrorMessage(null);
     if (!origin || !destination) {
       setOptions([]);
       setLoading(false);
@@ -29,7 +35,10 @@ export function useRouteSearch({ origin, destination, via, order, search }: Quer
     }
     const ac = new AbortController();
     setLoading(true);
-    fetchRouteOptions({ from: origin, to: destination, profile: 'standard', via, order, search }, ac.signal)
+    const request = isStreetMode(travel)
+      ? fetchStreetTrip({ from: origin, to: destination, via, order }, travel, ac.signal).then((found) => ({ options: found, mock: false }))
+      : fetchRouteOptions({ from: origin, to: destination, profile: 'standard', via, order, search }, ac.signal);
+    request
       .then((result) => {
         setOptions(result.options);
         setMock(result.mock);
@@ -41,11 +50,12 @@ export function useRouteSearch({ origin, destination, via, order, search }: Quer
         setOptions([]);
         setMock(false);
         setOffline(err instanceof BackendOfflineError);
+        setErrorMessage(err instanceof StreetRouteError ? err.message : null);
         setError(true);
         setLoading(false);
       });
     return () => ac.abort();
-  }, [origin, destination, via, order, search]);
+  }, [origin, destination, via, order, search, travel]);
 
-  return { options, loading, error, offline, mock };
+  return { options, loading, error, offline, errorMessage, mock };
 }
