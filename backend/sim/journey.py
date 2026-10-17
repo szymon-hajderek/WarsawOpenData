@@ -198,15 +198,26 @@ def planned_epoch(start_epoch: float, hhmm: str) -> float:
     return at + 86400 if at < start_epoch - 3600 else at
 
 
+def _ask_client(client):
+    """`nearest(points) -> candidates` over the test client (POST /api/live/nearest-buses)."""
+    def ask(points: list[dict]) -> list[dict]:
+        r = client.post("/api/live/nearest-buses", json={"points": points})
+        return r.json()["candidates"] if r.status_code == 200 else []
+    return ask
+
+
 def travel(client, option: dict, profile: str, rng: random.Random, sigma_m: float = 15,
-           delays=None, step_s: float = 5) -> dict:
+           delays=None, step_s: float = 5, nearest=None) -> dict:
     """Follow `option` from now. Bus detection reads the feed every 10 s; while riding, the app asks
-    `/api/live/nearest-buses` with the last 3 detection fixes. Returns the trip and the detection ranks."""
+    `/api/live/nearest-buses` with the last 3 detection fixes. Returns the trip, the detection ranks and the
+    detections (time, true vehicle, candidates). `nearest(points)` replaces the HTTP call (the demo has no client)."""
     import bus_detect
     from app.routing.real_engine import PROFILE_SPEED
 
+    nearest = nearest or _ask_client(client)
     sent: list[dict] = []
     ranks: list[int | None] = []
+    detections: list[dict] = []
     state = {"next": clock.now()}
 
     def on_step(trip: Trip):
@@ -217,9 +228,10 @@ def travel(client, option: dict, profile: str, rng: random.Random, sigma_m: floa
         f = trip.fixes[-1]
         sent.append({"lat": f.lat, "lon": f.lon, "time_ms": f.t * 1000})
         if f.vehicle and len(sent) >= 3:
-            r = client.post("/api/live/nearest-buses", json={"points": sent[-3:]})
-            ids = [c["id"] for c in r.json()["candidates"]] if r.status_code == 200 else []
+            candidates = nearest(sent[-3:])
+            ids = [c["id"] for c in candidates]
             ranks.append(ids.index(f.vehicle) + 1 if f.vehicle in ids else None)
+            detections.append({"t": f.t, "vehicle": f.vehicle, "candidates": candidates})
 
     from sim import scenario
 
@@ -227,7 +239,7 @@ def travel(client, option: dict, profile: str, rng: random.Random, sigma_m: floa
         delays = scenario.current().delays
     start = clock.now()
     trip = follow(option, PROFILE_SPEED[profile], GpsNoise(sigma_m, rng), step_s, on_step, delays)
-    return {"trip": trip, "ranks": ranks, "start": start}
+    return {"trip": trip, "ranks": ranks, "detections": detections, "start": start}
 
 
 def replay_of(option: dict, run: dict, every: int = 2) -> dict:

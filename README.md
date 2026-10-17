@@ -103,6 +103,9 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
      See `integration/README.md`
    - optional `SIM_SCENARIO=<name>` starts the server in simulation mode with `integration/scenarios/<name>.json`
      (simulated clock, replayed feeds, `/api/sim/*` endpoints, no `PORTAL_KEY` needed)
+   - ride demo: `./demo.sh [scenario]` from the repo root starts the backend in simulation mode and the frontend
+     (needs `npm install` and `uv sync` once); open http://localhost:5173 and use the "Demo" tab (it exists only in
+     simulation mode). `API_PORT` changes the backend port
    - optional `ROUTE_ENGINE` picks the route engine: `real` (default) or `stub`
    - bus detection simulation: `uv run python ../algorithms/simulation/simulate_nearest_buses.py`
      (uses the committed sample; record a new one with `uv run python ../algorithms/simulation/record_buses.py`, needs `PORTAL_KEY`)

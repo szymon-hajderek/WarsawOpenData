@@ -6,7 +6,7 @@ import pytest
 
 import results
 from app.routing.real_engine import PROFILE_SPEED
-from journey import planned_epoch, replay_of, travel
+from sim.journey import planned_epoch, replay_of, travel
 from planning import bike_option, plan
 from sim import api as sim_api
 from sim import clock

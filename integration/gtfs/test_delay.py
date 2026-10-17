@@ -5,7 +5,7 @@ import random
 import pytest
 
 import results
-from journey import planned_epoch, replay_of, travel
+from sim.journey import planned_epoch, replay_of, travel
 from planning import plan, rides, surface_transit
 from sim import api as sim_api
 from sim import clock
