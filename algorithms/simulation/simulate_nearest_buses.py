@@ -52,8 +52,13 @@ def at_time(tr, t):
 
 def random_time_on(tr, rng):
     """Time of a random point on the polyline (uniform by length)."""
+    return time_at_fraction(tr, rng.random())
+
+
+def time_at_fraction(tr, u):
+    """Time of the point at distance u * (polyline length) from the start, u in [0, 1]."""
     seg = [haversine_m(a["lat"], a["lon"], b["lat"], b["lon"]) for a, b in zip(tr, tr[1:])]
-    d = rng.uniform(0, sum(seg))
+    d = u * sum(seg)
     for (a, b), L in zip(zip(tr, tr[1:]), seg):
         if d <= L:
             return a["t"] + (d / L if L else 0) * (b["t"] - a["t"])
