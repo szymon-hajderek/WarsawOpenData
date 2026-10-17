@@ -307,11 +307,15 @@ def benchmark(points: list[tuple[float, float]], mode: str, sample: int = 50, li
 router = APIRouter(prefix="/api/osm", tags=["OSM street graph"])
 
 
+def check_mode(mode: str) -> None:
+    if mode not in SPEED:
+        raise HTTPException(400, "mode must be walk or bike")
+
+
 @router.get("/graph/summary")
 def api_summary(mode: str = Query("walk", description="walk or bike")):
     """Vertex / edge / crossing counts of the walk or bike graph, speeds and waits."""
-    if mode not in SPEED:
-        raise HTTPException(400, "mode must be walk or bike")
+    check_mode(mode)
     return {**counts(mode), "speed_m_s": SPEED[mode], "waits_s": WAIT[mode],
             "nodes_with_signal_timing_tags": int(graph()["timing_tagged"][0])}
 
@@ -319,6 +323,7 @@ def api_summary(mode: str = Query("walk", description="walk or bike")):
 @router.get("/nearest")
 def api_nearest(lat: float, lon: float, mode: str = "walk"):
     """Nearest node of the walk / bike graph to a point."""
+    check_mode(mode)
     i, d = nearest(lat, lon, mode)
     g = graph()
     return {"node": int(g["ids"][i]), "lat": float(g["lat"][i]), "lon": float(g["lon"][i]), "distance_m": d}
@@ -327,6 +332,7 @@ def api_nearest(lat: float, lon: float, mode: str = "walk"):
 @router.get("/route")
 def api_route(from_lat: float, from_lon: float, to_lat: float, to_lon: float, mode: str = "walk"):
     """Street path with length, expected waits and total seconds (walk or bike)."""
+    check_mode(mode)
     try:
         return route(from_lat, from_lon, to_lat, to_lon, mode)
     except ValueError as e:

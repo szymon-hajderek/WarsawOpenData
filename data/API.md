@@ -373,7 +373,7 @@ Nearest graph node to a point.
 {"node": 8405597587, "lat": 52.2296575, "lon": 21.0122762, "distance_m": 7.02}
 ```
 
-A `mode` other than `walk` or `bike` returns `500` (known gap).
+A `mode` other than `walk` or `bike` returns `400 {"detail": "mode must be walk or bike"}`.
 
 ### `GET /api/osm/route`
 
@@ -393,4 +393,4 @@ Answer: `mode`, `seconds` (total time with waits), `length_m`, `wait_s` (expecte
 ```
 
 Errors: `404` with a message when no path exists. A point far outside Warsaw snaps to the edge of the graph
-(`snap_m` is large) and does not fail. A `mode` other than `walk` or `bike` returns `500` (known gap).
+(`snap_m` is large) and does not fail. A `mode` other than `walk` or `bike` returns `400 {"detail": "mode must be walk or bike"}`.
