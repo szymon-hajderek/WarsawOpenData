@@ -23,6 +23,8 @@ import httpx
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 
+from sim import clock
+
 import sys
 
 from config import (BBOX, DERIVED, GTFS_DIR, REPO, atomic_write, haversine_m, in_bbox, load_json, save_json,
@@ -671,7 +673,7 @@ def _service_days(when: datetime) -> list[tuple[str, float, int]]:
     for back in (0, 1):
         day = when.date() - timedelta(days=back)
         midnight = datetime.combine(day, datetime.min.time())
-        out.append((day.strftime("%Y%m%d"), midnight.timestamp(), int((when - midnight).total_seconds())))
+        out.append((day.strftime("%Y%m%d"), clock.warsaw_epoch(midnight), int((when - midnight).total_seconds())))
     return out
 
 
@@ -857,7 +859,7 @@ def api_departures(stop_id: str,
                    time: str | None = Query(None, description="HH:MM", pattern=r"^\d{1,2}:\d{2}$"),
                    limit: int = Query(20, ge=1, le=200)):
     """Next departures from a stop (all feeds; a merged rail station includes KM / IC trains)."""
-    now = datetime.now()
+    now = clock.warsaw_now()
     d = date_ or now.strftime("%Y%m%d")
     t = time or now.strftime("%H:%M")
     try:

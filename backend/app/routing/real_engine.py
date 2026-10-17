@@ -23,6 +23,7 @@ from plan_trip import (  # noqa: E402
 
 log = logging.getLogger("uvicorn.error")
 
+from sim import clock as sim_clock
 from sources import alerts, mkuran, nextbike, osm
 
 from ..models import Place, Profile, RouteLeg, RouteOption
@@ -365,7 +366,7 @@ def _footpaths(stops: list[dict], max_m: float) -> dict[str, list[tuple[str, flo
 def _clock(when: str | None) -> datetime:
     """Naive Warsaw wall time. `when` is ``HH:MM`` or an ISO datetime; empty means now."""
     if not when:
-        utc = datetime.now(timezone.utc)
+        utc = datetime.fromtimestamp(sim_clock.now(), timezone.utc)
         return (utc + warsaw_offset(utc)).replace(tzinfo=None)
     text = when.strip()
     try:

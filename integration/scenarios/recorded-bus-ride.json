@@ -1,0 +1,6 @@
+{
+ "title": "Which bus am I on? (2-minute recording)",
+ "source": "recorded",
+ "recording": "data/live/bus_track_sample.json",
+ "test": {"users": 30, "seed": 7, "every_s": 10, "noise_m": [10, 30, 50]}
+}

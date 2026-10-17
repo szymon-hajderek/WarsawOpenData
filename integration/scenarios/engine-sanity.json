@@ -1,0 +1,25 @@
+{
+ "title": "Route engine: options leave soon after the query",
+ "source": "gtfs",
+ "start": "2026-10-21T08:00:00",
+ "test": {
+  "max_wait_min": 60,
+  "trips": [
+   {"name": "pkin-galeria-mokotow", "at": "2026-10-21T08:00:00",
+    "from": [52.23180, 21.00590], "to": [52.18010, 21.00350]},
+   {"name": "zbawiciela-wilanowska", "at": "2026-10-21T08:30:00",
+    "from": [52.21960, 21.01660], "to": [52.18100, 21.02300]},
+   {"name": "banacha-unii", "at": "2026-10-21T12:00:00",
+    "from": [52.21110, 20.98600], "to": [52.21170, 21.02150]},
+   {"name": "dworzec-wschodni-zamek", "at": "2026-10-21T08:30:00",
+    "from": [52.25120, 21.05270], "to": [52.24770, 21.01370],
+    "known_bug": "night buses (N71 at 00:40, N02 at 23:40) and a tram at 13:56 for an 08:30 query"},
+   {"name": "unii-wilanow", "at": "2026-10-21T08:30:00",
+    "from": [52.21170, 21.02150], "to": [52.16500, 21.08970],
+    "known_bug": "N37 + N31 at 00:22 for an 08:30 query"},
+   {"name": "politechnika-wilanow", "at": "2026-10-21T12:02:00",
+    "from": [52.21960, 21.01080], "to": [52.16500, 21.08970],
+    "known_bug": "no option at all at 12:02 (one at 12:00), not even Veturilo for 7 km"}
+  ]
+ }
+}

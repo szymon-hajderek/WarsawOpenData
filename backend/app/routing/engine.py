@@ -21,6 +21,13 @@ A `CppRouteEngine(RouteEngine)` will therefore:
 The exact wire format (request/response) is owned by the C++ team; only this
 interface and the models in `app/models.py` need to stay stable for the
 frontend.
+
+## Testing a new engine
+
+`ROUTE_ENGINE` (`app/routing/factory.py`) picks the engine. A new engine MUST pass
+the integration suite (`integration/`, synthetic trips on real data) before it
+replaces `real`: `ROUTE_ENGINE=<name> uv run pytest ../integration`, then compare
+`integration/RESULTS.md` with a run of the current engine.
 """
 from abc import ABC, abstractmethod
 from typing import Any

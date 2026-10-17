@@ -1,0 +1,8 @@
+{
+ "title": "Palace of Culture -> Galeria Mokotow by bus or tram",
+ "source": "gtfs",
+ "start": "2026-10-21T08:00:00",
+ "trip": {"from": {"id": "pkin", "label": "Pałac Kultury i Nauki", "position": [52.23180, 21.00590]},
+          "to": {"id": "galeria-mokotow", "label": "Galeria Mokotów", "position": [52.18010, 21.00350]},
+          "profile": "standard"}
+}

@@ -1,0 +1,9 @@
+{
+ "title": "Veturilo Kabaty -> Ursynow, the pickup station runs empty",
+ "source": "gtfs",
+ "start": "2026-10-21T17:00:00",
+ "trip": {"from": {"id": "metro-kabaty", "label": "Metro Kabaty", "position": [52.13120, 21.06570]},
+          "to": {"id": "ursynow-polnocny", "label": "Ursynów Północny", "position": [52.15890, 21.02790]},
+          "profile": "standard"},
+ "test": {"empty_after_s": 300}
+}
