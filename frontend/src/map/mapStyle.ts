@@ -1,66 +1,11 @@
 import type { LayerSpecification, StyleSpecification } from 'maplibre-gl';
 
+import { LOOKS, type MapLook, type StyleMode } from './looks';
+
 /**
- * Flat, pastel map style for variant v2 (OpenMapTiles schema, vector tiles from OpenFreeMap).
- * All colours live in `PALETTES`; the layers below only reference them.
+ * Flat map style (OpenMapTiles schema, vector tiles from OpenFreeMap).
+ * Colours come from the chosen look (`src/map/looks.ts`); the layers below only reference them.
  */
-export type StyleMode = 'light' | 'dark';
-
-interface Palette {
-  background: string;
-  water: string;
-  park: string;
-  wood: string;
-  building: string;
-  roadMinor: string;
-  roadMinorCasing: string;
-  roadMajor: string;
-  roadMajorCasing: string;
-  path: string;
-  rail: string;
-  label: string;
-  labelSoft: string;
-  labelHalo: string;
-  waterLabel: string;
-}
-
-const PALETTES: Record<StyleMode, Palette> = {
-  light: {
-    background: '#F1EFFA',
-    water: '#C7DCF2',
-    park: '#C3DDB3',
-    wood: '#D2E6C4',
-    building: '#F1E7CB',
-    roadMinor: '#FFFFFF',
-    roadMinorCasing: '#E6E2F5',
-    roadMajor: '#FFFFFF',
-    roadMajorCasing: '#D8D2EE',
-    path: '#E3DFF3',
-    rail: '#B9B1E0',
-    label: '#4D4973',
-    labelSoft: '#7C779E',
-    labelHalo: '#F1EFFA',
-    waterLabel: '#6A92B8',
-  },
-  dark: {
-    background: '#1B1A2B',
-    water: '#1F3150',
-    park: '#254034',
-    wood: '#223A31',
-    building: '#2B2842',
-    roadMinor: '#35335A',
-    roadMinorCasing: '#1B1A2B',
-    roadMajor: '#47446F',
-    roadMajorCasing: '#1B1A2B',
-    path: '#2F2D4D',
-    rail: '#5C5790',
-    label: '#CFCBF0',
-    labelSoft: '#908CB8',
-    labelHalo: '#1B1A2B',
-    waterLabel: '#7FA3CC',
-  },
-};
-
 // Layer fragments use MapLibre expressions, which are loosely typed arrays.
 type Layer = Record<string, unknown>;
 
@@ -71,8 +16,8 @@ const FONT_BOLD = ['Noto Sans Bold'];
 const zoomWidth = (...stops: number[]) => ['interpolate', ['exponential', 1.4], ['zoom'], ...stops];
 const classIn = (...classes: string[]) => ['match', ['get', 'class'], classes, true, false];
 
-export function createStyle(mode: StyleMode): StyleSpecification {
-  const p = PALETTES[mode];
+export function createStyle(look: MapLook, mode: StyleMode): StyleSpecification {
+  const p = LOOKS[look][mode].map;
 
   const road = (id: string, classes: string[], minzoom: number, width: number[], color: string): Layer => ({
     id,
@@ -275,7 +220,7 @@ export function createStyle(mode: StyleMode): StyleSpecification {
   };
 }
 
-export const MAP_V2_ATTRIBUTION =
+export const MAP_ATTRIBUTION =
   '&copy; <a href="https://openfreemap.org">OpenFreeMap</a> ' +
   '&copy; <a href="https://www.openmaptiles.org/">OpenMapTiles</a> ' +
   'Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';

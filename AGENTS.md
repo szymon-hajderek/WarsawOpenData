@@ -104,14 +104,21 @@ Everything in this repo (files, commits, PRs) is written in English.
   (types in `src/types.ts`). Costs and speeds in the mock are rough estimates.
 - Place search: Nominatim (`src/api/geocode.ts`), limited to Warsaw, debounced; it has a usage
   limit of about 1 request per second.
-- Theme: all colours in `src/theme.ts` (light + dark; toggle on the map, defaults to the system
-  setting). Colours and icons of transport modes: `src/modes.tsx`.
-- Two map looks, switched with the layers button on the map (saved in localStorage, `src/mapVariant.tsx`):
-  - **v1** (default): plain OpenStreetMap raster tiles; dark mode is a CSS filter (`.tiles-dark` in `src/index.css`).
-  - **v2**: flat pastel vector map. Vector tiles from OpenFreeMap (no key) drawn by MapLibre GL inside Leaflet
-    (`@maplibre/maplibre-gl-leaflet`, loaded on demand). The style is ours: `src/map/styleV2.ts` (palettes for
-    light + dark, more labels when zoomed in). Round lavender buttons and markers live in `src/components/MapView.tsx`.
-  - CARTO basemaps now return "API KEY REQUIRED", so do not use them. OpenFreeMap has no SLA; there is no fallback to v1.
+- Colours: every colour of the app lives in `src/map/looks.ts` (one table: look x light / dark). A **look** sets the
+  map colours, the round map buttons / markers AND the accent of the whole UI (the MUI theme in `src/theme.ts` is built
+  from it, so panels, chips and windows follow the look). Colours and icons of transport modes: `src/modes.tsx`.
+- Two looks, switched with the layers button on the map (saved in localStorage key `map-variant`, `src/mapLook.tsx`;
+  `lavender` is the default, `warsaw` = red + yellow: red is the main colour in light mode, yellow the accent at night):
+  - Both use the same flat vector map: OpenFreeMap tiles (no key) drawn by MapLibre GL inside Leaflet
+    (`@maplibre/maplibre-gl-leaflet`, loaded on demand). The style is ours: `src/map/mapStyle.ts` (colours from the look,
+    more labels when zoomed in). Map controls, markers and route in `src/components/MapView.tsx`.
+  - The old OSM raster map (v1) was removed. CARTO basemaps return "API KEY REQUIRED", so do not use them.
+    OpenFreeMap has no SLA; there is no fallback.
+- "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): open on the start screen, swipe down / tap to hide
+  into a bar, swipe up / tap to bring it back. Shows the suggested vehicle (mode + line + direction) and 3 others;
+  "Jadę tą linią" confirms, "Nie jadę komunikacją" closes it until reload. **Data is a mock:** `src/api/vehicle.ts`
+  (`detectVehicle`) is the seam for the backend (location + bus history). A teammate's concept for it is
+  `ui/concept-art/current-line-popup.paint` (a HEIF image; the window was designed without opening it).
 - Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with
   a clean route and round stop markers, light map with a bottom sheet.
