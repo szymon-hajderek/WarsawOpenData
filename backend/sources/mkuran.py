@@ -41,6 +41,8 @@ FEEDS = {
 DROP_PKP_AGENCIES = {"SKM"}  # already in warsaw.zip
 MERGE_RADIUS_M = 150
 ROUTE_TYPES = {0: "tram", 1: "metro", 2: "rail", 3: "bus", 11: "trolleybus"}
+# Bump when the cache structure or stored units change. Written in the final NPZ.
+CACHE_VERSION = 1
 
 
 # ---------------------------------------------------------------- download
@@ -279,7 +281,8 @@ def _build() -> None:
     save_json(DERIVED / "gtfs_trips.json", trips)
     save_json(DERIVED / "gtfs_merge.json", {"merged": merged, "unmatched_near": unmatched_near})
     save_json(DERIVED / "gtfs_frequencies.json", {str(k): v for k, v in freq.items()})
-    save_npz(DERIVED / "gtfs_stop_times.npz", **st, runs=runs, trip_route_type=trip_route_type)
+    save_npz(DERIVED / "gtfs_stop_times.npz", **st, runs=runs, trip_route_type=trip_route_type,
+             cache_version=np.int32(CACHE_VERSION))
 
 
 _BUILD_LOCK = threading.Lock()
@@ -299,9 +302,10 @@ def _ensure_built_locked():
         _build()
         return
     with np.load(npz) as z:
-        dist = z["shape_dist"] if "shape_dist" in z.files else None
-    # Old caches stored truncated kilometers (max about 20). Meters along a real trip are larger.
-    if dist is None or (len(dist) and int(dist.max()) < 500):
+        version = int(z["cache_version"]) if "cache_version" in z.files else None
+        has_distances = "shape_dist" in z.files
+    # A maximum across feeds cannot identify legacy kilometre values in just one feed.
+    if version != CACHE_VERSION or not has_distances:
         _build()
         return
     with open(stops_path, encoding="utf-8") as f:
@@ -336,7 +340,7 @@ def merge_info() -> dict:
 def stop_times() -> dict:
     _ensure_built()
     with np.load(DERIVED / "gtfs_stop_times.npz") as z:
-        return {k: z[k] for k in z.files}
+        return {k: z[k] for k in z.files if k != "cache_version"}
 
 
 @lru_cache
@@ -755,8 +759,8 @@ def max_segment_for(line: str, brigade: str, when: datetime) -> int | None:
 def _trip_static(ti: int) -> tuple | None:
     """(stops with seconds since service midnight, shape (metres, lat, lon)) of a trip; None without a shape.
 
-    Distances are computed here from the coordinates: GTFS shape_dist_traveled is in km in warsaw.zip and
-    `_shape_dist` keeps only whole units. Each stop is placed on the nearest shape point at or after the
+    Distances are computed here from coordinates, independently of the feed's shape_dist_traveled units.
+    Each stop is placed on the nearest shape point at or after the
     previous stop's point.
     """
     shape = _shapes().get(trips()[ti][6] if len(trips()[ti]) > 6 else "")

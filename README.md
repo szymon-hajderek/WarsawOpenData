@@ -94,6 +94,9 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - `uv run python report.py` rebuilds `data/REPORT.md` (sources, ID links, graph sizes, endpoints)
    - the server builds the GTFS / OSM caches in `data/derived/` at start (~25 s / ~17 s on the first run, a minute or two
      with a ready cache). Until then `/api/gtfs`, `/api/osm` and `/api/routes` answer 503 (`Retry-After: 30`)
+   - GTFS caches carry a format version in `gtfs_stop_times.npz`. The first backend restart after this update
+     rebuilds old or unversioned caches from the existing GTFS zips automatically; no data download or manual
+     cache deletion is needed. This restores metre distances and the actual metro geometry from GTFS shapes.
    - **street router (C++)**: needs CMake and a C++23 compiler (GCC 14+ or Clang 19+). Build once:
      `cmake -S ../algorithms/router -B ../algorithms/router/build -DCMAKE_BUILD_TYPE=Release &&
      cmake --build ../algorithms/router/build`. The backend then starts it by itself (port 8090; it writes

@@ -140,6 +140,9 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Raw data: GTFS zips and `warsaw_ztm.osm.pbf` are in Git LFS (`.gitattributes`); run `git lfs install`
   once after cloning. `data/derived/` holds parsed caches (git-ignored, rebuilt on first use, ~25 s
   for GTFS, ~17 s for OSM; delete `osm_graph.npz` after a new OSM file or a parser change).
+- GTFS cache format: `mkuran.CACHE_VERSION` is stored in the final `gtfs_stop_times.npz`; bump it when stored
+  fields or units change. Unversioned/incompatible caches rebuild automatically. A maximum across mixed feeds
+  cannot detect legacy truncated kilometres in ZTM data (M1 0..21 while another feed exceeds 500).
 - Dedup: stops only from GTFS. ZTM (bus, tram, metro, SKM) from `warsaw.zip`, WKD from `wkd.zip`,
   other trains from `polish_trains.zip` without SKM and only inside the ZTM bbox. Rail stations merge
   across feeds only rail-to-rail (same name, < 150 m, field `same_as`); never with bus / tram stops.
@@ -177,8 +180,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   points (~5 s) unless a poll failed in between or the gap is > 25 s. The vehicle is projected on the GTFS shape of the trip with
   the same line + brigade (running now +- 15 min, < 100 m, timetable at that point closest to now; loops: the stretch nearest the last projection); last stop passed = K-1.
   Delay = time closest to K-1 within `DELAY_RADIUS_M` (default 30 m) - scheduled departure at K-1, shown at stop K; may be negative.
-  Not found -> `available: false`. **Pitfall:** `shape_dist_traveled` in `warsaw.zip` is in km and `mkuran._shape_dist` keeps
-  whole units only, so the cached `shape_dist` is useless at stop level; `mkuran._trip_static` computes metres from coordinates. Tuning: `algorithms/simulation/tune_delay_radius.py`, results in `DELAY_RESULTS.md`.
+  Not found -> `available: false`. `shape_dist_traveled` in `warsaw.zip` is in km; `mkuran._shape_dist` converts it to
+  metres before caching. Older truncated-kilometre caches are rebuilt by the format-version check.
+  `mkuran._trip_static` computes metres from coordinates independently. Tuning: `algorithms/simulation/tune_delay_radius.py`, results in `DELAY_RESULTS.md`.
   Delay simulation: `record_delay_sample.py` records all live vehicles + `/api/live/delay` answers from a local server into
   `data/live/delay_sample.json.gz` (t = seconds since local midnight of `date`); `simulate_delay.py` (`evaluate(sample, radius_m,
   drop, noise_m)`, for future R searches) compares the replayed estimate with the full-track reference (stop crossing on the shape);
