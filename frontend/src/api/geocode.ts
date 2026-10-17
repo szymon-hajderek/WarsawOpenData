@@ -1,5 +1,6 @@
 import type { LatLng, Place } from '../types';
 import { API_URL, apiUrl } from '../config';
+import { searchRows, type PlaceRow } from '../utils/placeSearch';
 
 interface NominatimItem {
   place_id: number;
@@ -15,14 +16,23 @@ interface NominatimItem {
 // Bounding box of Warsaw (left, top, right, bottom).
 const WARSAW_VIEWBOX = '20.85,52.37,21.28,52.10';
 
-/** Shortest text to search: the backend finds stops from 2 characters, Nominatim needs 3. */
-export const MIN_QUERY = API_URL ? 2 : 3;
+/** Shortest text to search: our own stops are found from 2 characters, Nominatim needs 3. */
+export const MIN_QUERY = 2;
+const MIN_NOMINATIM = 3;
+const LOCAL_LIMIT = 4;
+
+/** Stops and Veturilo stations of `backend/export_places.py`, loaded on first use (a separate chunk). */
+async function localPlaces(query: string, near?: LatLng): Promise<Place[]> {
+  const { default: rows } = await import('../data/places.json');
+  return searchRows(rows as PlaceRow[], query, LOCAL_LIMIT, near);
+}
 
 /**
  * Place search, limited to Warsaw. Call it debounced.
  *
- * Uses the backend (`GET /api/geocode`: our stops and Veturilo stations, then Nominatim) when `API_URL` is set,
- * and falls back to calling Nominatim directly when the backend is disabled or unreachable.
+ * Uses the backend (`GET /api/geocode`: our stops and Veturilo stations, then Nominatim) when `API_URL` is set.
+ * When the backend is disabled or unreachable, the list of stops and stations bundled with the app answers, and
+ * Nominatim is called directly for addresses.
  * `near` (the user's position) orders equally good stops by distance.
  */
 export async function searchPlaces(query: string, signal?: AbortSignal, near?: LatLng): Promise<Place[]> {
@@ -37,8 +47,17 @@ export async function searchPlaces(query: string, signal?: AbortSignal, near?: L
       console.warn('Backend geocode unavailable, falling back to Nominatim.', err);
     }
   }
-  if (query.trim().length < 3) return []; // Nominatim does not answer short texts well
-  return searchPlacesNominatim(query, signal);
+  // No backend: our own list answers at once, Nominatim adds addresses from 3 characters on.
+  const local = await localPlaces(query, near);
+  if (query.trim().length < MIN_NOMINATIM) return local;
+  try {
+    const found = await searchPlacesNominatim(query, signal);
+    const seen = new Set(local.map((p) => p.label.toLowerCase()));
+    return [...local, ...found.filter((p) => !seen.has(p.label.toLowerCase()))];
+  } catch (err) {
+    if (signal?.aborted || local.length === 0) throw err;
+    return local; // the stops we found are still a useful answer
+  }
 }
 
 /** Local fallback: query OpenStreetMap Nominatim directly from the browser. */
