@@ -7,6 +7,7 @@ which Nominatim does not. It also keeps working when Nominatim is down.
 import logging
 import sys
 from functools import lru_cache
+from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
@@ -70,9 +71,9 @@ def _local(q: str, near: tuple[float, float] | None) -> list[Place]:
 
 @router.get("/geocode", response_model=list[Place])
 async def geocode(
-    q: str = Query(..., min_length=1, max_length=200),
-    lat: float | None = Query(None, ge=-90, le=90),
-    lon: float | None = Query(None, ge=-180, le=180),
+    q: Annotated[str, Query(min_length=1, max_length=200)],
+    lat: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
 ) -> list[Place]:
     near = (lat, lon) if lat is not None and lon is not None else None
     cache_key = " ".join(q.lower().split())
@@ -102,13 +103,15 @@ async def geocode(
             res.raise_for_status()
             items = res.json()
     except (httpx.HTTPError, ValueError) as exc:  # ValueError: the answer was not JSON
-        log.warning("geocoding failed: %s", exc)
+        log.warning("geocoding failed (%s)", type(exc).__name__)
         if local:  # our own stops and stations are still a useful answer
             return local
         raise HTTPException(status_code=502, detail="Geocoding service failed") from exc
 
     places: list[Place] = []
     for item in items:
+        if item.get("osm_type") not in ("node", "way", "relation") or not item.get("osm_id"):
+            continue
         address = item.get("address") or {}
         street = " ".join(x for x in [address.get("road"), address.get("house_number")] if x)
         label = item.get("name") or street or item["display_name"].split(",")[0]
@@ -124,7 +127,7 @@ async def geocode(
         )
         places.append(
             Place(
-                id=f"osm-{item.get('place_id', item['lat'] + item['lon'])}",
+                id=f"osm:{item['osm_type']}:{item['osm_id']}",
                 label=label,
                 sublabel=sublabel or None,
                 position=(float(item["lat"]), float(item["lon"])),

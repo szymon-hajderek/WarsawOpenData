@@ -3,6 +3,8 @@ import { API_URL, apiUrl } from '../config';
 
 interface NominatimItem {
   place_id: number;
+  osm_type?: 'node' | 'way' | 'relation';
+  osm_id?: number;
   lat: string;
   lon: string;
   name?: string;
@@ -55,14 +57,14 @@ async function searchPlacesNominatim(query: string, signal?: AbortSignal): Promi
   if (!res.ok) throw new Error(`Geocoding failed: ${res.status}`);
   const items: NominatimItem[] = await res.json();
 
-  const places = items.map((item) => {
+  const places = items.filter((item) => item.osm_type && item.osm_id).map((item) => {
     const a = item.address ?? {};
     const street = [a.road, a.house_number].filter(Boolean).join(' ');
     const label = item.name || street || item.display_name.split(',')[0];
     const area = a.suburb || a.neighbourhood || a.city_district || a.city || a.town;
     const sublabel = [item.name && street ? street : undefined, area].filter(Boolean).join(', ');
     return {
-      id: `osm-${item.place_id}`,
+      id: `osm:${item.osm_type}:${item.osm_id}`,
       label,
       sublabel: sublabel || undefined,
       position: [parseFloat(item.lat), parseFloat(item.lon)] as [number, number],

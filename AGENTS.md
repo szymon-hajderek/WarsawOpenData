@@ -105,8 +105,9 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Frontend: React + TypeScript + Vite
 - Map: Leaflet + OpenStreetMap
 - Backend: Python + FastAPI
-- Database: none for now. Raw files in `data/`, parsed by Python modules on first use.
-  PostgreSQL + PostGIS (or SQLite) later if needed.
+- Database: SQLite for optional journey statistics (`db/journey_stats.sqlite`, git-ignored).
+  Source datasets remain raw files in `data/`, parsed by Python modules on first use.
+  PostgreSQL + PostGIS for source datasets later if needed.
 - Routing: a long-running **C++ engine** builds its own graph at startup and keeps it in memory.
   Today the street part runs (`algorithms/router/`, see Backend notes); transit routing is still Python
   (`backend/app/routing/real_engine.py`).
@@ -348,6 +349,18 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Run: `npm install`, `npm run dev` (http://localhost:5173), `npm run build` (type-check + build).
 
 ### Backend — routing API (`backend/app/`)
+
+- Journey statistics (#52): `POST /api/journeys` records only the whole-trip start/destination of explicitly
+  finished real GPS recordings after separate opt-in (off by default, localStorage `journey-statistics-enabled`).
+  `backend/journey_stats.py` initializes SQLite and the local GTFS/GBFS anchor catalog at startup in both apps;
+  optional `JOURNEY_STATS_DB` overrides `db/journey_stats.sqlite`. No cache builds or network calls in this request.
+  Concrete object IDs and exact object coordinates are kept; current-location endpoints map to the geographically
+  nearest boarding stop/platform or Veturilo station (no distance cutoff; ties by ID). Daily Warsaw-time counters,
+  plus random per-recording token-only receipts for atomic retry deduplication; no full tracks, user/device IDs or
+  precise journey timestamps. No public read/export endpoint. Counts and receipts stay until the DB is cleared.
+  The recorder snapshots endpoints and opt-in at start; revocation invalidates the current submission. Mock,
+  interrupted and GPS-less recordings do not count; statistics failures do not block local speed history.
+  Geocoded places use `osm:<node|way|relation>:<osm_id>` instead of Nominatim's temporary `place_id`.
 
 - Separate package `backend/app/` holds the route models and `RealRouteEngine`. `backend/main.py`
   mounts it, so one uv process serves data, geocode and `POST /api/routes`.

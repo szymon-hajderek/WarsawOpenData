@@ -42,7 +42,7 @@ function Tile({ label, value }: { label: string; value: string }) {
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 /** Records the ride with GPS so the app can learn the user's real pace (see `src/history/`). */
-function TripRecorder({ route }: { route: RouteOption }) {
+function TripRecorder({ route, origin, destination, mock }: { route: RouteOption; origin: Place; destination: Place; mock: boolean }) {
   const { tracker } = useHistory();
   const { effective } = usePreferences();
   const walkAs = effective.wheelchair.type !== 'none' ? 'wheelchair' : 'walking';
@@ -74,7 +74,7 @@ function TripRecorder({ route }: { route: RouteOption }) {
             fullWidth
             variant="outlined"
             startIcon={<FiberManualRecord sx={{ color: 'error.main' }} />}
-            onClick={() => tracker.start(legs, walkAs)}
+            onClick={() => tracker.start(legs, walkAs, { from: origin, to: destination, mock })}
           >
             Rozpocznij przejazd
           </Button>
@@ -107,6 +107,7 @@ interface Props {
   route: RouteOption;
   origin: Place;
   destination: Place;
+  mock: boolean;
   snap: SheetSnap;
   onSnapChange: (snap: SheetSnap) => void;
   onBack: () => void;
@@ -117,6 +118,7 @@ export default function RouteDetailsSheet({
   route,
   origin,
   destination,
+  mock,
   snap,
   onSnapChange,
   onBack,
@@ -247,7 +249,7 @@ export default function RouteDetailsSheet({
             <Tile label="Spalone kalorie" value={`${routeKcal(route, effective)} kcal`} />
           </Box>
 
-          <TripRecorder route={route} />
+          <TripRecorder route={route} origin={origin} destination={destination} mock={mock} />
 
           {/* steps */}
           <Typography variant="subtitle2" sx={{ mt: 2.5, mb: 1, fontWeight: 700 }}>

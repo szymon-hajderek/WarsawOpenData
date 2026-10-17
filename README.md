@@ -36,7 +36,7 @@ Planned:
 - Frontend: React + TypeScript + Vite, Material UI, Leaflet + MapLibre (OpenFreeMap tiles)
 - Backend: Python + FastAPI (data layer managed with uv; routing API in `backend/app/` uses venv)
 - Routing: custom C++ engine (planned); FastAPI is a thin backend in front of it
-- Database: none for now, raw files in `data/`
+- Database: SQLite for opt-in journey counters; source datasets remain raw files in `data/`
 
 ## Folder structure
 
@@ -108,6 +108,15 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - optional `SIM_SCENARIO=<name>` starts the server in simulation mode with `integration/scenarios/<name>.json`
      (simulated clock, replayed feeds, `/api/sim/*` endpoints, no `PORTAL_KEY` needed)
    - optional `ROUTE_ENGINE` picks the route engine: `real` (default) or `stub`
+   - opt-in journey statistics: no extra dependency or database server is needed. Startup creates
+     `db/journey_stats.sqlite` (git-ignored; SQLite from the Python standard library). The backend needs write
+     access to `db/`. Optional `JOURNEY_STATS_DB` changes the file path; its parent is created automatically.
+     Anchors load from local GTFS and `data/gbfs/veturilo_station_information.json`. To download the latter:
+     `uv run python download.py nextbike`. Statistics return 503 if no anchor catalog or database is available.
+     Enable **Statystyki podróży** in the app's Preferences (off by default), then explicitly start and finish
+     a real GPS recording. `POST /api/journeys` stores exact selected object references and daily counts;
+     current-location endpoints are replaced by the nearest transit/Veturilo anchor. No full GPS track,
+     user/device identifier or precise journey timestamp is kept in this database. See `data/API.md`.
    - bus detection simulation: `uv run python ../algorithms/simulation/simulate_nearest_buses.py`
      (uses the committed sample; record a new one with `uv run python ../algorithms/simulation/record_buses.py`, needs `PORTAL_KEY`)
    - rebuild the results page `artifacts/bus-detection-simulation.html`: `uv run python ../algorithms/simulation/export_viz.py`
@@ -126,5 +135,5 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
 5. **Routes** are part of the uv app in step 4. Do not start a second server on port 8000.
    The package `backend/app/` is the route engine imported by `main.py`. `requirements.txt` is only
    the old slim app and cannot load the timetable (it has no numpy/scipy).
-6. **Database, Docker.** Not set up yet (PostgreSQL + PostGIS, Docker). The C++ routing engine is
-   planned (a long-running service that builds its own graph at startup; Python then sends only live updates).
+6. **Database, Docker.** SQLite journey counters are initialized automatically (step 4).
+   PostgreSQL + PostGIS and Docker are not set up yet.

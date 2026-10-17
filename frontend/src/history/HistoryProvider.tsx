@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { fetchSummary, fetchTripRecords, localSummary, type PlannedLeg } from '../api/history';
+import { journeySubmission, logJourney, type JourneySelection, type JourneySubmission } from '../api/journeys';
 import { formatKmh } from '../preferences/model';
 import {
   MAX_RECORDS,
@@ -27,7 +28,7 @@ export interface Tracker {
   /** Result or error text to show after the ride. */
   message: string | null;
   /** Starts recording GPS points for a ride along the given legs. */
-  start: (legs: PlannedLeg[], walkAs: 'walking' | 'wheelchair') => void;
+  start: (legs: PlannedLeg[], walkAs: 'walking' | 'wheelchair', journey?: JourneySelection) => void;
   /** Stops recording and saves the trip (the backend turns the track into records). */
   stop: () => Promise<void>;
   /** Tries to save again after an error. */
@@ -41,9 +42,12 @@ interface HistoryValue {
   summary: SpeedSummary;
   tracker: Tracker;
   clear: () => void;
+  shareJourneys: boolean;
+  setShareJourneys: (enabled: boolean) => void;
 }
 
 const STORAGE_KEY = 'trip-history';
+const SHARING_KEY = 'journey-statistics-enabled';
 const SAMPLE_S = 4; // keep a GPS point at most every 4 seconds
 const MAX_ACCURACY_M = 100;
 
@@ -55,6 +59,8 @@ const HistoryContext = createContext<HistoryValue>({
   summary: localSummary([]),
   tracker: { status: 'idle', elapsedS: 0, message: null, start: () => {}, stop: noop, retry: noop, dismiss: () => {} },
   clear: () => {},
+  shareJourneys: false,
+  setShareJourneys: () => {},
 });
 
 function loadRecords(): TripRecord[] {
@@ -66,6 +72,10 @@ function loadRecords(): TripRecord[] {
   }
 }
 
+function loadSharing(): boolean {
+  try { return localStorage.getItem(SHARING_KEY) === 'true'; } catch { return false; }
+}
+
 type WakeLockSentinel = { release: () => Promise<void> };
 type WakeLockNavigator = Navigator & { wakeLock?: { request: (type: 'screen') => Promise<WakeLockSentinel> } };
 
@@ -73,21 +83,48 @@ type WakeLockNavigator = Navigator & { wakeLock?: { request: (type: 'screen') =>
  * The device's trip history and the GPS recorder.
  *
  * Records (no coordinates) are kept in localStorage; the GPS track only lives in memory while a ride is
- * recorded and is sent to the backend once, to be turned into records. The backend stores nothing.
+ * recorded and is sent to the speed-history endpoint once. Separately, opt-in statistics send
+ * only the selected whole-trip endpoint references after explicit completion.
  */
 export function HistoryProvider({ children }: { children: ReactNode }) {
   const [records, setRecords] = useState<TripRecord[]>(loadRecords);
   const [summary, setSummary] = useState<SpeedSummary>(() => localSummary(loadRecords()));
+  const [shareJourneys, setSharing] = useState(loadSharing);
+  const sharing = useRef(shareJourneys);
+  const submissions = useRef(new Set<AbortController>());
 
   const [status, setStatus] = useState<TrackerStatus>('idle');
   const [elapsedS, setElapsedS] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
 
   const points = useRef<TrackPoint[]>([]);
-  const ride = useRef<{ legs: PlannedLeg[]; walkAs: 'walking' | 'wheelchair'; startedAt: number } | null>(null);
+  const ride = useRef<{
+    legs: PlannedLeg[];
+    walkAs: 'walking' | 'wheelchair';
+    startedAt: number;
+    journey?: JourneySubmission;
+  } | null>(null);
   const watchId = useRef<number | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const wakeLock = useRef<WakeLockSentinel | null>(null);
+
+  const setShareJourneys = useCallback((enabled: boolean) => {
+    sharing.current = enabled;
+    setSharing(enabled);
+    try { localStorage.setItem(SHARING_KEY, String(enabled)); } catch { /* storage unavailable */ }
+    if (!enabled) {
+      if (ride.current) ride.current.journey = undefined;
+      submissions.current.forEach((controller) => controller.abort());
+    }
+  }, []);
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === SHARING_KEY || event.key === null) setShareJourneys(event.newValue === 'true');
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [setShareJourneys]);
 
   useEffect(() => {
     try {
@@ -111,10 +148,16 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
     wakeLock.current = null;
   }, []);
 
-  useEffect(() => stopRecording, [stopRecording]);
+  useEffect(() => {
+    const pending = submissions.current;
+    return () => {
+      stopRecording();
+      pending.forEach((controller) => controller.abort());
+    };
+  }, [stopRecording]);
 
   const start = useCallback<Tracker['start']>(
-    (legs, walkAs) => {
+    (legs, walkAs, journey) => {
       if (status === 'tracking' || status === 'saving') return;
       if (!navigator.geolocation) {
         setStatus('error');
@@ -122,7 +165,10 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
         return;
       }
       points.current = [];
-      ride.current = { legs, walkAs, startedAt: Date.now() };
+      ride.current = {
+        legs, walkAs, startedAt: Date.now(),
+        journey: sharing.current && journey && !journey.mock ? journeySubmission(journey) : undefined,
+      };
       setElapsedS(0);
       setMessage(null);
       setStatus('tracking');
@@ -136,6 +182,7 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
         },
         () => {
           stopRecording();
+          if (ride.current) ride.current.journey = undefined;
           setStatus('error');
           setMessage('Nie udało się ustalić lokalizacji. Sprawdź zgodę na lokalizację i spróbuj ponownie.');
         },
@@ -172,6 +219,15 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
   const stop = useCallback(async () => {
     if (status !== 'tracking') return;
     stopRecording();
+    const journey = ride.current?.journey;
+    const track = points.current;
+    if (journey && sharing.current && track.length >= 2 && track[track.length - 1].t > track[0].t) {
+      const controller = new AbortController();
+      submissions.current.add(controller);
+      // Independent of speed-history success, including transit-only trips with no speed records.
+      void logJourney(journey, controller.signal).finally(() => submissions.current.delete(controller));
+    }
+    if (ride.current) ride.current.journey = undefined;
     await save();
   }, [status, stopRecording, save]);
 
@@ -186,7 +242,10 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
     () => ({ status, elapsedS, message, start, stop, retry: save, dismiss }),
     [status, elapsedS, message, start, stop, save, dismiss],
   );
-  const value = useMemo(() => ({ records, summary, tracker, clear }), [records, summary, tracker, clear]);
+  const value = useMemo(
+    () => ({ records, summary, tracker, clear, shareJourneys, setShareJourneys }),
+    [records, summary, tracker, clear, shareJourneys, setShareJourneys],
+  );
 
   return <HistoryContext.Provider value={value}>{children}</HistoryContext.Provider>;
 }
