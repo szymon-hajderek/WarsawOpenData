@@ -27,6 +27,8 @@ const props = {
   summary: [],
   activeRule: null,
   chips: [],
+  snap: 'middle' as const,
+  onSnapChange: vi.fn(),
   onSelect: vi.fn(),
   onOpenFilters: vi.fn(),
   onClearChip: vi.fn(),

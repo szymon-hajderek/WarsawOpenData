@@ -22,6 +22,8 @@ from nearest_buses import rank_buses  # noqa: E402
 # When LIVE_BUSES_URL is set, only that feed is polled (mode taken from type=).
 # Otherwise both the bus and the tram feeds of this server are polled.
 _CUSTOM = os.getenv("LIVE_BUSES_URL")
+STALE_S = 300  # a vehicle that has not reported for this long is forgotten
+STARTUP_DELAY_S = 2  # the poller reads our own HTTP server: wait until uvicorn accepts connections
 POLL_S = 3  # the feed changes about every 10 s; 3 s catches a new position soon after it appears
 HISTORY = 3  # positions kept per vehicle
 CANDIDATES = 4  # the popup shows the most likely vehicle + 3 others
@@ -57,12 +59,23 @@ def _direction(line: str, brigade: str, local_time: str) -> str:
         return ""
 
 
+def _forget_stale() -> None:
+    """Drop vehicles that left the feed, so they are not ranked and the dicts do not grow."""
+    cutoff = time.time() - STALE_S
+    with _lock:
+        for vid in [vid for vid, track in _history.items() if not track or track[-1]["t"] < cutoff]:
+            del _history[vid]
+            _info.pop(vid, None)
+
+
 def poll_once() -> None:
     global _updated_at
     got = False
     for mode, url in _feeds():
         try:
-            rows = httpx.get(url, timeout=30).json()
+            r = httpx.get(url, timeout=30)
+            r.raise_for_status()
+            rows = r.json()
         except Exception as exc:
             log.warning("live %s poll failed: %s", mode, exc)
             continue
@@ -78,10 +91,12 @@ def poll_once() -> None:
                 _info[vid] = {"vehicle": v["vehicle"], "line": v["line"], "brigade": v["brigade"],
                               "mode": mode, "direction": _direction(v["line"], v["brigade"], v["time"])}
     if got:
+        _forget_stale()
         _updated_at = time.time()
 
 
 def _loop() -> None:
+    time.sleep(STARTUP_DELAY_S)
     while True:
         try:
             poll_once()
@@ -117,8 +132,10 @@ def api_nearest_buses(req: NearestRequest):
     if _updated_at is None:  # the poller has not got data yet
         try:
             poll_once()
-        except Exception as e:
-            raise HTTPException(503, f"no live bus data yet: {e}")
+        except Exception:
+            log.exception("on-demand live poll failed")
+        if _updated_at is None:
+            raise HTTPException(503, "no live vehicle data yet, try again in a few seconds")
     user = [{"lat": p.lat, "lon": p.lon, "t": p.time_ms / 1000} for p in req.points[-HISTORY:]]
     with _lock:
         ranked = rank_buses(user, _history, CANDIDATES)

@@ -7,6 +7,7 @@ Edge cost in seconds = length / speed + expected wait at the target node ("EV wa
 Expected waits. OSM has no adopted tag for signal timings (only proposals: phases=*, timing=*), so we
 use the HCM average delay at a fixed-time signal: d = (C - g)^2 / (2C), C = cycle, g = green.
 """
+import threading
 import time
 
 import httpx
@@ -17,7 +18,7 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components, dijkstra
 from scipy.spatial import cKDTree
 
-from config import BBOX, DERIVED, OSM_DIR, in_bbox, to_xy
+from config import DERIVED, OSM_DIR, atomic_write, in_bbox, save_npz, to_xy
 
 PBF = OSM_DIR / "Warsaw.osm.pbf"
 URL = "https://download.bbbike.org/osm/bbbike/Warsaw/Warsaw.osm.pbf"
@@ -52,7 +53,7 @@ def download() -> list[str]:
     OSM_DIR.mkdir(parents=True, exist_ok=True)
     with httpx.stream("GET", URL, follow_redirects=True, timeout=600) as r:
         r.raise_for_status()
-        with open(PBF, "wb") as f:
+        with atomic_write(PBF) as f:
             for chunk in r.iter_bytes(1 << 20):
                 f.write(chunk)
     return [PBF.name]
@@ -132,8 +133,12 @@ class _Handler(osmium.SimpleHandler):
         for (a, alat, alon), (b, blat, blon) in zip(nodes, nodes[1:]):
             if not (in_bbox(alat, alon) and in_bbox(blat, blon)):
                 continue
-            self.u.append(a); self.v.append(b)
-            self.ulat.append(alat); self.ulon.append(alon); self.vlat.append(blat); self.vlon.append(blon)
+            self.u.append(a)
+            self.v.append(b)
+            self.ulat.append(alat)
+            self.ulon.append(alon)
+            self.vlat.append(blat)
+            self.vlon.append(blon)
             self.mode.append(bits)
 
 
@@ -144,7 +149,8 @@ def _build() -> None:
     u, v = np.array(h.u, dtype=np.int64), np.array(h.v, dtype=np.int64)
     ids, inv = np.unique(np.concatenate([u, v]), return_inverse=True)
     ui, vi = inv[: len(u)].astype(np.int32), inv[len(u):].astype(np.int32)
-    lat = np.zeros(len(ids)); lon = np.zeros(len(ids))
+    lat = np.zeros(len(ids))
+    lon = np.zeros(len(ids))
     lat[ui], lon[ui] = h.ulat, h.ulon
     lat[vi], lon[vi] = h.vlat, h.vlon
     ux, uy = to_xy(np.array(h.ulat), np.array(h.ulon))
@@ -158,23 +164,37 @@ def _build() -> None:
     vals = np.array([kinds.index(k) for k in h.special.values()], dtype=np.int8)[found]
     match = ids[pos_ok] == np.fromiter(h.special.keys(), dtype=np.int64, count=len(h.special))[found]
     kind[pos_ok[match]] = vals[match]
-    np.savez_compressed(DERIVED / "osm_graph.npz", ids=ids, lat=lat, lon=lon, u=ui, v=vi, length=length,
-                        mode=np.array(h.mode, dtype=np.int8), kind=kind,
-                        timing_tagged=np.array([h.timing_tagged]))
+    save_npz(DERIVED / "osm_graph.npz", ids=ids, lat=lat, lon=lon, u=ui, v=vi, length=length,
+             mode=np.array(h.mode, dtype=np.int8), kind=kind,
+             timing_tagged=np.array([h.timing_tagged]))
 
 
+# The endpoints run in worker threads. One re-entrant lock guards every lazy build below, so a
+# half-filled cache is never visible and the 45 s build never runs twice.
+_LOCK = threading.RLock()
 _G = {}
 
 
 def graph() -> dict:
-    if not _G:
-        if not (DERIVED / "osm_graph.npz").exists():
-            _build()
-        with np.load(DERIVED / "osm_graph.npz") as z:
-            _G.update({k: z[k] for k in z.files})
-        x, y = to_xy(_G["lat"], _G["lon"])
-        _G["tree"] = cKDTree(np.c_[x, y])
+    if "tree" in _G:  # "tree" is stored last: when it is there, the rest is there
+        return _G
+    with _LOCK:
+        if "tree" not in _G:
+            if not (DERIVED / "osm_graph.npz").exists():
+                _build()
+            with np.load(DERIVED / "osm_graph.npz") as z:
+                g = {k: z[k] for k in z.files}
+            x, y = to_xy(g["lat"], g["lon"])
+            g["tree"] = cKDTree(np.c_[x, y])
+            _G.update(g)
     return _G
+
+
+def warm() -> None:
+    """Build the graph and both mode indexes (45 s on the first run). Called once at server start."""
+    graph()
+    for mode in SPEED:
+        _mode_tree(mode)
 
 
 def node_wait(mode: str) -> np.ndarray:
@@ -202,16 +222,20 @@ def directed_edges(mode: str):
 
 def csr(mode: str):
     """Sparse graph with edge cost in seconds = length / speed + wait at the target node."""
-    if mode not in _CSR:
-        s, d, ln = directed_edges(mode)
-        # parallel ways between the same two nodes: keep the shortest (csr_matrix would sum them)
-        order = np.lexsort((ln, d, s))
-        s, d, ln = s[order], d[order], ln[order]
-        first = np.r_[True, (s[1:] != s[:-1]) | (d[1:] != d[:-1])]
-        s, d, ln = s[first], d[first], ln[first]
-        cost = ln / SPEED[mode] + node_wait(mode)[d] + 1e-3  # +1 ms: keep zero-length edges
-        n = len(graph()["ids"])
-        _CSR[mode] = (csr_matrix((cost, (s, d)), shape=(n, n)), csr_matrix((ln + 1e-3, (s, d)), shape=(n, n)))
+    if mode in _CSR:
+        return _CSR[mode]
+    with _LOCK:
+        if mode not in _CSR:
+            s, d, ln = directed_edges(mode)
+            # parallel ways between the same two nodes: keep the shortest (csr_matrix would sum them)
+            order = np.lexsort((ln, d, s))
+            s, d, ln = s[order], d[order], ln[order]
+            first = np.r_[True, (s[1:] != s[:-1]) | (d[1:] != d[:-1])]
+            s, d, ln = s[first], d[first], ln[first]
+            cost = ln / SPEED[mode] + node_wait(mode)[d] + 1e-3  # +1 ms: keep zero-length edges
+            n = len(graph()["ids"])
+            _CSR[mode] = (csr_matrix((cost, (s, d)), shape=(n, n)),
+                          csr_matrix((ln + 1e-3, (s, d)), shape=(n, n)))
     return _CSR[mode]
 
 
@@ -223,8 +247,8 @@ def counts(mode: str) -> dict:
         undirected = len(s) // 2
         deg = np.bincount(np.r_[s], minlength=len(graph()["ids"]))  # each undirected edge counted once per end
     else:
-        undirected = len({(min(a, b), max(a, b)) for a, b in zip(s.tolist(), d.tolist())})
         pairs = np.unique(np.c_[np.minimum(s, d), np.maximum(s, d)], axis=0)
+        undirected = len(pairs)
         deg = np.bincount(pairs.ravel(), minlength=len(graph()["ids"]))
     kind = graph()["kind"]
     removable = (deg == 2) & (kind == 0)
@@ -255,19 +279,34 @@ def nearest(lat: float, lon: float, mode: str | None = None) -> tuple[int, float
 _USABLE = {}
 
 
+def snap_distances(points: list[tuple[float, float]], mode: str) -> np.ndarray:
+    """Distance (m) from each (lat, lon) to the nearest node of the mode's main component. One KD-tree call."""
+    _, tree = _mode_tree(mode)
+    x, y = to_xy(np.array([p[0] for p in points]), np.array([p[1] for p in points]))
+    return tree.query(np.c_[x, y])[0]
+
+
 def _mode_tree(mode: str):
     """KD-tree over the largest strongly connected component of a mode (snapping elsewhere = dead end)."""
-    if mode not in _USABLE:
-        _, labels = connected_components(csr(mode)[0], directed=True, connection="strong")
-        nodes = np.nonzero(labels == np.bincount(labels).argmax())[0]
-        x, y = to_xy(graph()["lat"][nodes], graph()["lon"][nodes])
-        _USABLE[mode] = (nodes, cKDTree(np.c_[x, y]))
+    if mode in _USABLE:
+        return _USABLE[mode]
+    with _LOCK:
+        if mode not in _USABLE:
+            _, labels = connected_components(csr(mode)[0], directed=True, connection="strong")
+            nodes = np.nonzero(labels == np.bincount(labels).argmax())[0]
+            x, y = to_xy(graph()["lat"][nodes], graph()["lon"][nodes])
+            _USABLE[mode] = (nodes, cKDTree(np.c_[x, y]))
     return _USABLE[mode]
 
 
 def route(lat1, lon1, lat2, lon2, mode: str = "walk", limit_s: float = 7200) -> dict:
     a, da = nearest(lat1, lon1, mode)
     b, db = nearest(lat2, lon2, mode)
+    return route_nodes(a, da, b, db, mode, limit_s)
+
+
+def route_nodes(a: int, da: float, b: int, db: float, mode: str, limit_s: float = 7200) -> dict:
+    """Shortest path between two graph nodes (already snapped; `da`, `db` = snap distances in m)."""
     cost_g, len_g = csr(mode)
     dist, pred = dijkstra(cost_g, indices=a, return_predecessors=True, limit=limit_s)
     if not np.isfinite(dist[b]):
@@ -276,7 +315,7 @@ def route(lat1, lon1, lat2, lon2, mode: str = "walk", limit_s: float = 7200) -> 
     while path[-1] != a:
         path.append(int(pred[path[-1]]))
     path.reverse()
-    length = float(sum(len_g[p, q] for p, q in zip(path, path[1:])))
+    length = float(sum(len_g[p, q] for p, q in zip(path, path[1:], strict=False)))
     wait = float(node_wait(mode)[path[1:]].sum())
     g = graph()
     return {"mode": mode, "seconds": round(float(dist[b]), 1), "length_m": round(length, 1),
@@ -323,7 +362,8 @@ def api_summary(mode: str = Query("walk", description="walk or bike")):
 
 
 @router.get("/nearest")
-def api_nearest(lat: float, lon: float, mode: str = "walk"):
+def api_nearest(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180),
+                mode: str = "walk"):
     """Nearest node of the walk / bike graph to a point."""
     check_mode(mode)
     i, d = nearest(lat, lon, mode)
@@ -332,16 +372,18 @@ def api_nearest(lat: float, lon: float, mode: str = "walk"):
 
 
 @router.get("/route")
-def api_route(from_lat: float, from_lon: float, to_lat: float, to_lon: float, mode: str = "walk"):
+def api_route(from_lat: float = Query(..., ge=-90, le=90), from_lon: float = Query(..., ge=-180, le=180),
+              to_lat: float = Query(..., ge=-90, le=90), to_lon: float = Query(..., ge=-180, le=180),
+              mode: str = "walk"):
     """Street path with length, expected waits and total seconds (walk or bike).
     422 when the start or the end is more than MAX_SNAP_M from the graph (e.g. outside Warsaw)."""
     check_mode(mode)
-    far = [(name, d) for name, (lat, lon) in (("start", (from_lat, from_lon)), ("end", (to_lat, to_lon)))
-           if (d := nearest(lat, lon, mode)[1]) > MAX_SNAP_M]
+    (a, da), (b, db) = nearest(from_lat, from_lon, mode), nearest(to_lat, to_lon, mode)
+    far = [(name, d) for name, d in (("start", da), ("end", db)) if d > MAX_SNAP_M]
     if far:
         raise HTTPException(422, " and ".join(f"{n} is {d:.0f} m" for n, d in far)
                             + f" from the street graph (max {MAX_SNAP_M} m)")
     try:
-        return route(from_lat, from_lon, to_lat, to_lon, mode)
+        return route_nodes(a, da, b, db, mode)
     except ValueError as e:
-        raise HTTPException(404, str(e))
+        raise HTTPException(404, str(e)) from None

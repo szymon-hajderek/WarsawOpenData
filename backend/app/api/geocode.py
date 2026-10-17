@@ -3,20 +3,33 @@
 Mirrors the frontend's `searchPlaces` (same query params and result mapping),
 so the UI can call the backend instead of Nominatim directly.
 """
+import logging
+
 import httpx
 from fastapi import APIRouter, HTTPException, Query
+
+from config import TTLCache
 
 from ..config import settings
 from ..models import Place
 
 router = APIRouter(prefix="/api", tags=["geocode"])
+log = logging.getLogger(__name__)
+
+# Nominatim allows about 1 request per second. Users call us, we call Nominatim, and repeated
+# searches (typing, retries) are answered from this cache.
+_cache = TTLCache(ttl=600, maxsize=512)
 
 # Bounding box of Warsaw (left, top, right, bottom).
 WARSAW_VIEWBOX = "20.85,52.37,21.28,52.10"
 
 
 @router.get("/geocode", response_model=list[Place])
-async def geocode(q: str = Query(..., min_length=1)) -> list[Place]:
+async def geocode(q: str = Query(..., min_length=1, max_length=200)) -> list[Place]:
+    cache_key = " ".join(q.lower().split())
+    cached = _cache.peek(cache_key)
+    if cached is not None:
+        return cached
     params = {
         "format": "jsonv2",
         "q": q,
@@ -33,8 +46,9 @@ async def geocode(q: str = Query(..., min_length=1)) -> list[Place]:
             res = await client.get(settings.nominatim_url, params=params, headers=headers)
             res.raise_for_status()
             items = res.json()
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Geocoding failed: {exc}") from exc
+    except (httpx.HTTPError, ValueError) as exc:  # ValueError: the answer was not JSON
+        log.warning("geocoding failed: %s", exc)
+        raise HTTPException(status_code=502, detail="Geocoding service failed") from exc
 
     places: list[Place] = []
     for item in items:
@@ -53,7 +67,7 @@ async def geocode(q: str = Query(..., min_length=1)) -> list[Place]:
         )
         places.append(
             Place(
-                id=f"osm-{item['place_id']}",
+                id=f"osm-{item.get('place_id', item['lat'] + item['lon'])}",
                 label=label,
                 sublabel=sublabel or None,
                 position=(float(item["lat"]), float(item["lon"])),
@@ -69,4 +83,5 @@ async def geocode(q: str = Query(..., min_length=1)) -> list[Place]:
             continue
         seen.add(key)
         unique.append(place)
+    _cache.put(cache_key, unique)
     return unique
