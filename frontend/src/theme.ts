@@ -1,4 +1,4 @@
-import { createTheme, type PaletteMode, type Theme } from '@mui/material';
+import { alpha, createTheme, type PaletteMode, type Theme } from '@mui/material';
 import { LOOKS, type MapLook } from './map/looks';
 
 /**
@@ -26,6 +26,18 @@ export function createAppTheme(mode: PaletteMode, look: MapLook): Theme {
         styleOverrides: { root: { borderRadius: 999, paddingBlock: 12 } },
       },
       MuiChip: { styleOverrides: { root: { fontWeight: 500 } } },
+      // Selected toggle buttons use the accent of the look instead of the default grey
+      MuiToggleButton: {
+        styleOverrides: {
+          root: ({ theme: t }) => ({
+            '&.Mui-selected': {
+              backgroundColor: alpha(t.palette.primary.main, 0.18),
+              color: t.palette.primary.main,
+              '&:hover': { backgroundColor: alpha(t.palette.primary.main, 0.26) },
+            },
+          }),
+        },
+      },
     },
   });
 }

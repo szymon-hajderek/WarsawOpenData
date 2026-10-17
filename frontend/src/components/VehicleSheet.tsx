@@ -4,6 +4,7 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { MODE_META, modeColor } from '../modes';
 import type { VehicleCandidate } from '../types';
+import { PANEL_BOTTOM } from '../layout';
 
 const vehicleName = (v: VehicleCandidate) => `${MODE_META[v.mode].label} ${v.line}`;
 
@@ -119,7 +120,7 @@ export default function VehicleSheet({
       sx={{
         position: 'absolute',
         zIndex: 1000,
-        bottom: 'calc(env(safe-area-inset-bottom) + 20px)',
+        bottom: PANEL_BOTTOM,
         left: { xs: 8, sm: 16 },
         right: { xs: 8, sm: 'auto' },
         width: { sm: 440 },

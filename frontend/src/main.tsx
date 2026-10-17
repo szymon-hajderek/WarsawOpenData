@@ -8,13 +8,16 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import './index.css';
 import { ColorModeProvider } from './colorMode';
 import { MapLookProvider } from './mapLook';
+import { PreferencesProvider } from './preferences/PreferencesProvider';
 import App from './App';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <MapLookProvider>
       <ColorModeProvider>
-        <App />
+        <PreferencesProvider>
+          <App />
+        </PreferencesProvider>
       </ColorModeProvider>
     </MapLookProvider>
   </StrictMode>,
