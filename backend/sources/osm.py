@@ -24,6 +24,8 @@ URL = "https://download.bbbike.org/osm/bbbike/Warsaw/Warsaw.osm.pbf"
 
 # "unit" speeds in m/s. Change here for travel profiles (stroller, slow walker, e-bike).
 SPEED = {"walk": 1.3, "bike": 4.2}
+# /api/osm/route fails (422) when the start or the end is farther than this from the graph (m).
+MAX_SNAP_M = 1000
 
 
 def hcm_delay(cycle_s: float, green_s: float) -> float:
@@ -331,8 +333,14 @@ def api_nearest(lat: float, lon: float, mode: str = "walk"):
 
 @router.get("/route")
 def api_route(from_lat: float, from_lon: float, to_lat: float, to_lon: float, mode: str = "walk"):
-    """Street path with length, expected waits and total seconds (walk or bike)."""
+    """Street path with length, expected waits and total seconds (walk or bike).
+    422 when the start or the end is more than MAX_SNAP_M from the graph (e.g. outside Warsaw)."""
     check_mode(mode)
+    far = [(name, d) for name, (lat, lon) in (("start", (from_lat, from_lon)), ("end", (to_lat, to_lon)))
+           if (d := nearest(lat, lon, mode)[1]) > MAX_SNAP_M]
+    if far:
+        raise HTTPException(422, " and ".join(f"{n} is {d:.0f} m" for n, d in far)
+                            + f" from the street graph (max {MAX_SNAP_M} m)")
     try:
         return route(from_lat, from_lon, to_lat, to_lon, mode)
     except ValueError as e:
