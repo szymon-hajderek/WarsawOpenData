@@ -544,8 +544,8 @@ def whole_trip(trip_id: str, board_stop: str, board_sec: int) -> list[dict]:
 def trip_onward(trip_id: str, board_stop: str, board_sec: int, whole: bool = False) -> list[dict]:
     """Stops of one trip from the boarding call onward, times shifted to `board_sec`.
 
-    The first item is the boarding stop. Stop ids are canonical (merged rail platforms
-    point at the station they were merged into).
+    The first item is the boarding stop. Stop ids are canonical (canonical(): a rail platform child points at its
+    platform pkp:<station>_P<n>, a merged station at the station it was merged into), the same ids as vertices().
     """
     ti = _trip_ids().get(trip_id)
     if ti is None:
@@ -560,7 +560,7 @@ def trip_onward(trip_id: str, board_stop: str, board_sec: int, whole: bool = Fal
     for r in range(start, end):
         sid = ids[int(st["stop"][r])]
         stop = by_id[sid]
-        if sid == board_stop or stop.get("same_as") == board_stop:
+        if sid == board_stop or stop.get("same_as") == board_stop or stop.get("platform") == board_stop:
             dep = int(st["dep"][r])
             if dep <= board_sec and (best is None or dep > best[0]):
                 best = (dep, r)
@@ -572,7 +572,7 @@ def trip_onward(trip_id: str, board_stop: str, board_sec: int, whole: bool = Fal
         sid = ids[int(st["stop"][r])]
         stop = by_id[sid]
         out.append({
-            "stop_id": stop["same_as"] or sid,
+            "stop_id": stop["platform"] or stop["same_as"] or sid,
             "name": stop["name"],
             "lat": stop["lat"],
             "lon": stop["lon"],
