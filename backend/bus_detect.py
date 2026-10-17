@@ -1,7 +1,7 @@
-"""Which bus is the user on? Polls live bus positions every 10 s, keeps a short history per vehicle and
-ranks vehicles by MSE against the user's last 1-3 positions (algorithms/nearest_buses.py).
+"""Which vehicle is the user on? Polls live bus and tram positions every 10 s, keeps a short history
+per vehicle and ranks them by MSE against the user's last 1-3 positions (algorithms/nearest_buses.py).
 
-Bus positions come from LIVE_BUSES_URL (default: our own /api/live/vehicles?type=bus).
+Direction comes from the GTFS trip with the same line and brigade (trip_headsign).
 """
 import logging
 import os
@@ -19,7 +19,9 @@ from config import REPO
 sys.path.insert(0, str(REPO / "algorithms"))
 from nearest_buses import rank_buses  # noqa: E402
 
-LIVE_BUSES_URL = os.getenv("LIVE_BUSES_URL", "http://localhost:8000/api/live/vehicles?type=bus")
+# When LIVE_BUSES_URL is set, only that feed is polled (mode taken from type=).
+# Otherwise both the bus and the tram feeds of this server are polled.
+_CUSTOM = os.getenv("LIVE_BUSES_URL")
 POLL_S = 10
 HISTORY = 3  # positions kept per vehicle
 CANDIDATES = 4  # the popup shows the most likely vehicle + 3 others
@@ -27,8 +29,16 @@ CANDIDATES = 4  # the popup shows the most likely vehicle + 3 others
 log = logging.getLogger(__name__)
 _lock = threading.Lock()
 _history: dict[str, list[dict]] = {}  # vehicle id -> last positions {"lat", "lon", "t"}, oldest first
-_info: dict[str, dict] = {}  # vehicle id -> {"vehicle", "line", "brigade"} from the last poll
+_info: dict[str, dict] = {}  # vehicle id -> line, brigade, mode, direction
 _updated_at: float | None = None
+
+
+def _feeds() -> list[tuple[str, str]]:
+    if _CUSTOM:
+        mode = "tram" if "type=tram" in _CUSTOM else "bus"
+        return [(mode, _CUSTOM)]
+    base = "http://localhost:8000/api/live/vehicles"
+    return [("bus", f"{base}?type=bus"), ("tram", f"{base}?type=tram")]
 
 
 def _epoch(local_time: str) -> float:
@@ -36,19 +46,38 @@ def _epoch(local_time: str) -> float:
     return datetime.strptime(local_time, "%Y-%m-%d %H:%M:%S").timestamp()
 
 
+def _direction(line: str, brigade: str, local_time: str) -> str:
+    try:
+        from sources import mkuran
+        clock = datetime.strptime(local_time, "%Y-%m-%d %H:%M:%S")
+        sec = clock.hour * 3600 + clock.minute * 60 + clock.second
+        return mkuran.headsign_for(line, brigade, clock.strftime("%Y%m%d"), sec)
+    except Exception as exc:
+        log.warning("headsign lookup failed: %s", exc)
+        return ""
+
+
 def poll_once() -> None:
     global _updated_at
-    r = httpx.get(LIVE_BUSES_URL, timeout=30)
-    r.raise_for_status()
-    with _lock:
-        for v in r.json():
-            vid = f"bus-{v['vehicle']}"
-            point = {"lat": v["lat"], "lon": v["lon"], "t": _epoch(v["time"])}
-            track = _history.setdefault(vid, [])
-            if not track or track[-1]["t"] != point["t"]:  # the feed is cached, skip repeats
-                track.append(point)
-                del track[:-HISTORY]
-            _info[vid] = {"vehicle": v["vehicle"], "line": v["line"], "brigade": v["brigade"]}
+    got = False
+    for mode, url in _feeds():
+        try:
+            rows = httpx.get(url, timeout=30).json()
+        except Exception as exc:
+            log.warning("live %s poll failed: %s", mode, exc)
+            continue
+        got = True
+        with _lock:
+            for v in rows:
+                vid = f"{mode}-{v['vehicle']}"
+                point = {"lat": v["lat"], "lon": v["lon"], "t": _epoch(v["time"])}
+                track = _history.setdefault(vid, [])
+                if not track or track[-1]["t"] != point["t"]:
+                    track.append(point)
+                    del track[:-HISTORY]
+                _info[vid] = {"vehicle": v["vehicle"], "line": v["line"], "brigade": v["brigade"],
+                              "mode": mode, "direction": _direction(v["line"], v["brigade"], v["time"])}
+    if got:
         _updated_at = time.time()
 
 
@@ -93,7 +122,6 @@ def api_nearest_buses(req: NearestRequest):
     user = [{"lat": p.lat, "lon": p.lon, "t": p.time_ms / 1000} for p in req.points[-HISTORY:]]
     with _lock:
         ranked = rank_buses(user, _history, CANDIDATES)
-        candidates = [{"id": r["id"], **_info[r["id"]], "mode": "bus", "direction": "",
-                       "rmse_m": round(r["rmse_m"], 1)} for r in ranked]
+        candidates = [{"id": r["id"], **_info[r["id"]], "rmse_m": round(r["rmse_m"], 1)} for r in ranked]
         lines = sorted({i["line"] for i in _info.values()}, key=lambda s: (len(s), s))
     return {"candidates": candidates, "lines": lines, "updated_at": _updated_at}

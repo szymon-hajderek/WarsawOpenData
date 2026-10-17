@@ -1,17 +1,19 @@
 """Routing endpoint — the backend side of the frontend's `fetchRouteOptions`."""
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from ..models import RouteOption, RouteRequest
 from ..routing.engine import RouteEngine
-from ..routing.stub_engine import StubRouteEngine
+from ..routing.real_engine import RealRouteEngine
 
 router = APIRouter(prefix="/api", tags=["routes"])
 
-# Single engine instance. Swap `StubRouteEngine` for `CppRouteEngine` later;
-# the rest of the app does not change.
-engine: RouteEngine = StubRouteEngine()
+# Real timetable + street graph. The stub stays in the repo as the reference for the old mock.
+engine: RouteEngine = RealRouteEngine()
 
 
 @router.post("/routes", response_model=list[RouteOption])
 def get_routes(req: RouteRequest) -> list[RouteOption]:
-    return engine.query_routes(req.from_, req.to, req.profile)
+    try:
+        return engine.query_routes(req.from_, req.to, req.profile)
+    except FileNotFoundError as exc:
+        raise HTTPException(503, f"timetable data is missing: {exc}")

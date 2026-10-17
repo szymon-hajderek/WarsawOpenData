@@ -51,11 +51,11 @@ def to_xy(lat, lon):
 
 def save_json(path: Path, obj) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(obj, ensure_ascii=False, indent=1))
+    path.write_text(json.dumps(obj, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 def load_json(path: Path):
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 class TTLCache:
