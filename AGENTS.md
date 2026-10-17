@@ -202,8 +202,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   The poller reads buses and trams. Concept: `ui/concept-art/current-line-popup.paint`.
 - Navigation: bottom bar (`src/components/BottomNav.tsx`) with tabs Mapa and Preferencje; floating panels sit above it
   (`src/layout.ts`: `BOTTOM_NAV_HEIGHT`, `PANEL_BOTTOM`). The Preferences page is an overlay, the map stays mounted below.
-- Trips with intermediate stops (up to 5, `MAX_STOPS` / `MAX_VIA`): `SearchCard.tsx` has "Dodaj przystanek", per stop up / down arrows
-  (only in "Moja kolejność"), remove, and the chips "Moja kolejność" / "Optymalna"; the swap button reverses the whole trip. `fetchRouteOptions`
+- Trips with intermediate stops (up to 5, `MAX_STOPS` / `MAX_VIA`): `SearchCard.tsx` has "Dodaj przystanek", a drag handle on every row (⋮⋮, shown once there is at least one stop; start and destination too, so a stop can be exchanged with them: the rows `[start, ...stops, destination]` are reordered together;
+  drag it up / down at any time, also after the row is filled in; ArrowUp / ArrowDown on the focused handle move it too; dragging while "Optymalna" is selected
+  switches to "Moja kolejność") and a remove button per stop, and the chips "Moja kolejność" / "Optymalna"; the swap button reverses the whole trip. `fetchRouteOptions`
   takes `{ from, to, profile, via, order }` and sends `via` + `order` to `POST /api/routes`. Backend: `RouteRequest.via` / `order`, `RouteOption.waypoints`
   (start, stops in visiting order, destination), `RouteLeg.stop` (1-based number of the stop the leg ends at); `backend/app/routing/multi.py` asks the
   engine once per segment and chains the n-th best option of every segment (max 3 options); "optimal" = `algorithms/stop_order.py` (exact, straight-line distance,
