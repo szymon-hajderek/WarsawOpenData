@@ -1,14 +1,3 @@
-# Changes on `feature/project-structure`
-
-- Added empty top-level folders (kept in git via `.gitkeep`):
-  - `frontend/` - React + TypeScript + Vite, Leaflet + OpenStreetMap map
-  - `backend/` - Python + FastAPI
-  - `algorithms/` - algorithms (mandatory folder)
-  - `db/` - PostgreSQL + PostGIS (SQLite is enough for the POC)
-  - `routing/` - OpenTripPlanner config
-  - `data/` - datasets, one subfolder per data type: `gtfs/`, `gbfs/`, `osm/`, `geojson/`
-- No code yet, structure only. Docker files (`docker-compose.yml`) will be added at the repo root later.
-
 # Changes on `feature/frontend-ui`
 
 - Added the first version of the frontend in `frontend/` (React + TypeScript + Vite, Leaflet + OpenStreetMap, Material UI).
@@ -19,3 +8,37 @@
 - Material theme in `src/theme.ts` with light and dark mode (switch on the map, follows the system setting by default).
 - **Routing is mocked**: `src/api/routes.ts` (`fetchRouteOptions`) generates connections locally. Replace its body with a call to the FastAPI / OpenTripPlanner backend returning the same `RouteOption[]` (see `src/types.ts`).
 - Map tiles: standard OpenStreetMap tiles (no API key); dark mode is a CSS filter. Use a proper tile provider for production.
+
+# Changes on `feature/ui`
+
+- Add the `ui/` folder for the UI feature.
+- Add `ui/concept-art/` for concept graphics.
+- `AGENTS.md`: add `ui/` to the folder structure.
+
+# Changes on `feature/update-claude-md`
+
+- `CLAUDE.md`: added a "Keep It Simple" rule.
+- `CLAUDE.md`: Claude must check that the local copy is up to date (`git fetch`, pull `main`) before starting work.
+- `CLAUDE.md`: PRs are created with `gh pr create`.
+- `CLAUDE.md`: new "Project Knowledge" section (about the project, stack, folder structure, decisions) that Claude updates automatically whenever it learns something new.
+
+# Changes on `add-deep-planning-skill`
+
+- Add the `deep-planning` skill in `.claude/skills/deep-planning/SKILL.md`.
+- The skill starts when the user describes a new feature.
+- Phase 1: plan mode, many rounds of up to 4 questions, the plan file is updated after each round.
+- Phase 2: after the plan is approved, the agent does not ask questions, except for destructive or outward-facing actions.
+
+# Changes on `add-readme`
+
+- Add `README.md`: project name, tagline, status note, 3 planned features, 1 data source.
+
+# Changes on `feature/add-agents-md`
+
+- Added `AGENTS.md` with all the rules and the "Project Knowledge" section (moved from `CLAUDE.md`), because Cursor reads `AGENTS.md`.
+- `CLAUDE.md` now only imports `AGENTS.md` (`@AGENTS.md`), so the rules live in one place.
+- Added a note about the workspace layout (workspace root is `hackathon`, repo is in `WarsawOpenData`).
+
+# Changes on `update-agent-docs`
+
+- `AGENTS.md`: every new branch now starts with the `deep-planning` skill. `CLAUDE.md` imports `AGENTS.md`, so it gets the rule too.
