@@ -37,3 +37,15 @@ export interface RouteOption {
   costPln: number;
   tags: string[];
 }
+
+/** Public transport vehicles the user can be inside of (no walking / Veturilo). */
+export type VehicleMode = Exclude<TransportMode, 'walk' | 'bike'>;
+
+export interface VehicleCandidate {
+  id: string;
+  mode: VehicleMode;
+  /** Line name, e.g. "17", "175", "M1". */
+  line: string;
+  /** Direction of travel, e.g. "Annopol". */
+  direction: string;
+}
