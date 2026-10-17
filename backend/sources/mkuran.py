@@ -641,6 +641,105 @@ def headsign_for(line: str, brigade: str, date_str: str, at_sec: int) -> str:
     return found
 
 
+@lru_cache
+def _max_segment_s() -> np.ndarray:
+    """Longest scheduled time between two consecutive stops of each trip (s); 0 for trips with one stop."""
+    st = stop_times()
+    out = np.zeros(len(trips()), dtype=np.int32)
+    if len(st["trip"]) < 2:
+        return out
+    same = st["trip"][1:] == st["trip"][:-1]
+    seg = (st["arr"][1:] - st["dep"][:-1]).astype(np.int32)
+    np.maximum.at(out, st["trip"][1:][same], seg[same])
+    return out
+
+
+def _service_days(when: datetime) -> list[tuple[str, float, int]]:
+    """(service date, epoch of its midnight, seconds since that midnight) for today and yesterday.
+
+    Yesterday covers trips after midnight (GTFS times past 24:00).
+    """
+    out = []
+    for back in (0, 1):
+        day = when.date() - timedelta(days=back)
+        midnight = datetime.combine(day, datetime.min.time())
+        out.append((day.strftime("%Y%m%d"), midnight.timestamp(), int((when - midnight).total_seconds())))
+    return out
+
+
+def max_segment_for(line: str, brigade: str, when: datetime) -> int | None:
+    """Longest scheduled stop-to-stop time (s) of the trip this brigade runs at `when`; None when no trip runs."""
+    svc = services()
+    st = stop_times()
+    bounds = _trip_bounds()
+    for date_str, _, sec in _service_days(when):
+        for ti in _brigades().get((line, brigade), ()):
+            start, end = (int(x) for x in bounds[ti])
+            if start < 0 or date_str not in svc.get(trips()[ti][2], ()):
+                continue
+            if int(st["dep"][start]) <= sec <= int(st["arr"][end - 1]):
+                return int(_max_segment_s()[ti])
+    return None
+
+
+@lru_cache(maxsize=4096)
+def _trip_static(ti: int) -> tuple | None:
+    """(stops with seconds since service midnight, shape (metres, lat, lon)) of a trip; None without a shape.
+
+    Distances are computed here from the coordinates: GTFS shape_dist_traveled is in km in warsaw.zip and
+    `_shape_dist` keeps only whole units. Each stop is placed on the nearest shape point at or after the
+    previous stop's point.
+    """
+    shape = _shapes().get(trips()[ti][6] if len(trips()[ti]) > 6 else "")
+    start, end = (int(x) for x in _trip_bounds()[ti])
+    if shape is None or start < 0 or len(shape[1]) < 2:
+        return None
+    _, lat, lon = shape
+    la, lo = np.radians(lat), np.radians(lon)
+    step = 2 * 6371000.0 * np.arcsin(np.sqrt(np.sin(np.diff(la) / 2) ** 2
+                                             + np.cos(la[:-1]) * np.cos(la[1:]) * np.sin(np.diff(lo) / 2) ** 2))
+    metres = np.r_[0.0, np.cumsum(step)]
+    st = stop_times()
+    ids = _stop_ids()
+    by_id = stops_by_id()
+    out = []
+    j = 0
+    for r in range(start, end):
+        stop = by_id[ids[int(st["stop"][r])]]
+        dy = (lat[j:] - stop["lat"]) * 111195.0
+        dx = (lon[j:] - stop["lon"]) * 111195.0 * np.cos(np.radians(stop["lat"]))
+        j += int(np.argmin(dx * dx + dy * dy))
+        out.append({"id": stop["id"], "name": stop["name"], "lat": stop["lat"], "lon": stop["lon"],
+                    "dist": float(metres[j]), "dep": int(st["dep"][r]), "arr": int(st["arr"][r])})
+    return out, (metres, lat, lon)
+
+
+def brigade_trips(line: str, brigade: str, when: datetime, window_s: int) -> list[dict]:
+    """Trips of a line + brigade running at `when` +- `window_s`, in the form of algorithms/bus_delay.py.
+
+    Times become epoch seconds. Trips without a shape are left out.
+    """
+    svc = services()
+    out = []
+    for date_str, midnight, sec in _service_days(when):
+        for ti in _brigades().get((line, brigade), ()):
+            trip = trips()[ti]
+            if date_str not in svc.get(trip[2], ()):
+                continue
+            static = _trip_static(ti)
+            if static is None:
+                continue
+            stops_, shape = static
+            if not stops_[0]["dep"] - window_s <= sec <= stops_[-1]["arr"] + window_s:
+                continue
+            out.append({"trip_id": trip[0], "headsign": trip[4] if len(trip) > 4 else "",
+                        "start": midnight + stops_[0]["dep"], "end": midnight + stops_[-1]["arr"],
+                        "shape": shape,
+                        "stops": [{"id": s["id"], "name": s["name"], "lat": s["lat"], "lon": s["lon"],
+                                   "dist": s["dist"], "sched": midnight + s["dep"]} for s in stops_]})
+    return out
+
+
 def route_stops(route_id: str) -> list[list[str]]:
     """Distinct stop sequences (variants) of a route."""
     st = stop_times()

@@ -12,6 +12,7 @@ import FilterSheet from './components/FilterSheet';
 import { useColorMode } from './colorMode';
 import { fetchRouteOptions } from './api/routes';
 import { BUS_POPUP_REQUEST_EVENT, detectVehicle, manualCandidate, requestLinePopup } from './api/vehicle';
+import { watchDelay } from './api/delay';
 import { usePreferences } from './preferences/PreferencesProvider';
 import { useHistory } from './history/HistoryProvider';
 import {
@@ -66,6 +67,9 @@ export default function App() {
   const [vehicleDismissed, setVehicleDismissed] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [confirmedVehicle, setConfirmedVehicle] = useState<VehicleCandidate | null>(null);
+  // Vehicle whose delay is polled (bus-delay events): set on "Jadę tą linią", cleared on a new
+  // detection or "Nie jadę komunikacją".
+  const [delayVehicleId, setDelayVehicleId] = useState<string | null>(null);
 
   const currentLocation = useMemo<Place | null>(
     () =>
@@ -102,6 +106,7 @@ export default function App() {
   useEffect(() => {
     const onRequest = () => {
       setDetectRun((n) => n + 1);
+      setDelayVehicleId(null);
       setVehicleDismissed(false);
       setVehicleSnap('middle');
     };
@@ -128,6 +133,8 @@ export default function App() {
       cancelled = true;
     };
   }, [detectRun]);
+
+  useEffect(() => (delayVehicleId ? watchDelay(delayVehicleId) : undefined), [delayVehicleId]);
 
   // The start defaults to the user's location.
   useEffect(() => {
@@ -263,10 +270,15 @@ export default function App() {
           onRedetect={requestLinePopup}
           onConfirm={() => {
             const all = manualVehicle ? [...vehicles, manualVehicle] : vehicles;
-            setConfirmedVehicle(all.find((v) => v.id === selectedVehicleId) ?? null);
+            const picked = all.find((v) => v.id === selectedVehicleId) ?? null;
+            setConfirmedVehicle(picked);
+            setDelayVehicleId(picked?.id ?? null);
             setVehicleSnap('bar');
           }}
-          onDismiss={() => setVehicleDismissed(true)}
+          onDismiss={() => {
+            setVehicleDismissed(true);
+            setDelayVehicleId(null);
+          }}
         />
       )}
 
