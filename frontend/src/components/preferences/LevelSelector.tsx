@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { alpha, Box, Button, Collapse, InputAdornment, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { formatKmh, type LevelDef } from '../../preferences/model';
 import { RADIUS } from '../../layout';
@@ -11,12 +11,22 @@ interface Props<L extends string> {
   range: readonly [number, number];
   onChange: (level: L, customKmh: number | null) => void;
   ariaLabel: string;
+  /** Locked (e.g. the speed comes from the trip history). */
+  disabled?: boolean;
 }
 
 const parse = (text: string) => parseFloat(text.replace(',', '.'));
 
 /** Level of advancement (buttons) with an "advanced" option to type the average speed instead. */
-export default function LevelSelector<L extends string>({ levels, level, customKmh, range, onChange, ariaLabel }: Props<L>) {
+export default function LevelSelector<L extends string>({
+  levels,
+  level,
+  customKmh,
+  range,
+  onChange,
+  ariaLabel,
+  disabled,
+}: Props<L>) {
   const [advanced, setAdvanced] = useState(customKmh !== null);
   const [text, setText] = useState(customKmh === null ? '' : String(customKmh));
 
@@ -24,13 +34,14 @@ export default function LevelSelector<L extends string>({ levels, level, customK
   const invalid = text !== '' && (Number.isNaN(value) || value < range[0] || value > range[1]);
 
   // Keep the text in sync when the value changes from outside (e.g. "restore defaults").
-  useEffect(() => {
-    const typed = parse(text);
-    if (customKmh === null ? text !== '' && !invalid : typed !== customKmh) {
+  // Adjusted while rendering, as React recommends, so there is no extra render with stale text.
+  const [seenKmh, setSeenKmh] = useState(customKmh);
+  if (customKmh !== seenKmh) {
+    setSeenKmh(customKmh);
+    if (customKmh === null ? text !== '' && !invalid : value !== customKmh) {
       setText(customKmh === null ? '' : String(customKmh));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customKmh]);
+  }
 
   const onText = (next: string) => {
     setText(next);
@@ -46,6 +57,7 @@ export default function LevelSelector<L extends string>({ levels, level, customK
         fullWidth
         size="small"
         aria-label={ariaLabel}
+        disabled={disabled}
         value={customKmh !== null ? null : level}
         onChange={(_, v: L | null) => {
           if (!v) return;
@@ -67,7 +79,7 @@ export default function LevelSelector<L extends string>({ levels, level, customK
         ))}
       </ToggleButtonGroup>
 
-      <Button size="small" color="inherit" onClick={() => setAdvanced((a) => !a)} sx={{ mt: 0.5, px: 1, opacity: 0.8 }}>
+      <Button size="small" color="inherit" disabled={disabled} onClick={() => setAdvanced((a) => !a)} sx={{ mt: 0.5, px: 1, opacity: 0.8 }}>
         {advanced ? 'Ukryj zaawansowane' : 'Zaawansowane: wpisz średnią prędkość'}
       </Button>
       <Collapse in={advanced}>
@@ -81,6 +93,7 @@ export default function LevelSelector<L extends string>({ levels, level, customK
             value={text}
             onChange={(e) => onText(e.target.value)}
             error={invalid}
+            disabled={disabled}
             helperText={
               invalid
                 ? `Wpisz liczbę od ${range[0]} do ${range[1]} km/h`

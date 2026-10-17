@@ -23,6 +23,7 @@ interface Props {
   /** Shows a "use my location" button inside the field. */
   showLocateButton?: boolean;
   onLocate?: () => void;
+  autoFocus?: boolean;
 }
 
 export default function PlaceField({
@@ -32,6 +33,7 @@ export default function PlaceField({
   currentLocation,
   showLocateButton,
   onLocate,
+  autoFocus,
 }: Props) {
   const [input, setInput] = useState(value?.label ?? '');
   const [results, setResults] = useState<Place[]>([]);
@@ -49,20 +51,20 @@ export default function PlaceField({
       setLoading(false);
       return;
     }
-    let cancelled = false;
+    const ac = new AbortController();
     setLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const found = await searchPlaces(q); // Nominatim: debounce, max ~1 req/s
-        if (!cancelled) setResults(found);
+        const found = await searchPlaces(q, ac.signal); // Nominatim: debounce, max ~1 req/s
+        if (!ac.signal.aborted) setResults(found);
       } catch {
-        if (!cancelled) setResults([]);
+        if (!ac.signal.aborted) setResults([]);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!ac.signal.aborted) setLoading(false);
       }
     }, 450);
     return () => {
-      cancelled = true;
+      ac.abort(); // also cancels the request that is already on its way
       clearTimeout(timer);
     };
   }, [input, value]);
@@ -89,6 +91,10 @@ export default function PlaceField({
         if (reason === 'input' || reason === 'clear') setInput(text);
       }}
       onChange={(_, place) => onChange(place)}
+      // Leaving the field without a choice puts the chosen place back, so text and value never disagree.
+      onClose={(_, reason) => {
+        if (reason === 'blur' || reason === 'escape') setInput(value?.label ?? '');
+      }}
       noOptionsText={typing ? (loading ? 'Szukam…' : 'Brak wyników w Warszawie') : 'Wpisz adres lub miejsce'}
       loadingText="Szukam…"
       clearText="Wyczyść"
@@ -121,6 +127,8 @@ export default function PlaceField({
         <TextField
           {...params}
           hiddenLabel
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- the field is added by the user's own click
+          autoFocus={autoFocus}
           variant="filled"
           placeholder={placeholder}
           slotProps={{

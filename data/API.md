@@ -7,10 +7,19 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
   and the routing API (`cd backend && uvicorn app.main:app --reload`, section at the end). Run one at a time.
 - Interactive docs generated from the code: `/docs`, schema: `/openapi.json`.
 - All answers are JSON. Errors have the form `{"detail": "<message>"}`.
+- Errors that any endpoint can return (they are not repeated below):
+  - `422` for a query value that is out of range or in the wrong form (e.g. `limit=-1`, `lat=999`, `bbox=1,2`).
+  - `502 {"detail": "external data source failed, try again later"}` when an external API (City Hall, Nextbike)
+    fails. The message never contains the URL or a key.
+  - `503` when a key in the server `.env` is empty (the message names it), or, for `/api/gtfs`, `/api/osm`,
+    `/api/routes` and `/api/live/nearest-buses`, while the server loads its caches at start (about 1-2 minutes
+    after a start, longer on the first run). The header `Retry-After: 30` is set.
+  - `404` when a data file is missing on the server (run `download.py`, or `report.py` for `/api/stats`).
+- Users never call external APIs. Only the server does, and it caches the answers.
 - No authentication on our side. The keys for City Hall endpoints live in `.env` on the server (`ACCESS.md`).
 - Examples below are real answers from a running server. Long lists are cut to 1-2 items and end with `"..."`.
 - Coordinates are WGS84 `lat` / `lon` in degrees. Times are Warsaw local time.
-- Endpoints: 26 (data API 23: meta 2, GTFS 8, live and City Hall 4, bus detection 1, Veturilo 5, OSM 3;
+- Endpoints: 27 (data API 24: meta 2, GTFS 8, live and City Hall 4, bus detection 2, Veturilo 5, OSM 3;
   routing API 3).
 
 | Group | Prefix | Source file |
@@ -85,18 +94,19 @@ Boarding points (posts / platforms). Merged rail duplicates are hidden unless `i
 |---|---|---|---|
 | `mode` | string | all | `bus`, `tram`, `metro` or `rail` |
 | `feed` | string | all | `ztm`, `wkd` or `pkp` |
-| `bbox` | string | ZTM area | `min_lat,min_lon,max_lat,max_lon` |
+| `bbox` | string | ZTM area | `min_lat,min_lon,max_lat,max_lon` (four numbers, min <= max, else `422`) |
 | `include_merged` | bool | `false` | also return stops merged into another station |
 
 Answer: list of stops. Fields: `id`, `feed`, `raw_id`, `name`, `code`, `lat`, `lon`, `location_type`,
-`parent`, `wheelchair` (`"0"` unknown, `"1"` yes, `"2"` no), `group`, `modes` (list), `served` (bool),
+`parent`, `wheelchair` (`"0"` unknown, `"1"` yes, `"2"` no), `zone` (`"1"`, `"2"` or `"1+2"`),
+`group`, `modes` (list), `served` (bool),
 `same_as` (id of the station this stop is merged into, or `null`).
 
 ```json
 [
  {"id": "ztm:100101", "feed": "ztm", "raw_id": "100101", "name": "Kijowska", "code": "01",
   "lat": 52.248455, "lon": 21.044827, "location_type": 0, "parent": null, "wheelchair": "1",
-  "group": "ztm:1001", "modes": ["bus"], "served": true, "same_as": null},
+  "zone": "1", "group": "ztm:1001", "modes": ["bus"], "served": true, "same_as": null},
  "..."
 ]
 ```
@@ -108,7 +118,7 @@ One stop. Same fields as above. `404` for an unknown id.
 ```json
 {"id": "ztm:700901", "feed": "ztm", "raw_id": "700901", "name": "Marszałkowska", "code": "01",
  "lat": 52.217931, "lon": 21.020112, "location_type": 0, "parent": null, "wheelchair": "2",
- "group": "ztm:7009", "modes": ["bus"], "served": true, "same_as": null}
+ "zone": "1", "group": "ztm:7009", "modes": ["bus"], "served": true, "same_as": null}
 ```
 
 Error: `404 {"detail": "unknown stop_id (use the feed prefix, e.g. ztm:700901)"}`.
@@ -159,14 +169,15 @@ Next departures from a stop. A merged rail station also lists the trains of the 
 |---|---|---|---|
 | `date` | string `YYYYMMDD` | today | service day |
 | `time` | string `HH:MM` | now | earliest departure |
-| `limit` | int | `20` | maximum number of rows |
+| `limit` | int `1-200` | `20` | maximum number of rows |
 
 ```json
 [{"time": "15:47:00", "sec": 56820, "line": "182", "mode": "bus", "route_id": "ztm:182",
-  "trip_id": "ztm:2026-10-17:182:SbS:621:1535", "brigade": "621"}, "..."]
+  "trip_id": "ztm:2026-10-17:182:SbS:621:1535", "brigade": "621",
+  "headsign": "Okęcie", "wheelchair": "1", "feed": "ztm"}, "..."]
 ```
 
-Error: `404 {"detail": "unknown stop_id"}`.
+Errors: `404 {"detail": "unknown stop_id"}`; `422` for a `date` or `time` in the wrong form.
 
 ### `GET /api/gtfs/edges`
 
@@ -174,8 +185,8 @@ Unique "stop to next stop" edges per route (canonical stop ids). For building a 
 
 | Query | Type | Default | Meaning |
 |---|---|---|---|
-| `limit` | int | `1000` | page size |
-| `offset` | int | `0` | first item |
+| `limit` | int `1-10000` | `1000` | page size |
+| `offset` | int `>= 0` | `0` | first item |
 
 ```json
 {"total": 22611, "items": [{"from": "ztm:100101", "to": "ztm:200101", "route": "ztm:123"}, "..."]}
@@ -196,7 +207,7 @@ Rail stations merged across feeds (distance < 150 m, same name) and near misses.
 ## Live vehicles and City Hall
 
 Data from `api.um.warszawa.pl`. These endpoints need `PORTAL_KEY` / `WAW_API_KEY` in `.env` on the server.
-Answers are cached for 30 s.
+Answers are cached for 30 s, except `GET /api/live/vehicles` (3 s).
 
 ### `GET /api/live/vehicles`
 
@@ -205,8 +216,8 @@ Live ZTM bus or tram positions.
 | Query | Type | Default | Meaning |
 |---|---|---|---|
 | `type` | string | `bus` | `bus` or `tram` |
-| `line` | string | all | keep one line only |
-| `max_age_s` | int | `300` | drop positions older than this (the feed holds old positions) |
+| `line` | string, up to 10 chars | all | keep one line only |
+| `max_age_s` | int `1-86400` | `300` | drop positions older than this (the feed holds old positions) |
 
 ```json
 [{"line": "161", "brigade": "2", "lat": 52.163409, "lon": 21.208935, "time": "2026-10-17 15:47:36",
@@ -214,6 +225,8 @@ Live ZTM bus or tram positions.
 ```
 
 Error: `400 {"detail": "type must be bus or tram"}`.
+`503 {"detail": "PORTAL_KEY is not set"}` when `.env` has no key.
+`503 {"detail": "live vehicle feed is unavailable"}` when the City Hall feed returns an error.
 
 ### `GET /api/ztm/stops/{stop_id}/lines`
 
@@ -252,9 +265,9 @@ Error: `404 {"detail": "unknown line"}`.
 
 ## Bus detection
 
-Answers "which bus is the user on?". The server polls live bus positions every 10 s and keeps the last 3
-positions of each bus. It ranks buses by the error against the last 1-3 user positions
-(`algorithms/nearest_buses.py`).
+Answers "which vehicle is the user on?". The server polls live bus and tram positions every 3 s and keeps
+the last 3 positions of each vehicle. It ranks them by the error against the last 1-3 user positions
+(`algorithms/nearest_buses.py`). `direction` is the GTFS headsign of the trip with the same line and brigade.
 
 ### `POST /api/live/nearest-buses`
 
@@ -270,18 +283,67 @@ Answer:
 
 | Field | Meaning |
 |---|---|
-| `candidates` | up to 4 buses, lowest error first: `id`, `vehicle`, `line`, `brigade`, `mode` (`"bus"`), `direction` (empty for now), `rmse_m` |
+| `candidates` | up to 4 vehicles, lowest error first: `id`, `vehicle`, `line`, `brigade`, `mode` (`"bus"` or `"tram"`), `direction` (GTFS headsign, empty when no trip matches), `rmse_m` |
 | `lines` | all lines seen in the live feed, sorted |
 | `updated_at` | Unix time (seconds) of the last poll |
 
 ```json
 {"candidates": [{"id": "bus-5914", "vehicle": "5914", "line": "175", "brigade": "405",
-                 "mode": "bus", "direction": "", "rmse_m": 54.3}, "..."],
+                 "mode": "bus", "direction": "Lotnisko Chopina", "rmse_m": 54.3}, "..."],
  "lines": ["102", "103", "104", "..."],
  "updated_at": 1760712345.6}
 ```
 
-Errors: `400 {"detail": "send at least one point"}`; `503` when the first poll has no data yet.
+Errors: `400 {"detail": "send at least one point"}`; `503` when there is no live vehicle data yet. The server forgets a vehicle that has not reported for 5 minutes.
+
+### `GET /api/live/delay`
+
+Estimated delay of one live bus or tram (`algorithms/bus_delay.py`). The server buffers each vehicle's positions
+for the longest scheduled time between two stops of its trip (+ 60 s; 10 min when no trip matches), with an extra
+point in the middle of every two feed points (about every 5 s) when no poll failed between them and they are at most
+25 s apart. The vehicle's position is projected on the GTFS shape of its trip (same line + brigade, running now ± 15 min,
+shape closer than 100 m; of those, the trip whose timetable at that point is closest to now); the last stop passed is K-1, the next one K. Delay = time the vehicle was closest to K-1
+(within `DELAY_RADIUS_M`, default 30 m) - scheduled departure at K-1. It is shown as the expected delay at K.
+
+| Query | Type | Meaning |
+|---|---|---|
+| `vehicle` | string | vehicle id as in `nearest-buses` candidates, e.g. `bus-5914`, `tram-3120` |
+
+Answer:
+
+| Field | Meaning |
+|---|---|
+| `vehicleId`, `vehicle`, `line`, `brigade`, `mode` | the vehicle |
+| `tripId`, `headsign` | matched GTFS trip, `null` when none matches |
+| `available` | `false` = "delay data unavailable" |
+| `reason` | `null` when available, else `no_trip`, `outside_trip` (before the first / at the last stop) or `no_pass_in_radius` |
+| `delaySec` | seconds, negative = early; `null` when not available |
+| `prevStop` | stop K-1: `id`, `name`, `scheduled` (`HH:MM:SS`), `passedAt` (`HH:MM:SS` or `null`); `null` when unknown |
+| `nextStop` | stop K: `id`, `name`, `scheduled`, `expected` (scheduled + delay, `null` when not available); `null` when unknown |
+| `radiusM` | radius used |
+| `updatedAt` | Unix time (seconds) of the last poll |
+
+```json
+{"vehicleId": "bus-2246", "vehicle": "2246", "line": "517", "brigade": "3", "mode": "bus",
+ "tripId": "ztm:2026-10-17:517:SbS:3:1853", "headsign": "Ursus-Niedźwiadek", "available": true, "reason": null,
+ "delaySec": 8,
+ "prevStop": {"id": "ztm:703302", "name": "Krucza", "scheduled": "18:57:00", "passedAt": "18:57:08"},
+ "nextStop": {"id": "ztm:701306", "name": "Centrum", "scheduled": "18:59:00", "expected": "18:59:08"},
+ "radiusM": 30.0, "updatedAt": 1792249203.8}
+```
+
+Not available (the vehicle passed K-1 but no buffered point was within the radius):
+
+```json
+{"vehicleId": "bus-1862", "vehicle": "1862", "line": "117", "brigade": "1", "mode": "bus",
+ "tripId": "ztm:2026-10-17:117:SbS:1:1832", "headsign": "Dw. Centralny", "available": false,
+ "reason": "no_pass_in_radius", "delaySec": null,
+ "prevStop": {"id": "ztm:703302", "name": "Krucza", "scheduled": "18:55:00", "passedAt": null},
+ "nextStop": {"id": "ztm:701306", "name": "Centrum", "scheduled": "18:57:00", "expected": null},
+ "radiusM": 30.0, "updatedAt": 1792249203.8}
+```
+
+Errors: `404 {"detail": "unknown vehicle"}`; `503` when there is no live vehicle data yet.
 
 ---
 
@@ -369,7 +431,7 @@ Nearest graph node to a point.
 
 | Query | Type | Default | Meaning |
 |---|---|---|---|
-| `lat`, `lon` | number | required | point |
+| `lat`, `lon` | number | required | point (`lat` -90..90, `lon` -180..180, else `422`) |
 | `mode` | string | `walk` | `walk`, `bike` or `accessible` |
 
 ```json
@@ -384,7 +446,7 @@ Street path between two points.
 
 | Query | Type | Default | Meaning |
 |---|---|---|---|
-| `from_lat`, `from_lon`, `to_lat`, `to_lon` | number | required | start and end |
+| `from_lat`, `from_lon`, `to_lat`, `to_lon` | number | required | start and end (same ranges as above) |
 | `mode` | string | `walk` | `walk`, `bike` or `accessible` |
 
 The start and the end join the street graph through up to 6 nearest nodes (at most 30 m farther than the
@@ -409,12 +471,11 @@ Errors:
 
 ---
 
-## Routing API (`backend/app/`)
+## Routing
 
-Second FastAPI app: serves the frontend. Start: `cd backend && uvicorn app.main:app --reload`
-(venv + `requirements.txt`, see `backend/README.md`). It is a separate app from the data API above and both
-default to port 8000: run one at a time or give one a different `--port`. CORS allows the origins in
-`CORS_ORIGINS` (default the Vite dev server). JSON keys are camelCase and match `frontend/src/types.ts`.
+`POST /api/routes` and `GET /api/geocode` are served by the same process as the data API
+(`cd backend && uv run uvicorn main:app --reload`). CORS allows the origins in `CORS_ORIGINS`
+(default the Vite dev server). JSON keys are camelCase and match `frontend/src/types.ts`.
 
 Types:
 
@@ -427,23 +488,38 @@ Types:
 
 ### `POST /api/routes`
 
-Route options between two places. Today a stub engine answers (the ported frontend mock, rough estimates);
-the real engine comes later behind the same endpoint.
+Route options between two places, from the GTFS timetable, OSM walk/bike paths and live Veturilo
+availability. Up to 6 options: a walk, a Veturilo ride, a Veturilo ride joined to one direct
+public-transport ride (bike then bus/tram/metro/rail, or the ride then a bike), Veturilo between
+two rides, direct rides and one transfer. A live bus or tram that is behind its timetable adds an
+`opóźnienie N min` tag and shifts departure and arrival. Shape distances in the GTFS file are
+kilometers and are stored as meters. Boarding stops are one post per stop group, so a big node does not fill the whole list.
+The clock is Europe/Warsaw. Before 04:00 the search uses the previous GTFS service day
+(times at 24:00 and later).
+`profile` `accessible` drops Veturilo and stops or trips marked wheelchair-inaccessible (`"2"`).
+A line that appears in the current ZTM alerts gets the tag `Zmiana na trasie`.
 
-Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow` or `accessible`, default `standard`).
+Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow` or `accessible`, default `standard`),
+`when` (optional, Warsaw local `HH:MM` or an ISO datetime; empty means now),
+`via` (optional list of `Place`, at most 5) and `order` (`given` or `optimal`).
 
-Answer: list of `RouteOption`.
+Answer: list of `RouteOption`. Public-transport geometry follows the GTFS shape between the stops
+boarded and alighted. Walk and bike geometry follows the OSM graph (a straight line only when the
+graph has no path).
 
 ```json
-[{"id": "bike", "title": "Veturilo",
-  "legs": [{"mode": "walk", "from": "Start", "to": "Stacja Veturilo", "line": null,
-            "durationMin": 1, "distanceM": 83.4,
-            "path": [[52.2297, 21.0122], [52.22994, 21.01252], "..."]}, "..."],
-  "departure": "15:59", "arrival": "16:10", "durationMin": 11, "distanceM": 2084.6,
-  "calories": 71, "transfers": 0, "costPln": 0.0, "tags": ["Najszybsza"]}, "..."]
+[{"id": "pt-ztm:trip", "title": "175",
+  "legs": [{"mode": "walk", "from": "Start", "to": "Marszałkowska", "line": null,
+            "durationMin": 4, "distanceM": 280,
+            "path": [[52.2297, 21.0122], [52.231, 21.015], "..."]},
+           {"mode": "bus", "from": "Marszałkowska", "to": "Metro Politechnika", "line": "175",
+            "durationMin": 12, "distanceM": 2400, "path": [[52.231, 21.015], "..."]}],
+  "departure": "15:59", "arrival": "16:18", "durationMin": 19, "distanceM": 2800,
+  "calories": 15, "transfers": 0, "costPln": 3.4, "tags": ["Najszybsza"]}, "..."]
 ```
 
-Error: `422` when the body is not valid.
+Errors: `422` when the body is not valid, or when `when` is not `HH:MM` or an ISO datetime.
+`503` when the GTFS zip is not on disk.
 
 ### `GET /api/geocode`
 
@@ -458,7 +534,8 @@ Place search: proxy to OpenStreetMap Nominatim, limited to Warsaw, up to 6 resul
   "position": [52.2288747, 21.0040358], "isCurrentLocation": null}, "..."]
 ```
 
-Errors: `422` for an empty `q`; `502 {"detail": "Geocoding failed: ..."}` when Nominatim fails.
+Errors: `422` for an empty `q` or a `q` longer than 200 characters; `502 {"detail": "Geocoding service failed"}`
+when Nominatim fails. The server keeps answers for 10 minutes, so a repeated search does not reach Nominatim.
 
 ### `GET /health`
 

@@ -112,3 +112,82 @@ export const PALETTE: Record<StyleMode, Palette> = {
   },
 };
 
+
+/** Colours of the "liquid glass" map look (second version of the map; same red + yellow). */
+export interface GlassColors extends MapColors {
+  /** Soft shadow of the glass building tiles, offset to the south-east. */
+  buildingShadow: string;
+  /** Bright edge of glass (building tiles, shore). */
+  edge: string;
+  /** Wide blurred glow under the roads. */
+  roadGlow: string;
+  roadMajorGlow: string;
+  /** Moving light over the map. */
+  sheenYellow: string;
+  sheenRed: string;
+  sheenBand: string;
+  /** Glass of the round buttons and markers. */
+  glassTop: string;
+  glassBottom: string;
+  glassBorder: string;
+  glassHighlight: string;
+}
+
+export const GLASS: Record<StyleMode, GlassColors> = {
+  light: {
+    background: '#FFE9CF',
+    water: '#8ECBF8',
+    park: '#DCEFA0',
+    wood: '#CCE88C',
+    building: 'rgba(255, 72, 96, 0.3)',
+    buildingShadow: 'rgba(214, 0, 40, 0.3)',
+    edge: '#FFFFFF',
+    roadMinor: '#FFFFFF',
+    roadMinorCasing: '#FFD27A',
+    roadMajor: '#FFF3A6',
+    roadMajorCasing: '#FFB000',
+    roadGlow: 'rgba(255, 255, 255, 0.95)',
+    roadMajorGlow: 'rgba(255, 120, 30, 0.5)',
+    path: 'rgba(255, 255, 255, 0.9)',
+    rail: '#FF3D5A',
+    label: '#59102A',
+    labelSoft: '#9A4B5E',
+    labelHalo: 'rgba(255, 244, 226, 0.95)',
+    waterLabel: '#2F78C4',
+    sheenYellow: 'rgba(255, 205, 30, 0.38)',
+    sheenRed: 'rgba(255, 40, 80, 0.26)',
+    sheenBand: 'rgba(255, 255, 255, 0.55)',
+    glassTop: 'rgba(255, 255, 255, 0.7)',
+    glassBottom: 'rgba(255, 255, 255, 0.3)',
+    glassBorder: 'rgba(255, 255, 255, 0.95)',
+    glassHighlight: 'rgba(255, 255, 255, 1)',
+  },
+  dark: {
+    background: '#1B1226',
+    water: '#183A6E',
+    park: '#203B3A',
+    wood: '#1B3434',
+    building: 'rgba(255, 176, 130, 0.16)',
+    buildingShadow: 'rgba(8, 2, 14, 0.55)',
+    edge: 'rgba(255, 232, 205, 0.55)',
+    roadMinor: 'rgba(255, 226, 196, 0.34)',
+    roadMinorCasing: '#2A1B33',
+    roadMajor: '#F4BE55',
+    roadMajorCasing: '#4A2F3A',
+    roadGlow: 'rgba(255, 130, 120, 0.16)',
+    roadMajorGlow: 'rgba(255, 190, 80, 0.38)',
+    path: 'rgba(255, 226, 196, 0.2)',
+    rail: '#C9788A',
+    label: '#FFF0E2',
+    labelSoft: '#C7A9B0',
+    labelHalo: 'rgba(27, 18, 38, 0.92)',
+    waterLabel: '#9DBFF2',
+    sheenYellow: 'rgba(255, 190, 80, 0.16)',
+    sheenRed: 'rgba(255, 90, 120, 0.2)',
+    sheenBand: 'rgba(255, 240, 225, 0.16)',
+    glassTop: 'rgba(255, 255, 255, 0.24)',
+    glassBottom: 'rgba(255, 255, 255, 0.07)',
+    glassBorder: 'rgba(255, 255, 255, 0.5)',
+    glassHighlight: 'rgba(255, 255, 255, 0.65)',
+  },
+};

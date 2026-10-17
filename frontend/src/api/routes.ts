@@ -1,7 +1,9 @@
-import type { LatLng, Place, Profile, RouteLeg, RouteOption, TransportMode } from '../types';
+import type { LatLng, Place, Profile, RouteLeg, RouteOption, StopOrder, TransportMode } from '../types';
 import { buildPath, haversine, slicePath } from '../utils/geo';
 import { formatTime } from '../utils/format';
-import { API_URL } from '../config';
+import { API_URL, apiUrl } from '../config';
+import { isRouteOptions } from './validate';
+import { bestOrder, combineSegments } from './multiStop';
 
 /**
  * ROUTING SERVICE.
@@ -10,25 +12,53 @@ import { API_URL } from '../config';
  * the FastAPI backend (`POST /api/routes`) when `API_URL` is set, and falls back to
  * the local mock (`mockRouteOptions`) when the backend is disabled or unreachable.
  */
-export async function fetchRouteOptions(
-  from: Place,
-  to: Place,
-  profile: Profile,
-): Promise<RouteOption[]> {
+export interface RouteQuery {
+  from: Place;
+  to: Place;
+  profile: Profile;
+  /** Intermediate stops (at most `MAX_STOPS`). */
+  via?: Place[];
+  /** Keep the stops as given, or reorder them for the shortest trip (start and destination stay fixed). */
+  order?: StopOrder;
+}
+
+export interface RouteResult {
+  options: RouteOption[];
+  /** True when the options are made-up example data (the backend is off or sent a bad answer). */
+  mock: boolean;
+}
+
+export async function fetchRouteOptions(query: RouteQuery, signal?: AbortSignal): Promise<RouteResult> {
+  const { from, to, profile } = query;
+  const via = query.via ?? [];
+  const order = query.order ?? 'given';
   if (API_URL) {
     try {
-      const res = await fetch(`${API_URL}/api/routes`, {
+      const res = await fetch(apiUrl('/api/routes'), {
+        signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, to, profile }),
+        body: JSON.stringify(via.length ? { from, to, profile, via, order } : { from, to, profile }),
       });
       if (!res.ok) throw new Error(`Routing failed: ${res.status}`);
-      return (await res.json()) as RouteOption[];
+      const data: unknown = await res.json();
+      if (!isRouteOptions(data)) throw new Error('Routing answer has an unexpected shape');
+      return { options: data, mock: false };
     } catch (err) {
+      if (signal?.aborted) throw err;
       console.warn('Backend unavailable, falling back to mock routing.', err);
     }
   }
-  return mockRouteOptions(from, to, profile);
+  const options = via.length ? await mockMultiStop(query) : await mockRouteOptions(from, to, profile);
+  return { options, mock: true };
+}
+
+/** Local fallback for trips with stops: one mock query per segment, chained like the backend does. */
+async function mockMultiStop({ from, to, profile, via = [], order = 'given' }: RouteQuery): Promise<RouteOption[]> {
+  const stops = order === 'optimal' ? bestOrder(from, via, to) : via;
+  const points = [from, ...stops, to];
+  const perSegment = await Promise.all(points.slice(1).map((p, i) => mockRouteOptions(points[i], p, profile, 0)));
+  return combineSegments(perSegment, points);
 }
 
 interface TemplateLeg {
@@ -237,8 +267,9 @@ async function mockRouteOptions(
   from: Place,
   to: Place,
   profile: Profile,
+  latencyMs = 700,
 ): Promise<RouteOption[]> {
-  await sleep(700); // simulates network latency
+  await sleep(latencyMs); // simulates network latency
 
   const distanceM = haversine(from.position as LatLng, to.position as LatLng);
   const seed = Math.abs(Math.round((from.position[0] + to.position[1]) * 1000));

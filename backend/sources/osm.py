@@ -438,7 +438,8 @@ def api_summary(mode: str = Query("walk", description="walk, bike or accessible"
 
 
 @router.get("/nearest")
-def api_nearest(lat: float, lon: float, mode: str = "walk"):
+def api_nearest(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180),
+                mode: str = "walk"):
     """Nearest node of the walk / bike graph to a point."""
     check_mode(mode)
     i, d = nearest(lat, lon, mode)
@@ -447,7 +448,9 @@ def api_nearest(lat: float, lon: float, mode: str = "walk"):
 
 
 @router.get("/route")
-def api_route(from_lat: float, from_lon: float, to_lat: float, to_lon: float, mode: str = "walk"):
+def api_route(from_lat: float = Query(..., ge=-90, le=90), from_lon: float = Query(..., ge=-180, le=180),
+              to_lat: float = Query(..., ge=-90, le=90), to_lon: float = Query(..., ge=-180, le=180),
+              mode: str = "walk"):
     """Street path with length, expected waits and total seconds (walk, bike or accessible: walk without stairs).
     422 when the start or the end is more than MAX_SNAP_M from the graph (e.g. outside Warsaw)."""
     check_mode(mode)
@@ -460,3 +463,15 @@ def api_route(from_lat: float, from_lon: float, to_lat: float, to_lon: float, mo
         return route(from_lat, from_lon, to_lat, to_lon, mode)
     except ValueError as e:
         raise HTTPException(404, str(e))
+
+
+def warm() -> None:
+    """Build the graph and the mode indexes. Called once at server start (main.py)."""
+    graph()
+    for mode in SPEED:
+        _mode_tree(mode)
+
+
+def snap_distances(points: list[tuple[float, float]], mode: str) -> np.ndarray:
+    """Distance (m) from each (lat, lon) to the nearest usable node of the mode (used by report.py)."""
+    return nearest_many([p[0] for p in points], [p[1] for p in points], mode)[1]

@@ -85,6 +85,11 @@ def api_free_bikes():
 
 
 @router.get("/vehicle-types")
-def api_vehicle_types():
+def pricing_plans() -> list[dict]:
+    """GBFS pricing plans (saved file). Each plan has ``per_min_pricing``."""
+    return _get("system_pricing_plans", False)["data"]["plans"]
+
+
+def vehicle_types() -> list[dict]:
     """Bike types (classic, e-bike ...)."""
     return _get("vehicle_types", False)["data"]["vehicle_types"]

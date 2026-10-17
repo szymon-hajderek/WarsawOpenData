@@ -150,7 +150,7 @@ export default function FilterSheet({ open, onClose, filters, onChange, effectiv
                   key={l.id}
                   label={l.label}
                   selected={trip.walking.customKmh === null && trip.walking.level === l.id}
-                  onClick={() => setTrip({ ...trip, walking: { level: l.id, customKmh: null } })}
+                  onClick={() => setTrip({ ...trip, walking: { ...trip.walking, level: l.id, customKmh: null, autoSpeed: false } })}
                 />
               ))}
             </Row>
@@ -168,7 +168,7 @@ export default function FilterSheet({ open, onClose, filters, onChange, effectiv
                   key={l.id}
                   label={l.label}
                   selected={trip.cycling.enabled && trip.cycling.customKmh === null && trip.cycling.level === l.id}
-                  onClick={() => setTrip({ ...trip, cycling: { enabled: true, level: l.id, customKmh: null } })}
+                  onClick={() => setTrip({ ...trip, cycling: { ...trip.cycling, enabled: true, level: l.id, customKmh: null, autoSpeed: false } })}
                 />
               ))}
             </Row>

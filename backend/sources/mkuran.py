@@ -13,6 +13,7 @@ ZTM stop_id = stop group (zespół, 4 digits) + post (słupek, 2 digits): "7009"
 """
 import csv
 import io
+import threading
 import zipfile
 from collections import defaultdict
 from datetime import date, datetime, timedelta
@@ -22,7 +23,13 @@ import httpx
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 
-from config import BBOX, DERIVED, GTFS_DIR, haversine_m, in_bbox, load_json, save_json
+import sys
+
+from config import (BBOX, DERIVED, GTFS_DIR, REPO, atomic_write, haversine_m, in_bbox, load_json, save_json,
+                    save_npz)
+
+sys.path.insert(0, str(REPO / "algorithms"))
+from shape_units import shape_meters  # noqa: E402
 
 FEEDS = {
     "ztm": ("warsaw.zip", "https://mkuran.pl/gtfs/warsaw.zip"),
@@ -43,7 +50,7 @@ def download() -> list[str]:
         for name, url in FEEDS.values():
             with client.stream("GET", url) as r:
                 r.raise_for_status()
-                with open(GTFS_DIR / name, "wb") as f:
+                with atomic_write(GTFS_DIR / name) as f:
                     for chunk in r.iter_bytes(1 << 20):
                         f.write(chunk)
             done.append(name)
@@ -64,6 +71,10 @@ def _rows(feed: str, table: str):
 def _sec(t: str) -> int:
     h, m, s = t.split(":")
     return int(h) * 3600 + int(m) * 60 + int(s)
+
+
+def _shape_dist(value) -> int:
+    return shape_meters(value)
 
 
 def _norm_name(name: str) -> str:
@@ -98,14 +109,14 @@ def services() -> dict:
     out: dict[str, set] = defaultdict(set)
     days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
     for feed in FEEDS:
-        for c in _rows(feed, "calendar.txt") or []:
+        for c in _rows(feed, "calendar.txt"):
             d = datetime.strptime(c["start_date"], "%Y%m%d").date()
             end = datetime.strptime(c["end_date"], "%Y%m%d").date()
             while d <= end:
                 if c[days[d.weekday()]] == "1":
                     out[f"{feed}:{c['service_id']}"].add(d.strftime("%Y%m%d"))
                 d += timedelta(days=1)
-        for c in _rows(feed, "calendar_dates.txt") or []:
+        for c in _rows(feed, "calendar_dates.txt"):
             key = f"{feed}:{c['service_id']}"
             if c["exception_type"] == "1":
                 out[key].add(c["date"])
@@ -129,6 +140,7 @@ def _raw_stops(feed: str) -> list[dict]:
             "location_type": lt,
             "parent": f"{feed}:{s['parent_station']}" if s.get("parent_station") else None,
             "wheelchair": s.get("wheelchair_boarding", ""),
+            "zone": s.get("zone_id", ""),
         })
     return out
 
@@ -166,10 +178,13 @@ def _build() -> None:
                 continue  # dropped agency
             tid = f"{feed}:{t['trip_id']}"
             trip_index[tid] = len(trips)
-            trips.append((tid, rid, f"{feed}:{t['service_id']}", t.get("block_short_name", "")))
+            shape = t.get("shape_id") or ""
+            trips.append((tid, rid, f"{feed}:{t['service_id']}", t.get("block_short_name", ""),
+                          t.get("trip_headsign", ""), t.get("wheelchair_accessible", ""),
+                          f"{feed}:{shape}" if shape else ""))
 
     # stop_times -> arrays. pos = position in the original trip (to know which rows were adjacent).
-    trip_col, pos_col, stop_col, arr_col, dep_col = [], [], [], [], []
+    trip_col, pos_col, stop_col, arr_col, dep_col, dist_col = [], [], [], [], [], []
     for feed in FEEDS:
         last_trip, pos = None, -1
         for r in _rows(feed, "stop_times.txt"):
@@ -187,6 +202,7 @@ def _build() -> None:
             stop_col.append(si)
             arr_col.append(_sec(r["arrival_time"] or r["departure_time"]))
             dep_col.append(_sec(r["departure_time"] or r["arrival_time"]))
+            dist_col.append(_shape_dist(r.get("shape_dist_traveled")))
 
     st = {
         "trip": np.array(trip_col, dtype=np.int32),
@@ -194,6 +210,7 @@ def _build() -> None:
         "stop": np.array(stop_col, dtype=np.int32),
         "arr": np.array(arr_col, dtype=np.int32),
         "dep": np.array(dep_col, dtype=np.int32),
+        "shape_dist": np.array(dist_col, dtype=np.int32),
     }
     order = np.lexsort((st["pos"], st["trip"]))
     st = {k: v[order] for k, v in st.items()}
@@ -202,7 +219,7 @@ def _build() -> None:
     runs = np.ones(len(trips), dtype=np.int32)
     freq = defaultdict(list)
     for feed in FEEDS:
-        for f in _rows(feed, "frequencies.txt") or []:
+        for f in _rows(feed, "frequencies.txt"):
             ti = trip_index.get(f"{feed}:{f['trip_id']}")
             if ti is None:
                 continue
@@ -255,17 +272,39 @@ def _build() -> None:
         s["same_as"] = merged.get(sid)
         stops_out.append(s)
 
-    np.savez_compressed(DERIVED / "gtfs_stop_times.npz", **st, runs=runs,
-                        trip_route_type=trip_route_type)
+    # Every file is written atomically. The .npz goes last: _ensure_built() treats it as "cache is complete".
     save_json(DERIVED / "gtfs_stops.json", stops_out)
     save_json(DERIVED / "gtfs_trips.json", trips)
     save_json(DERIVED / "gtfs_merge.json", {"merged": merged, "unmatched_near": unmatched_near})
     save_json(DERIVED / "gtfs_frequencies.json", {str(k): v for k, v in freq.items()})
+    save_npz(DERIVED / "gtfs_stop_times.npz", **st, runs=runs, trip_route_type=trip_route_type)
+
+
+_BUILD_LOCK = threading.Lock()
 
 
 def _ensure_built():
-    if not (DERIVED / "gtfs_stop_times.npz").exists():
+    """Build the cache once. Threads wait for each other, so only one runs the 25 s build."""
+    with _BUILD_LOCK:
+        _ensure_built_locked()
+
+
+def _ensure_built_locked():
+    npz = DERIVED / "gtfs_stop_times.npz"
+    stops_path = DERIVED / "gtfs_stops.json"
+    trips_path = DERIVED / "gtfs_trips.json"
+    if not npz.exists() or not stops_path.exists() or not trips_path.exists():
         _build()
+        return
+    with np.load(npz) as z:
+        dist = z["shape_dist"] if "shape_dist" in z.files else None
+    # Old caches stored truncated kilometers (max about 20). Meters along a real trip are larger.
+    if dist is None or (len(dist) and int(dist.max()) < 500):
+        _build()
+        return
+    with open(stops_path, encoding="utf-8") as f:
+        if '"zone"' not in f.read(800):
+            _build()
 
 
 @lru_cache
@@ -302,6 +341,24 @@ def stop_times() -> dict:
 def frequencies() -> dict:
     _ensure_built()
     return {int(k): v for k, v in load_json(DERIVED / "gtfs_frequencies.json").items()}
+
+
+def warm() -> None:
+    """Load every cache the routing endpoints use (build files on the first run). Called once at server start."""
+    stops_by_id()
+    trips()
+    merge_info()
+    frequencies()
+    services()
+    routes()
+    _trip_ids()
+    _trip_bounds()
+    _rows_by_stop()
+    _brigades()
+    _stop_ids()
+    _shapes()
+    fare_table()
+    _pairs()
 
 
 def canonical(stop_id: str) -> str:
@@ -357,6 +414,49 @@ def edges(date_str: str | None = None) -> dict:
     return result
 
 
+@lru_cache
+def _stop_ids() -> list[str]:
+    return [s["id"] for s in stops()]
+
+
+@lru_cache
+def _trip_ids() -> dict[str, int]:
+    return {t[0]: i for i, t in enumerate(trips())}
+
+
+@lru_cache
+def _trip_bounds() -> np.ndarray:
+    """Row span [start, end) of each trip inside stop_times, which are grouped by trip."""
+    trip = stop_times()["trip"]
+    bounds = np.full((len(trips()), 2), -1, dtype=np.int32)
+    if len(trip) == 0:
+        return bounds
+    cuts = np.flatnonzero(trip[1:] != trip[:-1]) + 1
+    starts = np.r_[0, cuts]
+    ends = np.r_[cuts, len(trip)]
+    bounds[trip[starts]] = np.column_stack((starts, ends))
+    return bounds
+
+
+@lru_cache
+def _rows_by_stop() -> dict[int, np.ndarray]:
+    """Stop-array index -> row numbers in stop_times. Built once so departures are not a full scan."""
+    st = stop_times()["stop"]
+    if len(st) == 0:
+        return {}
+    order = np.argsort(st, kind="mergesort")
+    ordered = st[order]
+    cuts = np.flatnonzero(ordered[1:] != ordered[:-1]) + 1
+    starts = np.r_[0, cuts]
+    ends = np.r_[cuts, len(st)]
+    return {int(ordered[a]): order[a:b] for a, b in zip(starts, ends)}
+
+
+def _targets(stop_id: str) -> list[int]:
+    """Array indexes of a stop and of the platforms merged into it."""
+    return [i for i, s in enumerate(stops()) if s["id"] == stop_id or s["same_as"] == stop_id]
+
+
 def departures(stop_id: str, date_str: str, after_sec: int, limit: int = 20) -> list[dict]:
     st = stop_times()
     tr = trips()
@@ -364,29 +464,288 @@ def departures(stop_id: str, date_str: str, after_sec: int, limit: int = 20) -> 
     svc = services()
     if stop_id not in stops_by_id():
         raise KeyError(stop_id)
-    # a merged rail station also gets the departures of the platforms merged into it
-    targets = [i for i, s in enumerate(stops()) if s["id"] == stop_id or s["same_as"] == stop_id]
-    rows = np.nonzero(np.isin(st["stop"], targets))[0]
+    chunks = [_rows_by_stop().get(i, np.array([], dtype=np.int64)) for i in _targets(stop_id)]
+    rows = np.concatenate(chunks) if chunks else np.array([], dtype=np.int64)
     freq = frequencies()
+    bounds = _trip_bounds()
     out = []
     for r in rows:
         ti = int(st["trip"][r])
-        trip_id, route_id, service_id, block = tr[ti]
+        trip_id, route_id, service_id, block = tr[ti][:4]
         if date_str not in svc.get(service_id, ()):
             continue
         offsets = [0]
         if ti in freq:  # frequency-based template (metro): expand runs
-            base = int(st["dep"][np.nonzero(st["trip"] == ti)[0][0]])
+            base = int(st["dep"][bounds[ti, 0]])
             offsets = [s - base + k * hw for s, e, hw in freq[ti] for k in range(max(1, (e - s) // hw))]
+        headsign = tr[ti][4] if len(tr[ti]) > 4 else ""
+        wheelchair = tr[ti][5] if len(tr[ti]) > 5 else ""
         for off in offsets:
             dep = int(st["dep"][r]) + off
             if dep >= after_sec:
                 route = rts[route_id]
                 out.append({"time": f"{dep // 3600:02d}:{dep % 3600 // 60:02d}:{dep % 60:02d}",
                             "sec": dep, "line": route["short_name"], "mode": route["mode"],
-                            "route_id": route_id, "trip_id": trip_id, "brigade": block})
+                            "route_id": route_id, "trip_id": trip_id, "brigade": block,
+                            "headsign": headsign, "wheelchair": wheelchair, "feed": route["feed"]})
     out.sort(key=lambda d: d["sec"])
     return out[:limit]
+
+
+def whole_trip(trip_id: str, board_stop: str, board_sec: int) -> list[dict]:
+    """Every call of the trip, timed so `board_stop` departs at `board_sec`."""
+    return trip_onward(trip_id, board_stop, board_sec, whole=True)
+
+
+def trip_onward(trip_id: str, board_stop: str, board_sec: int, whole: bool = False) -> list[dict]:
+    """Stops of one trip from the boarding call onward, times shifted to `board_sec`.
+
+    The first item is the boarding stop. Stop ids are canonical (merged rail platforms
+    point at the station they were merged into).
+    """
+    ti = _trip_ids().get(trip_id)
+    if ti is None:
+        return []
+    start, end = (int(x) for x in _trip_bounds()[ti])
+    if start < 0:
+        return []
+    st = stop_times()
+    ids = _stop_ids()
+    by_id = stops_by_id()
+    best = None
+    for r in range(start, end):
+        sid = ids[int(st["stop"][r])]
+        stop = by_id[sid]
+        if sid == board_stop or stop.get("same_as") == board_stop:
+            dep = int(st["dep"][r])
+            if dep <= board_sec and (best is None or dep > best[0]):
+                best = (dep, r)
+    if best is None:
+        return []
+    offset = board_sec - best[0]
+    out = []
+    for r in range(start if whole else best[1], end):
+        sid = ids[int(st["stop"][r])]
+        stop = by_id[sid]
+        out.append({
+            "stop_id": stop["same_as"] or sid,
+            "name": stop["name"],
+            "lat": stop["lat"],
+            "lon": stop["lon"],
+            "arr": int(st["arr"][r]) + offset,
+            "dep": int(st["dep"][r]) + offset,
+            "zone": stop.get("zone") or "",
+            "shape_dist": int(st["shape_dist"][r]),
+            "wheelchair": stop.get("wheelchair") or "",
+        })
+    return out
+
+
+def trip_shape_id(trip_id: str) -> str:
+    ti = _trip_ids().get(trip_id)
+    if ti is None:
+        return ""
+    trip = trips()[ti]
+    return trip[6] if len(trip) > 6 else ""
+
+
+@lru_cache
+def _shapes() -> dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """shape id (feed prefix) -> (distance m, lat, lon), sorted by distance."""
+    out: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+    for feed in FEEDS:
+        try:
+            rows = list(_rows(feed, "shapes.txt"))
+        except KeyError:
+            continue
+        current = None
+        bucket_d, bucket_lat, bucket_lon = [], [], []
+
+        def flush():
+            if current and bucket_d:
+                order = np.argsort(np.array(bucket_d))
+                out[current] = (np.array(bucket_d, dtype=np.float64)[order],
+                                np.array(bucket_lat, dtype=np.float64)[order],
+                                np.array(bucket_lon, dtype=np.float64)[order])
+
+        for row in rows:
+            key = f"{feed}:{row['shape_id']}"
+            if key != current:
+                flush()
+                current = key
+                bucket_d, bucket_lat, bucket_lon = [], [], []
+            bucket_d.append(float(_shape_dist(row.get("shape_dist_traveled"))))
+            bucket_lat.append(float(row["shape_pt_lat"]))
+            bucket_lon.append(float(row["shape_pt_lon"]))
+        flush()
+    return out
+
+
+def shape_slice(shape_id: str, dist_from: int, dist_to: int) -> list[list[float]]:
+    """Shape points between two distances along a trip. Empty when the shape or the distances are missing."""
+    if not shape_id or dist_from < 0 or dist_to <= dist_from:
+        return []
+    pack = _shapes().get(shape_id)
+    if pack is None:
+        return []
+    dist, lat, lon = pack
+    i = int(np.searchsorted(dist, dist_from, side="left"))
+    j = int(np.searchsorted(dist, dist_to, side="right"))
+    i = min(max(i, 0), len(dist) - 1)
+    j = min(max(j, i + 1), len(dist))
+    return [[round(float(lat[k]), 6), round(float(lon[k]), 6)] for k in range(i, j)]
+
+
+@lru_cache
+def fare_table() -> list[dict]:
+    """ZTM fares from warsaw.zip: price, max duration, zones the fare contains, routes it is limited to."""
+    rules_zones: dict[str, set] = defaultdict(set)
+    rules_routes: dict[str, set] = defaultdict(set)
+    for rule in _rows("ztm", "fare_rules.txt"):
+        if rule.get("contains_id"):
+            rules_zones[rule["fare_id"]].add(rule["contains_id"])
+        if rule.get("route_id"):
+            rules_routes[rule["fare_id"]].add(rule["route_id"])
+    out = []
+    for fare in _rows("ztm", "fare_attributes.txt"):
+        duration = fare.get("transfer_duration") or ""
+        transfers = fare.get("transfers") or ""
+        out.append({
+            "id": fare["fare_id"],
+            "price": float(fare["price"]),
+            "duration_s": int(duration) if duration else None,
+            "transfers": int(transfers) if transfers else None,
+            "zones": rules_zones.get(fare["fare_id"], set()),
+            "routes": rules_routes.get(fare["fare_id"], set()),
+        })
+    return out
+
+
+@lru_cache
+def _brigades() -> dict[tuple[str, str], list[int]]:
+    rts = routes()
+    out: dict[tuple[str, str], list[int]] = defaultdict(list)
+    for i, trip in enumerate(trips()):
+        out[(rts[trip[1]]["short_name"], trip[3])].append(i)
+    return out
+
+
+def headsign_for(line: str, brigade: str, date_str: str, at_sec: int) -> str:
+    """Headsign of the GTFS trip with this line and brigade running at `at_sec`. Empty when none matches."""
+    svc = services()
+    st = stop_times()
+    bounds = _trip_bounds()
+    found = ""
+    for ti in _brigades().get((line, brigade), ()):
+        trip = trips()[ti]
+        if date_str not in svc.get(trip[2], ()):
+            continue
+        start, end = (int(x) for x in bounds[ti])
+        if start < 0:
+            continue
+        if int(st["dep"][start]) <= at_sec <= int(st["arr"][end - 1]):
+            return trip[4] if len(trip) > 4 else ""
+        found = trip[4] if len(trip) > 4 else found
+    return found
+
+
+@lru_cache
+def _max_segment_s() -> np.ndarray:
+    """Longest scheduled time between two consecutive stops of each trip (s); 0 for trips with one stop."""
+    st = stop_times()
+    out = np.zeros(len(trips()), dtype=np.int32)
+    if len(st["trip"]) < 2:
+        return out
+    same = st["trip"][1:] == st["trip"][:-1]
+    seg = (st["arr"][1:] - st["dep"][:-1]).astype(np.int32)
+    np.maximum.at(out, st["trip"][1:][same], seg[same])
+    return out
+
+
+def _service_days(when: datetime) -> list[tuple[str, float, int]]:
+    """(service date, epoch of its midnight, seconds since that midnight) for today and yesterday.
+
+    Yesterday covers trips after midnight (GTFS times past 24:00).
+    """
+    out = []
+    for back in (0, 1):
+        day = when.date() - timedelta(days=back)
+        midnight = datetime.combine(day, datetime.min.time())
+        out.append((day.strftime("%Y%m%d"), midnight.timestamp(), int((when - midnight).total_seconds())))
+    return out
+
+
+def max_segment_for(line: str, brigade: str, when: datetime) -> int | None:
+    """Longest scheduled stop-to-stop time (s) of the trip this brigade runs at `when`; None when no trip runs."""
+    svc = services()
+    st = stop_times()
+    bounds = _trip_bounds()
+    for date_str, _, sec in _service_days(when):
+        for ti in _brigades().get((line, brigade), ()):
+            start, end = (int(x) for x in bounds[ti])
+            if start < 0 or date_str not in svc.get(trips()[ti][2], ()):
+                continue
+            if int(st["dep"][start]) <= sec <= int(st["arr"][end - 1]):
+                return int(_max_segment_s()[ti])
+    return None
+
+
+@lru_cache(maxsize=4096)
+def _trip_static(ti: int) -> tuple | None:
+    """(stops with seconds since service midnight, shape (metres, lat, lon)) of a trip; None without a shape.
+
+    Distances are computed here from the coordinates: GTFS shape_dist_traveled is in km in warsaw.zip and
+    `_shape_dist` keeps only whole units. Each stop is placed on the nearest shape point at or after the
+    previous stop's point.
+    """
+    shape = _shapes().get(trips()[ti][6] if len(trips()[ti]) > 6 else "")
+    start, end = (int(x) for x in _trip_bounds()[ti])
+    if shape is None or start < 0 or len(shape[1]) < 2:
+        return None
+    _, lat, lon = shape
+    la, lo = np.radians(lat), np.radians(lon)
+    step = 2 * 6371000.0 * np.arcsin(np.sqrt(np.sin(np.diff(la) / 2) ** 2
+                                             + np.cos(la[:-1]) * np.cos(la[1:]) * np.sin(np.diff(lo) / 2) ** 2))
+    metres = np.r_[0.0, np.cumsum(step)]
+    st = stop_times()
+    ids = _stop_ids()
+    by_id = stops_by_id()
+    out = []
+    j = 0
+    for r in range(start, end):
+        stop = by_id[ids[int(st["stop"][r])]]
+        dy = (lat[j:] - stop["lat"]) * 111195.0
+        dx = (lon[j:] - stop["lon"]) * 111195.0 * np.cos(np.radians(stop["lat"]))
+        j += int(np.argmin(dx * dx + dy * dy))
+        out.append({"id": stop["id"], "name": stop["name"], "lat": stop["lat"], "lon": stop["lon"],
+                    "dist": float(metres[j]), "dep": int(st["dep"][r]), "arr": int(st["arr"][r])})
+    return out, (metres, lat, lon)
+
+
+def brigade_trips(line: str, brigade: str, when: datetime, window_s: int) -> list[dict]:
+    """Trips of a line + brigade running at `when` +- `window_s`, in the form of algorithms/bus_delay.py.
+
+    Times become epoch seconds. Trips without a shape are left out.
+    """
+    svc = services()
+    out = []
+    for date_str, midnight, sec in _service_days(when):
+        for ti in _brigades().get((line, brigade), ()):
+            trip = trips()[ti]
+            if date_str not in svc.get(trip[2], ()):
+                continue
+            static = _trip_static(ti)
+            if static is None:
+                continue
+            stops_, shape = static
+            if not stops_[0]["dep"] - window_s <= sec <= stops_[-1]["arr"] + window_s:
+                continue
+            out.append({"trip_id": trip[0], "headsign": trip[4] if len(trip) > 4 else "",
+                        "start": midnight + stops_[0]["dep"], "end": midnight + stops_[-1]["arr"],
+                        "shape": shape,
+                        "stops": [{"id": s["id"], "name": s["name"], "lat": s["lat"], "lon": s["lon"],
+                                   "dist": s["dist"], "sched": midnight + s["dep"]} for s in stops_]})
+    return out
 
 
 def route_stops(route_id: str) -> list[list[str]]:
@@ -422,13 +781,24 @@ def reference_date() -> str:
 router = APIRouter(prefix="/api/gtfs", tags=["mkuran GTFS"])
 
 
+def parse_bbox(text: str) -> tuple[float, float, float, float]:
+    """'min_lat,min_lon,max_lat,max_lon' -> tuple. 422 when it is not four numbers in order."""
+    try:
+        box = tuple(float(x) for x in text.split(","))
+    except ValueError:
+        box = ()
+    if len(box) != 4 or box[0] > box[2] or box[1] > box[3]:
+        raise HTTPException(422, "bbox must be min_lat,min_lon,max_lat,max_lon (four numbers, min <= max)")
+    return box
+
+
 @router.get("/stops")
 def api_stops(mode: str | None = Query(None, description="bus, tram, metro, rail"),
               feed: str | None = Query(None, description="ztm, wkd, pkp"),
               bbox: str | None = Query(None, description="min_lat,min_lon,max_lat,max_lon"),
               include_merged: bool = False):
     """Boarding points (posts / platforms). Merged duplicates are hidden unless include_merged."""
-    box = tuple(map(float, bbox.split(","))) if bbox else BBOX
+    box = parse_bbox(bbox) if bbox else BBOX
     out = []
     for s in stops():
         if s["location_type"] != 0 or not s["served"]:
@@ -478,12 +848,14 @@ def api_route_stops(route_id: str):
     try:
         return {"route": routes()[route_id], "variants": route_stops(route_id)}
     except KeyError:
-        raise HTTPException(404, "unknown route_id (use the feed prefix, e.g. ztm:131)")
+        raise HTTPException(404, "unknown route_id (use the feed prefix, e.g. ztm:131)") from None
 
 
 @router.get("/stops/{stop_id}/departures")
-def api_departures(stop_id: str, date_: str | None = Query(None, alias="date", description="YYYYMMDD"),
-                   time: str | None = Query(None, description="HH:MM"), limit: int = 20):
+def api_departures(stop_id: str,
+                   date_: str | None = Query(None, alias="date", description="YYYYMMDD", pattern=r"^\d{8}$"),
+                   time: str | None = Query(None, description="HH:MM", pattern=r"^\d{1,2}:\d{2}$"),
+                   limit: int = Query(20, ge=1, le=200)):
     """Next departures from a stop (all feeds; a merged rail station includes KM / IC trains)."""
     now = datetime.now()
     d = date_ or now.strftime("%Y%m%d")
@@ -491,11 +863,11 @@ def api_departures(stop_id: str, date_: str | None = Query(None, alias="date", d
     try:
         return departures(stop_id, d, _sec(t + ":00"), limit)
     except KeyError:
-        raise HTTPException(404, "unknown stop_id")
+        raise HTTPException(404, "unknown stop_id") from None
 
 
 @router.get("/edges")
-def api_edges(limit: int = 1000, offset: int = 0):
+def api_edges(limit: int = Query(1000, ge=1, le=10000), offset: int = Query(0, ge=0)):
     """Unique stop -> next stop edges per route (canonical stop ids)."""
     e = edges()
     return {"total": e["unique_from_to_route"], "items": e["list"][offset:offset + limit]}

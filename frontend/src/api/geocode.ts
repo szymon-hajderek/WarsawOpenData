@@ -1,5 +1,5 @@
 import type { Place } from '../types';
-import { API_URL } from '../config';
+import { API_URL, apiUrl } from '../config';
 
 interface NominatimItem {
   place_id: number;
@@ -19,21 +19,22 @@ const WARSAW_VIEWBOX = '20.85,52.37,21.28,52.10';
  * Uses the backend proxy (`GET /api/geocode`) when `API_URL` is set, and falls back
  * to calling Nominatim directly when the backend is disabled or unreachable.
  */
-export async function searchPlaces(query: string): Promise<Place[]> {
+export async function searchPlaces(query: string, signal?: AbortSignal): Promise<Place[]> {
   if (API_URL) {
     try {
-      const res = await fetch(`${API_URL}/api/geocode?q=${encodeURIComponent(query)}`);
+      const res = await fetch(apiUrl(`/api/geocode?q=${encodeURIComponent(query)}`), { signal });
       if (!res.ok) throw new Error(`Geocoding failed: ${res.status}`);
       return (await res.json()) as Place[];
     } catch (err) {
+      if (signal?.aborted) throw err;
       console.warn('Backend geocode unavailable, falling back to Nominatim.', err);
     }
   }
-  return searchPlacesNominatim(query);
+  return searchPlacesNominatim(query, signal);
 }
 
 /** Local fallback: query OpenStreetMap Nominatim directly from the browser. */
-async function searchPlacesNominatim(query: string): Promise<Place[]> {
+async function searchPlacesNominatim(query: string, signal?: AbortSignal): Promise<Place[]> {
   const params = new URLSearchParams({
     format: 'jsonv2',
     q: query,
@@ -44,7 +45,7 @@ async function searchPlacesNominatim(query: string): Promise<Place[]> {
     countrycodes: 'pl',
     'accept-language': 'pl',
   });
-  const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, { signal });
   if (!res.ok) throw new Error(`Geocoding failed: ${res.status}`);
   const items: NominatimItem[] = await res.json();
 
