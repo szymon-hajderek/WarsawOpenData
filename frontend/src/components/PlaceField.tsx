@@ -12,6 +12,7 @@ import MyLocation from '@mui/icons-material/MyLocation';
 import PlaceOutlined from '@mui/icons-material/PlaceOutlined';
 import { searchPlaces } from '../api/geocode';
 import type { Place } from '../types';
+import { RADIUS } from '../layout';
 
 interface Props {
   value: Place | null;
@@ -127,7 +128,7 @@ export default function PlaceField({
             input: {
               ...params.InputProps,
               disableUnderline: true,
-              sx: { borderRadius: 3, fontWeight: 500 },
+              sx: { borderRadius: RADIUS.tile, fontWeight: 500 },
               endAdornment: (
                 <InputAdornment position="end" sx={{ mr: -0.5 }}>
                   {loading && <CircularProgress size={16} />}

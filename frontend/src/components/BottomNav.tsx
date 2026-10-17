@@ -1,7 +1,7 @@
 import { BottomNavigation, BottomNavigationAction, Paper } from '@mui/material';
 import MapOutlined from '@mui/icons-material/MapOutlined';
 import Tune from '@mui/icons-material/Tune';
-import { BOTTOM_NAV_HEIGHT } from '../layout';
+import { BOTTOM_NAV_HEIGHT, RADIUS } from '../layout';
 
 export type Tab = 'map' | 'preferences';
 
@@ -19,8 +19,8 @@ export default function BottomNav({ tab, onChange }: { tab: Tab; onChange: (tab:
         bottom: 0,
         zIndex: 1200,
         pb: 'env(safe-area-inset-bottom)',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        borderTopLeftRadius: RADIUS.sheet,
+        borderTopRightRadius: RADIUS.sheet,
         overflow: 'hidden',
       }}
     >

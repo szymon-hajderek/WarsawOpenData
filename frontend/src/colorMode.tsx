@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { CssBaseline, ThemeProvider, type PaletteMode } from '@mui/material';
 import { createAppTheme } from './theme';
-import { useMapLook } from './mapLook';
 
 interface ColorModeValue {
   mode: PaletteMode;
@@ -23,7 +22,6 @@ function initialMode(): PaletteMode {
 
 export function ColorModeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<PaletteMode>(initialMode);
-  const { look } = useMapLook();
 
   const toggle = useCallback(() => {
     setMode((prev) => {
@@ -37,7 +35,7 @@ export function ColorModeProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const theme = useMemo(() => createAppTheme(mode, look), [mode, look]);
+  const theme = useMemo(() => createAppTheme(mode), [mode]);
   const value = useMemo(() => ({ mode, toggle }), [mode, toggle]);
 
   return (

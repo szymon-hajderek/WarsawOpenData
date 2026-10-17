@@ -1,10 +1,10 @@
 import type { LayerSpecification, StyleSpecification } from 'maplibre-gl';
 
-import { LOOKS, type MapLook, type StyleMode } from './looks';
+import { PALETTE, type StyleMode } from './palette';
 
 /**
  * Flat map style (OpenMapTiles schema, vector tiles from OpenFreeMap).
- * Colours come from the chosen look (`src/map/looks.ts`); the layers below only reference them.
+ * Colours come from `src/map/palette.ts`; the layers below only reference them.
  */
 // Layer fragments use MapLibre expressions, which are loosely typed arrays.
 type Layer = Record<string, unknown>;
@@ -16,8 +16,8 @@ const FONT_BOLD = ['Noto Sans Bold'];
 const zoomWidth = (...stops: number[]) => ['interpolate', ['exponential', 1.4], ['zoom'], ...stops];
 const classIn = (...classes: string[]) => ['match', ['get', 'class'], classes, true, false];
 
-export function createStyle(look: MapLook, mode: StyleMode): StyleSpecification {
-  const p = LOOKS[look][mode].map;
+export function createStyle(mode: StyleMode): StyleSpecification {
+  const p = PALETTE[mode].map;
 
   const road = (id: string, classes: string[], minzoom: number, width: number[], color: string): Layer => ({
     id,

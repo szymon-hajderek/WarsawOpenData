@@ -18,6 +18,7 @@ import {
   type TripFilters,
   type WheelchairType,
 } from '../preferences/model';
+import { RADIUS } from '../layout';
 
 const WALK_LIMITS: (number | null)[] = [null, 5, 10, 15, 20];
 
@@ -77,12 +78,12 @@ export default function FilterSheet({ open, onClose, filters, onChange, effectiv
       anchor="bottom"
       open={open}
       onClose={onClose}
-      PaperProps={{ sx: { borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '90vh' }, 'aria-label': 'Filtry tras' }}
+      PaperProps={{ sx: { borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, maxHeight: '90vh' }, 'aria-label': 'Filtry tras' }}
     >
       <Box sx={{ overflowY: 'auto', px: 2.5, pt: 1.25, pb: 1 }}>
         <Box sx={{ maxWidth: 640, mx: 'auto' }}>
           <Box sx={{ display: 'grid', placeItems: 'center', pb: 1.5 }}>
-            <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'text.disabled', opacity: 0.5 }} />
+            <Box sx={{ width: 36, height: 4, borderRadius: RADIUS.pill, bgcolor: 'text.disabled', opacity: 0.5 }} />
           </Box>
           <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.25 }}>
             Filtry

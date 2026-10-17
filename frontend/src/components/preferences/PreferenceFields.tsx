@@ -18,6 +18,7 @@ import {
   type WheelchairSetting,
   type WheelchairType,
 } from '../../preferences/model';
+import { RADIUS } from '../../layout';
 
 /** Tonal card for one group of settings. */
 export function Section({ icon, title, hint, children }: { icon: ReactNode; title: string; hint?: string; children: ReactNode }) {
@@ -25,7 +26,7 @@ export function Section({ icon, title, hint, children }: { icon: ReactNode; titl
     <Box
       component="section"
       aria-label={title}
-      sx={(t) => ({ p: 2, borderRadius: 4, bgcolor: alpha(t.palette.primary.main, 0.05) })}
+      sx={(t) => ({ p: 2, borderRadius: RADIUS.card, bgcolor: alpha(t.palette.primary.main, 0.05) })}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: hint ? 0.25 : 1.5, color: 'primary.main' }}>
         {icon}
