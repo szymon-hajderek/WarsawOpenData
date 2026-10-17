@@ -30,6 +30,9 @@ Everything in this repo (files, commits, PRs) is written in English.
 
 ## Feature Branches
 
+- **Before you create any new branch, run the `deep-planning` skill** (`.claude/skills/deep-planning/SKILL.md`).
+  Plan the change with the user first. Create the branch only after the user approves the plan.
+  If your tool cannot run skills, read that file and follow its steps.
 - **Every new branch created for a feature must contain a `CHANGES.md` file.**
 - The `CHANGES.md` file briefly describes the changes made on that branch.
 - The description should be concise — a short list of the most important changes / points is enough.
