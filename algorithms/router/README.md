@@ -186,7 +186,8 @@ Answer:
 ```
 
 - `path`: `[lon, lat]`, 5 decimals (about 1 m), from `from` to `to`. `elevators`: where the path boards one.
-  `steps`: where a flight of steps starts (only in walk mode; the other modes have no steps).
+  `steps`: where a flight of steps starts (in `accessible` / `stroller` only steps with a ramp the mode may use;
+  `bike` has none).
 - `snap_m`: distance from each point to its nearest usable graph node.
 - Errors: `400` bad body / unknown mode / bad speeds, `422` a point is more than 1000 m from the graph, `404` no path
   or an unknown location id.
