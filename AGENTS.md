@@ -327,7 +327,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   `rmse_m`, `vehicleNo`, `brigade`); when the backend is down it returns `offline: true` (the window says "Nie połączono z serwerem" with a retry button), with no location it returns nothing;
   mock data only when `API_URL` is empty.
   Delay: after "Jadę tą linią" `useVehicleDetection` starts `src/api/delay.ts` `watchDelay`, which polls `GET /api/live/delay` every 10 s and sends a `bus-delay`
-  event on `window` (`BusDelayDetail` in `types.ts`); stops on a new detection or "Nie jadę komunikacją". No UI shows it yet.
+  event on `window` (`BusDelayDetail` in `types.ts`, answer checked by `isBusDelay`; empty `API_URL` = `backend_unavailable` without a request); stops on a new detection or "Nie jadę komunikacją". No UI shows it yet.
   Detection runs once after start and on `requestLinePopup()`. Each detection also sends a `bus-popup` event on `window`
   (`{ candidates, lines, points }`). Direction is the GTFS `trip_headsign` for that line and brigade.
   The poller reads buses and trams. Concept: `ui/concept-art/current-line-popup.paint`.

@@ -1,4 +1,4 @@
-import type { RouteOption } from '../types';
+import type { BusDelayDetail, RouteOption } from '../types';
 
 const isObject = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null;
 const isPoint = (p: unknown) =>
@@ -47,5 +47,23 @@ export function isNearestBuses(value: unknown): value is {
     Array.isArray(value.lines) &&
     Array.isArray(value.candidates) &&
     value.candidates.every((c) => isObject(c) && typeof c.id === 'string' && typeof c.line === 'string')
+  );
+}
+
+const isStringOrNull = (x: unknown) => x === null || typeof x === 'string';
+const isStop = (s: unknown) =>
+  s === null || (isObject(s) && typeof s.id === 'string' && typeof s.name === 'string' && typeof s.scheduled === 'string');
+
+/** True when the delay answer has the fields the `bus-delay` event carries (`GET /api/live/delay`). */
+export function isBusDelay(value: unknown): value is BusDelayDetail {
+  return (
+    isObject(value) &&
+    typeof value.vehicleId === 'string' &&
+    typeof value.available === 'boolean' &&
+    isStringOrNull(value.reason) &&
+    (value.delaySec === null || (typeof value.delaySec === 'number' && Number.isFinite(value.delaySec))) &&
+    (value.available === false || typeof value.delaySec === 'number') &&
+    isStop(value.prevStop) &&
+    isStop(value.nextStop)
   );
 }
