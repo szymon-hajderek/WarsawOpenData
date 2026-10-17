@@ -9,6 +9,8 @@ from scipy.sparse.csgraph import connected_components, dijkstra
 
 JUNCTION_RADIUS_M = 30.0
 EPS = 1e-3  # added to every edge so zero-length edges stay in the sparse graph
+# Edge flags (graph file, path output): an elevator ride, a pushed bike, a point's access segment, a metro entrance.
+FLAG_ELEVATOR, FLAG_PUSH, FLAG_ACCESS, FLAG_METRO = 1, 2, 4, 8
 
 
 def junctions(src, dst, length, signal, radius=JUNCTION_RADIUS_M):
@@ -88,15 +90,28 @@ def access_edges(n, nodes, dist, extra_s_per_m=0.0, owner=None, fixed_s=None, n_
     return np.r_[out_ids[pi], nd], np.r_[nd, in_ids[pi]], ln, wait, out_ids, in_ids
 
 
-def save_graph(path, n, src, dst, cost, length, wait, out_ids, in_ids, active):
-    """Write the graph for the C++ program (algorithms/router/preprocess/README.md, `graph_<mode>.bin`)."""
+def access_flags(dist, site_flags):
+    """Flags of the edges made by access_edges, in the same order: FLAG_ACCESS | site_flags[site]."""
+    s, k = dist.shape
+    si = np.repeat(np.arange(s), k).reshape(s, k)[np.isfinite(dist)]
+    f = FLAG_ACCESS | np.asarray(site_flags, dtype=np.uint8)[si]
+    return np.r_[f, f].astype(np.uint8)
+
+
+def save_graph(path, n, src, dst, cost, length, wait, out_ids, in_ids, active, lon=None, lat=None, flags=None):
+    """Write the graph for the C++ program (algorithms/router/preprocess/README.md, `graph_<mode>.bin`).
+    lon / lat per node and flags per edge are only needed to print paths (zeros if not given)."""
     order = np.argsort(src, kind="stable")
     offset = np.r_[0, np.cumsum(np.bincount(src, minlength=n))]
+    lon = np.zeros(n) if lon is None else lon
+    lat = np.zeros(n) if lat is None else lat
+    flags = np.zeros(len(src)) if flags is None else flags
     with open(path, "wb") as f:
-        f.write(b"SMG1")
+        f.write(b"SMG2")
         np.array([n, len(src), len(out_ids)], dtype="<u4").tofile(f)
         for arr, dtype in ((offset, "<u4"), (dst[order], "<u4"), (cost[order], "<f8"), (length[order], "<f4"),
-                           (wait[order], "<f4"), (out_ids, "<u4"), (in_ids, "<u4"), (active, "u1")):
+                           (wait[order], "<f4"), (flags[order], "u1"), (out_ids, "<u4"), (in_ids, "<u4"),
+                           (active, "u1"), (lon, "<f4"), (lat, "<f4")):
             np.asarray(arr).astype(dtype).tofile(f)
 
 

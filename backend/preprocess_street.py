@@ -1,6 +1,7 @@
 """Walk / bike street paths between every pair of points (GTFS boarding points + Veturilo stations).
 
 Usage (from backend/): uv run python preprocess_street.py [walk|bike|accessible] [--threads N] [--engine cpp|python]
+                       [--graph-only]
 Docs (deliverable, formats, model): algorithms/router/preprocess/README.md.
 
 Shortest expected-time path on the OSM graph, then per pair: distance_m and wait_s (signal / crossing
@@ -99,18 +100,21 @@ def _python(path, n, ok, m, src, dst, cost, length, wait, out_ids, in_ids, worke
     mm.flush()
 
 
-def build(mode: str, pts: list[dict], engine: str, threads: int) -> dict:
+def build(mode: str, pts: list[dict], engine: str, threads: int, graph_only: bool = False) -> dict:
     t0 = time.time()
     n = len(pts)
     _, dist_snap = snap(pts, mode)
     ok = np.nonzero(dist_snap <= osm.MAX_SNAP_M)[0]
-    m, src, dst, cost, length, wait, out_ids, in_ids = osm.points_graph(
-        [p["lat"] for p in pts], [p["lon"] for p in pts], mode, [p.get("entrances", []) for p in pts])
+    lat, lon = [p["lat"] for p in pts], [p["lon"] for p in pts]
+    m, src, dst, cost, length, wait, out_ids, in_ids, flags = osm.points_graph(
+        lat, lon, mode, [p.get("entrances", []) for p in pts])
     path = OUT / f"{mode}.bin"
     print(f"{mode}: {n} points, {m} nodes, {len(src)} edges, engine {engine}")
     if engine == "cpp":
         save_graph(OUT / f"graph_{mode}.bin", m, src, dst, cost, length, wait, out_ids, in_ids,
-                   dist_snap <= osm.MAX_SNAP_M)
+                   dist_snap <= osm.MAX_SNAP_M, *osm.points_lonlat(lat, lon), flags)
+        if graph_only:
+            return {"mode": mode, "graph": f"graph_{mode}.bin", "seconds": round(time.time() - t0)}
         subprocess.run([str(CPP), str(OUT / f"graph_{mode}.bin"), str(path), "--threads", str(threads)], check=True)
     else:
         _python(path, n, ok, m, src, dst, cost, length, wait, out_ids, in_ids, threads)
@@ -123,6 +127,8 @@ def main() -> None:
     ap.add_argument("modes", nargs="*", help="walk, bike, accessible (default all)")
     ap.add_argument("--threads", type=int, default=os.cpu_count() or 1)
     ap.add_argument("--engine", choices=["cpp", "python"], default="cpp")
+    ap.add_argument("--graph-only", action="store_true",
+                    help="only write points.csv + graph_<mode>.bin (for street_matrix --route)")
     args = ap.parse_args()
     args.modes = args.modes or list(osm.SPEED)
     if set(args.modes) - set(osm.SPEED):
@@ -134,8 +140,10 @@ def main() -> None:
     write_points(pts)
     meta = {}
     for mode in args.modes:
-        meta[mode] = build(mode, pts, args.engine, args.threads)
+        meta[mode] = build(mode, pts, args.engine, args.threads, args.graph_only)
         print(meta[mode])
+    if args.graph_only:
+        return
     old = load_json(OUT / "meta.json") if (OUT / "meta.json").exists() else {}
     save_json(OUT / "meta.json", {**old, **meta, "threads": args.threads})
 

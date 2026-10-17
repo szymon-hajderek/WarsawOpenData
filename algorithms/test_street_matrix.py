@@ -1,4 +1,5 @@
 """Run from backend/: uv run pytest ../algorithms"""
+import json
 import subprocess
 from pathlib import Path
 
@@ -6,7 +7,10 @@ import numpy as np
 import pytest
 from scipy.sparse import csr_matrix
 
-from street_matrix import EPS, EdgeLookup, access_edges, edge_wait, entry_wait, junctions, matrix_rows, save_graph
+from street_matrix import (
+    EPS, FLAG_ELEVATOR, EdgeLookup, access_edges, access_flags, edge_wait, entry_wait, junctions, matrix_rows,
+    save_graph,
+)
 
 W = 27.0  # wait at a signal node
 SPEED = 1.0
@@ -191,3 +195,27 @@ def test_point_at_a_signal_pays_the_same_both_ways():
     g = csr_matrix((cost + EPS, (S, D)), shape=(m, m))
     _, wait_s = matrix_rows(g, EdgeLookup(S, D, L, Wt, cost, m), out_ids, in_ids, np.zeros(2), np.zeros(2))
     assert np.isclose(wait_s[0, 1], W) and np.isclose(wait_s[1, 0], W)
+
+
+@pytest.mark.skipif(not CPP.exists(), reason="C++ street_matrix not built")
+def test_cpp_route_gives_the_path_and_the_elevator(tmp_path):
+    # street 0 - 1 - 2 - 3 along a line of longitudes; the edge 1 -> 2 (and 2 -> 1) is an elevator
+    src, dst, ln = both_ways([(0, 1, 10), (1, 2, 5), (2, 3, 10)])
+    flags = np.where(((src == 1) & (dst == 2)) | ((src == 2) & (dst == 1)), FLAG_ELEVATOR, 0)
+    wait = np.where(flags > 0, 60.0, 0.0)
+    nodes, dist = np.array([[0], [3]]), np.array([[2.0], [2.0]])
+    vs, vd, vl, vw, out_ids, in_ids = access_edges(4, nodes, dist)
+    S, D, L, Wt = np.r_[src, vs], np.r_[dst, vd], np.r_[ln, vl], np.r_[wait, vw]
+    F = np.r_[flags, access_flags(dist, [0, 0])]
+    m = 4 + 4
+    lon = np.r_[[21.0, 21.0001, 21.0002, 21.0003], [20.9999, 21.0004], [20.9999, 21.0004]]
+    lat = np.full(m, 52.2)
+    save_graph(tmp_path / "g.bin", m, S, D, L / SPEED + Wt, L, Wt, out_ids, in_ids, np.ones(2, bool), lon, lat, F)
+    out = subprocess.run([str(CPP), str(tmp_path / "g.bin"), "--route", "0", "1", "--route", "1", "0"],
+                         check=True, capture_output=True, text=True).stdout.splitlines()
+    there, back = (json.loads(x) for x in out)
+    assert there["path"] == [[20.9999, 52.2], [21.0, 52.2], [21.0001, 52.2], [21.0002, 52.2], [21.0003, 52.2],
+                             [21.0004, 52.2]]
+    assert np.isclose(there["distance_m"], 29) and np.isclose(there["wait_s"], 60)
+    assert there["elevators"] == [[21.0001, 52.2]] and there["metro_entrances"] == []  # where it is boarded
+    assert back["path"] == there["path"][::-1] and back["elevators"] == [[21.0002, 52.2]]

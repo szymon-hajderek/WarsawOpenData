@@ -20,3 +20,6 @@
   0.05 m / 0.05 s) and vs OSM platform nodes (`ref` = ZTM stop id); report section 5.
 - Docs: `data/API.md`, `README.md` setup, `AGENTS.md`, `sources/registry.py`.
 - Assumptions: output not committed; a self pair = 0; constants (2 min metro, 60 s elevator) are estimates.
+- Paths: `street_matrix <graph> --route I J` prints the path (`[lon, lat]`, ~1 m precision), the elevators and the
+  metro entrances used, as JSON lines. Path recording is off in the matrix run. Graph file `SMG2` (node coordinates,
+  edge flags); `preprocess_street.py --graph-only` writes just the graphs.
