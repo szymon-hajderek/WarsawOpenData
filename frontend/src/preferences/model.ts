@@ -123,6 +123,20 @@ export interface ExcludedAreas {
   points: AreaPoint[];
 }
 
+export type Sex = 'female' | 'male';
+
+/** Body data for the calorie estimate. `null` = not given (a typical value is assumed). Stays on the device. */
+export interface BodySetting {
+  weightKg: number | null;
+  heightCm: number | null;
+  age: number | null;
+  sex: Sex | null;
+}
+
+export const BODY_RANGE = { weightKg: [30, 250], heightCm: [120, 230], age: [10, 100] } as const;
+/** Used for every value the user has not given. */
+export const BODY_DEFAULTS = { weightKg: 70, heightCm: 170, age: 35 } as const;
+
 export interface Preferences {
   walking: WalkingSetting;
   cycling: CyclingSetting;
@@ -132,6 +146,7 @@ export interface Preferences {
     maxTransfers: number | null;
     excluded: ExcludedAreas;
   };
+  body: BodySetting;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -147,6 +162,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
     preferLifts: false,
   },
   priorities: { maxTransfers: null, excluded: { districts: [], points: [] } },
+  body: { weightKg: null, heightCm: null, age: null, sex: null },
 };
 
 export const walkingKmh = (s: WalkingSetting) =>
@@ -174,6 +190,59 @@ export function summarize(p: Preferences): string[] {
   const areas = p.priorities.excluded.districts.length + p.priorities.excluded.points.length;
   if (areas > 0) out.push(`Omijam: ${areas}`);
   return out;
+}
+
+// ----------------------------------------------------------------- calories
+
+/** [km/h, MET] points, interpolated. Walking and cycling: Compendium of Physical Activities (Ainsworth et al.). */
+type MetTable = [number, number][];
+const WALK_MET: MetTable = [[2.7, 2.3], [3.2, 2.8], [4, 3], [4.8, 3.5], [5.6, 4.3], [6.4, 5], [7.2, 7], [8, 8.3]];
+const BIKE_MET: MetTable = [[8, 3.5], [12, 4], [16, 5.5], [19, 6.8], [22, 8], [25, 10], [30, 12]];
+/** Manual wheelchair on a flat surface: rough values from Conger and Bassett 2011 (wheelchair compendium). */
+const WHEELCHAIR_MET: MetTable = [[2, 1.8], [3.6, 2.8], [5, 3.8], [6.5, 5]];
+
+function met(table: MetTable, kmh: number): number {
+  if (kmh <= table[0][0]) return table[0][1];
+  for (let i = 1; i < table.length; i++) {
+    const [x1, y1] = table[i];
+    if (kmh <= x1) {
+      const [x0, y0] = table[i - 1];
+      return y0 + ((y1 - y0) * (kmh - x0)) / (x1 - x0);
+    }
+  }
+  return table[table.length - 1][1];
+}
+
+/** Resting energy per day, kcal (Mifflin-St Jeor); an unknown sex takes the mean of both formulas. */
+export function restingKcalPerDay(b: BodySetting): number {
+  const base =
+    10 * (b.weightKg ?? BODY_DEFAULTS.weightKg) + 6.25 * (b.heightCm ?? BODY_DEFAULTS.heightCm) - 5 * (b.age ?? BODY_DEFAULTS.age);
+  return base + (b.sex === 'male' ? 5 : b.sex === 'female' ? -161 : -78);
+}
+
+/**
+ * Net calories (above resting) of a route's active legs: MET x weight x hours minus the resting
+ * energy of the same time. Public transport legs count as resting. Walking legs count as a manual
+ * wheelchair when the user has one (an electric one burns nothing). Flat ground, no load.
+ */
+export function routeKcal(route: Pick<RouteOption, 'legs'>, p: Preferences): number {
+  const weight = p.body.weightKg ?? BODY_DEFAULTS.weightKg;
+  const restPerHour = restingKcalPerDay(p.body) / 24;
+  const wheelchair = wheelchairKmh(p.wheelchair);
+  let total = 0;
+  for (const leg of route.legs) {
+    let kmh: number;
+    let table: MetTable;
+    if (leg.mode === 'walk' && p.wheelchair.type === 'electric') continue;
+    if (leg.mode === 'walk') {
+      [kmh, table] = wheelchair !== null ? [wheelchair, WHEELCHAIR_MET] : [walkingKmh(p.walking), WALK_MET];
+    } else if (leg.mode === 'bike') {
+      [kmh, table] = [cyclingKmh(p.cycling), BIKE_MET];
+    } else continue;
+    const hours = leg.distanceM / 1000 / kmh;
+    total += Math.max(0, met(table, kmh) * weight - restPerHour) * hours;
+  }
+  return Math.round(total);
 }
 
 // --------------------------------------------------------------- time rules
@@ -229,6 +298,7 @@ export function applyOverrides(p: Preferences, o: PreferenceOverrides): Preferen
       maxTransfers: o.maxTransfers !== undefined ? o.maxTransfers : p.priorities.maxTransfers,
       excluded: o.excluded ?? p.priorities.excluded,
     },
+    body: p.body, // personal data: not changed by rules or filters
   };
 }
 
@@ -402,11 +472,12 @@ export function applyListFilters(options: RouteOption[], trip: Preferences, f: T
     return true;
   });
 
+  const kcal = (o: RouteOption) => routeKcal(o, trip);
   const by: Record<SortKey, (a: RouteOption, b: RouteOption) => number> = {
     fastest: (a, b) => a.durationMin - b.durationMin,
     'fewest-transfers': (a, b) => a.transfers - b.transfers || a.durationMin - b.durationMin,
     cheapest: (a, b) => a.costPln - b.costPln || a.durationMin - b.durationMin,
-    'most-active': (a, b) => b.calories - a.calories || a.durationMin - b.durationMin,
+    'most-active': (a, b) => kcal(b) - kcal(a) || a.durationMin - b.durationMin,
   };
   return [...list].sort(by[f.sort]);
 }
@@ -434,6 +505,7 @@ export function sanitizeStored(raw: unknown): StoredPreferences {
         maxTransfers: b.priorities?.maxTransfers ?? d.priorities.maxTransfers,
         excluded: { ...d.priorities.excluded, ...b.priorities?.excluded },
       },
+      body: { ...d.body, ...b.body },
     },
     rules: Array.isArray(r.rules) ? r.rules : [],
   };
