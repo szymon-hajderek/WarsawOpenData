@@ -23,6 +23,7 @@ interface Props {
   /** Shows a "use my location" button inside the field. */
   showLocateButton?: boolean;
   onLocate?: () => void;
+  autoFocus?: boolean;
 }
 
 export default function PlaceField({
@@ -32,6 +33,7 @@ export default function PlaceField({
   currentLocation,
   showLocateButton,
   onLocate,
+  autoFocus,
 }: Props) {
   const [input, setInput] = useState(value?.label ?? '');
   const [results, setResults] = useState<Place[]>([]);
@@ -121,6 +123,7 @@ export default function PlaceField({
         <TextField
           {...params}
           hiddenLabel
+          autoFocus={autoFocus}
           variant="filled"
           placeholder={placeholder}
           slotProps={{

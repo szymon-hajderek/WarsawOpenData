@@ -105,7 +105,7 @@ Everything in this repo (files, commits, PRs) is written in English.
 - `frontend/` — React + TypeScript + Vite app
 - `ui/` — UI feature work; `ui/concept-art/` holds concept graphics
 - `backend/` — FastAPI app
-- `algorithms/` — algorithms (mandatory folder): pure functions + their pytest files (`nearest_buses.py`)
+- `algorithms/` — algorithms (mandatory folder): pure functions + their pytest files (`nearest_buses.py`, `stop_order.py`)
 - `db/` — database files and setup
 - `routing/` — OpenTripPlanner config
 - `data/` — datasets, one subfolder per data type: `gtfs/`, `gbfs/`, `osm/`, `geojson/`;
@@ -140,7 +140,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   `POST /api/live/nearest-buses` ranks buses by MSE (m^2) between the user's 1-3 points and each bus track
   (each user point paired with the bus point closest in time), `algorithms/nearest_buses.py`. Returns 4
   (1 + 3 for the popup), no distance cut-off. Feed time is read as server local time (Warsaw).
-- Tests: `cd backend && uv run pytest ../algorithms`.
+- Tests: `cd backend && uv run pytest tests ../algorithms` (`algorithms/` = pure functions, `backend/tests/` = API-level logic that needs no data files).
 - `/api/osm/route` returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`) from the graph;
   `osm.route()` / `osm.nearest()` in Python have no limit (`report.py` snaps far stops).
 - Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
@@ -184,6 +184,12 @@ Everything in this repo (files, commits, PRs) is written in English.
   The poller reads buses and trams. Concept: `ui/concept-art/current-line-popup.paint`.
 - Navigation: bottom bar (`src/components/BottomNav.tsx`) with tabs Mapa and Preferencje; floating panels sit above it
   (`src/layout.ts`: `BOTTOM_NAV_HEIGHT`, `PANEL_BOTTOM`). The Preferences page is an overlay, the map stays mounted below.
+- Trips with intermediate stops (up to 5, `MAX_STOPS` / `MAX_VIA`): `SearchCard.tsx` has "Dodaj przystanek", per stop up / down arrows
+  (only in "Moja kolejność"), remove, and the chips "Moja kolejność" / "Optymalna"; the swap button reverses the whole trip. `fetchRouteOptions`
+  takes `{ from, to, profile, via, order }` and sends `via` + `order` to `POST /api/routes`. Backend: `RouteRequest.via` / `order`, `RouteOption.waypoints`
+  (start, stops in visiting order, destination), `RouteLeg.stop` (1-based number of the stop the leg ends at); `backend/app/routing/multi.py` asks the
+  engine once per segment and chains the n-th best option of every segment (max 3 options); "optimal" = `algorithms/stop_order.py` (exact, straight-line distance,
+  start and destination fixed). Simplifications: every segment is planned from "now", no time at a stop. The frontend mock does the same in `src/api/multiStop.ts`.
 - Preferences + filters are UI only (route selection is the backend's job). Model, level tables (default speeds), time
   rules and list filtering: `src/preferences/model.ts`; storage in localStorage key `preferences`
   (`src/preferences/PreferencesProvider.tsx`). Preferences page: `src/components/PreferencesPage.tsx`; reusable fields
