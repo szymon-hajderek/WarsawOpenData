@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Box, Paper } from '@mui/material';
+import { PANEL_BOTTOM } from '../layout';
 
 interface Props {
   children: ReactNode;
@@ -16,7 +17,7 @@ export default function Sheet({ children, onHandleClick, maxHeight }: Props) {
       sx={{
         position: 'absolute',
         zIndex: 1000,
-        bottom: 'calc(env(safe-area-inset-bottom) + 20px)',
+        bottom: PANEL_BOTTOM,
         left: { xs: 8, sm: 16 },
         right: { xs: 8, sm: 'auto' },
         width: { sm: 440 },
