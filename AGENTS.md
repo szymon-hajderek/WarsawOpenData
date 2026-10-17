@@ -218,6 +218,11 @@ Everything in this repo (files, commits, PRs) is written in English.
   time, step-free, pace / wheelchair, excluded areas, and "Zaawansowane" = all preferences as overrides). Only list-like
   filters really change the (mock) list, client-side (`applyListFilters`); speeds, wheelchair and areas are stored only and
   not passed to `fetchRouteOptions` yet.
+- Calories (device-side): `Preferences.body` (weight, height, age, sex; all optional, defaults 70 kg / 170 cm / 35 y) is edited in the "Kalorie" section of the
+  Preferences page only (`components/preferences/BodySection.tsx`); rules and filters never override it (`applyOverrides` keeps it). `routeKcal(route, prefs)` in
+  `src/preferences/model.ts` computes NET kcal of the walk / bike legs (MET from the Compendium of Physical Activities interpolated by the user's km/h x weight x hours
+  minus resting energy (Mifflin-St Jeor); manual wheelchair uses a rough table from Conger and Bassett 2011, electric = 0; transit legs count as resting). It replaces
+  `RouteOption.calories` in the route list, details and the "most active" sort. Not modelled yet: slope, carried load, bike type, wind. Backend `calories` is unchanged (flat kcal/km).
 - Speed history (device-side, privacy first): in the route view "Rozpocznij przejazd" / "Zakończ" records GPS points (memory only, one every 4 s,
   Screen Wake Lock while recording) and sends the track once to `POST /api/history/records` (`backend/app/api/history.py`,
   `algorithms/speed_history.py::split_track`: shares the moving distance between the route's legs by planned distance, ignores standing

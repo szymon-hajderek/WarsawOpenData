@@ -7,6 +7,7 @@ import Schedule from '@mui/icons-material/Schedule';
 import RestartAlt from '@mui/icons-material/RestartAlt';
 import HistoryIcon from '@mui/icons-material/History';
 import PreferenceFields, { Section } from './preferences/PreferenceFields';
+import BodySection from './preferences/BodySection';
 import RuleDialog from './preferences/RuleDialog';
 import { usePreferences } from '../preferences/PreferencesProvider';
 import { useHistory } from '../history/HistoryProvider';
@@ -65,6 +66,10 @@ export default function PreferencesPage() {
         )}
 
         <PreferenceFields value={base} onChange={setBase} history={{ summary, used: autoUsed }} />
+
+        <Box sx={{ mt: 1.5 }}>
+          <BodySection value={base.body} onChange={(body) => setBase({ ...base, body })} />
+        </Box>
 
         <Box sx={{ mt: 1.5 }}>
           <Section

@@ -9,6 +9,7 @@ import LegChain from './LegChain';
 import { MODE_META, modeColor } from '../modes';
 import { useHistory } from '../history/HistoryProvider';
 import { usePreferences } from '../preferences/PreferencesProvider';
+import { routeKcal } from '../preferences/model';
 import { formatCost, formatDistance, formatDuration, stopsLabel, transfersLabel } from '../utils/format';
 import type { Place, RouteLeg, RouteOption } from '../types';
 import { RADIUS } from '../layout';
@@ -120,6 +121,7 @@ export default function RouteDetailsSheet({
 }: Props) {
   const theme = useTheme();
   const palette = theme.palette.mode;
+  const { effective } = usePreferences();
 
   // The longest leg sets the icon of the whole route
   const mainLeg = route.legs.reduce((a, b) => (b.durationMin > a.durationMin ? b : a));
@@ -240,7 +242,7 @@ export default function RouteDetailsSheet({
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mt: 2 }}>
             <Tile label="Czas" value={formatDuration(route.durationMin)} />
             <Tile label="Dystans" value={formatDistance(route.distanceM)} />
-            <Tile label="Spalone kalorie" value={`${route.calories} kcal`} />
+            <Tile label="Spalone kalorie" value={`${routeKcal(route, effective)} kcal`} />
             <Tile label="Koszt (szac.)" value={`${route.costPln > 0 ? '~' : ''}${formatCost(route.costPln)}`} />
           </Box>
 

@@ -8,7 +8,8 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import SnapSheet, { type SheetSnap } from './SnapSheet';
 import LegChain from './LegChain';
 import { formatCost, formatDuration, stopsLabel, transfersLabel } from '../utils/format';
-import type { FilterChip, TimeRule } from '../preferences/model';
+import { routeKcal, type FilterChip, type TimeRule } from '../preferences/model';
+import { usePreferences } from '../preferences/PreferencesProvider';
 import type { RouteOption } from '../types';
 import { RADIUS } from '../layout';
 
@@ -52,6 +53,7 @@ export default function RouteOptionsSheet({
   onConfirm,
 }: Props) {
   const noScrollbar = { scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } } as const;
+  const { effective } = usePreferences();
   const content = useRef<HTMLDivElement>(null);
   const fastest = options.length ? Math.min(...options.map((o) => o.durationMin)) : null;
 
@@ -200,14 +202,14 @@ export default function RouteOptionsSheet({
                     {o.costPln > 0 ? '~' : ''}
                     {formatCost(o.costPln)}
                   </Typography>
-                  {o.calories > 0 && (
+                  {routeKcal(o, effective) > 0 && (
                     <Typography
                       variant="caption"
                       color="secondary"
                       sx={{ display: 'inline-flex', alignItems: 'center', fontWeight: 600 }}
                     >
                       <LocalFireDepartment sx={{ fontSize: 14 }} />
-                      {o.calories} kcal
+                      {routeKcal(o, effective)} kcal
                     </Typography>
                   )}
                 </Box>
