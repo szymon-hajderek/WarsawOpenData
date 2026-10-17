@@ -16,6 +16,7 @@ from config import REPO, haversine_m
 
 sys.path.insert(0, str(REPO / "algorithms"))
 from districts import blocked  # noqa: E402
+from fares import brackets_for, cheapest_fare, open_fare, veturilo_from_brackets, veturilo_pln  # noqa: E402
 from lateness import lateness_s  # noqa: E402
 from plan_trip import (  # noqa: E402
     as_warsaw, best_bike_pair, bike_access_pairs, bike_between, direct_rides, nearby, service_moment,
@@ -499,6 +500,48 @@ def _clock(when: str | None) -> datetime:
     except ValueError as exc:
         raise ValueError("when must be HH:MM or an ISO datetime") from exc
     return as_warsaw(parsed)
+
+
+def _ticket(rides, zones, ticket_s, route_ids) -> float:
+    """ZTM table, WKD fare file, SKM as a ZTM ticket, and 7 zł where KM has no fare file."""
+    feeds = {ride["dep"].get("feed") or "ztm" for ride in rides}
+    if feeds == {"ztm"}:
+        price = cheapest_fare(mkuran.fare_table(), zones, ticket_s, route_ids)
+        return 4.4 if price is None else price
+    total = 0.0
+    try:
+        routes = mkuran.routes()
+    except (OSError, KeyError):
+        routes = {}
+    for feed in feeds:
+        ids = set()
+        agencies = set()
+        for ride in rides:
+            if (ride["dep"].get("feed") or "ztm") != feed:
+                continue
+            rid = ride["dep"].get("route_id") or ""
+            ids.add(rid.split(":", 1)[-1])
+            agencies.add(routes.get(rid, {}).get("agency"))
+        if feed == "ztm" or (feed == "pkp" and agencies and agencies <= {"SKM", "SKMT"}):
+            part = cheapest_fare(mkuran.fare_table(), zones, ticket_s, ids or route_ids)
+            total += 4.4 if part is None else part
+        elif feed == "wkd":
+            part = open_fare(mkuran.fare_table_for("wkd"), int(ticket_s))
+            total += 4.1 if part is None else part
+        else:
+            total += 7.0
+    return total
+
+
+def _bike_price(minutes: float, electric: bool) -> float:
+    try:
+        steps = brackets_for(nextbike.pricing_plans(), electric)
+    except Exception as exc:
+        log.warning("Veturilo pricing plans unavailable: %s", exc)
+        steps = None
+    if steps:
+        return veturilo_from_brackets(minutes, steps)
+    return veturilo_pln(minutes, electric)
 
 
 def _bike_bridge(a_point, a_label, pickup, dropoff, b_point, b_label, profile):
