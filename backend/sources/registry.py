@@ -67,8 +67,9 @@ SOURCES = [
      "content": "Warsaw city boundary (simplified polygon), the area of the Veturilo siting hex grid",
      "license": "ODbL", "attribution": "© OpenStreetMap contributors"},
     {"id": "mock_siting", "module": "siting", "status": "MOCK (generated)",
-     "file": "data/mock/traffic_counts.json ; data/mock/scooter_events.json.gz", "key": None,
-     "content": "Fake car traffic counters and e-scooter trip starts / ends for /api/veturilo/siting (T and E). "
+     "file": "data/mock/traffic_counts.json ; data/mock/scooter_intensity.json", "key": None,
+     "content": "Fake car traffic counters and an e-scooter crowding index 0..1 per 175 m hexagon (the format the "
+                "city receives from operators) for /api/veturilo/siting (T and E). "
                 "Not real data: replace with the city's counters and scooter-operator data.",
      "how_to_use": "uv run python siting_report.py --mocks regenerates them (fixed seed)."},
     {"id": "osm_bbbike_warsaw", "module": None, "status": "listed",

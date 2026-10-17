@@ -3,13 +3,12 @@
 
 Inputs per hex (measurements are averaged inside the hex):
 - T: car traffic 0..1. MOCK: data/mock/traffic_counts.json (fake counters on OSM roads).
-- E: e-scooter trip starts / ends 0..1. MOCK: data/mock/scooter_events.json.gz.
+- E: e-scooter crowding index 0..1 per 175 m hexagon, the format the city receives. MOCK:
+  data/mock/scooter_intensity.json.
 - S: infrastructure safety from OSM tags (length-weighted mean of the street segments in the hex).
 - d_net: bike-network distance (m) to the nearest Veturilo station, one multi-source Dijkstra.
 City area: the Warsaw boundary from Nominatim (data/geojson/warsaw.geojson).
 """
-import gzip
-import json
 import math
 import sys
 import threading
@@ -37,7 +36,7 @@ BOUNDARY_URL = "https://nominatim.openstreetmap.org/lookup"
 WARSAW_RELATION = "R336075"
 MOCK_DIR = DATA / "mock"
 TRAFFIC = MOCK_DIR / "traffic_counts.json"
-SCOOTERS = MOCK_DIR / "scooter_events.json.gz"
+SCOOTERS = MOCK_DIR / "scooter_intensity.json"
 ROADS = DERIVED / "siting_roads.npz"
 HEXES = DERIVED / "siting_hexes.npz"
 MAX_R_M = 5000.0  # d_net is computed up to this distance; farther = inf (P is 0 there for any allowed R)
@@ -170,7 +169,7 @@ HOTSPOTS = [  # (name, lat, lon, share)
 
 
 def make_mocks() -> list[str]:
-    """Fake traffic counters and e-scooter events (fixed seed). Not real data."""
+    """Fake traffic counters and e-scooter crowding per hexagon (fixed seed). Not real data."""
     rng = np.random.default_rng(SEED)
     rd = roads()
     rx, ry = to_xy(rd["lat"], rd["lon"])
@@ -188,7 +187,9 @@ def make_mocks() -> list[str]:
                          "hourly": [int(max(v, 0)) for v in hourly]})
     save_json(TRAFFIC, {"mock": True, "note": "Fake hourly car counts (vehicles / h) for one weekday. Not real data.",
                         "seed": SEED, "counters": counters})
-    # e-scooter events: along streets, denser near the centre, plus hotspots
+    # e-scooter crowding: the city only gets an index 0..1 per 175 m hexagon. To make one, we draw fake trip
+    # starts / ends (along streets, denser near the centre, plus hotspots), count them per hexagon and keep
+    # only the index; the points themselves are not saved.
     cx, cy = to_xy(*CENTRE)
     dist_c = np.hypot(rx - cx, ry - cy)
     w = rd["length"] * np.exp(-dist_c / 3500.0) * inside * (rd["cls"] != 1)
@@ -200,22 +201,16 @@ def make_mocks() -> list[str]:
     hx, hy = to_xy(np.array([h[1] for h in HOTSPOTS]), np.array([h[2] for h in HOTSPOTS]))
     ex = np.r_[ex, hx[which] + rng.normal(0, 300, len(which))]
     ey = np.r_[ey, hy[which] + rng.normal(0, 300, len(which))]
-    lat, lon = to_latlon(ex, ey)
-    hour = rng.choice(24, size=N_SCOOTER, p=HOURLY / HOURLY.sum())
-    kind = rng.integers(0, 2, N_SCOOTER)
-    data = {"mock": True, "note": "Fake e-scooter trip starts (kind 0) and ends (kind 1). Not real data.",
-            "seed": SEED, "hotspots": [h[0] for h in HOTSPOTS],
-            "lat": np.round(lat, 5).tolist(), "lon": np.round(lon, 5).tolist(),
-            "kind": kind.tolist(), "hour": hour.tolist()}
-    MOCK_DIR.mkdir(parents=True, exist_ok=True)
-    with gzip.open(SCOOTERS, "wt", encoding="utf-8") as f:
-        json.dump(data, f, separators=(",", ":"))
+    q, r, x, y, index_of = grid()
+    _, count = mean_per_hex(index_of(ex, ey), np.ones(len(ex)), len(q))
+    value = normalize(np.log1p(count))  # heavy-tailed counts (hotspots) -> log before scaling to 0..1
+    lat, lon = to_latlon(x, y)
+    save_json(SCOOTERS, {"mock": True, "note": "Fake e-scooter crowding index (0..1) per 175 m hexagon, "
+                                               "as the city receives it from operators. Not real data.",
+                         "seed": SEED, "hex_radius_m": HEX_SIZE_M, "hotspots": [h[0] for h in HOTSPOTS],
+                         "lat": np.round(lat, 5).tolist(), "lon": np.round(lon, 5).tolist(),
+                         "value": np.round(value, 3).tolist()})
     return [TRAFFIC.name, SCOOTERS.name]
-
-
-def load_scooters() -> dict:
-    with gzip.open(SCOOTERS, "rt", encoding="utf-8") as f:
-        return json.load(f)
 
 
 # ---------- network distance ----------
@@ -244,32 +239,41 @@ def network_distance(sources: np.ndarray, targets: np.ndarray, target_snap: np.n
 _H = {}
 
 
-def build() -> dict:
-    """Hexes inside Warsaw with T, E, S, d_net. Saved to data/derived/siting_hexes.npz."""
-    if not TRAFFIC.exists() or not SCOOTERS.exists():
-        make_mocks()
+def grid():
+    """Hexes whose centre is inside Warsaw: (q, r, x, y, index_of), index_of(x, y) -> hex index or -1."""
     rings = boundary_rings()
     allx = np.concatenate([r[:, 0] for r in rings])
     ally = np.concatenate([r[:, 1] for r in rings])
     q, r, x, y = hex_grid(allx.min(), ally.min(), allx.max(), ally.max(), HEX_SIZE_M)
     keep = points_in_rings(x, y, rings)
     q, r, x, y = q[keep], r[keep], x[keep], y[keep]
-    n = len(q)
     lookup = {(int(a), int(b)): i for i, (a, b) in enumerate(zip(q, r))}
 
     def index_of(px, py):
         hq, hr = hex_of(px, py, HEX_SIZE_M)
         return np.array([lookup.get((int(a), int(b)), -1) for a, b in zip(hq, hr)], dtype=np.int64)
 
+    return q, r, x, y, index_of
+
+
+def build() -> dict:
+    """Hexes inside Warsaw with T, E, S, d_net. Saved to data/derived/siting_hexes.npz."""
+    if not TRAFFIC.exists() or not SCOOTERS.exists():
+        make_mocks()
+    q, r, x, y, index_of = grid()
+    n = len(q)
+
     # T: mean of the counters' daily mean flow in each hex, empty hexes by IDW
     tc = load_json(TRAFFIC)["counters"]
     cx, cy = to_xy(np.array([c["lat"] for c in tc]), np.array([c["lon"] for c in tc]))
     t_raw, t_n = mean_per_hex(index_of(cx, cy), [np.mean(c["hourly"]) for c in tc], n)
     t_raw = idw_fill(x, y, t_raw)
-    # E: scooter events per hex
-    sc = load_scooters()
+    # E: the city's crowding index per hexagon (already 0..1). Values are averaged per our hex (a city grid
+    # shifted against ours still works); our hexes without a value by IDW
+    sc = load_json(SCOOTERS)
     sx, sy = to_xy(np.array(sc["lat"]), np.array(sc["lon"]))
-    _, e_raw = mean_per_hex(index_of(sx, sy), np.ones(len(sx)), n)
+    e, e_n = mean_per_hex(index_of(sx, sy), sc["value"], n)
+    e = np.clip(idw_fill(x, y, e), 0.0, 1.0)
     # S: length-weighted mean of the street segments in the hex
     rd = roads()
     rx, ry = to_xy(rd["lat"], rd["lon"])
@@ -288,8 +292,7 @@ def build() -> dict:
     d_net[stations > 0] = 0.0
     candidate = (stations == 0) & (snap <= HEX_SIZE_M) & ~no_streets
     out = dict(q=q, r=r, x=x, y=y, lat=lat, lon=lon, t_raw=t_raw, t_counters=t_n, t=normalize(t_raw),
-               # counts are heavy-tailed (hotspots), so E is normalised on log(1 + count)
-               e_raw=e_raw.astype(np.float64), e=normalize(np.log1p(e_raw)), s=s.astype(np.float64), no_streets=no_streets,
+               e=e, e_values=e_n, s=s.astype(np.float64), no_streets=no_streets,
                node=node, snap=snap, stations=stations, d_net=d_net, candidate=candidate)
     save_npz(HEXES, **out)
     return out
