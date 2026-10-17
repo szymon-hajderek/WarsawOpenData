@@ -170,9 +170,9 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
   `WAIT` in `osm.py`). OSM has no signal timing tags in Warsaw. The wait is per edge (`osm.edges()`):
   signal nodes < 30 m apart by path form one junction (plus the nodes between them, e.g. islands),
-  paid once (`algorithms/street_matrix.py`).
+  paid once (`algorithms/street_model.py`).
 - A point (stop, address) joins the street graph through up to 6 nearest nodes (<= 30 m farther than the
-  nearest; `osm.access`, `osm.graph_with_points`): virtual out / in nodes = multi-source Dijkstra with start
+  nearest; `osm.access`, `osm.points_graph` -> `StreetGraph`): virtual out / in nodes = multi-source Dijkstra with start
   costs. Access segments are walked; on a bike pushed (extra time in `wait_s`). Used by `osm.route()` and the matrix.
   Known gap: a pedestrian crosses a road only where OSM connects the two sidewalks (e.g. Wolica 01 / 02: 59 m apart, 695 m walk).
 - ZTM posts in OSM: `public_transport=platform` nodes with `ref` = ZTM stop_id (`Grójecka 02` = `ref=435102`);

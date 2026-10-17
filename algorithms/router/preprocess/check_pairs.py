@@ -8,6 +8,7 @@ import csv
 import json
 import subprocess
 import sys
+import tempfile
 from collections import defaultdict
 from pathlib import Path
 
@@ -18,7 +19,6 @@ sys.path.insert(0, ".")
 from config import DERIVED, in_bbox, to_xy  # noqa: E402
 from preprocess_street import CPP  # noqa: E402
 from sources import mkuran, osm  # noqa: E402
-from street_matrix import save_graph  # noqa: E402
 
 OUT = DERIVED / "street"
 EXAMPLE = ("ztm:435102", "ztm:701303")  # Grójecka 02 -> Centrum 03
@@ -56,12 +56,11 @@ def pick_pairs(posts: list[dict], seed: int = 11) -> list[tuple[dict, dict]]:
     return pairs
 
 
-def cpp_matrix(points: list[dict], mode: str, tmp: Path) -> np.ndarray:
-    m, src, dst, cost, length, wait, out_ids, in_ids = osm.points_graph(
-        [p["lat"] for p in points], [p["lon"] for p in points], mode)
-    save_graph(tmp / "graph.bin", m, src, dst, cost, length, wait, out_ids, in_ids, np.ones(len(points), bool))
-    subprocess.run([str(CPP), str(tmp / "graph.bin"), str(tmp / "out.bin")], check=True, capture_output=True)
-    return np.fromfile(tmp / "out.bin", dtype="<f4").reshape(2, len(points), len(points))
+def cpp_matrix(points: list[dict], mode: str) -> np.ndarray:
+    with tempfile.TemporaryDirectory() as tmp:
+        osm.points_graph([p["lat"] for p in points], [p["lon"] for p in points], mode).save(Path(tmp) / "graph.bin")
+        subprocess.run([str(CPP), f"{tmp}/graph.bin", f"{tmp}/out.bin"], check=True, capture_output=True)
+        return np.fromfile(f"{tmp}/out.bin", dtype="<f4").reshape(2, len(points), len(points))
 
 
 def main() -> None:
@@ -75,7 +74,7 @@ def main() -> None:
              "air_m": round(float(np.hypot(*np.subtract(to_xy(a["lat"], a["lon"]), to_xy(b["lat"], b["lon"])))))}
             for a, b in pairs]
     for mode in ("walk", "bike"):
-        mat = cpp_matrix(points, mode, OUT)
+        mat = cpp_matrix(points, mode)
         for i, ((a, b), row) in enumerate(zip(pairs, rows)):
             r = osm.route(a["lat"], a["lon"], b["lat"], b["lon"], mode, limit_s=np.inf)
             g, o = (4 * i, 4 * i + 1), (4 * i + 2, 4 * i + 3)
