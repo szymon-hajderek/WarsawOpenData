@@ -62,7 +62,7 @@ Everything in this repo (files, commits, PRs) is written in English.
 - **Jury criteria (design for them):** inclusivity / accessibility / diversity, scalability to
   other cities, safety, privacy, evidence-based, technical correctness, business model.
 - **Time frame:** 24h hackathon, so keep everything simple.
-- **Status:** the frontend UI exists (PR #10, mock routing); backend, routing and data are empty.
+- **Status:** the frontend UI exists (mock routing); backend, routing and data are empty.
 
 ### Tech stack
 
