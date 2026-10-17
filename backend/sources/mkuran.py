@@ -1,0 +1,507 @@
+"""mkuran.pl GTFS feeds: stop locations and timetables for ZTM (bus, tram, metro, SKM), WKD and
+other trains (KM, PKP Intercity, PolRegio ...).
+
+Dedup rules (GTFS is the base for all stops):
+- ZTM incl. metro + SKM comes from warsaw.zip.
+- WKD comes from wkd.zip.
+- polish_trains.zip: SKM is dropped (already in warsaw.zip), stops outside the ZTM area are dropped.
+- A train station from polish_trains / WKD is merged into a ZTM *rail* stop when the names match and
+  the distance is < 150 m. Train stations are never merged with bus / tram / metro stops.
+
+Global stop ids are prefixed with the feed: "ztm:700901", "wkd:brzoz", "pkp:33605_RAIL_1_5".
+ZTM stop_id = stop group (zespół, 4 digits) + post (słupek, 2 digits): "7009" + "01" -> "700901".
+"""
+import csv
+import io
+import zipfile
+from collections import defaultdict
+from datetime import date, datetime, timedelta
+from functools import lru_cache
+
+import httpx
+import numpy as np
+from fastapi import APIRouter, HTTPException, Query
+
+from config import BBOX, DERIVED, GTFS_DIR, haversine_m, in_bbox, load_json, save_json
+
+FEEDS = {
+    "ztm": ("warsaw.zip", "https://mkuran.pl/gtfs/warsaw.zip"),
+    "wkd": ("wkd.zip", "https://mkuran.pl/gtfs/wkd.zip"),
+    "pkp": ("polish_trains.zip", "https://mkuran.pl/gtfs/polish_trains.zip"),
+}
+DROP_PKP_AGENCIES = {"SKM"}  # already in warsaw.zip
+MERGE_RADIUS_M = 150
+ROUTE_TYPES = {0: "tram", 1: "metro", 2: "rail", 3: "bus", 11: "trolleybus"}
+
+
+# ---------------------------------------------------------------- download
+
+def download() -> list[str]:
+    GTFS_DIR.mkdir(parents=True, exist_ok=True)
+    done = []
+    with httpx.Client(follow_redirects=True, timeout=300) as client:
+        for name, url in FEEDS.values():
+            with client.stream("GET", url) as r:
+                r.raise_for_status()
+                with open(GTFS_DIR / name, "wb") as f:
+                    for chunk in r.iter_bytes(1 << 20):
+                        f.write(chunk)
+            done.append(name)
+    return done
+
+
+# ---------------------------------------------------------------- raw readers
+
+def _rows(feed: str, table: str):
+    path = GTFS_DIR / FEEDS[feed][0]
+    with zipfile.ZipFile(path) as z:
+        if table not in z.namelist():
+            return
+        with z.open(table) as f:
+            yield from csv.DictReader(io.TextIOWrapper(f, encoding="utf-8-sig"))
+
+
+def _sec(t: str) -> int:
+    h, m, s = t.split(":")
+    return int(h) * 3600 + int(m) * 60 + int(s)
+
+
+def _norm_name(name: str) -> str:
+    return " ".join(name.lower().replace("-", " ").split())
+
+
+@lru_cache
+def routes() -> dict:
+    """Global route id -> route info. SKM from polish_trains is dropped."""
+    out = {}
+    for feed in FEEDS:
+        for r in _rows(feed, "routes.txt"):
+            if feed == "pkp" and r["agency_id"] in DROP_PKP_AGENCIES:
+                continue
+            rt = int(r["route_type"])
+            out[f"{feed}:{r['route_id']}"] = {
+                "id": f"{feed}:{r['route_id']}",
+                "feed": feed,
+                "short_name": r["route_short_name"],
+                "long_name": r["route_long_name"],
+                "agency": r["agency_id"],
+                "type": rt,
+                "mode": ROUTE_TYPES.get(rt, str(rt)),
+                "color": r.get("route_color", ""),
+            }
+    return out
+
+
+@lru_cache
+def services() -> dict:
+    """Global service id -> set of 'YYYYMMDD' dates (calendar.txt + calendar_dates.txt)."""
+    out: dict[str, set] = defaultdict(set)
+    days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    for feed in FEEDS:
+        for c in _rows(feed, "calendar.txt") or []:
+            d = datetime.strptime(c["start_date"], "%Y%m%d").date()
+            end = datetime.strptime(c["end_date"], "%Y%m%d").date()
+            while d <= end:
+                if c[days[d.weekday()]] == "1":
+                    out[f"{feed}:{c['service_id']}"].add(d.strftime("%Y%m%d"))
+                d += timedelta(days=1)
+        for c in _rows(feed, "calendar_dates.txt") or []:
+            key = f"{feed}:{c['service_id']}"
+            if c["exception_type"] == "1":
+                out[key].add(c["date"])
+            else:
+                out[key].discard(c["date"])
+    return dict(out)
+
+
+def _raw_stops(feed: str) -> list[dict]:
+    out = []
+    for s in _rows(feed, "stops.txt"):
+        lt = int(s.get("location_type") or 0)
+        out.append({
+            "id": f"{feed}:{s['stop_id']}",
+            "feed": feed,
+            "raw_id": s["stop_id"],
+            "name": s["stop_name"],
+            "code": s.get("stop_code") or s.get("platform_code") or "",
+            "lat": float(s["stop_lat"]),
+            "lon": float(s["stop_lon"]),
+            "location_type": lt,
+            "parent": f"{feed}:{s['parent_station']}" if s.get("parent_station") else None,
+            "wheelchair": s.get("wheelchair_boarding", ""),
+        })
+    return out
+
+
+def _stop_group(stop: dict) -> str:
+    """ZTM stop group (zespół) for numeric posts, else the parent station, else the stop itself."""
+    if stop["feed"] == "ztm" and stop["raw_id"].isdigit() and len(stop["raw_id"]) == 6:
+        return "ztm:" + stop["raw_id"][:4]
+    return stop["parent"] or stop["id"]
+
+
+# ---------------------------------------------------------------- build (cached)
+
+def _build() -> None:
+    """Parse all feeds once and write compact caches to data/derived/."""
+    DERIVED.mkdir(parents=True, exist_ok=True)
+    rts = routes()
+
+    # stops
+    all_stops = {}
+    for feed in FEEDS:
+        for s in _raw_stops(feed):
+            if feed == "pkp" and not in_bbox(s["lat"], s["lon"]):
+                continue
+            all_stops[s["id"]] = s
+    stop_index = {sid: i for i, sid in enumerate(all_stops)}
+
+    # trips
+    trips = []  # (global trip id, route id, service id)
+    trip_index = {}
+    for feed in FEEDS:
+        for t in _rows(feed, "trips.txt"):
+            rid = f"{feed}:{t['route_id']}"
+            if rid not in rts:
+                continue  # dropped agency
+            tid = f"{feed}:{t['trip_id']}"
+            trip_index[tid] = len(trips)
+            trips.append((tid, rid, f"{feed}:{t['service_id']}", t.get("block_short_name", "")))
+
+    # stop_times -> arrays. pos = position in the original trip (to know which rows were adjacent).
+    trip_col, pos_col, stop_col, arr_col, dep_col = [], [], [], [], []
+    for feed in FEEDS:
+        last_trip, pos = None, -1
+        for r in _rows(feed, "stop_times.txt"):
+            tid = f"{feed}:{r['trip_id']}"
+            ti = trip_index.get(tid)
+            if ti is None:
+                continue
+            pos = pos + 1 if tid == last_trip else 0
+            last_trip = tid
+            si = stop_index.get(f"{feed}:{r['stop_id']}")
+            if si is None:
+                continue  # outside the area
+            trip_col.append(ti)
+            pos_col.append(int(r["stop_sequence"]) if feed != "pkp" else pos)
+            stop_col.append(si)
+            arr_col.append(_sec(r["arrival_time"] or r["departure_time"]))
+            dep_col.append(_sec(r["departure_time"] or r["arrival_time"]))
+
+    st = {
+        "trip": np.array(trip_col, dtype=np.int32),
+        "pos": np.array(pos_col, dtype=np.int32),
+        "stop": np.array(stop_col, dtype=np.int32),
+        "arr": np.array(arr_col, dtype=np.int32),
+        "dep": np.array(dep_col, dtype=np.int32),
+    }
+    order = np.lexsort((st["pos"], st["trip"]))
+    st = {k: v[order] for k, v in st.items()}
+
+    # frequencies (metro): number of runs per template trip
+    runs = np.ones(len(trips), dtype=np.int32)
+    freq = defaultdict(list)
+    for feed in FEEDS:
+        for f in _rows(feed, "frequencies.txt") or []:
+            ti = trip_index.get(f"{feed}:{f['trip_id']}")
+            if ti is None:
+                continue
+            start, end, hw = _sec(f["start_time"]), _sec(f["end_time"]), int(f["headway_secs"])
+            freq[ti].append((start, end, hw))
+    for ti, windows in freq.items():
+        runs[ti] = sum(max(1, (e - s) // hw) for s, e, hw in windows)
+
+    # which stops are served, which route types serve them
+    served_types = defaultdict(set)
+    trip_route_type = np.array([rts[t[1]]["type"] for t in trips], dtype=np.int16)
+    for si, rt in set(zip(st["stop"].tolist(), trip_route_type[st["trip"]].tolist())):
+        served_types[si].add(rt)
+
+    # rail-to-rail merge: pkp / wkd stations -> ZTM rail stop (route_type 2)
+    ztm_rail = [all_stops[sid] for sid, i in stop_index.items()
+                if sid.startswith("ztm:") and 2 in served_types.get(i, ())]
+    merged = {}  # stop id -> canonical stop id
+    unmatched_near = []
+    for s in all_stops.values():
+        if s["feed"] == "ztm":
+            continue
+        is_station = s["location_type"] == 1 or (s["feed"] == "wkd")
+        if not is_station:
+            continue
+        best = None
+        for z in ztm_rail:
+            d = haversine_m(s["lat"], s["lon"], z["lat"], z["lon"])
+            if d < MERGE_RADIUS_M and (best is None or d < best[0]):
+                best = (d, z)
+        if best is None:
+            continue
+        if _norm_name(best[1]["name"]) == _norm_name(s["name"]):
+            merged[s["id"]] = best[1]["id"]
+        else:
+            unmatched_near.append({"stop": s["id"], "name": s["name"], "ztm": best[1]["id"],
+                                   "ztm_name": best[1]["name"], "distance_m": round(best[0])})
+    # platforms follow their parent station
+    for s in all_stops.values():
+        if s["parent"] in merged:
+            merged[s["id"]] = merged[s["parent"]]
+
+    served = set(st["stop"].tolist())
+    stops_out = []
+    for sid, i in stop_index.items():
+        s = all_stops[sid]
+        s["group"] = _stop_group(s)
+        s["modes"] = sorted({ROUTE_TYPES.get(t, str(t)) for t in served_types.get(i, ())})
+        s["served"] = i in served
+        s["same_as"] = merged.get(sid)
+        stops_out.append(s)
+
+    np.savez_compressed(DERIVED / "gtfs_stop_times.npz", **st, runs=runs,
+                        trip_route_type=trip_route_type)
+    save_json(DERIVED / "gtfs_stops.json", stops_out)
+    save_json(DERIVED / "gtfs_trips.json", trips)
+    save_json(DERIVED / "gtfs_merge.json", {"merged": merged, "unmatched_near": unmatched_near})
+    save_json(DERIVED / "gtfs_frequencies.json", {str(k): v for k, v in freq.items()})
+
+
+def _ensure_built():
+    if not (DERIVED / "gtfs_stop_times.npz").exists():
+        _build()
+
+
+@lru_cache
+def stops() -> list[dict]:
+    _ensure_built()
+    return load_json(DERIVED / "gtfs_stops.json")
+
+
+@lru_cache
+def stops_by_id() -> dict:
+    return {s["id"]: s for s in stops()}
+
+
+@lru_cache
+def trips() -> list:
+    _ensure_built()
+    return load_json(DERIVED / "gtfs_trips.json")
+
+
+@lru_cache
+def merge_info() -> dict:
+    _ensure_built()
+    return load_json(DERIVED / "gtfs_merge.json")
+
+
+@lru_cache
+def stop_times() -> dict:
+    _ensure_built()
+    with np.load(DERIVED / "gtfs_stop_times.npz") as z:
+        return {k: z[k] for k in z.files}
+
+
+@lru_cache
+def frequencies() -> dict:
+    _ensure_built()
+    return {int(k): v for k, v in load_json(DERIVED / "gtfs_frequencies.json").items()}
+
+
+def canonical(stop_id: str) -> str:
+    return stops_by_id()[stop_id]["same_as"] or stop_id
+
+
+def vertices() -> list[dict]:
+    """Transit graph vertices: served boarding points (posts / platforms) after the rail merge."""
+    return [s for s in stops() if s["served"] and not s["same_as"] and s["location_type"] == 0]
+
+
+@lru_cache
+def _pairs():
+    """Adjacent stop pairs inside each trip: arrays (from_idx, to_idx, trip_idx)."""
+    st = stop_times()
+    same_trip = st["trip"][1:] == st["trip"][:-1]
+    adjacent = same_trip & (st["pos"][1:] - st["pos"][:-1] >= 1)
+    # pkp rows outside the area were removed; only keep rows that were adjacent in the original trip
+    pkp_mask = np.array([t[0].startswith("pkp:") for t in trips()])[st["trip"][1:]]
+    adjacent &= ~pkp_mask | (st["pos"][1:] - st["pos"][:-1] == 1)
+    idx = np.nonzero(adjacent)[0]
+    return idx, idx + 1
+
+
+@lru_cache(maxsize=4)
+def edges(date_str: str | None = None) -> dict:
+    """Stop -> next stop edges. Returns counts and the unique (from, to, route) list."""
+    st = stop_times()
+    tr = trips()
+    ids = [s["id"] for s in stops()]
+    pos = {sid: n for n, sid in enumerate(ids)}
+    canon_idx = np.array([pos[canonical(sid)] for sid in ids], dtype=np.int32)
+    a, b = _pairs()
+    fr, to = canon_idx[st["stop"][a]], canon_idx[st["stop"][b]]
+    trip_i = st["trip"][a]
+    keep = fr != to
+    fr, to, trip_i = fr[keep], to[keep], trip_i[keep]
+
+    route_names = [t[1] for t in tr]
+    uniq_route = {(f, t, route_names[k]) for f, t, k in zip(fr.tolist(), to.tolist(), trip_i.tolist())}
+    uniq_pair = {(f, t) for f, t, _ in uniq_route}
+    result = {
+        "unique_from_to_route": len(uniq_route),
+        "unique_from_to": len(uniq_pair),
+    }
+    if date_str:
+        svc = services()
+        active = np.array([date_str in svc.get(t[2], ()) for t in tr])
+        runs = st["runs"]
+        result["timetable_edges_on_date"] = int((runs[trip_i] * active[trip_i]).sum())
+        result["date"] = date_str
+    result["list"] = [{"from": ids[f], "to": ids[t], "route": r} for f, t, r in sorted(uniq_route)]
+    return result
+
+
+def departures(stop_id: str, date_str: str, after_sec: int, limit: int = 20) -> list[dict]:
+    st = stop_times()
+    tr = trips()
+    rts = routes()
+    svc = services()
+    if stop_id not in stops_by_id():
+        raise KeyError(stop_id)
+    # a merged rail station also gets the departures of the platforms merged into it
+    targets = [i for i, s in enumerate(stops()) if s["id"] == stop_id or s["same_as"] == stop_id]
+    rows = np.nonzero(np.isin(st["stop"], targets))[0]
+    freq = frequencies()
+    out = []
+    for r in rows:
+        ti = int(st["trip"][r])
+        trip_id, route_id, service_id, block = tr[ti]
+        if date_str not in svc.get(service_id, ()):
+            continue
+        offsets = [0]
+        if ti in freq:  # frequency-based template (metro): expand runs
+            base = int(st["dep"][np.nonzero(st["trip"] == ti)[0][0]])
+            offsets = [s - base + k * hw for s, e, hw in freq[ti] for k in range(max(1, (e - s) // hw))]
+        for off in offsets:
+            dep = int(st["dep"][r]) + off
+            if dep >= after_sec:
+                route = rts[route_id]
+                out.append({"time": f"{dep // 3600:02d}:{dep % 3600 // 60:02d}:{dep % 60:02d}",
+                            "sec": dep, "line": route["short_name"], "mode": route["mode"],
+                            "route_id": route_id, "trip_id": trip_id, "brigade": block})
+    out.sort(key=lambda d: d["sec"])
+    return out[:limit]
+
+
+def route_stops(route_id: str) -> list[list[str]]:
+    """Distinct stop sequences (variants) of a route."""
+    st = stop_times()
+    tr = trips()
+    ids = [s["id"] for s in stops()]
+    tis = [i for i, t in enumerate(tr) if t[1] == route_id]
+    if not tis:
+        raise KeyError(route_id)
+    mask = np.isin(st["trip"], tis)
+    variants = defaultdict(list)
+    for t, s in zip(st["trip"][mask], st["stop"][mask]):
+        variants[int(t)].append(ids[s])
+    return sorted({tuple(v) for v in variants.values()}, key=len, reverse=True)
+
+
+def reference_date() -> str:
+    """First Wednesday that all feeds cover, starting today (a normal weekday)."""
+    svc = services()
+    d = date.today()
+    for _ in range(60):
+        ds = d.strftime("%Y%m%d")
+        if d.weekday() == 2 and all(any(ds in v for k, v in svc.items() if k.startswith(f + ":"))
+                                    for f in FEEDS):
+            return ds
+        d += timedelta(days=1)
+    return date.today().strftime("%Y%m%d")
+
+
+# ---------------------------------------------------------------- API
+
+router = APIRouter(prefix="/api/gtfs", tags=["mkuran GTFS"])
+
+
+@router.get("/stops")
+def api_stops(mode: str | None = Query(None, description="bus, tram, metro, rail"),
+              feed: str | None = Query(None, description="ztm, wkd, pkp"),
+              bbox: str | None = Query(None, description="min_lat,min_lon,max_lat,max_lon"),
+              include_merged: bool = False):
+    """Boarding points (posts / platforms). Merged duplicates are hidden unless include_merged."""
+    box = tuple(map(float, bbox.split(","))) if bbox else BBOX
+    out = []
+    for s in stops():
+        if s["location_type"] != 0 or not s["served"]:
+            continue
+        if s["same_as"] and not include_merged:
+            continue
+        if mode and mode not in s["modes"]:
+            continue
+        if feed and s["feed"] != feed:
+            continue
+        if not in_bbox(s["lat"], s["lon"], box):
+            continue
+        out.append(s)
+    return out
+
+
+@router.get("/stops/{stop_id}")
+def api_stop(stop_id: str):
+    """One stop with group, modes and same_as (merged rail station)."""
+    s = stops_by_id().get(stop_id)
+    if not s:
+        raise HTTPException(404, "unknown stop_id (use the feed prefix, e.g. ztm:700901)")
+    return s
+
+
+@router.get("/stop-groups")
+def api_stop_groups(feed: str | None = None):
+    """Stop groups (ZTM zespół, station parents) with their posts."""
+    groups = defaultdict(list)
+    for s in stops():
+        if s["location_type"] == 0 and s["served"] and (not feed or s["feed"] == feed):
+            groups[s["group"]].append(s["id"])
+    names = stops_by_id()
+    return [{"group": g, "name": names[p[0]]["name"], "posts": p} for g, p in groups.items()]
+
+
+@router.get("/routes")
+def api_routes(mode: str | None = None, feed: str | None = None):
+    """Lines from all GTFS feeds (SKM only from ZTM)."""
+    return [r for r in routes().values()
+            if (not mode or r["mode"] == mode) and (not feed or r["feed"] == feed)]
+
+
+@router.get("/routes/{route_id}/stops")
+def api_route_stops(route_id: str):
+    """Distinct stop sequences (variants) of one line."""
+    try:
+        return {"route": routes()[route_id], "variants": route_stops(route_id)}
+    except KeyError:
+        raise HTTPException(404, "unknown route_id (use the feed prefix, e.g. ztm:131)")
+
+
+@router.get("/stops/{stop_id}/departures")
+def api_departures(stop_id: str, date_: str | None = Query(None, alias="date", description="YYYYMMDD"),
+                   time: str | None = Query(None, description="HH:MM"), limit: int = 20):
+    """Next departures from a stop (all feeds; a merged rail station includes KM / IC trains)."""
+    now = datetime.now()
+    d = date_ or now.strftime("%Y%m%d")
+    t = time or now.strftime("%H:%M")
+    try:
+        return departures(stop_id, d, _sec(t + ":00"), limit)
+    except KeyError:
+        raise HTTPException(404, "unknown stop_id")
+
+
+@router.get("/edges")
+def api_edges(limit: int = 1000, offset: int = 0):
+    """Unique stop -> next stop edges per route (canonical stop ids)."""
+    e = edges()
+    return {"total": e["unique_from_to_route"], "items": e["list"][offset:offset + limit]}
+
+
+@router.get("/merge")
+def api_merge():
+    """Rail stations merged across feeds, and near misses (< 150 m, different names)."""
+    return merge_info()
