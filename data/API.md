@@ -30,6 +30,7 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 | [Bus detection](#bus-detection) | `/api/live` | `backend/bus_detect.py` |
 | [Veturilo](#veturilo-city-bikes) | `/api/veturilo` | `backend/sources/nextbike.py` |
 | [OSM](#osm-street-graph) | `/api/osm` | `backend/sources/osm.py` |
+| [Stations](#stations-stationlocations) | `/api/stations` | `backend/api_stations.py` |
 | [Routing API](#routing-api-backendapp) | `/api/routes`, `/api/geocode`, `/health` | `backend/app/` |
 
 ## IDs
@@ -403,6 +404,53 @@ Bike types (classic, e-bike, ...). Match `vehicle_type_id` from the endpoints ab
 
 ---
 
+## Stations (StationLocations)
+
+The one list of transport nodes (bus / tram posts, metro platforms, rail platforms and stations, Veturilo) shared
+by the C++ street router, the backend and the frontend. GTFS decides what exists; where an exact OSM match exists
+(post `ref` = ZTM stop id within 50 m, rail platform number within 50 m) the position is the OSM object, else GTFS.
+Ids are the mkuran ids (`ztm:435102`, `ztm:7014M:P1`, `pkp:33506_P2`, `wkd:brzoz`, `vet:203610`) and the router
+accepts them as `from` / `to`. Built at server start into `data/derived/stations.json`; requests never read raw
+data. Rules and record fields: `algorithms/router/README.md` ("StationLocations").
+
+### `GET /api/stations`
+
+| Query | Type | Default | Meaning |
+|---|---|---|---|
+| `kind` | string | all | `bus_post`, `tram_post`, `metro_platform`, `rail_platform`, `rail_station`, `veturilo` (else `422`) |
+| `feed` | string | all | `ztm`, `pkp`, `wkd`, `nextbike` |
+| `source` | string | all | `osm` or `gtfs` (where the position comes from) |
+| `bbox` | string | ZTM area | `min_lat,min_lon,max_lat,max_lon` |
+
+Answer: list of locations. Fields: `id`, `kind`, `name`, `code`, `modes`, `feed`, `position` (`{lat, lon}`, the one
+to use), `source` (`osm` | `gtfs`), `osm` (`{type, id, matched_by, distance_m}` or `null`), `gtfs` (`{lat, lon}`),
+`members` (a rail platform's GTFS platform + track children), `group`, `parent`, `entrances` (metro: the station's
+entrances `{gtfs_id, lat, lon, osm_id}`), `transfers` (metro: `{to, walk_m}` to the other platforms of the station),
+`wheelchair`, `zone`; Veturilo also `capacity`, `virtual`.
+
+```json
+[{"id": "ztm:435102", "kind": "bus_post", "name": "Grójecka", "code": "02", "modes": ["bus"], "feed": "ztm",
+  "position": {"lat": 52.199445, "lon": 20.9660556}, "source": "osm",
+  "osm": {"type": "node", "id": 8242056144, "matched_by": "ref", "distance_m": 11.9},
+  "gtfs": {"lat": 52.199339, "lon": 20.966028}, "members": [], "group": "ztm:4351", "parent": null,
+  "entrances": [], "transfers": [], "wheelchair": "1", "zone": "1"}, "..."]
+```
+
+### `GET /api/stations/{station_id}`
+
+One location. `404 {"detail": "unknown station id (use the mkuran id, e.g. ztm:700901)"}` for an unknown id.
+
+### `GET /api/stations/report`
+
+How the overlay was matched: `hash`, `built`, `total`, `kinds` (locations per kind), `matched` (OSM positions per
+kind), `entrances` (`{osm, gtfs}`), `mismatches` (posts whose OSM `ref` is more than 50 m away; kept at GTFS).
+
+### `GET /api/stations/health`
+
+The street router's status (relayed): `modes`, `stations` (`{count, hash}`), `matrices` (`{status: ok | stale |
+missing, stations_hash, matrices_stations_hash, built}`): whether the stop-to-stop matrices belong to the loaded
+overlay and graphs. `503` when the router is not running.
+
 ## OSM street graph
 
 Walk and bike graph from OpenStreetMap. The first call builds a cache (about 45 s).
@@ -412,7 +460,7 @@ Walk and bike graph from OpenStreetMap. The first call builds a cache (about 45 
 
 | Query | Type | Default | Meaning |
 |---|---|---|---|
-| `mode` | string | `walk` | `walk`, `bike` or `accessible` (walk without stairs, with elevators) |
+| `mode` | string | `walk` | `walk`, `bike`, `accessible` (wheelchair: walk without stairs, with elevators) or `stroller` (as accessible, plus steps with a stroller ramp) |
 
 ```json
 {"vertices": 1534865, "edges_undirected": 1741689, "edges_directed": 3483378,
@@ -423,7 +471,7 @@ Walk and bike graph from OpenStreetMap. The first call builds a cache (about 45 
  "nodes_with_signal_timing_tags": 0}
 ```
 
-Error: `400 {"detail": "mode must be walk, bike or accessible"}`.
+Error: `400 {"detail": "mode must be walk, bike, accessible or stroller"}`.
 
 ### `GET /api/osm/nearest`
 
@@ -432,13 +480,13 @@ Nearest graph node to a point.
 | Query | Type | Default | Meaning |
 |---|---|---|---|
 | `lat`, `lon` | number | required | point (`lat` -90..90, `lon` -180..180, else `422`) |
-| `mode` | string | `walk` | `walk`, `bike` or `accessible` |
+| `mode` | string | `walk` | `walk`, `bike`, `accessible` or `stroller` |
 
 ```json
 {"node": 8405597587, "lat": 52.2296575, "lon": 21.0122762, "distance_m": 7.02}
 ```
 
-A `mode` other than `walk`, `bike` or `accessible` returns `400 {"detail": "mode must be walk, bike or accessible"}`.
+A `mode` other than `walk`, `bike`, `accessible` or `stroller` returns `400 {"detail": "mode must be walk, bike, accessible or stroller"}`.
 
 ### `GET /api/osm/route`
 
@@ -447,7 +495,7 @@ Street path between two points.
 | Query | Type | Default | Meaning |
 |---|---|---|---|
 | `from_lat`, `from_lon`, `to_lat`, `to_lon` | number | required | start and end (same ranges as above) |
-| `mode` | string | `walk` | `walk`, `bike` or `accessible` |
+| `mode` | string | `walk` | `walk`, `bike`, `accessible` or `stroller` |
 
 Answered by the C++ street router (`algorithms/router/README.md`, `POST /route`). The start and the end join the
 street graph through up to 6 nearest nodes (at most 30 m farther than the nearest one); these short access segments
@@ -467,7 +515,7 @@ an elevator), `steps` (`[lon, lat]` where a flight of steps starts; walk mode on
 ```
 
 Errors:
-- `400 {"detail": "mode must be walk, bike or accessible"}` for a `mode` other than `walk`, `bike` or `accessible`.
+- `400 {"detail": "mode must be walk, bike, accessible or stroller"}` for a `mode` other than `walk`, `bike`, `accessible` or `stroller`.
 - `422` when the start or the end is more than 1000 m from the street graph (e.g. outside Warsaw):
   `{"detail": "start is more than 1000 m from the street graph"}` (the first of `start`, `end` that is too far).
 - `404` with a message when no path exists.

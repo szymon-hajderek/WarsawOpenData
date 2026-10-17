@@ -179,8 +179,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   Known gap: a pedestrian crosses a road only where OSM connects the two sidewalks (e.g. Wolica 01 / 02: 59 m apart, 695 m walk).
 - ZTM posts in OSM: `public_transport=platform` nodes with `ref` = ZTM stop_id (`Grójecka 02` = `ref=435102`);
   90% of posts match, median 7 m from the GTFS point.
-- Street modes (`osm.SPEED`): `walk`, `bike` (riding + pushing along the accessible graph where riding is not
-  allowed), `accessible` (walk without steps, with `highway=elevator` ways). Every trip splits into `walk_m`
+- Street modes (`osm.SPEED`): `walk`, `bike` (riding + pushing along the stroller graph where riding is not
+  allowed), `accessible` (wheelchair: walk without steps, with `highway=elevator` ways; steps with
+  `ramp:wheelchair=yes` count as step-free, plain `ramp=yes` does not), `stroller` (as accessible, plus steps with
+  `ramp:stroller=yes`: narrow rails are not safe for a wheelchair, user decision). Every trip splits into `walk_m`
   (also a pushed bike, access, metro stairs), `bike_m` and `wait_s` (signals, crossings, 60 s per elevator in
   every mode); time = walk_m / walk speed + bike_m / bike speed + wait_s. Points join only the largest strongly connected component of the mode (`osm._mode_tree`):
   islands (1-2% of nodes) cannot reach anything, so no NaN pairs.
@@ -189,11 +191,26 @@ Everything in this repo (files, commits, PRs) is written in English.
   elevator every entrance is assumed to have (+60 s).
   GTFS entrances match OSM `railway=subway_entrance` (251/253 within 30 m). GTFS `trips.txt` has
   `wheelchair_accessible` per trip (1 = yes for 96%).
+- StationLocations (`backend/stations.py` → `data/derived/stations.json`, rules in `algorithms/station_map.py`): the one
+  list of transport nodes for the router, backend (`GET /api/stations`) and frontend. GTFS = what exists and the
+  fallback position; exact OSM match moves it (post `ref` = ZTM stop id ≤ 50 m: ~90%; rail platform number ≤ 50 m:
+  160 / 207; metro entrances `subway_entrance` ≤ 30 m: 260 / 262). Veturilo unmapped. Ids = mkuran ids. Kinds:
+  bus_post, tram_post, metro_platform (joins through all entrances, 150 m + elevator in no-steps modes, in-station
+  transfer 200 m), rail_platform (`pkp:<station>_P<n>`, members = "N t. T" children), rail_station, veturilo.
+  `hash` covers locations + model constants; the matrices record it in `meta.json`, `/health` says ok / stale / missing.
+- Rail in mkuran: SKM now comes from `polish_trains.zip` (per platform), warsaw.zip route_type 2 is dropped
+  (`DROP_ZTM_ROUTE_TYPES`). PKP platform children fold into `pkp:<station>_P<n>` (`platform` field), FALLBACK children
+  into the station; `vertices()` = `boarding` locations; `canonical()` / `_targets()` know about platforms.
 - Street router (C++, `algorithms/router/`, binary `street_router`): Python builds `graph_<mode>.bin` (SMG4) with
   the cost model (`osm.points_graph`, `preprocess_street.py --graph-only`); C++ does every street search.
   `street_router serve` (started by `main.py` via `backend/street_router.py`, port 8090, `ROUTER_URL` for an
   external one) answers `POST /route` {from, to, mode, speeds} between any coordinates (~1 ms nearby, ~0.4 s across
-  the city); other keys get 501 "not implemented" (Veturilo, preferences come later). Router down = 503.
+  the city); `from` / `to` may be station ids, `from` may be several starts each with its own start time (`at_s`:
+  the egress after RAPTOR, one seeded search); `POST /access` = one Dijkstra from a point to every station within a
+  time limit (or to the point: direction "to", reversed graph), the RAPTOR glue; other keys get 501 "not
+  implemented" (Veturilo, preferences come later). Router down = 503.
+  Target architecture (user): OSM layer for own bike / walk / accessible + a simple station network for RAPTOR with
+  precomputed foot / bike paths; query = access Dijkstra → RAPTOR → egress Dijkstra.
   `street_router matrix` builds the stop-to-stop matrices (float32 (3, N, N): walk_m, bike_m, wait_s).
   `osm.route()` is gone; `/api/osm/route` and `real_engine._street()` call the router. Full docs:
   `algorithms/router/README.md` (keep it current).

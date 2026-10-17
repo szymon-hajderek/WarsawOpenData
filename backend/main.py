@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+import api_stations
 import bus_detect
 import street_router
 from app.api import geocode, history
@@ -95,6 +96,7 @@ app.add_middleware(
 for module in (mkuran, um_warszawa, nextbike, osm):
     app.include_router(module.router)
 app.include_router(bus_detect.router)
+app.include_router(api_stations.router)
 app.include_router(route_api.router)
 app.include_router(geocode.router)
 app.include_router(history.router)

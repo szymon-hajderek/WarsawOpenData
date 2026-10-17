@@ -30,8 +30,10 @@ public:
         if (keep_path) from_.resize(g.n), via_.resize(g.n);
     }
 
-    // Returns the index of the cheapest target, if one is reached. Without targets it covers the whole graph.
-    std::optional<std::size_t> run(std::span<const End> seeds, const Speeds& speeds, std::span<const End> targets = {}) {
+    // Returns the index of the cheapest target, if one is reached. Without targets it covers the whole graph,
+    // or everything within `limit` seconds of the seeds.
+    std::optional<std::size_t> run(std::span<const End> seeds, const Speeds& speeds, std::span<const End> targets = {},
+                                   double limit = kInf) {
         for (const auto v : touched_) cost_[v] = kInf;
         touched_.clear();
         heap_.clear();
@@ -50,7 +52,7 @@ public:
             const auto [c, u] = heap_.back();
             heap_.pop_back();
             if (c > cost_[u]) continue;  // stale entry
-            if (c >= best) break;        // no target can get cheaper
+            if (c >= best || c > limit) break;  // no target can get cheaper / beyond the limit
             for (std::size_t t = 0; t < targets.size(); ++t)
                 if (targets[t].node == u && c + targets[t].cost < best) best = c + targets[t].cost, hit = t;
             for (auto e = g_.offset[u]; e < g_.offset[u + 1]; ++e) {

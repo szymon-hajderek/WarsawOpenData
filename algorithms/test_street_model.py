@@ -288,6 +288,28 @@ def save_grid(path):
                  flags=flags, lon=lon, lat=lat, usable=np.ones(len(lat), bool), entry=entry).save(path)
 
 
+METRO_ACCESS_M, ELEVATOR_S, TRANSFER_M = 150.0, 60.0, 200.0
+
+
+def save_overlay(path):
+    """A toy stations.json next to the street graphs: a bus post at node 24, a metro station with two platforms
+    (P1, P2) reached through two entrances near nodes 0 and 4, with an in-station transfer."""
+    lat, lon, *_ = grid_city()
+    loc = lambda id_, kind, la, lo, **extra: {"id": id_, "kind": kind, "position": {"lat": la, "lon": lo},
+                                              "entrances": [], "transfers": [], **extra}
+    doc = {"hash": "toy", "constants": {"metro_access_m": METRO_ACCESS_M, "elevator_s": ELEVATOR_S,
+                                        "no_steps": ["bike", "accessible"]},
+           "locations": [
+               loc("ztm:post24", "bus_post", lat[24], lon[24]),
+               loc("ztm:M:P1", "metro_platform", lat[2], lon[2],
+                   entrances=[{"lat": lat[0] + 0.00001, "lon": lon[0]}, {"lat": lat[4] + 0.00001, "lon": lon[4]}],
+                   transfers=[{"to": "ztm:M:P2", "walk_m": TRANSFER_M}]),
+               loc("ztm:M:P2", "metro_platform", lat[2], lon[2],  # its only entrance is in the far corner
+                   entrances=[{"lat": lat[24] + 0.00001, "lon": lon[24]}],
+                   transfers=[{"to": "ztm:M:P1", "walk_m": TRANSFER_M}])]}
+    path.write_text(json.dumps(doc))
+
+
 A, B = (52.2301, 21.0003), (52.2323, 21.0039)  # two coordinates inside the grid, between nodes
 
 
@@ -318,8 +340,8 @@ def free_port():
         return s.getsockname()[1]
 
 
-def post(port, body):
-    req = urllib.request.Request(f"http://127.0.0.1:{port}/route", data=json.dumps(body).encode(),
+def post(port, body, path="/route"):
+    req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", data=json.dumps(body).encode(),
                                  headers={"Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req) as r:
@@ -329,19 +351,32 @@ def post(port, body):
 
 
 @needs_cpp
-def test_cpp_server(tmp_path):
-    save_grid(tmp_path / "graph_walk.bin")
+def start_server(tmp_path, mode="walk"):
+    street = tmp_path / "street"
+    street.mkdir(exist_ok=True)
+    save_grid(street / f"graph_{mode}.bin")
+    save_overlay(tmp_path / "stations.json")
     port = free_port()
-    proc = subprocess.Popen([str(CPP), "serve", str(tmp_path), "--port", str(port), "--threads", "2"],
+    proc = subprocess.Popen([str(CPP), "serve", str(street), "--port", str(port), "--threads", "2"],
                             stderr=subprocess.DEVNULL)
+    for _ in range(100):
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/health") as r:
+                health = json.loads(r.read())
+            break
+        except urllib.error.URLError:
+            time.sleep(0.05)
+    else:
+        proc.kill()
+        raise RuntimeError("server did not start")
+    return proc, port, health
+
+
+def test_cpp_server(tmp_path):
+    proc, port, health = start_server(tmp_path)
     try:
-        for _ in range(100):
-            try:
-                with urllib.request.urlopen(f"http://127.0.0.1:{port}/health") as r:
-                    assert json.loads(r.read())["modes"]["walk"]["nodes"] == 25
-                break
-            except urllib.error.URLError:
-                time.sleep(0.05)
+        assert health["modes"]["walk"]["nodes"] == 25 and health["stations"]["count"] == 3
+        assert health["matrices"]["status"] == "missing"
         ok = {"from": list(A), "to": list(B), "mode": "walk"}
         status, got = post(port, ok)
         assert status == 200 and np.isclose(got["seconds"], coordinate_oracle(A, B)[2], atol=0.11)
@@ -360,6 +395,85 @@ def test_cpp_server(tmp_path):
         assert post(port, {**ok, "mode": "car"})[0] == 400
         assert post(port, {**ok, "speeds": {"walk": 0}})[0] == 400
         assert post(port, {**ok, "to": [52.30, 21.0]})[0] == 422
+    finally:
+        proc.terminate()
+        proc.wait()
+
+
+@needs_cpp
+def test_cpp_server_resolves_station_ids_and_metro_entrances(tmp_path):
+    proc, port, _ = start_server(tmp_path)
+    lat, lon, *_ = grid_city()
+    try:
+        # a bus post by id = the same route as its coordinates
+        by_id = post(port, {"from": list(A), "to": "ztm:post24", "mode": "walk"})
+        by_xy = post(port, {"from": list(A), "to": [lat[24], lon[24]], "mode": "walk"})
+        assert by_id[0] == by_xy[0] == 200 and by_id[1]["seconds"] == by_xy[1]["seconds"]
+        assert by_id[1]["to_id"] == "ztm:post24"
+        # a metro platform is reached through its nearest entrance: + 150 m walked, no elevator in walk mode
+        status, got = post(port, {"from": [lat[1], lon[1]], "to": "ztm:M:P1", "mode": "walk"})
+        walk_to_entrance, _, _, _, _ = coordinate_oracle((lat[1], lon[1]), (lat[0] + 0.00001, lon[0]))
+        assert status == 200 and np.isclose(got["walk_m"], walk_to_entrance + METRO_ACCESS_M, atol=0.2)
+        assert got["wait_s"] == 0
+        assert post(port, {"from": list(A), "to": "ztm:nope", "mode": "walk"})[0] == 404
+    finally:
+        proc.terminate()
+        proc.wait()
+
+
+@needs_cpp
+def test_cpp_route_from_several_starts_each_with_its_own_start_time(tmp_path):
+    # the egress after RAPTOR: every station has its own arrival time; the cheapest start + walk wins
+    proc, port, _ = start_server(tmp_path)
+    lat, lon, *_ = grid_city()
+    try:
+        end = [lat[20], lon[20]]
+        post_s = post(port, {"from": "ztm:post24", "to": end, "mode": "walk"})[1]["seconds"]
+        metro_s = post(port, {"from": "ztm:M:P1", "to": end, "mode": "walk"})[1]["seconds"]
+        for at_post, at_metro in ((0, 1000), (1000, 0)):
+            status, got = post(port, {"from": [{"id": "ztm:post24", "at_s": at_post}, {"id": "ztm:M:P1", "at_s": at_metro}],
+                                      "to": end, "mode": "walk"})
+            assert status == 200
+            best = min((at_post + post_s, 0, "ztm:post24"), (at_metro + metro_s, 1, "ztm:M:P1"))
+            assert np.isclose(got["seconds"], best[0], atol=0.2)
+            assert got["from_index"] == best[1] and got["from_id"] == best[2]
+            assert got["start_s"] == (at_post, at_metro)[best[1]]
+        # a coordinate start works too; a list as "to" does not
+        status, got = post(port, {"from": [{"point": end, "at_s": 5}], "to": end, "mode": "walk"})
+        assert status == 200 and np.isclose(got["seconds"], 5, atol=0.2)
+        assert post(port, {"from": list(A), "to": [{"id": "ztm:post24"}], "mode": "walk"})[0] == 400
+        assert post(port, {"from": [{"at_s": 1}], "to": end, "mode": "walk"})[0] == 400
+    finally:
+        proc.terminate()
+        proc.wait()
+
+
+@needs_cpp
+def test_cpp_access_lists_stations_within_the_limit_both_ways(tmp_path):
+    proc, port, _ = start_server(tmp_path)
+    lat, lon, *_ = grid_city()
+    try:
+        status, got = post(port, {"point": [lat[1], lon[1]], "mode": "walk", "direction": "from", "limit_s": 3000}
+                           | {}, path="/access")
+        assert status == 200
+        by = {s["id"]: s for s in got["stations"]}
+        # P1 through the near entrance; P2 (entrance in the far corner) through the in-station transfer (200 m more)
+        walk_to_entrance = coordinate_oracle((lat[1], lon[1]), (lat[0] + 0.00001, lon[0]))[0]
+        assert np.isclose(by["ztm:M:P1"]["walk_m"], walk_to_entrance + METRO_ACCESS_M, atol=0.2)
+        assert np.isclose(by["ztm:M:P2"]["walk_m"], by["ztm:M:P1"]["walk_m"] + TRANSFER_M, atol=0.2)
+        # the post: the same as a plain route to its coordinates
+        route_s = post(port, {"from": [lat[1], lon[1]], "to": [lat[24], lon[24]], "mode": "walk"})[1]["seconds"]
+        assert np.isclose(by["ztm:post24"]["seconds"], route_s, atol=0.2)
+        # a tight limit drops the far post
+        status, got = post(port, {"point": [lat[1], lon[1]], "mode": "walk", "direction": "from", "limit_s": 200},
+                           path="/access")
+        assert status == 200 and "ztm:post24" not in {s["id"] for s in got["stations"]}
+        # direction "to": the time from the post to the point equals the plain route in that direction
+        status, got = post(port, {"point": [lat[1], lon[1]], "mode": "walk", "direction": "to", "limit_s": 3000},
+                           path="/access")
+        back = post(port, {"from": [lat[24], lon[24]], "to": [lat[1], lon[1]], "mode": "walk"})[1]["seconds"]
+        assert status == 200 and np.isclose({s["id"]: s for s in got["stations"]}["ztm:post24"]["seconds"], back, atol=0.2)
+        assert post(port, {"point": [lat[1], lon[1]], "mode": "walk", "veturilo": True}, path="/access")[0] == 501
     finally:
         proc.terminate()
         proc.wait()

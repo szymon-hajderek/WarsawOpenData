@@ -9,6 +9,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 from config import DATA, DERIVED, load_json, save_json, to_xy
+import stations
 from sources import mkuran, nextbike, osm, um_warszawa
 from sources.registry import SOURCES
 
@@ -71,9 +72,20 @@ def compatibility(ref_date: str) -> dict:
     }
 
 
+def stations_overlay() -> dict | None:
+    """The StationLocations overlay (backend/stations.py): how many nodes got an OSM position, per kind."""
+    if not stations.REPORT.exists():
+        return None
+    rep = load_json(stations.REPORT)
+    doc = stations.load()
+    return {"hash": doc["hash"], "built": doc["built"], "total": rep["total"], "kinds": rep["kinds"],
+            "matched": rep["matched"], "entrances": rep["entrances"], "mismatches": len(rep["mismatches"]),
+            "mismatch_examples": rep["mismatches"][:5]}
+
+
 def street_matrix(seed: int = 1) -> dict | None:
     """Junction counts and matrix stats read from the street matrix (needs preprocess_street.py).
-    The check against osm.route() is algorithms/router/preprocess/check_pairs.py."""
+    The check against the router is algorithms/router/check_pairs.py."""
     out_dir = DERIVED / "street"
     if not (out_dir / "meta.json").exists():
         return None
@@ -84,7 +96,7 @@ def street_matrix(seed: int = 1) -> dict | None:
     n = len(pts)
     rng = np.random.default_rng(seed)
     out = {"points": n, "modes": {}}
-    for mode in ("walk", "bike", "accessible"):
+    for mode in ("walk", "bike", "accessible", "stroller"):
         if mode not in meta:
             continue
         mm = np.memmap(out_dir / f"{mode}.bin", dtype=np.float32, mode="r", shape=(3, n, n))  # walk, bike, wait
@@ -170,6 +182,7 @@ def build() -> dict:
         },
         "compatibility": compatibility(ref),
         "street_matrix": street_matrix(),
+        "stations": stations_overlay(),
         "seconds_to_build": round(time.time() - t0, 1),
     }
     return report
@@ -336,7 +349,7 @@ def write_md(r: dict, eps) -> str:
     if sm:
         L += ["### 5. Street matrix: every pair of stops / stations", "",
               "Built by `cd backend && uv run python preprocess_street.py` into `data/derived/street/` (git-ignored): "
-              "`points.csv` (index, id, kind, lat, lon, snap per mode) and `walk.bin` / `bike.bin` / `accessible.bin` "
+              "`points.csv` (index, id, kind, lat, lon, snap per mode) and `walk.bin` / `bike.bin` / `accessible.bin` / `stroller.bin` "
               "(float32, shape (3, N, N): `[0]` walk_m, `[1]` bike_m, `[2]` wait_s; row = from, col = to; NaN = no path). "
               "Each point joins the graph through up to 6 nearest nodes (at most 30 m farther than the nearest), "
               "a multi-source Dijkstra via virtual nodes; these access segments are walked. "
@@ -356,6 +369,21 @@ def write_md(r: dict, eps) -> str:
                              if m["walk_symmetry_max_diff_s"] is not None else "") + ".")
         L += ["", "Checks on 200 random rows (all columns; metro platforms left out of the straight-line checks, "
               "they join the graph through their station entrances):", ""] + checks
+    so = r.get("stations")
+    if so:
+        L += ["", "### 6. StationLocations: transport nodes mapped to OSM", "",
+              "Built by `backend/stations.py` into `data/derived/stations.json` (served by `GET /api/stations`, loaded by "
+              "the C++ router). GTFS decides what exists; an exact OSM match (bus / tram post: `ref` = ZTM stop id "
+              "within 50 m; rail platform: platform number within 50 m; metro entrance: `subway_entrance` within 30 m) "
+              "moves the node to the real object, else the GTFS position stays.",
+              f"Hash `{so['hash'][:12]}…`, built {so['built']}, {fmt(so['total'])} locations.", "",
+              "| Kind | Locations | OSM position | GTFS position |", "|---|---|---|---|"]
+        for kind, n in so["kinds"].items():
+            m = so["matched"].get(kind, 0)
+            L.append(f"| {kind} | {fmt(n)} | {fmt(m)} | {fmt(n - m)} |")
+        L += ["", f"Metro entrances: {so['entrances'].get('osm', 0)} from OSM, {so['entrances'].get('gtfs', 0)} from GTFS. "
+              f"Posts whose OSM `ref` is more than 50 m away (kept at GTFS): {so['mismatches']}.", ""]
+    if sm:
         L += ["", "Known limit: an L-shaped walk across two legs of the same junction pays its wait only once "
               "(an underestimate). Waits are averages (no signal timing data, no green wave).", ""]
     L += ["## Endpoints", "",

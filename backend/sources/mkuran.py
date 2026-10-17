@@ -13,6 +13,7 @@ ZTM stop_id = stop group (zespół, 4 digits) + post (słupek, 2 digits): "7009"
 """
 import csv
 import io
+import sys
 import threading
 import zipfile
 from collections import defaultdict
@@ -23,20 +24,22 @@ import httpx
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 
-import sys
-
 from config import (BBOX, DERIVED, GTFS_DIR, REPO, atomic_write, haversine_m, in_bbox, load_json, save_json,
                     save_npz)
 
 sys.path.insert(0, str(REPO / "algorithms"))
 from shape_units import shape_meters  # noqa: E402
+from station_map import parse_platform_code  # noqa: E402
 
 FEEDS = {
     "ztm": ("warsaw.zip", "https://mkuran.pl/gtfs/warsaw.zip"),
     "wkd": ("wkd.zip", "https://mkuran.pl/gtfs/wkd.zip"),
     "pkp": ("polish_trains.zip", "https://mkuran.pl/gtfs/polish_trains.zip"),
 }
-DROP_PKP_AGENCIES = {"SKM"}  # already in warsaw.zip
+# SKM is in both feeds. polish_trains has it per platform + track, warsaw.zip as one stop per station,
+# so the rail routes of warsaw.zip (route_type 2 = SKM) are dropped and SKM comes from polish_trains.
+DROP_PKP_AGENCIES: set[str] = set()
+DROP_ZTM_ROUTE_TYPES = {2}
 MERGE_RADIUS_M = 150
 ROUTE_TYPES = {0: "tram", 1: "metro", 2: "rail", 3: "bus", 11: "trolleybus"}
 
@@ -83,13 +86,15 @@ def _norm_name(name: str) -> str:
 
 @lru_cache
 def routes() -> dict:
-    """Global route id -> route info. SKM from polish_trains is dropped."""
+    """Global route id -> route info. SKM of warsaw.zip is dropped (it comes from polish_trains)."""
     out = {}
     for feed in FEEDS:
         for r in _rows(feed, "routes.txt"):
             if feed == "pkp" and r["agency_id"] in DROP_PKP_AGENCIES:
                 continue
             rt = int(r["route_type"])
+            if feed == "ztm" and rt in DROP_ZTM_ROUTE_TYPES:
+                continue
             out[f"{feed}:{r['route_id']}"] = {
                 "id": f"{feed}:{r['route_id']}",
                 "feed": feed,
@@ -143,6 +148,34 @@ def _raw_stops(feed: str) -> list[dict]:
             "zone": s.get("zone_id", ""),
         })
     return out
+
+
+def _rail_platforms(stops_out: list[dict]) -> list[dict]:
+    """PKP platform children ("2 t. 20", "2 t. 22") fold into one platform location pkp:<station>_P2 (new records);
+    children without a platform (FALLBACK) fold into their station. Children get `platform`, the location `members`."""
+    by_id = {s["id"]: s for s in stops_out}
+    groups = defaultdict(list)
+    for s in stops_out:
+        if s["feed"] == "pkp" and s["location_type"] == 0 and s["parent"] in by_id:
+            parsed = parse_platform_code(s["code"])
+            groups[(s["parent"], parsed[0] if parsed else None)].append(s)
+    new = []
+    for (station_id, number), kids in groups.items():
+        station = by_id[station_id]
+        if number is None:
+            target = station  # trips without a platform board at the station itself
+        else:
+            target = {**station, "id": f"{station_id}_P{number}", "raw_id": f"{station['raw_id']}_P{number}",
+                      "code": f"peron {number}", "location_type": 0, "parent": station_id,
+                      "lat": sum(k["lat"] for k in kids) / len(kids), "lon": sum(k["lon"] for k in kids) / len(kids),
+                      "group": station_id, "same_as": None, "platform": None, "members": []}
+            new.append(target)
+        target["members"] = [k["id"] for k in kids]
+        target["served"] = any(k["served"] for k in kids)
+        target["modes"] = sorted({m for k in kids for m in k["modes"]})
+        for k in kids:
+            k["platform"] = target["id"]
+    return new
 
 
 def _stop_group(stop: dict) -> str:
@@ -270,7 +303,14 @@ def _build() -> None:
         s["modes"] = sorted({ROUTE_TYPES.get(t, str(t)) for t in served_types.get(i, ())})
         s["served"] = i in served
         s["same_as"] = merged.get(sid)
+        s["platform"] = None
+        s["members"] = []
         stops_out.append(s)
+    stops_out += _rail_platforms(stops_out)
+    for s in stops_out:
+        # boarding = a location a trip can be boarded at: a served post / platform that is not folded into another
+        s["boarding"] = bool(s["served"] and not s["same_as"] and not s["platform"]
+                             and (s["location_type"] == 0 or s["members"]))
 
     # Every file is written atomically. The .npz goes last: _ensure_built() treats it as "cache is complete".
     save_json(DERIVED / "gtfs_stops.json", stops_out)
@@ -362,12 +402,14 @@ def warm() -> None:
 
 
 def canonical(stop_id: str) -> str:
-    return stops_by_id()[stop_id]["same_as"] or stop_id
+    s = stops_by_id()[stop_id]
+    return s["platform"] or s["same_as"] or stop_id
 
 
 def vertices() -> list[dict]:
-    """Transit graph vertices: served boarding points (posts / platforms) after the rail merge."""
-    return [s for s in stops() if s["served"] and not s["same_as"] and s["location_type"] == 0]
+    """Transit graph vertices: boarding locations (posts, rail platforms, metro platforms, stations with trips
+    that have no platform)."""
+    return [s for s in stops() if s["boarding"]]
 
 
 @lru_cache
@@ -453,8 +495,9 @@ def _rows_by_stop() -> dict[int, np.ndarray]:
 
 
 def _targets(stop_id: str) -> list[int]:
-    """Array indexes of a stop and of the platforms merged into it."""
-    return [i for i, s in enumerate(stops()) if s["id"] == stop_id or s["same_as"] == stop_id]
+    """Array indexes of a stop and of the stops folded into it (merged rail station, platform children)."""
+    return [i for i, s in enumerate(stops()) if s["id"] == stop_id or s["same_as"] == stop_id
+            or s["platform"] == stop_id]
 
 
 def departures(stop_id: str, date_str: str, after_sec: int, limit: int = 20) -> list[dict]:
@@ -801,9 +844,7 @@ def api_stops(mode: str | None = Query(None, description="bus, tram, metro, rail
     box = parse_bbox(bbox) if bbox else BBOX
     out = []
     for s in stops():
-        if s["location_type"] != 0 or not s["served"]:
-            continue
-        if s["same_as"] and not include_merged:
+        if not (s["boarding"] or (include_merged and s["served"] and s["location_type"] == 0)):
             continue
         if mode and mode not in s["modes"]:
             continue
@@ -829,7 +870,7 @@ def api_stop_groups(feed: str | None = None):
     """Stop groups (ZTM zespół, station parents) with their posts."""
     groups = defaultdict(list)
     for s in stops():
-        if s["location_type"] == 0 and s["served"] and (not feed or s["feed"] == feed):
+        if s["boarding"] and (not feed or s["feed"] == feed):
             groups[s["group"]].append(s["id"])
     names = stops_by_id()
     return [{"group": g, "name": names[p[0]]["name"], "posts": p} for g, p in groups.items()]

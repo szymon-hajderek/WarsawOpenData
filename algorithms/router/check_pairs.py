@@ -3,7 +3,8 @@
 Run from backend/: uv run python ../algorithms/router/check_pairs.py
 For each pair and mode it compares:
 - the matrix value (`street_router matrix`, the points' virtual nodes built in Python);
-- the server's route between the same coordinates (C++ joins the coordinates itself);
+- the server's route between the same coordinates (C++ joins the coordinates itself), and by the stop ids
+  (the overlay position, which may be the OSM post instead of the GTFS point);
 - the matrix value from the OSM platform node of the same post (`ref` = ZTM stop id).
 Writes data/derived/street/check_pairs.csv. Starts the router if none answers.
 """
@@ -83,6 +84,11 @@ def main() -> None:
         dist = walk + bike
         for i, ((a, b), row) in enumerate(zip(pairs, rows)):
             r = street_router.route((a["lat"], a["lon"]), (b["lat"], b["lon"]), mode)
+            try:
+                rid = street_router.route(a["id"], b["id"], mode)
+                row[f"{mode}_by_id_m"] = round(rid["length_m"])
+            except street_router.RouteError:
+                row[f"{mode}_by_id_m"] = None
             g, o = (4 * i, 4 * i + 1), (4 * i + 2, 4 * i + 3)
             row |= {f"{mode}_m": round(float(dist[g])), f"{mode}_wait_s": round(float(wait[g]), 1),
                     f"{mode}_min": round(float(osm.seconds(mode, walk[g], bike[g], wait[g])) / 60, 1),
@@ -98,6 +104,8 @@ def main() -> None:
     print(f"posts matched to OSM platforms: {len(posts)}; pairs: {len(rows)}")
     for mode in ("walk", "bike"):
         d = np.abs(col(f"{mode}_m") - col(f"{mode}_osm_m"))
+        by_id = np.array([r[f"{mode}_by_id_m"] for r in rows if r[f"{mode}_by_id_m"] is not None], dtype=float)
+        print(f"{mode}: routes by id answered for {len(by_id)}/{len(rows)} pairs")
         print(f"{mode}: server route vs matrix max diff {col(f'{mode}_route_diff_m').max():.2f} m, "
               f"{col(f'{mode}_route_diff_s').max():.2f} s | GTFS vs OSM position: median {np.median(d):.0f} m, "
               f"p90 {np.percentile(d, 90):.0f} m, max {d.max():.0f} m")

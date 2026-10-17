@@ -30,6 +30,24 @@ struct Speeds {
 
 inline Speeds default_speeds(const Graph& g) { return {g.walk_speed, g.bike_speed}; }
 
+// The same graph with every edge reversed: a search from X on it gives the cost of reaching X from every node.
+inline Graph reversed(const Graph& g) {
+    Graph r = g;
+    std::vector<std::uint32_t> count(g.n + 1, 0);
+    for (std::uint32_t e = 0; e < g.m; ++e) ++count[g.target[e] + 1];
+    for (std::uint32_t v = 0; v < g.n; ++v) count[v + 1] += count[v];
+    r.offset = count;
+    std::vector<std::uint32_t> fill(count.begin(), count.end() - 1);
+    for (std::uint32_t u = 0; u < g.n; ++u) {
+        for (auto e = g.offset[u]; e < g.offset[u + 1]; ++e) {
+            const auto k = fill[g.target[e]]++;
+            r.target[k] = u;
+            r.walk[k] = g.walk[e], r.bike[k] = g.bike[e], r.wait[k] = g.wait[e], r.flags[k] = g.flags[e];
+        }
+    }
+    return r;
+}
+
 template <class T>
 void read_into(std::ifstream& in, std::vector<T>& v, std::size_t count) {
     v.resize(count);

@@ -1,6 +1,6 @@
 # Data report
 
-Generated 2026-10-17T22:33:07 by `backend/report.py`. Reference day for timetables: 20261021.
+Generated 2026-10-18T00:51:21 by `backend/report.py`. Reference day for timetables: 20261021.
 Numbers come from the files in `data/`. Re-run the script after a new download.
 
 ## Where the data comes from
@@ -76,9 +76,9 @@ Sources marked *listed* are not downloaded. `GET /api/sources` gives the instruc
 
 - Stops come only from GTFS. The City Hall APIs give live data and per-stop lines; they map to GTFS ids.
 - ZTM incl. metro and SKM: `warsaw.zip`. WKD: `wkd.zip`. Other trains: `polish_trains.zip` without SKM and only inside the ZTM area (bbox 51.91-52.51 N, 20.57-21.48 E).
-- Rail stations from different feeds merge when the name is equal and the distance is < 150 m: 63 stations (458 platforms) now point to the ZTM stop (`same_as`).
+- Rail stations from different feeds merge when the name is equal and the distance is < 150 m: 0 stations (0 platforms) now point to the ZTM stop (`same_as`).
 - Train stations never merge with bus / tram / metro stops. They connect through walk edges.
-- Near misses (< 150 m, different name, not merged): 6. See `GET /api/gtfs/merge`.
+- Near misses (< 150 m, different name, not merged): 0. See `GET /api/gtfs/merge`.
 
 ## ID compatibility
 
@@ -88,7 +88,7 @@ Sources marked *listed* are not downloaded. `GET /api/sources` gives the instruc
 | GTFS ZTM bus/tram posts found in api.um route variants | 6612/6821 |
 | Live vehicle `Lines` found in GTFS `route_short_name` (fresh positions; 428 older than 5 min dropped) | 237/237 |
 | Live (`Lines`, `Brigade`) found in GTFS (`route`, `block_short_name`) on that day | 1113/1115 (date 20261017) |
-| Veturilo station to nearest transit post (no shared ids) | median 49 m, p90 146 m, within 300 m: 336/349 |
+| Veturilo station to nearest transit post (no shared ids) | median 48 m, p90 146 m, within 300 m: 336/349 |
 | OSM nodes (no shared ids) | stops and stations snap to the nearest graph node |
 | mkuran GTFS-RT `trip_id` | matches `warsaw.zip` only partly (positions come from the City Hall) |
 | PKP PLK API station ids | `plk_secondary_id` column in `polish_trains.zip` stops |
@@ -97,14 +97,14 @@ Sources marked *listed* are not downloaded. `GET /api/sources` gives the instruc
 
 | Part | Vertices |
 |---|---|
-| Transit boarding points (posts / platforms, after merge) | 7 145 |
-| Transit stop groups (ZTM zespół / station) | 3 046 |
-| - feed `pkp` | 131 |
-| - feed `wkd` | 59 |
-| - feed `ztm` | 6 955 |
-| - served by bus (a post can have more modes) | 6 284 |
+| Transit boarding points (posts / platforms, after merge) | 7 193 |
+| Transit stop groups (ZTM zespół / station) | 3 047 |
+| - feed `pkp` | 240 |
+| - feed `wkd` | 60 |
+| - feed `ztm` | 6 893 |
+| - served by bus (a post can have more modes) | 6 307 |
 | - served by metro (a post can have more modes) | 39 |
-| - served by rail (a post can have more modes) | 212 |
+| - served by rail (a post can have more modes) | 238 |
 | - served by tram (a post can have more modes) | 631 |
 | Veturilo stations | 349 |
 | OSM walk graph nodes | 1 792 617 |
@@ -116,8 +116,8 @@ Sources marked *listed* are not downloaded. `GET /api/sources` gives the instruc
 
 | Count | Edges |
 |---|---|
-| Unique (from, to, route) | 22 611 |
-| Unique (from, to) pairs, any line | 9 772 |
+| Unique (from, to, route) | 22 799 |
+| Unique (from, to) pairs, any line | 9 880 |
 | Timetable edges on 20261021 (every trip, metro frequencies expanded) | 986 137 |
 
 ### 2. Walk edges between every pair of stops / stations
@@ -126,12 +126,12 @@ Straight-line distance. Transit = boarding points; + Veturilo = also bike statio
 
 | Pairs | Transit | Transit + Veturilo |
 |---|---|---|
-| Points | 7 145 | 7 494 |
-| All pairs n(n-1)/2 | 25 521 940 | 28 076 271 |
-| All directed pairs n(n-1) | 51 043 880 | 56 152 542 |
-| Pairs within 300 m | 14 529 | 16 921 |
-| Pairs within 500 m | 32 609 | 38 172 |
-| Pairs within 1000 m | 110 180 | 130 594 |
+| Points | 7 193 | 7 542 |
+| All pairs n(n-1)/2 | 25 866 028 | 28 437 111 |
+| All directed pairs n(n-1) | 51 732 056 | 56 874 222 |
+| Pairs within 300 m | 15 093 | 17 541 |
+| Pairs within 500 m | 33 557 | 39 205 |
+| Pairs within 1000 m | 112 866 | 133 631 |
 
 ### 3. Street graph for first / last mile (OSM)
 
@@ -155,36 +155,55 @@ So the expected wait at a signal uses the HCM average delay d = (C - g)^2 / (2C)
 walk: signal crossing 27.2 s, other crossing 2 s; bike: signal crossing 27.2 s, road signal 20.0 s.
 The constants live in `backend/sources/osm.py` (`WAIT`, `SPEED`).
 
-Snap of stops / stations to the walk graph: median 5.2 m, p99 27.2 m, 0 points over 200 m (no footway nearby).
+Snap of stops / stations to the walk graph: median 5.2 m, p99 27.7 m, 0 points over 200 m (no footway nearby).
 
 Measured: one-to-all Dijkstra (scipy, 1 core) from random sample sources, extrapolated to all points.
 
 | Mode | Limit | s / source | All sources, 1 core (min) | Avg points reached | Pairs to store | Dense matrix (float32) |
 |---|---|---|---|---|---|---|
-| walk | none | 0.262 | 32.8 | 7 494 | 56 160 036 | 224.6 MB |
-| walk | 15 min | 0.04 | 5.0 | 27 | 204 136 | 224.6 MB |
-| bike | none | 0.291 | 36.4 | 7 494 | 56 160 036 | 224.6 MB |
-| bike | 20 min | 0.032 | 4.0 | 304 | 2 280 723 | 224.6 MB |
+| walk | none | 0.243 | 30.6 | 7 542 | 56 881 764 | 227.5 MB |
+| walk | 15 min | 0.013 | 1.7 | 28 | 211 930 | 227.5 MB |
+| bike | none | 0.257 | 32.3 | 7 542 | 56 881 764 | 227.5 MB |
+| bike | 20 min | 0.023 | 2.9 | 321 | 2 421 736 | 227.5 MB |
 
 Conclusion: full precomputation is feasible offline (done in section 5). The street paths for the first / last mile from an arbitrary address still need an online Dijkstra with a limit (one call to `/api/osm/route` style code).
 
 ### 5. Street matrix: every pair of stops / stations
 
-Built by `cd backend && uv run python preprocess_street.py` into `data/derived/street/` (git-ignored): `points.csv` (index, id, kind, lat, lon, snap per mode) and `walk.bin` / `bike.bin` / `accessible.bin` (float32, shape (3, N, N): `[0]` walk_m, `[1]` bike_m, `[2]` wait_s; row = from, col = to; NaN = no path). Each point joins the graph through up to 6 nearest nodes (at most 30 m farther than the nearest), a multi-source Dijkstra via virtual nodes; these access segments are walked. Time = walk_m / walk speed + bike_m / bike speed + wait_s.
+Built by `cd backend && uv run python preprocess_street.py` into `data/derived/street/` (git-ignored): `points.csv` (index, id, kind, lat, lon, snap per mode) and `walk.bin` / `bike.bin` / `accessible.bin` / `stroller.bin` (float32, shape (3, N, N): `[0]` walk_m, `[1]` bike_m, `[2]` wait_s; row = from, col = to; NaN = no path). Each point joins the graph through up to 6 nearest nodes (at most 30 m farther than the nearest), a multi-source Dijkstra via virtual nodes; these access segments are walked. Time = walk_m / walk speed + bike_m / bike speed + wait_s.
 
-Points: 7 494. Threads (C++): 16.
+Points: 7 542. Threads (C++): 12.
 
 | Mode | Build (min) | File | Far points (> 1000 m) | Signal nodes | Junctions | Island nodes | Median distance | Median wait |
 |---|---|---|---|---|---|---|---|---|
-| walk | 5.8 | 674 MB | 0 | 8 200 | 2 439 | 12 542 | 17 379 m | 292 s |
-| bike | 7.1 | 674 MB | 0 | 12 592 | 2 359 | 22 757 | 19 280 m | 211 s |
-| accessible | 5.5 | 674 MB | 0 | 8 200 | 2 439 | 12 535 | 17 693 m | 349 s |
+| walk | 5.8 | 674 MB | 0 | 8 200 | 2 439 | 12 542 | 18 307 m | 301 s |
+| bike | 7.1 | 674 MB | 0 | 12 592 | 2 359 | 22 757 | 19 037 m | 203 s |
+| accessible | 5.0 | 683 MB | 0 | 8 200 | 2 439 | 12 535 | 17 762 m | 347 s |
+| stroller | 5.1 | 683 MB | 0 | 8 200 | 2 439 | 12 535 | 18 060 m | 342 s |
 
 Checks on 200 random rows (all columns; metro platforms left out of the straight-line checks, they join the graph through their station entrances):
 
-- walk: paths shorter than the straight line: 0; detour factor (pairs > 500 m apart) median 1.16, p99 1.58; A -> B vs B -> A time, max diff 0.0 s.
-- bike: paths shorter than the straight line: 0; detour factor (pairs > 500 m apart) median 1.21, p99 1.64.
-- accessible: paths shorter than the straight line: 0; detour factor (pairs > 500 m apart) median 1.17, p99 1.61; A -> B vs B -> A time, max diff 0.0 s.
+- walk: paths shorter than the straight line: 0; detour factor (pairs > 500 m apart) median 1.16, p99 1.5; A -> B vs B -> A time, max diff 0.0 s.
+- bike: paths shorter than the straight line: 0; detour factor (pairs > 500 m apart) median 1.21, p99 1.6.
+- accessible: paths shorter than the straight line: 0; detour factor (pairs > 500 m apart) median 1.17, p99 1.6; A -> B vs B -> A time, max diff 0.0 s.
+- stroller: paths shorter than the straight line: 0; detour factor (pairs > 500 m apart) median 1.17, p99 1.65; A -> B vs B -> A time, max diff 0.0 s.
+
+### 6. StationLocations: transport nodes mapped to OSM
+
+Built by `backend/stations.py` into `data/derived/stations.json` (served by `GET /api/stations`, loaded by the C++ router). GTFS decides what exists; an exact OSM match (bus / tram post: `ref` = ZTM stop id within 50 m; rail platform: platform number within 50 m; metro entrance: `subway_entrance` within 30 m) moves the node to the real object, else the GTFS position stays.
+Hash `6f5618a155ba…`, built 2026-10-18T00:34:46, 7 542 locations.
+
+| Kind | Locations | OSM position | GTFS position |
+|---|---|---|---|
+| bus_post | 6 244 | 5 518 | 726 |
+| tram_post | 610 | 598 | 12 |
+| metro_platform | 39 | 31 | 8 |
+| rail_station | 93 | 0 | 93 |
+| rail_platform | 207 | 160 | 47 |
+| veturilo | 349 | 0 | 349 |
+
+Metro entrances: 260 from OSM, 2 from GTFS. Posts whose OSM `ref` is more than 50 m away (kept at GTFS): 40.
+
 
 Known limit: an L-shaped walk across two legs of the same junction pays its wait only once (an underestimate). Waits are averages (no signal timing data, no green wave).
 
@@ -211,11 +230,15 @@ Run: `cd backend && uv run uvicorn main:app --reload`, docs at http://localhost:
 | GET | `/api/veturilo/status` | Live bikes / docks per station (30 s cache). |
 | GET | `/api/veturilo/free-bikes` | Live list of bikes (at stations and parked outside them). |
 | GET | `/api/veturilo/vehicle-types` | GBFS pricing plans (saved file). Each plan has ``per_min_pricing``. |
-| GET | `/api/osm/graph/summary?mode` | Vertex / edge / crossing counts of the walk, bike or accessible graph, speeds and waits. |
+| GET | `/api/osm/graph/summary?mode` | Vertex / edge / crossing counts of the walk, bike, accessible or stroller graph, speeds and waits. |
 | GET | `/api/osm/nearest?lat&lon&mode` | Nearest node of the walk / bike graph to a point. |
-| GET | `/api/osm/route?from_lat&from_lon&to_lat&to_lon&mode` | Street path with length, expected waits and total seconds (walk, bike or accessible: walk without stairs). |
+| GET | `/api/osm/route?from_lat&from_lon&to_lat&to_lon&mode` | Street path (walk, bike, accessible or stroller) from the C++ street router: walk_m, bike_m, wait_s, seconds, |
 | POST | `/api/live/nearest-buses` | The buses closest to the user's last 1-3 positions (lowest MSE first) + all live lines. |
 | GET | `/api/live/delay?vehicle` | Estimated delay of one vehicle at its previous stop, shown as the expected delay at the next stop. |
+| GET | `/api/stations?kind&feed&source&bbox` | Transport nodes (posts, platforms, stations, Veturilo) with one position each: OSM when an exact match exists, |
+| GET | `/api/stations/report` | How the overlay was matched to OSM: counts per kind, posts whose ref is too far away, hash. |
+| GET | `/api/stations/health` | The router's view: loaded modes, the overlay it serves, and whether the stop-to-stop matrices belong to it |
+| GET | `/api/stations/{station_id}` | One location by its id (e.g. ztm:435102, ztm:7014M:P1, pkp:33506_P2, vet:203610). |
 | POST | `/api/routes` | Get Routes |
 | GET | `/api/geocode?q` | Geocode |
 | POST | `/api/history/records` | Records (walking / cycling / wheelchair) of one ridden route. Empty when the track is too short or does not fit the route. |
