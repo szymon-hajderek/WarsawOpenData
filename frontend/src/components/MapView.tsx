@@ -8,9 +8,13 @@ import MyLocation from '@mui/icons-material/MyLocation';
 import DarkMode from '@mui/icons-material/DarkMode';
 import LightMode from '@mui/icons-material/LightMode';
 import DirectionsBus from '@mui/icons-material/DirectionsBus';
+import Layers from '@mui/icons-material/Layers';
 import { ICON_PATH, MODE_META, iconHtml, modeColor } from '../modes';
-import { PALETTE } from '../map/palette';
-import { createStyle, MAP_ATTRIBUTION } from '../map/mapStyle';
+import { GLASS, PALETTE } from '../map/palette';
+import { MAP_ATTRIBUTION } from '../map/mapStyle';
+import { createLookStyle, useMapLook, type MapLook } from '../map/mapLook';
+import { glassCss, glassStyle } from '../map/glass';
+import '../map/glass.css';
 import type { LatLng, Place as PlaceT, RouteOption } from '../types';
 
 const WARSAW: LatLng = [52.2297, 21.0122];
@@ -82,10 +86,10 @@ function MapController({
 }
 
 /** Basemap: flat vector tiles drawn by MapLibre GL inside the Leaflet map. */
-function VectorBasemap({ mode }: { mode: PaletteMode }) {
+function VectorBasemap({ mode, look }: { mode: PaletteMode; look: MapLook }) {
   const map = useMap();
   const layerRef = useRef<L.MaplibreGL | null>(null);
-  const modeRef = useRef(mode);
+  const styleRef = useRef(createLookStyle(look, mode));
 
   // One layer for the life of the map (a new one would open a new WebGL context).
   useEffect(() => {
@@ -96,7 +100,7 @@ function VectorBasemap({ mode }: { mode: PaletteMode }) {
     import('@maplibre/maplibre-gl-leaflet').then(({ maplibreGL }) => {
       if (cancelled) return;
       layerRef.current = maplibreGL({
-        style: createStyle(modeRef.current),
+        style: styleRef.current,
         attributionControl: false,
       }).addTo(map);
     });
@@ -108,11 +112,11 @@ function VectorBasemap({ mode }: { mode: PaletteMode }) {
     };
   }, [map]);
 
-  // Light / dark switch: restyle the same layer.
+  // Light / dark or look switch: restyle the same layer.
   useEffect(() => {
-    modeRef.current = mode;
-    layerRef.current?.getMaplibreMap().setStyle(createStyle(mode));
-  }, [mode]);
+    styleRef.current = createLookStyle(look, mode);
+    layerRef.current?.getMaplibreMap().setStyle(styleRef.current);
+  }, [mode, look]);
 
   return null;
 }
@@ -121,10 +125,12 @@ function RouteLayer({
   route,
   palette,
   detailed,
+  look,
 }: {
   route: RouteOption;
   palette: PaletteMode;
   detailed: boolean;
+  look: MapLook;
 }) {
   const colors = PALETTE[palette];
 
@@ -141,9 +147,11 @@ function RouteLayer({
                 className: 'app-div-icon',
                 iconSize: [38, 38],
                 iconAnchor: [19, 19],
-                html: `<div style="width:38px;height:38px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;border:3px solid ${
-                  colors.surface
-                };background:${colors.markerTint};box-shadow:${colors.shadow}">${iconHtml(
+                html: `<div style="width:38px;height:38px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${
+                  look === 'glass'
+                    ? glassCss(palette)
+                    : `border:3px solid ${colors.surface};background:${colors.markerTint};box-shadow:${colors.shadow}`
+                }">${iconHtml(
                   MODE_META[leg.mode].path,
                   20,
                   modeColor(leg.mode, palette),
@@ -151,7 +159,7 @@ function RouteLayer({
               }),
             }))
         : [],
-    [route, detailed, colors, palette],
+    [route, detailed, colors, palette, look],
   );
 
   return (
@@ -191,10 +199,14 @@ function RouteLayer({
 }
 
 /** Numbered round marker of an intermediate stop. */
-function stopIcon(n: number, colors: (typeof PALETTE)['light']): L.DivIcon {
+function stopIcon(n: number, colors: (typeof PALETTE)['light'], look: MapLook, mode: PaletteMode): L.DivIcon {
+  const fill =
+    look === 'glass'
+      ? glassCss(mode, mode === 'dark' ? 'rgba(255, 199, 44, 0.78)' : 'rgba(200, 16, 46, 0.82)')
+      : `border:3px solid ${colors.surface};background:${colors.accent};box-shadow:${colors.shadow}`;
   return L.divIcon({
     className: 'app-div-icon',
-    html: `<div style="width:30px;height:30px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;border:3px solid ${colors.surface};background:${colors.accent};color:${colors.theme.primary.contrastText};font:700 13px/1 Roboto,sans-serif;box-shadow:${colors.shadow}">${n}</div>`,
+    html: `<div style="width:30px;height:30px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${fill};color:${colors.theme.primary.contrastText};font:700 13px/1 Roboto,sans-serif">${n}</div>`,
     iconSize: [30, 30],
     iconAnchor: [15, 15],
   });
@@ -216,9 +228,44 @@ export default function MapView({
 }: Props) {
   const [map, setMap] = useState<L.Map | null>(null);
   const colors = PALETTE[paletteMode];
+  const [look, toggleLook] = useMapLook();
+  const glass = look === 'glass';
+  const g = GLASS[paletteMode];
 
   const icons = useMemo(() => {
     const { accent, surface, shadow } = colors;
+    const gl = (tint?: string) => glassCss(paletteMode, tint);
+    if (glass) {
+      const red = paletteMode === 'dark' ? 'rgba(255, 199, 44, 0.8)' : 'rgba(200, 16, 46, 0.85)';
+      return {
+        user: L.divIcon({
+          className: 'app-div-icon',
+          html: `<div class="glass-pulse" style="--pulse-color:${accent};position:relative;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;${gl()}">${iconHtml(
+            ICON_PATH.navigation,
+            24,
+            accent,
+          )}</div>`,
+          iconSize: [42, 42],
+          iconAnchor: [21, 21],
+        }),
+        origin: L.divIcon({
+          className: 'app-div-icon',
+          html: `<div style="width:22px;height:22px;box-sizing:border-box;border-radius:50%;${gl()};outline:4px solid ${accent};outline-offset:-5px"></div>`,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+        }),
+        destination: L.divIcon({
+          className: 'app-div-icon',
+          html: `<div class="glass-pulse" style="--pulse-color:${accent};position:relative;width:44px;height:44px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${gl(red)}">${iconHtml(
+            ICON_PATH.place,
+            24,
+            colors.theme.primary.contrastText,
+          )}</div>`,
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
+        }),
+      };
+    }
     return {
       // white circle with a navigation arrow
       user: L.divIcon({
@@ -249,15 +296,14 @@ export default function MapView({
         iconAnchor: [22, 22],
       }),
     };
-  }, [colors]);
+  }, [colors, glass, paletteMode]);
 
   // Round floating button
   const fab = (child: ReactNode) => (
     <Box
       sx={{
         borderRadius: '50%',
-        bgcolor: colors.surface,
-        boxShadow: colors.shadow,
+        ...(glass ? glassStyle(paletteMode) : { bgcolor: colors.surface, boxShadow: colors.shadow }),
         '& .MuiIconButton-root': { width: 46, height: 46, color: colors.accent },
       }}
     >
@@ -276,7 +322,7 @@ export default function MapView({
           zoomControl={false}
           style={{ height: '100%', width: '100%' }}
         >
-          <VectorBasemap mode={paletteMode} />
+          <VectorBasemap mode={paletteMode} look={look} />
           <MapController
             origin={origin}
             destination={destination}
@@ -284,16 +330,29 @@ export default function MapView({
             userPosition={userPosition}
             padding={padding}
           />
-          {route && <RouteLayer route={route} palette={paletteMode} detailed={detailed} />}
+          {route && <RouteLayer route={route} palette={paletteMode} detailed={detailed} look={look} />}
           {userPosition && <Marker position={userPosition} icon={icons.user} interactive={false} />}
           {origin && !origin.isCurrentLocation && (
             <Marker position={origin.position} icon={icons.origin} interactive={false} />
           )}
           {destination && <Marker position={destination.position} icon={icons.destination} interactive={false} />}
           {(route?.waypoints?.length ? route.waypoints.slice(1, -1) : stops).map((p, i) => (
-            <Marker key={`${p.id}-${i}`} position={p.position} icon={stopIcon(i + 1, colors)} interactive={false} />
+            <Marker key={`${p.id}-${i}`} position={p.position} icon={stopIcon(i + 1, colors, look, paletteMode)} interactive={false} />
           ))}
         </MapContainer>
+        {glass && (
+          <div
+            className="glass-sheen"
+            aria-hidden
+            style={
+              {
+                '--sheen-yellow': g.sheenYellow,
+                '--sheen-red': g.sheenRed,
+                '--sheen-band': g.sheenBand,
+              } as React.CSSProperties
+            }
+          />
+        )}
       </Box>
 
       {/* map controls: theme, location, zoom */}
@@ -314,6 +373,15 @@ export default function MapView({
             onClick={onToggleMode}
           >
             {paletteMode === 'dark' ? <LightMode /> : <DarkMode />}
+          </IconButton>,
+        )}
+        {fab(
+          <IconButton
+            aria-label={glass ? 'Włącz płaską wersję mapy' : 'Włącz szklaną wersję mapy'}
+            aria-pressed={glass}
+            onClick={toggleLook}
+          >
+            <Layers />
           </IconButton>,
         )}
         {onDetectVehicle &&

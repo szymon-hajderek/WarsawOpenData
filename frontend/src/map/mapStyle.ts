@@ -1,6 +1,6 @@
 import type { LayerSpecification, StyleSpecification } from 'maplibre-gl';
 
-import { PALETTE, type StyleMode } from './palette';
+import { GLASS, PALETTE, type MapColors, type StyleMode } from './palette';
 
 /**
  * Flat map style (OpenMapTiles schema, vector tiles from OpenFreeMap).
@@ -29,22 +29,6 @@ export function createStyle(mode: StyleMode): StyleSpecification {
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-color': color, 'line-width': zoomWidth(...width) },
   });
-
-  const label = (id: string, extra: Layer): Layer => {
-    const { paint, layout, ...rest } = extra;
-    return {
-      type: 'symbol',
-      id,
-      ...rest,
-      paint: {
-        'text-color': p.label,
-        'text-halo-color': p.labelHalo,
-        'text-halo-width': 1.5,
-        ...(paint as Layer | undefined),
-      },
-      layout: { 'text-font': FONT_REGULAR, 'text-field': NAME, ...(layout as Layer | undefined) },
-    };
-  };
 
   const layers: Layer[] = [
     { id: 'background', type: 'background', paint: { 'background-color': p.background } },
@@ -125,6 +109,159 @@ export function createStyle(mode: StyleMode): StyleSpecification {
       },
     },
 
+    ...labelLayers(p),
+  ];
+
+  return styleSpec(layers);
+}
+
+/**
+ * "Liquid glass" look: a warm, luminous map. Roads are glowing strands, buildings are small glass tiles with a bright edge
+ * and a soft red shadow, water has a light shore. Same tiles and labels as the flat look.
+ */
+export function createGlassStyle(mode: StyleMode): StyleSpecification {
+  const g = GLASS[mode];
+
+  const road = (id: string, classes: string[], minzoom: number, width: number[], color: string): Layer => ({
+    id,
+    type: 'line',
+    source: 'openmaptiles',
+    'source-layer': 'transportation',
+    minzoom,
+    filter: classIn(...classes),
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': color, 'line-width': zoomWidth(...width) },
+  });
+  /** The same road with a blur: a glow that spreads wider than the road itself. */
+  const glow = (id: string, classes: string[], minzoom: number, width: number[], color: string): Layer => {
+    const layer = road(id, classes, minzoom, width, color);
+    (layer.paint as Layer)['line-blur'] = 6;
+    return layer;
+  };
+  const MAJOR = ['secondary', 'primary', 'trunk', 'motorway'];
+
+  const layers: Layer[] = [
+    { id: 'background', type: 'background', paint: { 'background-color': g.background } },
+    { id: 'wood', type: 'fill', source: 'openmaptiles', 'source-layer': 'landcover', filter: classIn('wood', 'grass'), paint: { 'fill-color': g.wood } },
+    { id: 'park', type: 'fill', source: 'openmaptiles', 'source-layer': 'park', paint: { 'fill-color': g.park } },
+    {
+      id: 'green-landuse',
+      type: 'fill',
+      source: 'openmaptiles',
+      'source-layer': 'landuse',
+      filter: classIn('cemetery', 'playground', 'pitch', 'stadium'),
+      paint: { 'fill-color': g.park, 'fill-opacity': 0.8 },
+    },
+
+    // Water: glass with a blurred light shore and a thin sharp edge
+    { id: 'water', type: 'fill', source: 'openmaptiles', 'source-layer': 'water', paint: { 'fill-color': g.water } },
+    {
+      id: 'water-shore-glow',
+      type: 'line',
+      source: 'openmaptiles',
+      'source-layer': 'water',
+      paint: { 'line-color': g.edge, 'line-opacity': 0.7, 'line-width': zoomWidth(8, 3, 16, 12), 'line-blur': 5 },
+    },
+    {
+      id: 'water-shore',
+      type: 'line',
+      source: 'openmaptiles',
+      'source-layer': 'water',
+      paint: { 'line-color': g.edge, 'line-width': zoomWidth(8, 0.5, 16, 1.4) },
+    },
+    {
+      id: 'waterway',
+      type: 'line',
+      source: 'openmaptiles',
+      'source-layer': 'waterway',
+      paint: { 'line-color': g.water, 'line-width': zoomWidth(8, 0.8, 16, 5) },
+    },
+
+    // Roads: glow, casing, then the bright core
+    road('path', ['path', 'pedestrian', 'track'], 15, [15, 0.8, 19, 3], g.path),
+    glow('minor-glow', ['minor', 'service'], 13, [13, 2, 16, 12, 19, 40], g.roadGlow),
+    glow('major-glow', ['tertiary', ...MAJOR], 9, [9, 2.4, 16, 16, 19, 48], g.roadMajorGlow),
+    road('minor-casing', ['minor', 'service'], 13, [13, 1.2, 16, 7, 19, 26], g.roadMinorCasing),
+    road('major-casing', ['tertiary', ...MAJOR], 9, [9, 1.6, 16, 11, 19, 34], g.roadMajorCasing),
+    road('minor', ['minor', 'service'], 13, [13, 0.6, 16, 5, 19, 22], g.roadMinor),
+    road('major', ['tertiary', ...MAJOR], 9, [9, 0.9, 16, 9, 19, 30], g.roadMajor),
+
+    // Buildings: a soft shadow, the glass tile, a bright edge
+    {
+      id: 'building-shadow',
+      type: 'fill',
+      source: 'openmaptiles',
+      'source-layer': 'building',
+      minzoom: 14,
+      paint: {
+        'fill-color': g.buildingShadow,
+        'fill-translate': [3, 4],
+        'fill-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0, 16, 1],
+      },
+    },
+    {
+      id: 'building',
+      type: 'fill',
+      source: 'openmaptiles',
+      'source-layer': 'building',
+      minzoom: 14,
+      paint: { 'fill-color': g.building, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0, 16, 1] },
+    },
+    {
+      id: 'building-edge',
+      type: 'line',
+      source: 'openmaptiles',
+      'source-layer': 'building',
+      minzoom: 15,
+      paint: {
+        'line-color': g.edge,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 15, 0.4, 19, 1.4],
+        'line-opacity': ['interpolate', ['linear'], ['zoom'], 15, 0, 16.5, 1],
+      },
+    },
+    {
+      id: 'rail',
+      type: 'line',
+      source: 'openmaptiles',
+      'source-layer': 'transportation',
+      minzoom: 12,
+      filter: classIn('rail', 'transit'),
+      paint: { 'line-color': g.rail, 'line-width': zoomWidth(12, 0.8, 18, 2.6), 'line-dasharray': [3, 2] },
+    },
+    ...labelLayers(g),
+  ];
+
+  return styleSpec(layers);
+}
+
+function styleSpec(layers: Layer[]): StyleSpecification {
+  return {
+    version: 8,
+    glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+    sources: { openmaptiles: { type: 'vector', url: 'https://tiles.openfreemap.org/planet' } },
+    layers: layers as unknown as LayerSpecification[],
+  };
+}
+
+/** Labels, the same in every look; only the colours differ. Bigger places first, smaller streets and POIs only when zoomed in. */
+function labelLayers(p: MapColors): Layer[] {
+  const label = (id: string, extra: Layer): Layer => {
+    const { paint, layout, ...rest } = extra;
+    return {
+      type: 'symbol',
+      id,
+      ...rest,
+      paint: {
+        'text-color': p.label,
+        'text-halo-color': p.labelHalo,
+        'text-halo-width': 1.5,
+        ...(paint as Layer | undefined),
+      },
+      layout: { 'text-font': FONT_REGULAR, 'text-field': NAME, ...(layout as Layer | undefined) },
+    };
+  };
+
+  return [
     // Labels. Bigger places first, smaller streets and POIs only when zoomed in.
     label('water-label', {
       'source-layer': 'water_name',
@@ -211,13 +348,6 @@ export function createStyle(mode: StyleMode): StyleSpecification {
       layout: { 'text-field': ['get', 'housenumber'], 'text-size': 10 },
     }),
   ];
-
-  return {
-    version: 8,
-    glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
-    sources: { openmaptiles: { type: 'vector', url: 'https://tiles.openfreemap.org/planet' } },
-    layers: layers as unknown as LayerSpecification[],
-  };
 }
 
 export const MAP_ATTRIBUTION =

@@ -183,6 +183,11 @@ Everything in this repo (files, commits, PRs) is written in English.
   on demand). The style is ours: `src/map/mapStyle.ts` (colours from the palette, more labels when zoomed in). Map controls,
   markers and route in `src/components/MapView.tsx`. The old OSM raster map was removed. CARTO basemaps return
   "API KEY REQUIRED", so do not use them. OpenFreeMap has no SLA; there is no fallback.
+- Two map looks: "flat" (default) and "liquid glass" (`createGlassStyle` in `src/map/mapStyle.ts`, colours `GLASS` in `src/map/palette.ts`, same red + yellow, light and dark).
+  A layers button on the map switches them (`src/map/mapLook.ts`, `useMapLook`, localStorage `map-look`). Glass = glowing blurred roads, glass building tiles with a
+  bright edge and a soft red shadow (`fill-translate`, no 3D: the Leaflet + MapLibre layer cannot tilt), light shores on water. Round buttons and markers get frosted glass
+  (`src/map/glass.ts`, `backdrop-filter`); `src/map/glass.css` has the slowly drifting light over the map (`.glass-sheen`) and the pulse of the "me" / destination markers
+  (both off with `prefers-reduced-motion`). Cards, sheets and the rest of the UI are not glass. Labels are shared (`labelLayers`).
 - Corner radii: use the `RADIUS` tokens from `src/layout.ts` (sheet 28 px, card 20, tile / row / input 16, control 12,
   pill 999). **Pitfall:** in MUI `sx` a numeric `borderRadius` is multiplied by `theme.shape.borderRadius` (12), so
   `borderRadius: 4` is 48 px and swallows the content. Nested corners: inner radius = outer radius - padding.
