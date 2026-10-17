@@ -184,11 +184,13 @@ const WALK_BIKE_SPEED: Record<Profile, { walk: number; bike: number }> = {
   standard: { walk: 4.8, bike: 15 },
   slow: { walk: 3.4, bike: 11 },
   accessible: { walk: 3.6, bike: 0 }, // no Veturilo for a wheelchair / stroller
+  stroller: { walk: 3.6, bike: 0 },
 };
 const PT_SPEED: Partial<Record<TransportMode, number>> = { bus: 17, tram: 19, metro: 32, rail: 38 };
 const PT_WAIT_MIN = 4;
 const BIKE_UNLOCK_MIN = 1;
 const DETOUR_FACTOR = 1.25; // straight line -> real street network
+const MOCK_STREET_WAIT_S = 20;
 
 
 const LINES: Partial<Record<TransportMode, string[]>> = {
@@ -235,10 +237,12 @@ function buildOption(
     const line = lines ? lines[(seed + i) % lines.length] : undefined;
 
     let minutes: number;
+    let waitMin: number | undefined;
     if (tl.mode === 'walk') minutes = (distM / 1000 / speeds.walk) * 60;
     else if (tl.mode === 'veturilo') minutes = (distM / 1000 / speeds.bike) * 60 + BIKE_UNLOCK_MIN;
     else {
-      minutes = (distM / 1000 / (PT_SPEED[tl.mode] ?? 20)) * 60 + (ptBoarded ? 2 : PT_WAIT_MIN);
+      waitMin = ptBoarded ? 2 : PT_WAIT_MIN;
+      minutes = (distM / 1000 / (PT_SPEED[tl.mode] ?? 20)) * 60 + waitMin;
       ptBoarded = true;
     }
 
@@ -257,6 +261,7 @@ function buildOption(
       fromId: null,
       toId: null,
       path,
+      ...(waitMin !== undefined ? { waitS: waitMin * 60 } : {}),
     };
   });
 
@@ -276,6 +281,8 @@ function buildOption(
     bikeDistance: sumDistance(legs, ['bike', 'veturilo']),
     transfers: Math.max(0, nonWalk - 1),
     tags: [],
+    // waiting at stops plus about 20 s of signals and crossings per street leg
+    waitS: legs.reduce((s, l) => s + (l.waitS ?? MOCK_STREET_WAIT_S), 0),
   };
 }
 

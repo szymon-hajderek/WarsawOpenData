@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Opóźnienia ZTM w aplikacji</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: same family as the project's other reports. One reading column: status first, then how it works,
+   what the user sees, numbers, tests, limits. */
+:root {
+  --bg: #f4f6f8; --surface: #ffffff; --code-bg: #eef1f5; --ink: #12161c; --ink-2: #4a5361; --muted: #6e7887;
+  --grid: #dde2e8; --accent: #1f4f8a; --bar: #2a78d6; --bar-2: #a9b1bd;
+  --late: #c8322b; --early: #0c8f2e; --open: #9a6a00; --done: #0c8f2e;
+  --bus: #2a78d6; --metro: #8a3fb8;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1216; --surface: #171b21; --code-bg: #1d232b; --ink: #eef1f5; --ink-2: #b9c1cc; --muted: #8b95a4;
+  --grid: #2a3038; --accent: #8cb8f0; --bar: #4a95ec; --bar-2: #59626f;
+  --late: #ef5a52; --early: #3cc160; --open: #f0b429; --done: #3cc160; --bus: #4a95ec; --metro: #b77ee0; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1216; --surface: #171b21; --code-bg: #1d232b; --ink: #eef1f5; --ink-2: #b9c1cc; --muted: #8b95a4;
+  --grid: #2a3038; --accent: #8cb8f0; --bar: #4a95ec; --bar-2: #59626f;
+  --late: #ef5a52; --early: #3cc160; --open: #f0b429; --done: #3cc160; --bus: #4a95ec; --metro: #b77ee0; color-scheme: dark }
+
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--f-body); }
+.wrap { max-width: 900px; margin: 0 auto; padding-block: 40px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 48px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(30px, 5vw, 44px); }
+h2 { font-size: 24px; }
+h3 { font: 700 17px/1.3 var(--f-body); }
+p, li { max-width: 70ch; }
+p { margin: 0; }
+ul, ol { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+a { color: var(--accent); }
+section { display: grid; gap: 14px; min-width: 0; }
+.eyebrow { font: 500 12px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+header { display: grid; gap: 14px; }
+.lead { color: var(--ink-2); font-size: 18px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 13px/1.4 var(--f-mono); color: var(--ink-2); }
+.meta b { color: var(--ink); font-weight: 500; }
+.note { color: var(--ink-2); font-size: 15px; }
+code { font: 0.88em var(--f-mono); background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+pre.mermaid { margin: 0; background: var(--surface); border: 1px solid var(--grid); border-radius: 8px; padding: 14px; overflow-x: auto; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 14px; }
+.tile { background: var(--surface); border: 1px solid var(--grid); border-radius: 8px; padding: 16px 18px; display: grid; gap: 4px; align-content: start; }
+.tile .big { font: 700 36px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.tile .lbl { font-weight: 700; }
+.tile .sub { color: var(--ink-2); font-size: 14px; }
+
+.tbl { overflow-x: auto; background: var(--surface); border: 1px solid var(--grid); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 9px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--grid); }
+th { font: 500 12px var(--f-mono); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+tr.hl td { font-weight: 700; }
+.state { font: 500 12px/1 var(--f-mono); padding: 4px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.state.done { color: var(--done); } .state.open { color: var(--open); }
+.barcell { min-width: 120px; }
+.bar { height: 10px; border-radius: 3px; background: var(--bar); }
+.bar.alt { background: var(--bar-2); }
+
+.steps { counter-reset: s; list-style: none; padding: 0; display: grid; gap: 10px; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 10px; max-width: none; }
+.steps li::before { content: counter(s); font: 700 15px/28px var(--f-display); width: 28px; height: 28px; text-align: center; border-radius: 50%; border: 1px solid var(--grid); background: var(--surface); color: var(--accent); }
+
+.mock { background: var(--surface); border: 1px solid var(--grid); border-radius: 20px; padding: 16px 18px; display: grid; gap: 8px; max-width: 480px; }
+.mock .t { font-weight: 700; display: flex; justify-content: space-between; gap: 8px; }
+.mock .t span:last-child { font: 700 20px var(--f-display); }
+.mock .s { color: var(--ink-2); font-size: 14px; }
+.chain { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; }
+.leg { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-weight: 700; color: var(--ink);
+  background: color-mix(in srgb, var(--c) 14%, transparent); }
+.leg i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); display: inline-block; }
+.leg .d { font-weight: 700; }
+.d.late { color: var(--late); } .d.early { color: var(--early); } .d.on { color: var(--ink-2); }
+.sep { color: var(--muted); }
+.mocks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 14px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">WarsawOpenData · opóźnienia autobusów i tramwajów · raport</span>
+    <h1>Opóźnienia ZTM w aplikacji</h1>
+    <p class="lead">Jak serwer szacuje opóźnienie autobusu lub tramwaju na żywo, co z tego widać w aplikacji i jak dokładne to jest na prawdziwych danych.</p>
+    <div class="meta"><span>stan na <b>18.10.2026</b></span><span>dane testowe <b>17.10.2026, 32 min, 1097 pojazdów</b></span><span>promień <b>R = 30 m</b></span></div>
+  </header>
+
+  <section>
+    <h2>Co jest wdrożone</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>PR</th><th>co robi</th><th>stan</th></tr></thead>
+      <tbody>
+        <tr><td><a href="https://github.com/szymon-hajderek/WarsawOpenData/pull/48">#48</a></td><td>Algorytm opóźnienia, bufor pozycji na serwerze, <code>GET /api/live/delay</code>, event <code>bus-delay</code> dla pojazdu, w którym jedziesz</td><td><span class="state done">na main</span></td></tr>
+        <tr><td><a href="https://github.com/szymon-hajderek/WarsawOpenData/pull/54">#54</a></td><td>Nagranie 32 min danych, symulacja, wyszukiwanie najlepszego R, raport <code>artifacts/delay-simulation.html</code></td><td><span class="state done">na main</span></td></tr>
+        <tr><td><a href="https://github.com/szymon-hajderek/WarsawOpenData/pull/91">#91</a></td><td><b>Opóźnienie na liście proponowanych tras</b>: <code>POST /api/live/route-delays</code> i napis przy każdym autobusie i tramwaju</td><td><span class="state done">na main</span></td></tr>
+        <tr><td><a href="https://github.com/szymon-hajderek/WarsawOpenData/pull/88">#88</a></td><td>Poprawka wywołania <code>/api/live/delay</code>: <code>apiUrl()</code>, sprawdzanie odpowiedzi, tryb przykładowy</td><td><span class="state open">czeka na scalenie</span></td></tr>
+        <tr><td><a href="https://github.com/szymon-hajderek/WarsawOpenData/pull/89">#89</a></td><td>Przewodnik dla dewelopera UI o evencie <code>bus-delay</code></td><td><span class="state open">czeka na scalenie</span></td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Na <code>main</code> opóźnienia są widoczne na liście proponowanych tras (PR #91, scalony 18.10 przez Szymona po uruchomieniu testów). Pojazd, w którym jedziesz, ma dane w evencie <code>bus-delay</code>, ale jeszcze bez widoku.</p>
+  </section>
+
+  <section>
+    <h2>Jak to działa na serwerze</h2>
+    <ol class="steps">
+      <li><span><b>Pozycje na żywo.</b> Serwer co 3 s pobiera pozycje wszystkich autobusów i tramwajów z API Urzędu Miasta (feed zmienia się mniej więcej co 10 s). Każdy wpis ma linię, brygadę, numer taborowy, współrzędne i czas.</span></li>
+      <li><span><b>Bufor pojazdu.</b> Dla każdego pojazdu serwer trzyma pozycje z ostatnich kilku minut: najdłuższy planowy przejazd między dwoma przystankami jego kursu + 60 s (10 min, gdy kursu nie da się ustalić). Między dwoma odczytami dopisuje punkt w połowie drogi, więc pozycja jest mniej więcej co 5 s. Nie dopisuje go, gdy pobranie się nie udało albo odczyty dzieli więcej niż 25 s.</span></li>
+      <li><span><b>Kurs z rozkładu.</b> Linia + brygada wskazują kursy z rozkładu GTFS. Serwer rzutuje pozycję na trasę każdego kursu, który jedzie teraz ± 15 min i przebiega bliżej niż 100 m od pojazdu, i wybiera ten, którego rozkład w tym miejscu trasy jest najbliżej „teraz”. Brygada jeździ tą samą trasą kilka razy dziennie, więc samo położenie nie wystarcza.</span></li>
+      <li><span><b>Ostatni minięty przystanek (K-1).</b> To ostatni przystanek kursu przed miejscem, w którym jest pojazd. Następny to K.</span></li>
+      <li><span><b>Moment przejazdu.</b> W buforze szukam punktu najbliższego przystankowi K-1, ale tylko w promieniu R = 30 m. Brak takiego punktu oznacza „dane o opóźnieniu niedostępne”.</span></li>
+      <li><span><b>Opóźnienie</b> = moment przejazdu − planowy odjazd z K-1. Może być ujemne (przed czasem). Pokazujemy je jako przewidywane opóźnienie na następnym przystanku K.</span></li>
+    </ol>
+    <pre class="mermaid">
+flowchart LR
+  A["API Urzędu Miasta<br/>co 3 s"] --> B["bufor pojazdu<br/>punkty co ~5 s"]
+  B --> C["kurs z GTFS<br/>linia + brygada"]
+  C --> D["K-1 na trasie"]
+  D --> E["przejazd w promieniu 30 m"]
+  E --> F["opóźnienie<br/>= przejazd − rozkład"]
+    </pre>
+  </section>
+
+  <section>
+    <h2>Co widzi użytkownik</h2>
+    <h3>Lista proponowanych tras (PR #91)</h3>
+    <p class="note">Po wyszukaniu trasy aplikacja pyta serwer o opóźnienia autobusów i tramwajów z każdej propozycji: raz po pojawieniu się listy, potem co 30 s, dopóki lista jest na ekranie. Serwer odczytuje kursy z identyfikatora propozycji (<code>pt-&lt;kurs&gt;-&lt;kurs&gt;</code>), z kursu bierze brygadę i znajduje ten konkretny pojazd w danych na żywo. Opóźnienie pojawia się w łańcuchu odcinków, zaraz po linii i czasie jazdy.</p>
+    <div class="mocks" aria-label="Przykłady wyglądu karty trasy">
+      <div class="mock">
+        <div class="t"><span>504 + M1</span><span>38 min</span></div>
+        <div class="s">14:02 – 14:40 · 1 przesiadka</div>
+        <div class="chain">
+          <span class="leg" style="--c: var(--muted)"><i></i>4′</span><span class="sep">›</span>
+          <span class="leg" style="--c: var(--bus)"><i></i>504 · 12′ <span class="d late">· +3 min</span></span><span class="sep">›</span>
+          <span class="leg" style="--c: var(--metro)"><i></i>M1 · 15′</span><span class="sep">›</span>
+          <span class="leg" style="--c: var(--muted)"><i></i>6′</span>
+        </div>
+      </div>
+      <div class="mock">
+        <div class="t"><span>180 + 17</span><span>41 min</span></div>
+        <div class="s">14:05 – 14:46 · 1 przesiadka</div>
+        <div class="chain">
+          <span class="leg" style="--c: var(--bus)"><i></i>180 · 18′ <span class="d on">· punktualnie</span></span><span class="sep">›</span>
+          <span class="leg" style="--c: var(--late)"><i></i>17 · 9′ <span class="d early">· ok. 2 min wcześniej</span></span>
+        </div>
+      </div>
+    </div>
+    <p class="note">Przykłady wyglądu z wymyślonymi godzinami. Prawdziwy wygląd zależy od motywu aplikacji.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>sytuacja</th><th>napis</th></tr></thead>
+      <tbody>
+        <tr><td>spóźnienie co najmniej 60 s</td><td><span class="d late"><b>+3 min</b></span> (czerwony)</td></tr>
+        <tr><td>różnica poniżej 60 s w obie strony</td><td><span class="d on"><b>punktualnie</b></span> (szary)</td></tr>
+        <tr><td>co najmniej 60 s przed czasem</td><td><span class="d early"><b>2 min wcześniej</b></span> (zielony)</td></tr>
+        <tr><td>pojazd jeszcze kończy poprzedni kurs swojej brygady</td><td>to samo z dopiskiem <b>„ok.”</b>; po najechaniu: „Prognoza: pojazd kończy jeszcze poprzedni kurs”</td></tr>
+        <tr><td>metro, pociąg, brak pojazdu na żywo, brak przejazdu w promieniu, dane przykładowe, serwer nie odpowiada</td><td>brak napisu</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Silnik tras dodawał wcześniej do karty własną etykietę „opóźnienie N min” (tylko pierwszy pojazd, tylko spóźnienia, prostsza metoda). Gdy pokazujemy nasze opóźnienia, ta etykieta jest ukryta, żeby na karcie nie było dwóch różnych liczb. Silnika nie zmieniamy.</p>
+
+    <h3>Pojazd, w którym jedziesz (PR #48)</h3>
+    <p class="note">Po „Jadę tą linią” aplikacja co 10 s pyta <code>GET /api/live/delay</code> i wysyła event <code>bus-delay</code> na <code>window</code>. Dane płyną, ale żaden element ekranu jeszcze ich nie pokazuje. Opis dla dewelopera UI jest w PR #89.</p>
+  </section>
+
+  <section>
+    <h2>Jak dokładne to jest</h2>
+    <p class="note">Nie ma oficjalnego źródła opóźnień ZTM, więc wzorcem jest pełny nagrany tor pojazdu: chwila, w której tor przecina przystanek na trasie kursu. Symulacja podaje te same punkty po kolei, tak jak widzi je serwer. Nagranie: 17.10.2026, 19:40–20:12, linie 175, 180, 523, 189 (autobusy) oraz 17 i 33 (tramwaje), 1130 przejazdów obok przystanków.</p>
+    <div class="tiles">
+      <div class="tile"><span class="big">98,2%</span><span class="lbl">opóźnienie dostępne</span><span class="sub">1110 z 1130 przejazdów</span></div>
+      <div class="tile"><span class="big">2 s</span><span class="lbl">mediana błędu</span><span class="sub">90% przejazdów: do 14 s</span></div>
+      <div class="tile"><span class="big">96,8%</span><span class="lbl">błąd do 30 s</span><span class="sub">wśród pokazanych opóźnień</span></div>
+      <div class="tile"><span class="big">98,2%</span><span class="lbl">serwer na żywo</span><span class="sub">599 odpowiedzi API, mediana błędu 2 s, 90%: do 13 s</span></div>
+    </div>
+
+    <h3>Gdy dane są gorsze</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>warunki (R = 30 m)</th><th class="n">dostępne</th><th class="barcell"></th><th class="n">mediana błędu</th><th class="n">90% błędów do</th></tr></thead>
+      <tbody>
+        <tr class="hl"><td>dane jak nagrane</td><td class="n">98,2%</td><td class="barcell"><div class="bar" style="width:98.2%"></div></td><td class="n">2 s</td><td class="n">14 s</td></tr>
+        <tr><td>10% pobrań ginie</td><td class="n">96,7%</td><td class="barcell"><div class="bar alt" style="width:96.7%"></div></td><td class="n">2 s</td><td class="n">15 s</td></tr>
+        <tr><td>30% pobrań ginie</td><td class="n">91,4%</td><td class="barcell"><div class="bar alt" style="width:91.4%"></div></td><td class="n">3 s</td><td class="n">18 s</td></tr>
+        <tr><td>szum GPS 10 m</td><td class="n">97,9%</td><td class="barcell"><div class="bar alt" style="width:97.9%"></div></td><td class="n">2,5 s</td><td class="n">14 s</td></tr>
+        <tr><td>szum GPS 20 m</td><td class="n">97,8%</td><td class="barcell"><div class="bar alt" style="width:97.8%"></div></td><td class="n">4 s</td><td class="n">18 s</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Wybór promienia R</h3>
+    <p class="note">Wynik = udział wszystkich przejazdów, dla których pokazujemy opóźnienie różniące się od wzorca najwyżej o 30 s. Najpierw R od 20 do 200 m co 10 m, potem co 1 m między dwoma najlepszymi sąsiadami.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>R</th><th class="n">wynik</th><th class="n">dostępne</th><th class="n">mediana błędu</th></tr></thead>
+      <tbody>
+        <tr><td>20 m</td><td class="n">93,3%</td><td class="n">96,3%</td><td class="n">2 s</td></tr>
+        <tr class="hl"><td>30 m (używane)</td><td class="n">95,0%</td><td class="n">98,2%</td><td class="n">2 s</td></tr>
+        <tr><td>40 m</td><td class="n">95,8%</td><td class="n">98,9%</td><td class="n">2 s</td></tr>
+        <tr><td>50 m</td><td class="n">96,3%</td><td class="n">99,6%</td><td class="n">2 s</td></tr>
+        <tr><td>80 m i więcej (najlepszy: 80 m)</td><td class="n">96,5%</td><td class="n">100%</td><td class="n">2 s</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Od 80 m wynik już się nie zmienia, bo algorytm i tak bierze punkt najbliższy przystankowi, a promień decyduje tylko o tym, czy go pokazać. Zmiana z 30 na 80 m dałaby +1,5 punktu procentowego. Domyślnie zostaje 30 m (<code>DELAY_RADIUS_M</code>).</p>
+
+    <h3>Sprawdzenie listy tras na żywo (PR #91)</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>zapytanie</th><th>odpowiedź serwera</th></tr></thead>
+      <tbody>
+        <tr><td>trasa „N37 + M1”, kurs N37 jedzie teraz</td><td>N37: pojazd <code>bus-8548</code>, <b>+112 s</b>, ten sam kurs; M1: brak danych na żywo (<code>not_live</code>)</td></tr>
+        <tr><td>trasa „N24 + M1”</td><td>N24: pojazd <code>bus-7814</code>, <b>+102 s</b>, ten sam kurs</td></tr>
+        <tr><td>późniejszy kurs tej samej brygady N37</td><td>ten sam pojazd <code>bus-8548</code>, +112 s, <code>sameTrip: false</code> (w aplikacji „ok. +2 min”)</td></tr>
+        <tr><td>trasa piesza (<code>walk</code>)</td><td>pusta lista, brak napisu</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Testy</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>plik</th><th class="n">testy</th><th>co sprawdza</th></tr></thead>
+      <tbody>
+        <tr><td><code>algorithms/test_bus_delay.py</code></td><td class="n">13</td><td>bufor i punkty pośrodku, brak punktu po przerwie, rzut na trasę z pętlą, wybór K-1, wybór kursu z rozkładu, opóźnienie i przyjazd przed czasem, powody „niedostępne”</td></tr>
+        <tr><td><code>algorithms/test_route_delays.py</code> (#91)</td><td class="n">5</td><td>odczyt kursów z identyfikatora trasy (daty z myślnikami), metro bez danych, brak pojazdu, niezgodna linia</td></tr>
+        <tr><td><code>algorithms/simulation/test_search_delay_radius.py</code></td><td class="n">4</td><td>wybór dwóch najlepszych promieni, remisy, pierwszy przejazd w promieniu</td></tr>
+        <tr><td><code>frontend/src/api/validate.test.ts</code> (#88)</td><td class="n">4</td><td>sprawdzanie kształtu odpowiedzi <code>/api/live/delay</code></td></tr>
+        <tr><td>cały frontend na gałęzi #91 (uruchomił Szymon)</td><td class="n">93</td><td><code>npm run lint</code> bez błędów, 93/93 testów, <code>npm run build</code> OK</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Wszystkie 22 testy w Pythonie przechodzą. Cały zestaw backendu: 261 testów przechodzi, jeden (<code>test_cpp_server</code>) pada na tym komputerze, bo nie ma zbudowanego programu C++. Ten test nie dotyczy opóźnień.</p>
+  </section>
+
+  <section>
+    <h2>Ograniczenia i czego nie sprawdzono</h2>
+    <ul>
+      <li>Dla #91 lint, testy i build frontendu uruchomił Szymon (wszystko przechodzi). Dla #88 trzeba je jeszcze odpalić przed scaleniem.</li>
+      <li><b>Pełnego wyszukiwania trasy nie dało się tu wykonać:</b> trasy komunikacją wymagają programu C++ do wyznaczania dróg pieszych, którego tu nie zbudowano. Endpoint opóźnień sprawdziłem na prawdziwych kursach jadących w tej chwili.</li>
+      <li>Lista tras korzysta z formatu identyfikatora trasy z silnika (<code>pt-&lt;kurs&gt;-&lt;kurs&gt;</code>). Pole <code>RouteLeg.tripId</code> jest już na <code>main</code> (PR #93), więc zgodnie z prośbą Szymona lista tras ma się na nie przełączyć w małej poprawce. Do tego czasu zmiana formatu identyfikatora w silniku sprawi, że napisy znikną (bez błędów).</li>
+      <li>Trasy z przystankami pośrednimi (identyfikator <code>multi-N</code>), metro i pociągi nie mają opóźnień.</li>
+      <li>Wzorzec i algorytm używają tych samych pozycji, więc statystyki mierzą metodę, a nie błąd GPS samego feedu. To jeden wieczór i 6 linii.</li>
+      <li>Opóźnienie zmienia się skokowo, gdy pojazd minie kolejny przystanek (co 1–3 minuty).</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Pliki</h2>
+    <ul>
+      <li><code>algorithms/bus_delay.py</code>: algorytm (bufor, kurs, K-1, przejazd, opóźnienie)</li>
+      <li><code>backend/bus_detect.py</code>: pobieranie pozycji, bufor, <code>GET /api/live/delay</code>, <code>POST /api/live/route-delays</code> (#91)</li>
+      <li><code>algorithms/route_delays.py</code> (#91): kursy z identyfikatora trasy, pojazd dla każdego odcinka</li>
+      <li><code>frontend/src/api/routeDelays.ts</code>, <code>hooks/useRouteDelays.ts</code>, <code>components/LegChain.tsx</code> (#91): napis na liście tras</li>
+      <li><code>frontend/src/api/delay.ts</code>, <code>hooks/useVehicleDetection.ts</code>: event <code>bus-delay</code></li>
+      <li><code>data/API.md</code>: kontrakt obu endpointów z prawdziwymi przykładami</li>
+      <li><code>algorithms/simulation/</code>: nagranie, symulacja, szukanie R; wyniki w <code>DELAY_RESULTS.md</code> i <code>artifacts/delay-simulation.html</code></li>
+    </ul>
+  </section>
+</div>
+</body>
+</html>

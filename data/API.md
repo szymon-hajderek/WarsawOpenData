@@ -3,8 +3,9 @@
 This file is the **contract** of the backend API (FastAPI, `backend/`). Frontend and backend code must match it.
 To change the API, edit this file first, then the code, in the same PR (see `AGENTS.md`).
 
-- Base URL in development: `http://localhost:8000`. Two apps: the data API (`cd backend && uv run uvicorn main:app --reload`)
-  and the routing API (`cd backend && uvicorn app.main:app --reload`, section at the end). Run one at a time.
+- Base URL in development: `http://localhost:8000`. One app serves everything below:
+  `cd backend && uv run uvicorn main:app --reload`. `app.main:app` is the old slim app (routes, geocode, speed history,
+  journeys and `GET /health` only); do not run both on port 8000.
 - Interactive docs generated from the code: `/docs`, schema: `/openapi.json`.
 - All answers are JSON. Errors have the form `{"detail": "<message>"}`.
 - Errors that any endpoint can return (they are not repeated below):
@@ -12,8 +13,9 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
   - `502 {"detail": "external data source failed, try again later"}` when an external API (City Hall, Nextbike)
     fails. The message never contains the URL or a key.
   - `503` when a key in the server `.env` is empty (the message names it), or, for `/api/gtfs`, `/api/osm`,
-    `/api/routes` and `/api/live/nearest-buses`, while the server loads its caches at start (about 1-2 minutes
-    after a start, longer on the first run). The header `Retry-After: 30` is set.
+    `/api/routes`, `/api/live/nearest-buses` and `/api/veturilo/siting`, while the server loads its caches and starts
+    the street router (about 1-2 minutes after a start, longer on the first run). The header `Retry-After: 30` is set.
+    Also `503` when the C++ street router does not answer (`{"detail": "street router not reachable at ..."}`).
   - `404` when a data file is missing on the server (run `download.py`, or `report.py` for `/api/stats`).
 - Users never call external APIs. Only the server does, and it caches the answers.
 - No authentication on our side. The keys for City Hall endpoints live in `.env` on the server (`ACCESS.md`).
@@ -30,14 +32,16 @@ To change the API, edit this file first, then the code, in the same PR (see `AGE
 | [Veturilo](#veturilo-city-bikes) | `/api/veturilo` | `backend/sources/nextbike.py`, `backend/sources/siting.py` (`/siting`) |
 | [OSM](#osm-street-graph) | `/api/osm` | `backend/sources/osm.py` |
 | [Stations](#stations-stationlocations) | `/api/stations` | `backend/api_stations.py` |
-| [Routing API](#routing-api-backendapp) | `/api/routes`, `/api/geocode`, `/health` | `backend/app/` |
+| [Routing](#routing) | `/api/routes`, `/api/geocode`, `/health` (slim app only) | `backend/app/` |
+| [Speed history](#speed-history) | `/api/history` | `backend/app/api/history.py` |
 | [Journey statistics](#journey-statistics) | `/api/journeys` | `backend/app/api/journeys.py` |
 | [Simulation](#simulation-only-with-sim_scenario) | `/api/sim` | `backend/sim/api.py` |
 
 ## IDs
 
 - Stop ids carry a feed prefix: `ztm:700901`, `wkd:brzoz`, `pkp:33605_RAIL_1_5`.
-  ZTM `700901` = group `7009` + post `01`.
+  ZTM `700901` = group `7009` + post `01`. A PKP rail platform is `pkp:<station>_P<n>` (`pkp:33506_P2`); the GTFS
+  platform + track children (`pkp:33506_RAIL_2_20`) fold into it.
 - Route ids: `ztm:131`. Group ids: `ztm:7009`. Veturilo station: `station_id` (`203610`), global id `vet:203610`.
 - `line` in live endpoints = GTFS `route_short_name`; `route_id` = `ztm:<line>`.
 - Veturilo and OSM have no shared ids with GTFS: join them by distance.
@@ -72,14 +76,14 @@ Answer: list of objects with `id`, `module`, `status`, `file`, `url`, `key`, `co
 Counts from the last `uv run python report.py` run (the file `data/report.json`).
 
 Top-level keys: `generated`, `reference_date`, `vertices`, `item1_transit_edges`, `item2_walk_pairs`,
-`item3_osm`, `item4_feasibility`, `compatibility`, `seconds_to_build`, `endpoints`.
+`item3_osm`, `item4_feasibility`, `compatibility`, `street_matrix`, `stations`, `seconds_to_build`, `endpoints`.
 
 ```json
 {
- "generated": "2026-10-17T14:48:45",
+ "generated": "2026-10-18T00:51:21",
  "reference_date": "20261021",
- "vertices": {"transit_posts": 7145, "transit_stop_groups": 3046, "veturilo_stations": 349,
-              "osm_walk": 1534865, "osm_bike": 1000177, "...": "..."},
+ "vertices": {"transit_posts": 7193, "transit_stop_groups": 3047, "veturilo_stations": 349,
+              "osm_walk": 1792617, "osm_bike": 1222025, "...": "..."},
  "...": "..."
 }
 ```
@@ -104,13 +108,16 @@ Boarding points (posts / platforms). Merged rail duplicates are hidden unless `i
 Answer: list of stops. Fields: `id`, `feed`, `raw_id`, `name`, `code`, `lat`, `lon`, `location_type`,
 `parent`, `wheelchair` (`"0"` unknown, `"1"` yes, `"2"` no), `zone` (`"1"`, `"2"` or `"1+2"`),
 `group`, `modes` (list), `served` (bool),
-`same_as` (id of the station this stop is merged into, or `null`).
+`same_as` (id of the station this stop is merged into, or `null`), `platform` (id of the rail platform this GTFS
+child folds into, or `null`), `members` (ids folded into this platform / station; `[]` for a post),
+`boarding` (bool: a place where a trip is boarded; only these are listed unless `include_merged=true`).
 
 ```json
 [
  {"id": "ztm:100101", "feed": "ztm", "raw_id": "100101", "name": "Kijowska", "code": "01",
   "lat": 52.248455, "lon": 21.044827, "location_type": 0, "parent": null, "wheelchair": "1",
-  "zone": "1", "group": "ztm:1001", "modes": ["bus"], "served": true, "same_as": null},
+  "zone": "1", "group": "ztm:1001", "modes": ["bus"], "served": true, "same_as": null,
+  "platform": null, "members": [], "boarding": true},
  "..."
 ]
 ```
@@ -122,7 +129,17 @@ One stop. Same fields as above. `404` for an unknown id.
 ```json
 {"id": "ztm:700901", "feed": "ztm", "raw_id": "700901", "name": "Marszałkowska", "code": "01",
  "lat": 52.217931, "lon": 21.020112, "location_type": 0, "parent": null, "wheelchair": "2",
- "zone": "1", "group": "ztm:7009", "modes": ["bus"], "served": true, "same_as": null}
+ "zone": "1", "group": "ztm:7009", "modes": ["bus"], "served": true, "same_as": null,
+ "platform": null, "members": [], "boarding": true}
+```
+
+A rail platform (`GET /api/gtfs/stops/pkp:33506_P2`):
+
+```json
+{"id": "pkp:33506_P2", "feed": "pkp", "raw_id": "33506_P2", "name": "Warszawa Zachodnia", "code": "peron 2",
+ "lat": 52.219607493945006, "lon": 20.965480058045, "location_type": 0, "parent": "pkp:33506", "wheelchair": "1",
+ "zone": "", "group": "pkp:33506", "modes": ["rail"], "served": true, "same_as": null, "platform": null,
+ "members": ["pkp:33506_RAIL_2_20", "pkp:33506_RAIL_2_22"], "boarding": true}
 ```
 
 Error: `404 {"detail": "unknown stop_id (use the feed prefix, e.g. ztm:700901)"}`.
@@ -349,6 +366,56 @@ Not available (the vehicle passed K-1 but no buffered point was within the radiu
 
 Errors: `404 {"detail": "unknown vehicle"}`; `503` when there is no live vehicle data yet.
 
+### `POST /api/live/route-delays`
+
+Live delay of the buses and trams in suggested routes (`POST /api/routes` answers), before the user boards them.
+A transit option id is `pt-<trip id>-<trip id>...` (one GTFS trip per ride, in ride order). For each trip the server takes
+its line and brigade from GTFS, finds the live vehicle with the same line and brigade and runs the same estimate as
+`GET /api/live/delay` (delay at the stop the vehicle passed last). When that vehicle is still on an earlier trip of its
+brigade, its current delay is returned with `sameTrip: false` (a forecast). Options with other ids (walk, bike,
+`multi-N` trips with stops) get an empty list.
+
+Body (JSON):
+
+| Field | Type | Meaning |
+|---|---|---|
+| `options` | list, at most 20 | options to check |
+| `options[].id` | string | `RouteOption.id` |
+| `options[].lines` | list of strings | `line` of the transit legs (bus, tram, metro, rail) of that option, in order |
+
+Answer: object `option id -> list`, one item per transit leg that has a trip:
+
+| Field | Meaning |
+|---|---|
+| `transitIndex` | 0-based index among the transit legs of the option (0 = first bus / tram / metro / train) |
+| `line` | line of that leg |
+| `vehicleId` | live vehicle (`bus-1234`), `null` when none |
+| `available` | `false` = no delay to show |
+| `delaySec` | seconds, negative = early; `null` when not available |
+| `sameTrip` | `true` when the vehicle already runs this trip, `false` when it is still on an earlier trip of its brigade |
+| `reason` | `null` when available, else `not_live` (metro, rail or a trip GTFS does not know), `no_vehicle` (no live vehicle for that line and brigade) or a reason of `GET /api/live/delay` |
+
+Request (night bus N37 then metro M1; the second option asks for a later trip of the same brigade):
+
+```json
+{"options": [{"id": "pt-ztm:2026-10-17:N37:SbS:169:2715-ztm:2026-10-18:M1:NdS:3:0530", "lines": ["N37", "M1"]},
+             {"id": "pt-ztm:2026-10-17:N37:SbS:169:2823", "lines": ["N37"]},
+             {"id": "walk", "lines": []}]}
+```
+
+Answer:
+
+```json
+{"pt-ztm:2026-10-17:N37:SbS:169:2715-ztm:2026-10-18:M1:NdS:3:0530": [
+   {"transitIndex": 0, "line": "N37", "vehicleId": "bus-8548", "available": true, "delaySec": 112, "sameTrip": true, "reason": null},
+   {"transitIndex": 1, "line": "M1", "vehicleId": null, "available": false, "delaySec": null, "sameTrip": false, "reason": "not_live"}],
+ "pt-ztm:2026-10-17:N37:SbS:169:2823": [
+   {"transitIndex": 0, "line": "N37", "vehicleId": "bus-8548", "available": true, "delaySec": 112, "sameTrip": false, "reason": null}],
+ "walk": []}
+```
+
+Errors: `422` for a wrong body or more than 20 options; `503` when there is no live vehicle data yet.
+
 ---
 
 ## Veturilo (city bikes)
@@ -473,8 +540,17 @@ One location. `404 {"detail": "unknown station id (use the mkuran id, e.g. ztm:7
 
 ### `GET /api/stations/report`
 
-How the overlay was matched: `hash`, `built`, `total`, `kinds` (locations per kind), `matched` (OSM positions per
-kind), `entrances` (`{osm, gtfs}`), `mismatches` (posts whose OSM `ref` is more than 50 m away; kept at GTFS).
+How the overlay was matched: `hash`, `built`, `seconds` (build time), `total`, `kinds` (locations per kind),
+`matched` (OSM positions per kind), `entrances` (`{osm, gtfs}`), `mismatches` (posts whose OSM `ref` is more than
+50 m away; kept at GTFS).
+
+```json
+{"hash": "6f5618a155bae5798380cd0495b80fa30fde2e22d40fc7d598cf8cee0613c0a4", "built": "2026-10-18T02:40:10",
+ "kinds": {"bus_post": 6244, "tram_post": 610, "metro_platform": 39, "rail_station": 93, "rail_platform": 207, "veturilo": 349},
+ "matched": {"bus_post": 5518, "tram_post": 598, "metro_platform": 31, "rail_platform": 160},
+ "mismatches": [{"id": "ztm:104802", "osm_id": 2444668502, "distance_m": 127, "why": "ref too far"}, "..."],
+ "entrances": {"osm": 260, "gtfs": 2}, "total": 7542, "seconds": 0.4}
+```
 
 ### `GET /api/stations/health`
 
@@ -484,8 +560,9 @@ overlay and graphs. `503` when the router is not running.
 
 ## OSM street graph
 
-Walk and bike graph from OpenStreetMap. The first call builds a cache (about 45 s).
-`mode` is `walk` (1.3 m/s) or `bike` (4.2 m/s). Cost = length / speed + expected wait at crossings.
+Street graph from OpenStreetMap. The server builds the cache at start (about 17 s on the first run).
+`mode` is `walk` (1.3 m/s), `bike` (4.2 m/s riding), `accessible` or `stroller` (1.3 m/s).
+Cost = length / speed + expected wait at crossings (and 60 s per elevator).
 
 ### `GET /api/osm/graph/summary`
 
@@ -494,11 +571,11 @@ Walk and bike graph from OpenStreetMap. The first call builds a cache (about 45 
 | `mode` | string | `walk` | `walk`, `bike`, `accessible` (wheelchair: walk without stairs, with elevators) or `stroller` (as accessible, plus steps with a stroller ramp) |
 
 ```json
-{"vertices": 1534865, "edges_undirected": 1741689, "edges_directed": 3483378,
- "simplified_vertices": 548631, "simplified_edges_undirected": 755455,
- "signal_crossings": 7708, "other_crossings": 38148, "road_signals": 4047,
+{"vertices": 1792617, "edges_undirected": 2019691, "edges_directed": 4039382,
+ "simplified_vertices": 623594, "simplified_edges_undirected": 850668,
+ "signal_crossings": 7815, "other_crossings": 42063, "road_signals": 4178,
  "speed_m_s": 1.3,
- "waits_s": {"crossing_signals": 27.22, "crossing": 2.0, "traffic_signals": 0.0},
+ "waits_s": {"crossing_signals": 27.22222222222222, "crossing": 2.0, "traffic_signals": 0.0, "elevator": 60.0},
  "nodes_with_signal_timing_tags": 0}
 ```
 
@@ -519,50 +596,8 @@ Nearest graph node to a point.
 
 A `mode` other than `walk`, `bike`, `accessible` or `stroller` returns `400 {"detail": "mode must be walk, bike, accessible or stroller"}`.
 
-### `GET /api/osm/route`
-
-Street path between two points.
-
-| Query | Type | Default | Meaning |
-|---|---|---|---|
-| `from_lat`, `from_lon`, `to_lat`, `to_lon` | number | required | start and end (same ranges as above) |
-| `mode` | string | `walk` | `walk`, `bike`, `accessible` or `stroller` |
-
-Answered by the C++ street router (`algorithms/router/README.md`, `POST /route`). The start and the end join the
-street graph through up to 6 nearest nodes (at most 30 m farther than the nearest one); these short access segments
-are walked.
-
-Answer: `seconds` (total time with the mode's default speeds), `walk_m` (metres walked, also a pushed bike),
-`bike_m` (metres ridden), `wait_s` (expected waits that do not depend on speed: crossings and signals, where signal
-nodes closer than 30 m by path form one junction paid once, and 60 s per elevator), `length_m` (= `walk_m` +
-`bike_m`), `snap_m` (distance from start and end to the nearest usable graph node, in metres), `path` (list of
-`[lon, lat]`, 5 decimals), `geometry` (the same as `[lat, lon]`), `legs` (one leg: `mode` `walk` / `bike`, `from` /
-`to` as `{"id": null, "lonlat": [lon, lat]}`, `seconds`, `walk_m`, `bike_m`, `wait_s`, `path`, and `segments`: parts
-of one kind covering the path, `{"kind", "path", "length_m"}`, kind `ride` / `push` (bike ridden / pushed) / `walk` /
-`steps` / `elevator` / `metro_access`; ridden metres add up to `bike_m`, the rest to `walk_m`), `elevators` (`[lon, lat]` where the path boards
-an elevator), `steps` (`[lon, lat]` where a flight of steps starts; in `accessible` / `stroller` only steps with a ramp the mode
-may use, in `bike` none).
-
-```json
-{"seconds": 1268.5, "walk_m": 88.7, "bike_m": 3988.8, "wait_s": 250.6, "length_m": 4077.5, "snap_m": [4.0, 7.9],
- "path": [[21.0122, 52.2297], [21.01226, 52.22969], "..."], "geometry": [[52.2297, 21.0122], [52.22969, 21.01226], "..."],
- "elevators": [], "steps": [],
- "legs": [{"mode": "bike", "from": {"id": null, "lonlat": [21.0122, 52.2297]}, "to": {"id": null, "lonlat": [20.9652, 52.2196]},
-           "seconds": 1268.5, "walk_m": 88.7, "bike_m": 3988.8, "wait_s": 250.6, "path": ["..."],
-           "segments": [{"kind": "push", "length_m": 4.0, "path": [[21.0122, 52.2297], [21.01226, 52.22969]]},
-                        {"kind": "ride", "length_m": 2867.1, "path": [[21.01226, 52.22969], "..."]},
-                        {"kind": "push", "length_m": 10.1, "path": ["..."]},
-                        {"kind": "ride", "length_m": 1121.7, "path": ["..."]},
-                        {"kind": "push", "length_m": 74.6, "path": ["...", [20.9652, 52.2196]]}]}]}
-```
-
-Errors:
-- `400 {"detail": "mode must be walk, bike, accessible or stroller"}` for a `mode` other than `walk`, `bike`, `accessible` or `stroller`.
-- `422` when the start or the end is more than 1000 m from the street graph (e.g. outside Warsaw):
-  `{"detail": "start is more than 1000 m from the street graph"}` (the first of `start`, `end` that is too far).
-- `404` with a message when no path exists.
-- `503` when the street router is not running (`{"detail": "street router not reachable at ..."}`), and while the
-  server is still starting.
+Street-only trips (walk, wheelchair, stroller, own bike) are `POST /api/routes` with `travel` (see Routing).
+The old `GET /api/osm/route` relay is removed.
 
 ---
 
@@ -579,10 +614,16 @@ Types:
 | `LatLng` | `[lat, lon]` (used in `path` and `Place.position`) |
 | `LonLat` | `[lon, lat]` (GPS / GeoJSON order, used in a leg's `start` and `end`) |
 | `Place` | `id`, `label`, `sublabel` (optional), `position` (`LatLng`), `isCurrentLocation` (optional bool) |
-| `RouteLeg` | `mode` (`walk`, `bike` = own bike, `veturilo` = rented Veturilo bike, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names of the start and end stop or place), `line` (or `null`), `durationMin`, `distanceM`, `start`, `end` (`LonLat`, the first and last point of `path`), `path` (list of `LatLng`), `stop` (optional, 1-based number of the intermediate stop the leg ends at) |
-| `RouteOption` | `id`, `title`, `legs`, `departure`, `arrival` (`HH:MM`), `durationMin`, `distanceM`, `walkDistance`, `bikeDistance`, `transfers`, `tags`, `waypoints` (optional, trips with stops) |
+| `RouteLeg` | `mode` (`walk`, `bike` = own bike, `veturilo` = rented Veturilo bike, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names), `fromId`, `toId` (StationLocations IDs or `null` for non-station places), `line` (or `null`), `durationMin`, `distanceM`, `start`, `end` (`LonLat`, mapped stop positions or the router's place endpoints), `path` (list of `LatLng`), `segments` (optional list; empty when unavailable), `stop` (optional, 1-based number of the intermediate stop the leg ends at), `approximatePath` (bool, optional, default `false`: `true` when there is no real shape (no GTFS shape for the trip, or no street path) and `path` only joins the leg's start, its stops and its end in order), `elevators`, `steps` (street legs: list of `LatLng` where the path boards an elevator / where a flight of steps starts, empty when none; `null` on transit legs), `waitS` (number or `null`: on transit legs the seconds spent standing at the boarding stop `fromId` before the vehicle departs; `null` on street legs), `tripId` (string or `null`: on transit legs the GTFS trip id of the ride, e.g. `ztm:M1:PcM:MLO`; `null` on street legs) |
+| `RouteOption` | `id`, `title`, `legs`, `departure`, `arrival` (`HH:MM`), `durationMin`, `distanceM`, `walkDistance`, `bikeDistance`, `transfers`, `tags`, `waitS` (seconds standing in all: the transit legs' `waitS` plus the expected street waits at signals, crossings and elevators), `waypoints` (optional, trips with stops) |
 
-`walkDistance` is the sum of the `walk` legs and `bikeDistance` the sum of the `bike` and `veturilo` legs, in metres; `distanceM` is the whole trip.
+`segments` contains `{kind, path, lengthM}`: kind is `ride`, `push`, `walk`, `steps`, `elevator` or `metro_access`;
+path is `[lat, lon]` and lengthM is metres. Segments preserve the router's consecutive parts within a leg.
+Rented bikes keep mode `veturilo` even while pushed. Consumers must also accept legs without segments.
+
+`walkDistance` includes walking and pushed-bike metres; `bikeDistance` includes ridden metres (own bike and Veturilo);
+`distanceM` is the whole trip, including transit. Station IDs refer to `GET /api/stations`.
+Street and transit legs meet at the same mapped station position even when the GTFS shape endpoint differs.
 There are no `costPln` and `calories` any more: calories are worked out from the legs (`mode`, `distanceM`, `durationMin`; see `algorithms/calories.py`).
 
 ### `POST /api/routes`
@@ -601,7 +642,7 @@ The clock is Europe/Warsaw. Before 04:00 the search uses the previous GTFS servi
 `profile` `accessible` drops Veturilo and stops or trips marked wheelchair-inaccessible (`"2"`).
 A line that appears in the current ZTM alerts gets the tag `Zmiana na trasie`.
 
-Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow` or `accessible`, default `standard`),
+Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow`, `accessible` or `stroller`, default `standard`),
 `when` (optional, Warsaw local `HH:MM` or an ISO datetime; empty means now),
 `via` (optional list of `Place`, at most 5) and `order` (`given` or `optimal`).
 Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Veturilo), `stepFree` (bool),
@@ -610,25 +651,97 @@ Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Vet
 implies `accessible` routing and no Veturilo; `weightKg`, `heightCm`, `age` and `sex` are accepted but not used by the route search). A trip with stops plans the next leg from the
 previous arrival plus 2 minutes at the stop. `order` `optimal` minimises a time estimate, not straight-line distance.
 
+Optional `travel`: `transit` (default, the usual mixed options), `walk`, `accessible`, `stroller` or `bike`.
+The other values return a street-only option without requiring GTFS or live feeds; `bike` means the user's own bike.
+They also support `via`. Walk uses the accessible graph for an accessible profile, `stepFree` or a wheelchair,
+and the stroller graph for the stroller profile. Explicit `accessible` / `stroller` travel selects that profile's
+default walking speed (unless walkKmh overrides it). Bike legs use the bike graph. Accessible and stroller profiles
+disable Veturilo. A zero cycling speed rejects an explicit own-bike request with 422.
+Accessible options carry `bez schodów`; stroller options carry `schody tylko z rynnami` when the path takes steps
+(with stroller rails), else `bez schodów`; routes with elevators carry `windy: N`.
+
 Answer: list of `RouteOption`. Public-transport geometry follows the GTFS shape between the stops
-boarded and alighted. Walk and bike geometry follows the OSM graph (a straight line only when the
-graph has no path).
+boarded and alighted (by stop distances, else the shape with the stops projected on it). A trip without any shape
+is still offered: its `path` joins every stop of the ride in order and the leg has `approximatePath: true`. Walk and bike geometry comes only from the street router, using StationLocations IDs
+at stop and Veturilo endpoints (metro access includes the entrances). A missing street path drops the mixed
+candidate. The result may be empty. No straight lines replace missing street paths.
+
+Shapes are for drawing only (`backend/app/routing/geometry.py`): a street leg takes the router's path, a transit leg
+the GTFS shape between its stops, else a polyline through the named points (`approximatePath: true`). The router
+answers station IDs only (`null` = the query's own start / end); `start` / `end` come from `GET /api/stations`
+positions or the query points. The backend reads both the current router format and the agreed `/plan` legs
+(see `algorithms/router/README.md`), so the answer here does not change when the router switches.
+
+Verified with the repository's GTFS / OSM data and the local C++ router (paths cut to their ends):
 
 ```json
-[{"id": "pt-ztm:trip", "title": "175",
-  "legs": [{"mode": "walk", "from": "Start", "to": "Marszałkowska", "line": null,
-            "durationMin": 4, "distanceM": 280,
-            "start": [21.0122, 52.2297], "end": [21.015, 52.231],
-            "path": [[52.2297, 21.0122], [52.231, 21.015], "..."]},
-           {"mode": "bus", "from": "Marszałkowska", "to": "Metro Politechnika", "line": "175",
-            "durationMin": 12, "distanceM": 2400,
-            "start": [21.015, 52.231], "end": [21.0054, 52.2194], "path": [[52.231, 21.015], "..."]}],
-  "departure": "15:59", "arrival": "16:18", "durationMin": 19, "distanceM": 2800,
-  "walkDistance": 280, "bikeDistance": 0, "transfers": 0, "tags": ["Najszybsza"]}, "..."]
+{"from": {"id": "centrum", "label": "Centrum", "position": [52.2297, 21.0122]},
+ "to": {"id": "gdanski", "label": "Dworzec Gdański", "position": [52.2574, 20.9933]},
+ "when": "2026-10-19T08:00", "bikeKmh": 0, "maxTransfers": 1}
 ```
 
-Errors: `422` when the body is not valid, or when `when` is not `HH:MM` or an ISO datetime.
-`503` when the GTFS zip is not on disk.
+One option of the answer:
+
+```json
+{"id": "pt-ztm:2026-10-19:16:PcS:24:0732-ztm:M1:PcM:MLO", "title": "16 + M1",
+ "legs": [{"mode": "walk", "from": "Centrum", "to": "Centrum", "line": null, "durationMin": 1, "distanceM": 43.9,
+           "path": [[52.2297, 21.0122], "...", [52.22946, 21.01198]],
+           "start": [21.0122, 52.2297], "end": [21.011977, 52.2294593], "fromId": null, "toId": "ztm:701308",
+           "segments": [{"kind": "walk", "path": [[52.2297, 21.0122], "...", [52.22946, 21.01198]], "lengthM": 43.9}],
+           "stop": null, "approximatePath": false, "elevators": [], "steps": [], "waitS": null, "tripId": null},
+          {"mode": "tram", "from": "Centrum", "to": "Metro Ratusz Arsenał", "line": "16", "durationMin": 7, "distanceM": 1921.0,
+           "path": [[52.229382, 21.012005], "...", [52.24498, 21.000723]],
+           "start": [21.011977, 52.2294593], "end": [21.0007477, 52.244999], "fromId": "ztm:701308", "toId": "ztm:709904",
+           "segments": [], "stop": null, "approximatePath": false, "elevators": null, "steps": null,
+           "waitS": 0.0, "tripId": "ztm:2026-10-19:16:PcS:24:0732"},
+          {"mode": "walk", "from": "Metro Ratusz Arsenał", "to": "Ratusz Arsenał", "line": null, "durationMin": 2, "distanceM": 169.3,
+           "path": [[52.245, 21.00075], "...", [52.245, 21.00103]],
+           "start": [21.0007477, 52.244999], "end": [21.001032314285712, 52.24500417142857],
+           "fromId": "ztm:709904", "toId": "ztm:7099M:P1",
+           "segments": [{"kind": "walk", "path": [[52.245, 21.00075], "...", [52.24517, 21.0007]], "lengthM": 19.3},
+                        {"kind": "metro_access", "path": [[52.24517, 21.0007], [52.245, 21.00103]], "lengthM": 150.0}],
+           "stop": null, "approximatePath": false, "elevators": [], "steps": [], "waitS": null, "tripId": null},
+          {"mode": "metro", "from": "Ratusz Arsenał", "to": "Dworzec Gdański", "line": "M1", "durationMin": 3, "distanceM": 1549.7,
+           "path": [[52.244759, 21.001369], "...", [52.257832, 20.994385]],
+           "start": [21.001032314285712, 52.24500417142857], "end": [20.994182473076926, 52.25808857692308],
+           "fromId": "ztm:7099M:P1", "toId": "ztm:7019M:P1", "segments": [], "stop": null, "approximatePath": false,
+           "elevators": null, "steps": null, "waitS": 109.8, "tripId": "ztm:M1:PcM:MLO"},
+          {"mode": "walk", "from": "Dworzec Gdański", "to": "Dworzec Gdański", "line": null, "durationMin": 3, "distanceM": 227.2,
+           "path": [[52.25809, 20.99418], "...", [52.2574, 20.9933]],
+           "start": [20.994182473076926, 52.25808857692308], "end": [20.9933, 52.2574], "fromId": "ztm:7019M:P1", "toId": null,
+           "segments": [{"kind": "metro_access", "path": [[52.25809, 20.99418], [52.25749, 20.99408]], "lengthM": 150.0},
+                        {"kind": "walk", "path": [[52.25749, 20.99408], "...", [52.2574, 20.9933]], "lengthM": 77.2}],
+           "stop": null, "approximatePath": false, "elevators": [], "steps": [], "waitS": null, "tripId": null}],
+ "departure": "08:00", "arrival": "08:18", "durationMin": 18, "distanceM": 3911.1,
+ "walkDistance": 440.4, "bikeDistance": 0.0, "transfers": 1, "tags": [], "waitS": 111.8, "waypoints": []}
+```
+
+The first ride's `waitS` is `0` because the trip starts just in time for it; `109.8` is the wait for M1 after the
+transfer walk. The option's `waitS` (111.8) adds 2 s of street waits.
+
+`travel: "bike"`, Centrum [52.2297, 21.0122] → Ochota [52.2196, 20.9652]:
+
+```json
+[{"id": "street-bike", "title": "Własny rower",
+  "legs": [{"mode": "bike", "from": "Centrum", "to": "Ochota", "line": null, "durationMin": 21, "distanceM": 4077.5,
+            "path": [[52.2297, 21.0122], "...", [52.2196, 20.9652]], "start": [21.0122, 52.2297], "end": [20.9652, 52.2196],
+            "fromId": null, "toId": null,
+            "segments": [{"kind": "push", "path": [[52.2297, 21.0122], [52.22969, 21.01226]], "lengthM": 4.0},
+                         {"kind": "ride", "path": [[52.22969, 21.01226], "...", [52.22195, 20.97776]], "lengthM": 2867.1},
+                         {"kind": "push", "path": [[52.22195, 20.97776], [52.22187, 20.97782]], "lengthM": 10.1},
+                         {"kind": "ride", "path": [[52.22187, 20.97782], "...", [52.21971, 20.96603]], "lengthM": 1121.7},
+                         {"kind": "push", "path": [[52.21971, 20.96603], "...", [52.2196, 20.9652]], "lengthM": 74.6}],
+            "stop": null, "approximatePath": false, "elevators": [], "steps": [], "waitS": null, "tripId": null}],
+  "departure": "03:35", "arrival": "03:56", "durationMin": 21, "distanceM": 4077.5,
+  "walkDistance": 88.7, "bikeDistance": 3988.8, "transfers": 0, "tags": [], "waitS": 250.6, "waypoints": []}]
+```
+
+The router rounds street paths to five decimals; stop endpoint metadata retains exact catalog positions.
+
+Errors: `422` when the body is not valid, when `when` is not `HH:MM` or an ISO datetime,
+or an explicit street-only endpoint is outside the street graph. `404` when an explicit street-only request has no path.
+Mixed planning skips street candidates rejected with 404/422. `503` when timetable/overlay data is missing
+or the street router is unavailable. Other router errors retain their HTTP status.
 
 ### `GET /api/geocode`
 
@@ -654,7 +767,69 @@ when Nominatim fails and no stop or station matched (when some matched, they are
 
 ### `GET /health`
 
-Liveness check: `{"status": "ok"}`.
+Liveness check of the slim app `app.main:app` only: `{"status": "ok"}`. The main app (`main:app`) has no `/health`
+(`404`); the street router's status is `GET /api/stations/health`.
+
+---
+
+## Speed history
+
+Average walking / cycling / wheelchair speed from the user's own trips (`algorithms/speed_history.py`). Stateless:
+the server stores and logs nothing. The device sends a GPS track once, gets records without coordinates back and keeps
+only those.
+
+### `POST /api/history/records`
+
+Turns the GPS track of one ridden route into at most one record per mode. The moving distance is shared between the
+legs by their planned distance; standing still, gaps over 60 s and GPS jumps (over 60 km/h) are not counted.
+`walk` legs make a `walking` record (or `wheelchair` with `walkAs`), `bike` and `veturilo` legs a `cycling` record;
+other legs only take their share. A mode needs at least 200 m and 60 s of movement and a plausible speed
+(walking 1-10 km/h, cycling 3-45, wheelchair 1-15).
+
+| Body field | Type | Meaning |
+|---|---|---|
+| `track` | list (at most 20000) of `{lat, lon, t}` | GPS points; `t` in seconds (any epoch, only differences matter) |
+| `legs` | list (at most 30) of `{mode, distanceM}` | the legs of the route, in order (`mode` as in `RouteLeg`) |
+| `walkAs` | `walking` (default) or `wheelchair` | what the walking legs count as |
+| `at` | string, optional | ISO date-time of the trip; empty = now (UTC) |
+
+Answer: `records`, each `{mode, distanceM, durationS, kmh, at}` (`mode` `walking`, `cycling` or `wheelchair`;
+`durationS` = moving time). `[]` when the track is too short or does not match the route (0.5-2 times its distance).
+
+```json
+{"track": [{"lat": 52.2297, "lon": 21.0122, "t": 1792300000}, {"lat": 52.22975, "lon": 21.0122, "t": 1792300004}, "..."],
+ "legs": [{"mode": "walk", "distanceM": 500}, {"mode": "veturilo", "distanceM": 2000}],
+ "walkAs": "walking", "at": "2026-10-18T09:00:00+02:00"}
+```
+
+```json
+{"records": [{"mode": "walking", "distanceM": 500.0, "durationS": 360.0, "kmh": 5.0, "at": "2026-10-18T09:00:00+02:00"},
+             {"mode": "cycling", "distanceM": 2003.0, "durationS": 404.0, "kmh": 17.9, "at": "2026-10-18T09:00:00+02:00"}]}
+```
+
+Errors: `422` for a malformed body.
+
+### `POST /api/history/summary`
+
+Average speed per mode from the records the device keeps: the latest `window` records of each mode, average =
+total distance / total moving time, records further than half the median from the median ignored (from 5 records).
+
+| Body field | Type | Default | Meaning |
+|---|---|---|---|
+| `records` | list (at most 500) | required | records as `POST /api/history/records` returned them |
+| `minTrips` | int 1-50 | `5` | `enough` is true from this many records |
+| `window` | int 1-200 | `20` | latest records per mode that count |
+
+Answer: `walking`, `cycling`, `wheelchair`, each `{trips, distanceKm, avgKmh, medianKmh, enough}` (`avgKmh` /
+`medianKmh` are `null` without records). The app may use `avgKmh` as the speed setting when `enough` is true.
+
+```json
+{"walking": {"trips": 3, "distanceKm": 1.5, "avgKmh": 5.0, "medianKmh": 5.0, "enough": false},
+ "cycling": {"trips": 3, "distanceKm": 6.0, "avgKmh": 17.8, "medianKmh": 17.9, "enough": false},
+ "wheelchair": {"trips": 0, "distanceKm": 0.0, "avgKmh": null, "medianKmh": null, "enough": false}}
+```
+
+Errors: `422` for a malformed body or a value out of range (e.g. `minTrips: 0`).
 
 ---
 

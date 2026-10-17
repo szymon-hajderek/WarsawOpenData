@@ -10,7 +10,8 @@ import { MODE_META, modeColor } from '../modes';
 import { useHistory } from '../history/HistoryProvider';
 import { usePreferences } from '../preferences/PreferencesProvider';
 import { routeKcal } from '../preferences/model';
-import { formatDistance, formatDuration, stopsLabel, transfersLabel } from '../utils/format';
+import { formatDistance, formatDuration, formatTotalWait, formatWait, stopsLabel, transfersLabel } from '../utils/format';
+import { legNotes } from '../utils/legStyle';
 import type { Place, RouteLeg, RouteOption } from '../types';
 import { RADIUS } from '../layout';
 
@@ -178,7 +179,8 @@ export default function RouteDetailsSheet({
                 {barLike ? route.title : 'Szczegóły trasy'}
               </Typography>
               <Typography variant="body2" color="text.secondary" noWrap>
-                {formatDuration(route.durationMin)} · {formatDistance(route.distanceM)} · {route.departure} – {route.arrival}
+                {formatDuration(route.durationMin)}
+                {formatTotalWait(route.waitS) && ` (${formatTotalWait(route.waitS)})`} · {formatDistance(route.distanceM)} · {route.departure} – {route.arrival}
               </Typography>
             </Box>
             {barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />}
@@ -285,7 +287,7 @@ export default function RouteDetailsSheet({
                       {instruction(leg)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {formatDuration(leg.durationMin)} · {formatDistance(leg.distanceM)}
+                      {[formatWait(leg.waitS), formatDuration(leg.durationMin), formatDistance(leg.distanceM), ...legNotes(leg)].filter(Boolean).join(' · ')}
                     </Typography>
                   </Box>
                 </Box>

@@ -7,7 +7,7 @@ export type LonLat = [number, number];
 export type TransportMode = 'walk' | 'bike' | 'veturilo' | 'bus' | 'tram' | 'metro' | 'rail';
 
 /** Travel profile: pace of walking / cycling and accessibility needs. */
-export type Profile = 'standard' | 'slow' | 'accessible';
+export type Profile = 'standard' | 'slow' | 'accessible' | 'stroller';
 
 export interface Place {
   id: string;
@@ -34,9 +34,26 @@ export interface RouteLeg {
   /** `GET /api/stations` id of the stop / station at each end (`ztm:435102`, `vet:14083304`), `null` for a place that is not one. */
   fromId?: string | null;
   toId?: string | null;
-  /** `[lon, lat]` where a street route boards an elevator / starts a flight of steps (street-only routes). */
-  elevators?: LonLat[];
-  steps?: LonLat[];
+  /** `[lat, lon]` where a street leg boards an elevator / starts a flight of steps. */
+  elevators?: LatLng[] | null;
+  steps?: LatLng[] | null;
+  /** Transit legs: seconds waited at the boarding stop (`fromId`) before departure. */
+  waitS?: number | null;
+  /** Transit legs: the GTFS trip id. */
+  tripId?: string | null;
+  /** Consecutive parts of one kind that cover the whole `path` (street legs; optional). */
+  segments?: LegSegment[];
+  /** True when GTFS has no shape for the trip and `path` only joins the stops in order (drawn dashed). */
+  approximatePath?: boolean;
+}
+
+/** `ride` = bike ridden, `push` = bike pushed, `metro_access` = the walk down to a metro platform. */
+export type SegmentKind = 'ride' | 'push' | 'walk' | 'steps' | 'elevator' | 'metro_access';
+
+export interface LegSegment {
+  kind: SegmentKind;
+  path: LatLng[];
+  lengthM: number;
 }
 
 /** Keep the intermediate stops as added, or let the backend reorder them for the shortest trip. */
@@ -50,13 +67,15 @@ export interface RouteOption {
   arrival: string;
   durationMin: number;
   distanceM: number;
-  /** Metres on foot (`walk` legs) and by bike (`bike` + `veturilo` legs). */
+  /** Metres walked (including a pushed bike) and ridden (own bike + Veturilo). */
   walkDistance: number;
   bikeDistance: number;
   transfers: number;
   tags: string[];
   /** Start, the intermediate stops in the order they are visited, destination (trips with stops only). */
   waypoints?: Place[];
+  /** Total standing time, seconds: waiting at stops plus signals, crossings, elevators. */
+  waitS?: number | null;
 }
 
 /** A stop in the delay estimate. Times are Warsaw local `HH:MM:SS`. */
@@ -71,6 +90,23 @@ export interface DelayStop {
 }
 
 /** Detail of the `bus-delay` event = answer of `GET /api/live/delay` (see data/API.md). */
+/** Live delay of one bus / tram ride of a suggested route (`POST /api/live/route-delays`, see data/API.md). */
+export interface LegDelay {
+  /** 0-based index among the transit legs (bus, tram, metro, rail) of the option. */
+  transitIndex: number;
+  line: string | null;
+  vehicleId: string | null;
+  available: boolean;
+  /** Seconds; negative = early. Null when not available. */
+  delaySec: number | null;
+  /** False: the vehicle still runs an earlier trip of its brigade, so the delay is a forecast. */
+  sameTrip: boolean;
+  reason: string | null;
+}
+
+/** Route option id -> delays of its rides. */
+export type RouteDelays = Record<string, LegDelay[]>;
+
 export interface BusDelayDetail {
   vehicleId: string;
   vehicle?: string;

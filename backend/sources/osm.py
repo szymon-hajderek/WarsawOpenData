@@ -57,7 +57,7 @@ ACCESS_EXTRA_M = 30
 # entrance <-> platform is a walk of METRO_ACCESS_M (stairs, corridors). Every entrance is assumed to have
 # an elevator, which a NO_STEPS mode takes (+ ELEVATOR_S).
 METRO_ACCESS_M = 150
-# /api/osm/route fails (422) when the start or the end is farther than this from the graph (m).
+# The router fails (422) when the start or the end is farther than this from the graph (m).
 MAX_SNAP_M = 1000
 
 
@@ -475,20 +475,6 @@ def api_nearest(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., 
     i, d = nearest(lat, lon, mode)
     g = graph()
     return {"node": int(g["ids"][i]), "lat": float(g["lat"][i]), "lon": float(g["lon"][i]), "distance_m": d}
-
-
-@router.get("/route")
-def api_route(from_lat: float = Query(..., ge=-90, le=90), from_lon: float = Query(..., ge=-180, le=180),
-              to_lat: float = Query(..., ge=-90, le=90), to_lon: float = Query(..., ge=-180, le=180),
-              mode: str = "walk"):
-    """Street path (walk, bike, accessible or stroller) from the C++ street router: walk_m, bike_m, wait_s, seconds,
-    geometry. 422 when the start or the end is more than MAX_SNAP_M from the graph (e.g. outside Warsaw)."""
-    check_mode(mode)
-    import street_router  # backend/street_router.py; imported here so the data side does not depend on it
-    try:
-        return street_router.route((from_lat, from_lon), (to_lat, to_lon), mode)
-    except street_router.RouteError as e:
-        raise HTTPException(e.status, str(e))
 
 
 TRANSPORT_TAGS = ("public_transport", "railway", "highway", "ref", "local_ref", "name", "level", "wheelchair",

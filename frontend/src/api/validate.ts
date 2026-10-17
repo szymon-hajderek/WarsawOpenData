@@ -1,4 +1,5 @@
-import type { RouteOption } from '../types';
+import type { RouteDelays, RouteOption } from '../types';
+import { SEGMENT_KINDS } from '../utils/legStyle';
 
 const isObject = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null;
 const isPoint = (p: unknown) =>
@@ -7,6 +8,27 @@ const isPoint = (p: unknown) =>
 /** `fromId` / `toId` come with the new route format: absent, `null` or a string (never a number). */
 const isOptionalId = (x: unknown) => x === undefined || x === null || typeof x === 'string';
 const isOptionalPoint = (x: unknown) => x === undefined || x === null || isPoint(x);
+const isOptionalBool = (x: unknown) => x === undefined || x === null || typeof x === 'boolean';
+// The backend sends `null` for a field that does not apply to the leg (e.g. `waitS` on a walk); treat it as absent.
+const isOptionalString = (x: unknown) => x === undefined || x === null || typeof x === 'string';
+/** Seconds: absent or a finite number >= 0. */
+const isOptionalSeconds = (x: unknown) => x === undefined || x === null || (typeof x === 'number' && Number.isFinite(x) && x >= 0);
+/** `[lat, lon]` point lists (`elevators`, `steps`): absent or every item a point. */
+const isOptionalPoints = (x: unknown) => x === undefined || x === null || (Array.isArray(x) && x.every(isPoint));
+
+/** One part of a leg: a known `kind`, a non-empty `[lat, lon]` path and its length. */
+const isSegment = (s: unknown) =>
+  isObject(s) &&
+  typeof s.kind === 'string' &&
+  (SEGMENT_KINDS as readonly string[]).includes(s.kind) &&
+  typeof s.lengthM === 'number' &&
+  Number.isFinite(s.lengthM) &&
+  s.lengthM >= 0 &&
+  Array.isArray(s.path) &&
+  s.path.length > 0 &&
+  s.path.every(isPoint);
+/** `segments` are optional; when present every one must be valid. */
+const isOptionalSegments = (x: unknown) => x === undefined || x === null || (Array.isArray(x) && x.every(isSegment));
 
 /** True when the value has the shape the UI needs: every route has legs, every leg a non-empty path. */
 export function isRouteOptions(value: unknown): value is RouteOption[] {
@@ -19,6 +41,7 @@ export function isRouteOptions(value: unknown): value is RouteOption[] {
         Array.isArray(o.legs) &&
         o.legs.length > 0 &&
         Array.isArray(o.tags) &&
+        isOptionalSeconds(o.waitS) &&
         o.legs.every(
           (l) =>
             isObject(l) &&
@@ -31,7 +54,32 @@ export function isRouteOptions(value: unknown): value is RouteOption[] {
             isOptionalId(l.fromId) &&
             isOptionalId(l.toId) &&
             isOptionalPoint(l.start) &&
-            isOptionalPoint(l.end),
+            isOptionalPoint(l.end) &&
+            isOptionalSegments(l.segments) &&
+            isOptionalBool(l.approximatePath) &&
+            isOptionalPoints(l.elevators) &&
+            isOptionalPoints(l.steps) &&
+            isOptionalSeconds(l.waitS) &&
+            isOptionalString(l.tripId),
+        ),
+    )
+  );
+}
+
+/** True when the route-delays answer is `option id -> [{ transitIndex, available, delaySec, sameTrip }]`. */
+export function isRouteDelays(value: unknown): value is RouteDelays {
+  return (
+    isObject(value) &&
+    Object.values(value).every(
+      (rows) =>
+        Array.isArray(rows) &&
+        rows.every(
+          (r) =>
+            isObject(r) &&
+            typeof r.transitIndex === 'number' &&
+            typeof r.available === 'boolean' &&
+            (r.delaySec === null || typeof r.delaySec === 'number') &&
+            typeof r.sameTrip === 'boolean',
         ),
     )
   );

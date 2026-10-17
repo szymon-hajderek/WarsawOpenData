@@ -8,11 +8,13 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import SnapSheet, { type SheetSnap } from './SnapSheet';
 import LegChain from './LegChain';
 import { pressableProps } from './pressable';
-import { formatDuration, stopsLabel, transfersLabel } from '../utils/format';
+import { formatDuration, formatTotalWait, stopsLabel, transfersLabel } from '../utils/format';
 import { routeKcal, type FilterChip, type TimeRule } from '../preferences/model';
 import { usePreferences } from '../preferences/PreferencesProvider';
 import type { RouteOption } from '../types';
 import { RADIUS } from '../layout';
+import { useRouteDelays } from '../hooks/useRouteDelays';
+import { delaysByLeg } from '../api/routeDelays';
 
 interface Props {
   /** Routes after filtering and sorting. */
@@ -67,6 +69,7 @@ export default function RouteOptionsSheet({
 }: Props) {
   const noScrollbar = { scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } } as const;
   const { effective } = usePreferences();
+  const delays = useRouteDelays(options);
   const content = useRef<HTMLDivElement>(null);
   const fastest = options.length ? Math.min(...options.map((o) => o.durationMin)) : null;
 
@@ -176,6 +179,9 @@ export default function RouteOptionsSheet({
         {!loading &&
           options.map((o) => {
             const selected = o.id === selectedId;
+            const legDelays = delaysByLeg(o, delays);
+            // Our live delay per ride replaces the engine's own "opóźnienie N min" tag, so there are not two numbers.
+            const tags = legDelays.some(Boolean) ? o.tags.filter((tag) => !tag.startsWith('opóźnienie')) : o.tags;
             return (
               <Box
                 key={o.id}
@@ -199,7 +205,7 @@ export default function RouteOptionsSheet({
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                     <Typography sx={{ fontWeight: 700 }}>{o.title}</Typography>
-                    {o.tags.map((tag) => (
+                    {tags.map((tag) => (
                       <Chip key={tag} label={tag} size="small" color="secondary" variant="outlined" />
                     ))}
                   </Box>
@@ -207,13 +213,18 @@ export default function RouteOptionsSheet({
                     {o.departure} – {o.arrival} · {transfersLabel(o.transfers)}
                     {o.waypoints && o.waypoints.length > 2 && ` · ${stopsLabel(o.waypoints.length - 2)}`}
                   </Typography>
-                  <LegChain legs={o.legs} />
+                  <LegChain legs={o.legs} delays={legDelays} />
                 </Box>
 
                 <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
                     {formatDuration(o.durationMin)}
                   </Typography>
+                  {formatTotalWait(o.waitS) && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'nowrap' }}>
+                      {formatTotalWait(o.waitS)}
+                    </Typography>
+                  )}
                   {routeKcal(o, effective) > 0 && (
                     <Typography
                       variant="caption"

@@ -6,7 +6,7 @@ FastAPI serializes responses by alias, so the output matches the TypeScript type
 """
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 # [lat, lng] pair, same as the frontend `LatLng`.
 LatLng = tuple[float, float]
@@ -18,7 +18,7 @@ MAX_VIA = 5
 
 # `bike` = the rider's own bike, `veturilo` = a rented Veturilo bike.
 TransportMode = Literal["walk", "bike", "veturilo", "bus", "tram", "metro", "rail"]
-Profile = Literal["standard", "slow", "accessible"]
+Profile = Literal["standard", "slow", "accessible", "stroller"]
 
 
 class Place(BaseModel):
@@ -27,6 +27,12 @@ class Place(BaseModel):
     sublabel: Optional[str] = None
     position: LatLng
     isCurrentLocation: Optional[bool] = None
+
+
+class RouteSegment(BaseModel):
+    kind: Literal["ride", "push", "walk", "steps", "elevator", "metro_access"]
+    path: list[LatLng]
+    lengthM: float
 
 
 class RouteLeg(BaseModel):
@@ -42,8 +48,23 @@ class RouteLeg(BaseModel):
     # Where the leg starts and ends, `[lon, lat]`. Filled from `path` when not given.
     start: Optional[LonLat] = None
     end: Optional[LonLat] = None
+    fromId: Optional[str] = None
+    toId: Optional[str] = None
+    segments: list[RouteSegment] = Field(default_factory=list)
+    # Router totals remain exact even when optional drawing segments are absent.
+    _street_distances: Optional[tuple[float, float]] = PrivateAttr(default=None)
     # 1-based number of the intermediate stop this leg ends at (multi-stop trips), else None.
     stop: Optional[int] = None
+    # True when GTFS has no shape for the trip and `path` only joins the stops in order.
+    approximatePath: bool = False
+    # Street legs: where the path boards an elevator / starts a flight of steps, `[lat, lon]`.
+    elevators: Optional[list[LatLng]] = None
+    steps: Optional[list[LatLng]] = None
+    # Transit legs: seconds standing at the boarding stop (`fromId`) before departure, and the GTFS trip id.
+    waitS: Optional[float] = None
+    tripId: Optional[str] = None
+    # Street legs: expected waits (signals, crossings, elevators), part of `RouteOption.waitS`.
+    _street_wait: float = PrivateAttr(default=0.0)
 
     @model_validator(mode="after")
     def _fill_ends(self) -> "RouteLeg":
@@ -63,18 +84,34 @@ class RouteOption(BaseModel):
     arrival: str
     durationMin: int
     distanceM: float
-    # Metres on foot (`walk` legs) and by bike (`bike` + `veturilo` legs). Calories are worked out from the legs.
+    # Metres walked (including a pushed bike) and ridden (own bike + Veturilo).
     walkDistance: float = 0
     bikeDistance: float = 0
     transfers: int
     tags: list[str]
+    # Total standing: transit `waitS` at boarding stops plus street waits (signals, crossings, elevators).
+    waitS: float = 0
 
     @model_validator(mode="after")
     def _fill_distances(self) -> "RouteOption":
-        if not self.walkDistance:
-            self.walkDistance = round(sum(l.distanceM for l in self.legs if l.mode == "walk"), 1)
-        if not self.bikeDistance:
-            self.bikeDistance = round(sum(l.distanceM for l in self.legs if l.mode in ("bike", "veturilo")), 1)
+        walked = ridden = 0.0
+        for leg in self.legs:
+            if leg._street_distances is not None:
+                walk_m, bike_m = leg._street_distances
+            elif leg.segments:
+                bike_m = sum(s.lengthM for s in leg.segments if s.kind == "ride")
+                walk_m = sum(s.lengthM for s in leg.segments if s.kind != "ride")
+            else:
+                walk_m = leg.distanceM if leg.mode == "walk" else 0
+                bike_m = leg.distanceM if leg.mode in ("bike", "veturilo") else 0
+            walked += walk_m
+            ridden += bike_m
+        if "walkDistance" not in self.model_fields_set:
+            self.walkDistance = round(walked, 1)
+        if "bikeDistance" not in self.model_fields_set:
+            self.bikeDistance = round(ridden, 1)
+        if "waitS" not in self.model_fields_set:
+            self.waitS = round(sum((leg.waitS or 0) + leg._street_wait for leg in self.legs), 1)
         return self
     # Start, the intermediate stops in the order they are visited, destination (multi-stop trips only).
     waypoints: list[Place] = Field(default_factory=list)
@@ -105,6 +142,7 @@ class RouteRequest(BaseModel):
     from_: Place = Field(alias="from")
     to: Place
     profile: Profile = "standard"
+    travel: Literal["transit", "walk", "accessible", "stroller", "bike"] = "transit"
     # Warsaw local departure. "HH:MM" or an ISO datetime. Empty = now.
     when: Optional[str] = None
     # Intermediate stops (at most MAX_VIA). `order` says whether to keep them as given or reorder

@@ -96,25 +96,26 @@ Everything in this repo (files, commits, PRs) is written in English.
   other cities, safety, privacy, evidence-based, technical correctness, business model.
 - **Time frame:** 24h hackathon, so keep everything simple.
 - **Status:** the frontend UI exists. `uv run uvicorn main:app` serves the data and
-  `POST /api/routes`. The route engine (`backend/app/routing/real_engine.py`) builds options from
-  GTFS departures, OSM walk/bike paths and live Veturilo docks. A C++ engine is still the later plan;
-  `StubRouteEngine` remains only as the old mock.
+  `POST /api/routes`. The route engine (`backend/app/routing/real_engine.py`, Python) builds options from
+  GTFS departures, street paths and live Veturilo docks. Street paths (walk, bike, accessible, stroller) come from
+  the C++ street router (`algorithms/router/`), which the backend starts. Transit routing (RAPTOR) in C++ is
+  the next step; `StubRouteEngine` remains only as the old mock.
 
 ### Tech stack
 
 - Frontend: React + TypeScript + Vite
-- Map: Leaflet + OpenStreetMap
+- Map: Leaflet + MapLibre GL (OpenFreeMap vector tiles, OpenStreetMap data)
 - Backend: Python + FastAPI
 - Database: SQLite for optional journey statistics (`db/journey_stats.sqlite`, git-ignored).
-  Source datasets remain raw files in `data/`, parsed by Python modules on first use.
+  Source datasets remain raw files in `data/`, parsed by Python modules into caches at server start.
   PostgreSQL + PostGIS for source datasets later if needed.
-- Routing: a long-running **C++ engine** builds its own graph at startup and keeps it in memory.
-  Today the street part runs (`algorithms/router/`, see Backend notes); transit routing is still Python
-  (`backend/app/routing/real_engine.py`).
-  After that, Python pushes only live data and values derived from it (vehicle positions, Veturilo
+- Routing: a long-running **C++ engine** loads its graph at startup and keeps it in memory.
+  Today the street router runs (`algorithms/router/`, binary `street_router`, see Backend notes): street paths
+  and station access. Transit routing runs in Python today (`backend/app/routing/real_engine.py`); RAPTOR in C++
+  is planned. Then Python pushes only live data and values derived from it (vehicle positions, Veturilo
   availability, alerts, delays), then asks the engine for routes. Python does not send the graph.
   (OpenTripPlanner was the earlier idea; the team chose a custom C++ engine instead.)
-- Deployment: Docker
+- Deployment: Docker (planned, not set up yet)
 
 ### Folder structure
 
@@ -122,9 +123,11 @@ Everything in this repo (files, commits, PRs) is written in English.
 - `ui/` — UI feature work; `ui/concept-art/` holds concept graphics
 - `artifacts/` — self-contained HTML pages (visualizations); rebuilt by scripts, templates in `artifacts/templates/`
 - `backend/` — FastAPI app
-- `algorithms/` — algorithms (mandatory folder): pure functions + their pytest files (`nearest_buses.py`, `stop_order.py`)
-- `db/` — database files and setup
-- `routing/` — OpenTripPlanner config
+- `algorithms/` — algorithms (mandatory folder): pure functions + their pytest files (`nearest_buses.py`, `stop_order.py`);
+  `algorithms/router/` the C++ street router, `algorithms/simulation/` the simulation scripts
+- `integration/` — integration tests (simulation mode, scenarios); see `integration/README.md`
+- `db/` — database files (`journey_stats.sqlite`, git-ignored)
+- `routing/` — empty placeholder (was meant for OpenTripPlanner config)
 - `data/` — datasets, one subfolder per data type: `gtfs/`, `gbfs/`, `osm/`, `geojson/`;
   `data/API.md` is the API reference (the contract), `data/REPORT.md` the data report
 
@@ -134,18 +137,23 @@ Everything in this repo (files, commits, PRs) is written in English.
   `config`, `sources.*`). uv picks Python 3.12 (`.venv` is git-ignored).
 - One file per source in `backend/sources/` with `download()`, parse functions and a FastAPI `router`:
   `mkuran.py` (GTFS), `um_warszawa.py` (City Hall live APIs), `nextbike.py` (Veturilo GBFS), `osm.py`
-  (walk / bike graph). `sources/registry.py` lists every source, also the ones we only list.
+  (walk / bike / accessible / stroller graph), `siting.py` (Warsaw boundary + Veturilo siting). `realtime.py`
+  (trip-update / PLK delays) and `alerts.py` (ZTM alerts) only read live feeds. `sources/registry.py` lists every
+  source, also the ones we only list.
 - Commands: `uv run python download.py [source]`, `uv run uvicorn main:app --reload`
   (docs at `/docs`), `uv run python report.py` (writes `data/REPORT.md` + `data/report.json`).
 - Raw data: GTFS zips and `warsaw_ztm.osm.pbf` are in Git LFS (`.gitattributes`); run `git lfs install`
-  once after cloning. `data/derived/` holds parsed caches (git-ignored, rebuilt on first use, ~25 s
-  for GTFS, ~17 s for OSM; delete `osm_graph.npz` after a new OSM file or a parser change).
+  once after cloning. `data/derived/` holds parsed caches (git-ignored, built at server start, ~25 s
+  for GTFS, ~17 s for OSM). The GTFS cache rebuilds by itself when `mkuran.CACHE_VERSION` changes;
+  `osm_graph.npz` when the `.pbf` is newer (delete it after an OSM parser change); `stations.json` and the router's
+  `street/graph_<mode>.bin` when their inputs are newer.
 - GTFS geometry data: `mkuran.CACHE_VERSION` (version 2) marks metre distances and current boarding/platform
   fields. Old caches rebuild from existing ZIPs; mixed-feed maxima cannot detect truncated ZTM kilometres.
   Shapes follow `shape_pt_sequence`; `shape_slice` rejects unusable measures and `shape_by_stops` projects
   ordered calls onto source shape coordinates (e.g. WKD, which has no stop-to-shape distances).
-- Dedup: stops only from GTFS. ZTM (bus, tram, metro, SKM) from `warsaw.zip`, WKD from `wkd.zip`,
-  other trains from `polish_trains.zip` without SKM and only inside the ZTM bbox. Rail stations merge
+- Dedup: stops only from GTFS. ZTM (bus, tram, metro) from `warsaw.zip` (its rail, route_type 2, is dropped:
+  `DROP_ZTM_ROUTE_TYPES`), WKD from `wkd.zip`, all other trains incl. SKM from `polish_trains.zip`
+  (`DROP_PKP_AGENCIES` is empty), only inside the ZTM bbox. Rail stations merge
   across feeds only rail-to-rail (same name, < 150 m, field `same_as`); never with bus / tram stops.
 - IDs: global stop ids have a feed prefix (`ztm:700901`, `wkd:brzoz`, `pkp:33605_RAIL_1_5`).
   ZTM `700901` = zespół `7009` + słupek `01` = City Hall `busstopId` + `busstopNr`.
@@ -163,7 +171,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   With the key it calls `fetch_vehicles` directly. `LIVE_BUSES_URL`, when set, is polled over HTTP instead.
   `POST /api/live/nearest-buses` ranks buses by MSE (m^2) between the user's 1-3 points and each bus track
   (each user point paired with the bus point closest in time), `algorithms/nearest_buses.py`. Returns 4
-  (1 + 3 for the popup), no distance cut-off. Feed time is read as server local time (Warsaw).
+  (1 + 3 for the popup), no distance cut-off. Feed time is read as Europe/Warsaw (`clock.warsaw_epoch`).
 - Tests: `cd backend && uv run pytest tests ../algorithms` (integration tests: `uv run pytest ../integration`) (`algorithms/` = pure functions, `backend/tests/` = API-level logic that needs no data files).
 - Simulation (`algorithms/simulation/`): `record_buses.py` records 2 min of live buses (needs `PORTAL_KEY`) to
   `data/live/bus_track_sample.json` (committed); `simulate_nearest_buses.py` puts users on bus polylines with a GPS
@@ -190,6 +198,12 @@ Everything in this repo (files, commits, PRs) is written in English.
   `export_delay_viz.py` builds `artifacts/delay-simulation.html`. `search_delay_radius.py`: R 20..200 m every 10 m, then every 1 m
   between the two best neighbours; score = share of passes shown within 30 s. On the 2026-10-17 recording: 30 m 95.0%, best 80 m 96.5%
   (flat from 80 m); default still 30 m.
+- Delays of suggested routes (`POST /api/live/route-delays`, `algorithms/route_delays.py`): a transit option id is
+  `pt-<trip id>-<trip id>...` (built in `real_engine.py`; the endpoint depends on that format, the engine is not changed).
+  Trip -> GTFS line + brigade -> live vehicle with the same Lines + Brigade -> the `/delay` estimate (`_delay_for`).
+  Vehicle still on an earlier trip of its brigade: its current delay with `sameTrip: false`. `multi-N` options get nothing.
+  Frontend: `useRouteDelays` (in `RouteOptionsSheet`, refresh 30 s) -> `LegChain` shows "· +3 min" / "punktualnie" /
+  "2 min wcześniej" ("ok." when `sameTrip` is false) after the line; the engine's own "opóźnienie N min" tag is hidden then.
 - Veturilo siting (`backend/sources/siting.py`, `algorithms/station_siting.py`, `GET /api/veturilo/siting`): Warsaw boundary
   (`data/geojson/warsaw.geojson`, Nominatim relation R336075) split into pointy-top axial hexes, radius 175 m (6476 hexes). Cost
   `J = -a*T*(1 + d*E) + b*P(d_net) + g*S`, `P = (1 - d/R)^2` below R; defaults a=1, b=1, g=0.5, d=0.5, R=1000 m (`DEFAULTS`).
@@ -223,15 +237,15 @@ Everything in this repo (files, commits, PRs) is written in English.
   transit option at all), #65 (direct bus / tram options dropped after PR #56), #66 (`lateness.py` shows 4 min as 3).
 - Walking-only route totals and arrival times come from the walking leg; never pass a zero-second total override
   to `_option`. Regression tests: `backend/tests/test_walk_duration.py` (including arrival after midnight; #72).
-- `/api/osm/route` returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`) from the graph;
-  `osm.route()` / `osm.nearest()` in Python have no limit (`report.py` snaps far stops).
+- The router returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`, stored in the graph file and
+  checked by the C++ router) from the graph; `osm.nearest()` in Python has no limit.
 - Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
   `WAIT` in `osm.py`). OSM has no signal timing tags in Warsaw. The wait is per edge (`osm.edges()`):
   signal nodes < 30 m apart by path form one junction (plus the nodes between them, e.g. islands),
   paid once (`algorithms/street_model.py`).
 - A point (stop, address) joins the street graph through up to 6 nearest nodes (<= 30 m farther than the
   nearest; `osm.access`, `osm.points_graph` -> `StreetGraph`): virtual out / in nodes = multi-source Dijkstra with start
-  costs. Access segments are walked; on a bike pushed (extra time in `wait_s`). Used by `osm.route()` and the matrix.
+  costs. Access segments are walked (on a bike: pushed). The C++ router applies the same rule to any coordinate.
   Known gap: a pedestrian crosses a road only where OSM connects the two sidewalks (e.g. Wolica 01 / 02: 59 m apart, 695 m walk).
 - ZTM posts in OSM: `public_transport=platform` nodes with `ref` = ZTM stop_id (`Grójecka 02` = `ref=435102`);
   90% of posts match, median 7 m from the GTFS point.
@@ -243,8 +257,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   every mode); time = walk_m / walk speed + bike_m / bike speed + wait_s. Points join only the largest strongly connected component of the mode (`osm._mode_tree`):
   islands (1-2% of nodes) cannot reach anything, so no NaN pairs.
 - Metro platforms (`ztm:7014M:P1`) join the graph through all GTFS entrances of their station
-  (`location_type=2`, `7014M:E1..E9`): a 150 m walk; modes without steps (bike, accessible) also take the
-  elevator every entrance is assumed to have (+60 s).
+  (`location_type=2`, `7014M:E1..E9`): a 150 m walk; modes without steps (`osm.NO_STEPS`: bike, accessible,
+  stroller) also take the elevator every entrance is assumed to have (+60 s).
   GTFS entrances match OSM `railway=subway_entrance` (251/253 within 30 m). GTFS `trips.txt` has
   `wheelchair_accessible` per trip (1 = yes for 96%).
 - StationLocations (`backend/stations.py` → `data/derived/stations.json`, rules in `algorithms/station_map.py`): the one
@@ -272,17 +286,18 @@ Everything in this repo (files, commits, PRs) is written in English.
   Target architecture (user): OSM layer for own bike / walk / accessible + a simple station network for RAPTOR with
   precomputed foot / bike paths; query = access Dijkstra → RAPTOR → egress Dijkstra.
   `street_router matrix` builds the stop-to-stop matrices (float32 (3, N, N): walk_m, bike_m, wait_s).
-  `osm.route()` is gone; `/api/osm/route` and `real_engine._street()` call the router. Full docs:
+  `osm.route()` and `GET /api/osm/route` are gone; `real_engine._street()` calls the router. Full docs:
   `algorithms/router/README.md` (keep it current).
-- Rail platforms: ZTM `warsaw.zip` has one stop per rail station (no platforms); `polish_trains.zip` has
-  stations with children per platform + track (`33506_RAIL_2_20` = "2 t. 20"), also for SKM. The rail merge
-  collapses them to the ZTM stop, so platform info is lost (possible follow-up). Platform coordinates in
-  GTFS look synthetic (evenly spaced); OSM `railway=platform` + `ref` would give real positions.
+- Rail platforms: `polish_trains.zip` has stations with children per platform + track (`33506_RAIL_2_20` =
+  "2 t. 20"), also for SKM. They fold into one location per platform (`pkp:33506_P2`, see "Rail in mkuran");
+  `GET /api/gtfs/stops` shows the children in `members`. Platform coordinates in GTFS look synthetic (evenly spaced);
+  StationLocations moves a platform to the OSM `railway=platform` way where the number matches (160 / 207).
 
 ### Frontend (`frontend/`)
 
 - Stack: React 18, Vite 5, TypeScript, Material UI v6 (+ icons), Leaflet 1.9 with `react-leaflet` 4.
-  Node on the dev machine is 18.18, so stay on these versions (newer Vite needs Node 20+).
+  Vite 5 runs on Node 18.18+; stay on these versions (newer Vite needs Node 20+). On Node 26 (this Linux machine)
+  `npm test` needs `NODE_OPTIONS=--no-experimental-webstorage`, else jsdom's `localStorage` is undefined.
 - Screens, one flow: map with the user's location and start / destination fields on top ->
   list of connection options (with preview on the map) -> chosen route (clean route on the map,
   summary, steps). State lives in `src/App.tsx` (`step`: search / options / route).
@@ -290,7 +305,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   when `API_URL` is set. If the backend is unreachable or answers badly, the call throws `BackendOfflineError` and the app says "Nie połączono z serwerem" (no made-up routes).
   The in-browser mock (`mockRouteOptions`) is used only when the backend is switched off on purpose (`VITE_API_URL=""`). Types in `src/types.ts`. The mock's speeds are rough estimates.
 - Backend URL: `src/config.ts` reads `VITE_API_URL` (default `http://localhost:8000`;
-  set `VITE_API_URL=""` in `frontend/.env` to force the mock).
+  set `VITE_API_URL=""` in `frontend/.env` to force the mock). On a phone, `localhost` is the phone itself: set it to
+  the page's own origin (`VITE_API_URL=https://<laptop-ip>:5173 npm run dev:https`); Vite then proxies `/api`.
 - Place search: `src/api/geocode.ts` (`searchPlaces`, `MIN_QUERY`), debounced (300 ms), limited to Warsaw. Calls the backend (`GET /api/geocode`) when `API_URL` is set
   (from 2 characters; sends the user's position as `lat` / `lon`), else Nominatim directly (3 characters, ≈1 request/second limit). The backend answers with our own
   stops and Veturilo stations first (`algorithms/place_search.py`: start-of-word match, accents folded, distance as a tie-break), then Nominatim; stops still come when Nominatim is down.
@@ -355,9 +371,19 @@ Everything in this repo (files, commits, PRs) is written in English.
   minus resting energy (Mifflin-St Jeor); manual wheelchair uses a rough table from Conger and Bassett 2011, electric = 0; transit legs count as resting). The speed of a leg is its distance over its time
   (the pace from the preferences is the fallback). Routes carry no `calories` or `costPln` any more; kcal is worked out from the legs in the route list, details and the "most active"
   sort. `algorithms/calories.py` (`net_kcal`) is the same formula for any consumer of the route format. Not modelled yet: slope, carried load, bike type, wind.
-- Route format (`data/API.md`): `RouteLeg.mode` is `walk`, `bike` (own bike, nothing produces it yet), `veturilo` (rented), `bus`, `tram`, `metro`, `rail`; a leg also has
+- Route format (`data/API.md`): `RouteLeg.mode` is `walk`, `bike` (own bike), `veturilo` (rented), `bus`, `tram`, `metro`, `rail`; a leg also has
   `start` / `end` as `[lon, lat]` (the `path` stays `[lat, lng]`). `RouteOption` has `walkDistance` and `bikeDistance` (m) and no price: the backend's fare code
   (`algorithms/fares.py`) is not used by the route engine any more. Only "Najszybsza" is a backend tag; the frontend sort "Najaktywniejsze" uses `routeKcal`.
+- Station-aware routing (#79): `real_engine` copies GTFS stops/calls onto `stations.locations()` positions and passes
+  station IDs (including `vet:`) to the street router. One `legs_from_router` adapter converts paths/optional segments;
+  all stop-touching legs carry `fromId` / `toId` and exact catalog `start` / `end` (street geometry stays router-rounded).
+  Access/egress candidate ranking uses one `/access` call in the appropriate direction. Missing street paths
+  drop mixed options; router downtime returns 503. `POST /api/routes` also accepts `travel` =
+  walk / accessible / stroller / bike for street-only trips without timetable/live queries; default is transit.
+  Stroller is a profile; stepFree/wheelchair uses the accessible graph. Route totals include pushed-bike metres
+  in walkDistance and ridden metres in bikeDistance, including multi-stop trips.
+- The C++ router never returns transit shapes. Transit geometry comes from GTFS in `real_engine` (`_ride_path`: `shape_slice`,
+  then `shape_by_stops`); without any shape, a polyline through the stops with `approximatePath: true`.
 - Speed history (device-side, privacy first): in the route view "Rozpocznij przejazd" / "Zakończ" records GPS points (memory only, one every 4 s,
   Screen Wake Lock while recording) and sends the track once to `POST /api/history/records` (`backend/app/api/history.py`,
   `algorithms/speed_history.py::split_track`: shares the moving distance between the route's legs by planned distance, ignores standing
@@ -368,27 +394,36 @@ Everything in this repo (files, commits, PRs) is written in English.
   "Twoja średnia z historii" with "Użyj X km/h" (when it differs by 10% or more) and the switch "Zawsze używaj średniej z historii" (`autoSpeed`; when on and
   enough trips, `applyHistory` in `src/preferences/model.ts` replaces the level / typed speed and the selector is locked). History can be cleared on the Preferences page.
 - Travel modes (`src/travel.ts`): chips in the search card (Komunikacja | Pieszo | Wózek inwalidzki | Wózek dziecięcy | Własny rower, not saved). `Komunikacja` is the
-  normal `POST /api/routes` search. The other four are street-only trips: `src/api/streetRoute.ts` (`fetchStreetRoute`, `fetchStreetTrip` for trips with stops) calls
-  `GET /api/osm/route` (modes `walk`, `accessible`, `stroller`, `bike`) and builds a one-leg `RouteOption` (`start` / `end` from the path as `[lon, lat]`, `elevators` / `steps` on
-  the leg, tags "bez schodów" and "windy: N"). Errors are said in Polish: 422 "Punkt poza zasięgiem mapy", 404 "Brak trasy", 503 "Serwer tras nie działa", 400 "Ten tryb nie jest
-  jeszcze dostępny na serwerze" (stroller needs the backend PR #78). **No mock and no straight line** for street trips: a wheelchair user must know the path was really checked.
-  Filters and sorting do not apply to a street trip.
+  normal `POST /api/routes` search. The other four are street-only trips: `src/api/streetRoute.ts` (`fetchStreetTrip`, also with `via` / `order`; `fetchStreetRoute` = no stops)
+  posts to the same `POST /api/routes` with `travel` (`ROUTER_MODE`: `walk`, `accessible`, `stroller`, `bike`) and shows the one `RouteOption` of the answer as it is
+  (checked by `isRouteOptions`; `GET /api/osm/route` is gone, the frontend no longer parses raw router answers). Errors are said in Polish: 422 "Punkt poza zasięgiem mapy",
+  404 (or an empty list) "Brak trasy", 503 "Serwer tras nie działa", 400 "Ten tryb nie jest jeszcze dostępny na serwerze". **No mock and no straight line** for street trips:
+  a wheelchair user must know the path was really checked. Filters and sorting do not apply to a street trip.
+- Route representation extras (all optional): `RouteLeg.elevators` / `steps` (`[lat, lon]`, drawn as icons via `accessPoints` in `src/utils/overlay.ts`),
+  `RouteLeg.waitS` (transit: seconds at the boarding stop), `RouteLeg.tripId` (GTFS, no UI), `RouteOption.waitS` (all standing time). Texts from `src/utils/format.ts`:
+  `formatWait` "czekasz N min" in the route steps, `formatTotalWait` "w tym czekanie N min" next to the duration (list + details); nothing below 60 s. The mock fills them too.
 - Stop overlay: `RouteLeg.fromId` / `toId` (ids of `GET /api/stations`, `null` for a place that is not a stop; both optional until the backend sends them, see backend issue #79).
   `src/api/stations.ts` (`fetchStation`, `fetchStations(bbox)`), `src/hooks/useRouteStations.ts` loads the stops a route names (by id, cached), `src/utils/overlay.ts` (`buildOverlay`)
   returns the markers, the leg paths with their ends moved onto the stops and the metro entrances. The map draws small stop markers, joins the legs at them, draws metro rides
   dashed and muted, shows the entrance where a walk goes down, and elevator / steps icons on street trips. Without answers the overlay is empty (nothing is made up).
-- Backend calls: every call builds its URL with `apiUrl(path)` from `src/config.ts` (routes, geocode, history, vehicle). An empty
-  `API_URL` turns all of them to the in-browser mock. Answers are checked in `src/api/validate.ts`; a wrong shape counts as "backend down".
+- Backend calls build their URL with `apiUrl(path)` from `src/config.ts` (routes, geocode, history, vehicle, street routes,
+  stations, journeys, sim); `src/api/delay.ts` still uses a relative `/api/live/delay`. An empty `API_URL` gives example routes and
+  vehicles, place search straight from Nominatim / `places.json`, and the local speed summary; street trips have no mock.
+  Answers are checked in `src/api/validate.ts`; a wrong shape counts as "backend down".
 - **A missing backend is said out loud.** With `API_URL` set, a network error, a 5xx or a wrong shape means "not connected": a red snackbar "Nie połączono z serwerem. Sprawdź, czy backend działa."
   plus the same text in the route list (`useRouteSearch` `offline`) and the vehicle window (`useVehicleDetection` `offline`). A 4xx (the backend refused the query) stays the generic "Nie udało się pobrać tras".
 - **Example data is marked.** When the backend is switched off on purpose (`VITE_API_URL=""`), `fetchRouteOptions` / `detectVehicle` return `mock: true`; the app shows
   one snackbar and a "Dane przykładowe" chip on the route list and the vehicle window.
 - Hooks (`src/hooks/`): `useLocationTrack` (one `watchPosition` + the last 3 positions, cleaned up on unmount), `useRouteSearch`,
-  `useVehicleDetection`. `App.tsx` only wires them. `ErrorBoundary` wraps the app. Selection and step are derived while rendering
+  `useVehicleDetection`, `useRouteStations`, `useRidePlayback` (demo). `App.tsx` only wires them. `ErrorBoundary` wraps the app. Selection and step are derived while rendering
   (no effects for derived state). Under the Preferences page the map and panels are `inert`.
 - Selectable cards use `pressableProps` (`components/pressable.ts`): Enter / Space select, Space does not scroll. The map has ONE MapLibre
   layer; the light / dark switch calls `setStyle`. Leaflet marker icons are plain SVG from `ICON_PATH` in `modes.tsx` (no `react-dom/server`).
-- Checks: `npm run lint` (ESLint 8, `.eslintrc.cjs`), `npm test` (Vitest 1 + Testing Library), `npm run build`.
+- Leg lines (`src/utils/legStyle.ts`, pure): a leg with `segments` is drawn per segment (`ride` solid, `push` dashed in the bike colour,
+  `walk` dotted, `steps` / `elevator` / `metro_access` a short accent style), the stop connectors from `buildOverlay` stay on the first / last
+  segment; without segments one line. A transit leg with `approximatePath: true` (#85) is dashed, details say "przebieg orientacyjny";
+  a bike leg with segments shows "jazda X km, prowadzenie Y m".
+- Checks: `npm run lint` (ESLint 8, `.eslintrc.cjs`), `npm test` (Vitest 1 + Testing Library, jsdom), `npm run build`.
 - Vite proxies `/api` to the backend at http://localhost:8000.
 - Geolocation works only on HTTPS or `localhost`. On a phone the plain `http://<laptop-ip>:5173` fails, so use `npm run dev:https` (vite `--mode https`, self-signed
   certificate from `@vitejs/plugin-basic-ssl`, accept the warning once). The app then shows a specific message (`geoErrorText`) when the page is not secure.
@@ -411,6 +446,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   interrupted and GPS-less recordings do not count; statistics failures do not block local speed history.
   Geocoded places use `osm:<node|way|relation>:<osm_id>` instead of Nominatim's temporary `place_id`.
 
+- `app/routing/geometry.py` builds leg shapes for rendering: street path from the router, transit GTFS shape, else a
+  polyline through the named points (`approximatePath`). The router answers ids only (null = query point);
+  `legs_from_router()` accepts the old and the new router format. Legs carry `elevators` / `steps` (street),
+  `waitS` + `tripId` (transit); `RouteOption.waitS` = all standing (transit waits + street waits).
 - Separate package `backend/app/` holds the route models and `RealRouteEngine`. `backend/main.py`
   mounts it, so one uv process serves data, geocode and `POST /api/routes`.
 - Models (`app/models.py`) mirror `frontend/src/types.ts` exactly (camelCase JSON keys; `from`
@@ -420,9 +459,11 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Routing is behind a `RouteEngine` seam (`app/routing/engine.py`): `query_routes(...)` and
   `update_state(...)`. Current impl is `RealRouteEngine` (GTFS + OSM + Veturilo). `StubRouteEngine`
   is the old mock. A `CppRouteEngine` can replace the real engine later; nothing else changes.
-- The Python<->C++ wire format is owned by the C++ team (not defined yet). C++ builds the graph
-  itself when it starts. `update_state` then carries only live data and derivatives of that live
-  data, not a new graph. `query_routes` asks C++ for routes. Nothing calls `update_state` yet.
+- The street protocol is owned by the C++ team: `/route` returns `legs` with optional `segments`,
+  while `/access` returns station costs without paths. Python preprocessing writes the graph files once;
+  the long-running street router loads them and keeps them in memory. Python still plans GTFS combinations.
+  A future C++ RAPTOR engine can return whole trips in the same leg shape. `update_state` remains unused;
+  it is reserved for live data and derivatives, not graph uploads.
 - Config via env vars (all optional): `CORS_ORIGINS`, `NOMINATIM_URL`, `NOMINATIM_USER_AGENT`.
 
 ### Decisions and notes
@@ -440,7 +481,8 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Backend robustness (see `config.py`): files are written atomically (`atomic_write`, `save_json`, `save_npz`),
   lazy builds sit behind a lock (`osm._LOCK`, `mkuran._BUILD_LOCK`), `TTLCache` is thread-safe and bounded.
   `main.py` turns `UpstreamError` / `httpx.HTTPError` into 502, `MissingKey` into 503, a missing data file into 404,
-  and answers 503 while `READY` is cleared (cache warm-up at start, `mkuran.warm()` + `osm.warm()`).
+  `street_router.RouterUnavailable` into 503, and answers 503 for `NEEDS_CACHES` paths while `READY` is cleared
+  (warm-up at start: `journey_stats.initialize()`, `mkuran.warm()`, `osm.warm()`, `siting.warm()`, `street_router.start()`).
 - API keys live only in `.env`, which is git-ignored. Never commit `.env` or paste a key into a file, commit or chat.
 - `ACCESS.md` lists the keys (`PORTAL_KEY`, `WAW_API_KEY`, `PLK_KEY`), how to get them and how to send them.
 - Empty folders are kept in git with `.gitkeep`.

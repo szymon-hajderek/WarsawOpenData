@@ -3,8 +3,9 @@
 Route planner for Warsaw. It combines Veturilo (city bikes) with public transport at every stage of a trip.
 A 24-hour hackathon project built on Warsaw open data.
 
-> **Status:** proof of concept. The frontend UI works with **mock routing**. The backend downloads and parses
-> the data and serves it through FastAPI. Real routing is not built yet.
+> **Status:** proof of concept. The backend downloads and parses the data, serves it through FastAPI and answers
+> route searches from the GTFS timetable, live data and street paths of the C++ street router. Transit routing
+> (RAPTOR) in C++ is the next step.
 
 ## Goal
 
@@ -18,24 +19,29 @@ The project aims at inclusivity (walking, cycling and stroller pace), safety, pr
 
 Done:
 
-- Map UI in Polish: start / destination fields, list of options, route preview, route details (mock data).
-- Two map looks (`lavender`, `warsaw`), light and dark mode.
-- "Which vehicle am I in?" window: nearest live buses by MSE (`POST /api/live/nearest-buses`).
+- Map UI in Polish: start / destination fields, list of options, route preview, route details.
+- Route options from real data (`POST /api/routes`): GTFS departures, Veturilo, live delays and alerts; trips with
+  up to 5 intermediate stops.
+- Street-only trips on foot, by wheelchair, with a stroller or by own bike, from the C++ street router
+  (`algorithms/router/`, `POST /api/routes` with `travel`).
+- Two map looks (flat, liquid glass), light and dark mode.
+- "Which vehicle am I in?" window: nearest live buses by MSE (`POST /api/live/nearest-buses`), delay estimate
+  (`GET /api/live/delay`).
+- Preferences and filters, calories, speed history from the user's own trips (stored on the device).
 - Data download and parsers for GTFS, City Hall live APIs, Veturilo (GBFS) and the OSM street graph.
-- FastAPI endpoints for every data source.
+- FastAPI endpoints for every data source; simulation mode with integration tests and a ride demo.
 
 Planned:
 
-- **Real routing** with a custom C++ engine. It builds its own graph at startup. Python then sends only live data and values derived from it.
-- **Multi-stop routes.** Plan one trip through many places, with many means of transport.
+- **Transit routing in C++** (RAPTOR on top of the street router). Python then sends only live data and values derived from it.
 - **Online route planning.** Change the route while the user travels.
-- **Live delays.** Use real-time vehicle data to find the fastest route now.
 
 ## Tech stack
 
 - Frontend: React + TypeScript + Vite, Material UI, Leaflet + MapLibre (OpenFreeMap tiles)
 - Backend: Python + FastAPI (data layer managed with uv; routing API in `backend/app/` uses venv)
-- Routing: custom C++ engine (planned); FastAPI is a thin backend in front of it
+- Routing: C++ street router (`algorithms/router/`, runs today); transit routing in Python
+  (`backend/app/routing/`), RAPTOR in C++ planned
 - Database: SQLite for opt-in journey counters; source datasets remain raw files in `data/`
 
 ## Folder structure
@@ -43,7 +49,10 @@ Planned:
 - `frontend/` — React app
 - `backend/` — FastAPI app, data download and parsers (see `backend/README.md`)
 - `data/` — datasets, the API reference `data/API.md` and the data report `data/REPORT.md`
-- `algorithms/`, `db/`, `routing/` — placeholders for the next steps
+- `algorithms/` — pure algorithm functions with their tests, the C++ street router (`algorithms/router/`) and the
+  simulation scripts (`algorithms/simulation/`)
+- `integration/` — integration tests in simulation mode (see `integration/README.md`)
+- `db/` — the SQLite journey statistics file (git-ignored); `routing/` — empty placeholder
 - `ui/` — UI concept art
 - `artifacts/` — HTML pages with results (open in a browser), e.g. the bus detection simulation
 - `changes/` — one change note per branch
@@ -72,17 +81,20 @@ Follow these steps to get a working environment. Run them from the repo root.
 Keep this section current: every PR that adds a dependency or a tool updates it.
 
 1. **Keys.** Copy `.env.example` to `.env` and fill in the keys. See `ACCESS.md`. Never commit `.env`.
-2. **Frontend** (`frontend/`). Needs Node 18.18 or newer 18.x.
+2. **Frontend** (`frontend/`). Needs Node 18.18 or newer (Vite 5). On Node 26 `npm test` needs
+   `NODE_OPTIONS=--no-experimental-webstorage npm test` (otherwise jsdom's `localStorage` is undefined).
    - `cd frontend && npm install` (if `~/.npm` is root-owned: `npm install --cache <some dir>`)
    - `npm run dev` starts the app at http://localhost:5173
-   - On a phone (same Wi-Fi) the location button needs HTTPS: stop the other dev server and run `npm run dev:https`, then open
-     `https://<laptop-ip>:5173` and accept the self-signed certificate warning once.
+   - On a phone (same Wi-Fi) the location button needs HTTPS: stop the other dev server and run
+     `VITE_API_URL=https://<laptop-ip>:5173 npm run dev:https`, then open `https://<laptop-ip>:5173` and accept the
+     self-signed certificate warning once. Vite proxies `/api` to the backend on port 8000; `VITE_API_URL` must be the
+     page's own origin, because the default `http://localhost:8000` points at the phone itself.
    - `npm run build` type-checks and builds
    - `npm run lint` runs ESLint (react-hooks + jsx-a11y rules); `npm test` runs the Vitest tests (jsdom, no browser needed)
    - optional: `VITE_API_URL` in `frontend/.env` points the app at the routing API
      (default `http://localhost:8000`; set `VITE_API_URL=""` to use the in-browser example data; with a backend URL that does not answer, the app says "Nie połączono z serwerem")
 3. **Data** (`data/`). GTFS zips and the OSM extract are stored with Git LFS.
-   - install Git LFS once: `brew install git-lfs && git lfs install`, then `git lfs pull`
+   - install Git LFS once (`brew install git-lfs` or your package manager), then `git lfs install` and `git lfs pull`
    - or download fresh copies: `cd backend && uv run python download.py` (the OSM step fetches Geofabrik
      `mazowieckie` (300 MB) and keeps a 31 MB cut, `data/osm/warsaw_ztm.osm.pbf`)
 4. **Backend** (`backend/`, Python + FastAPI, managed with [uv](https://docs.astral.sh/uv/)).
@@ -94,18 +106,18 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - `uv run python report.py` rebuilds `data/REPORT.md` (sources, ID links, graph sizes, endpoints)
    - the server builds the GTFS / OSM caches in `data/derived/` at start (~25 s / ~17 s on the first run, a minute or two
      with a ready cache). Until then `/api/gtfs`, `/api/osm` and `/api/routes` answer 503 (`Retry-After: 30`)
-   - GTFS caches carry a format version in `gtfs_stop_times.npz`. On the first restart after this update,
-     old caches rebuild automatically from the existing ZIPs to restore metre distances for route shapes
-     and the current platform/boarding fields. No manual deletion, new dependency or download is needed.
-   - **street router (C++)**: needs CMake and a C++23 compiler (GCC 14+ or Clang 19+). Build once:
+   - GTFS caches carry a format version (`mkuran.CACHE_VERSION`) in `gtfs_stop_times.npz`; an old cache rebuilds
+     automatically from the existing ZIPs. The OSM cache `osm_graph.npz` rebuilds when the `.pbf` is newer.
+   - **street router (C++)**: needs CMake 3.20+ and a C++23 compiler (GCC 14+ or Clang 19+); the first configure
+     downloads cpp-httplib and nlohmann/json. Build once:
      `cmake -S ../algorithms/router -B ../algorithms/router/build -DCMAKE_BUILD_TYPE=Release &&
      cmake --build ../algorithms/router/build`. The backend then starts it by itself (port 8090; it writes
-     `data/derived/street/graph_*.bin` first if needed, ~30 s). Without it, walk / bike legs and `/api/osm/route`
-     answer 503. Optional `.env`: `ROUTER_URL` (use a router that runs elsewhere), `ROUTER_PORT`.
+     `data/derived/street/graph_*.bin` first if needed, ~30 s; log: `data/derived/street/router.log`). Without it,
+     walk / bike legs and `/api/stations/health` answer 503. Optional `.env`: `ROUTER_URL` (use a router that runs elsewhere), `ROUTER_PORT`.
    - the first start also builds `data/derived/stations.json` (transport nodes mapped to OSM, a few seconds;
      `uv run python stations.py` rebuilds it and prints the match report)
-   - street matrices for every pair of stops (optional): `uv run python preprocess_street.py` (~18 min on 16 threads,
-     ~2.4 GB). Details: `algorithms/router/README.md`
+   - street matrices for every pair of stops (optional: the server does not read them yet):
+     `uv run python preprocess_street.py` (four modes, ~18 min on 16 threads, ~2.7 GB). Details: `algorithms/router/README.md`
    - `uv run pytest tests ../algorithms` runs the tests (pytest is in the `dev` group, installed by `uv sync`)
    - `uv run pytest ../integration` runs the integration tests: synthetic trips on real data in simulation mode,
      about 6 minutes, no keys needed (`-m recorded` / `-m gtfs` for one kind). Results: `integration/RESULTS.md`.
