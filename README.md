@@ -103,6 +103,10 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - rebuild the results page `artifacts/bus-detection-simulation.html`: `uv run python ../algorithms/simulation/export_viz.py`
    - optional `.env` setting `LIVE_BUSES_URL`: where bus detection reads live bus positions (default: the City Hall feed via `PORTAL_KEY`). Without `PORTAL_KEY` the live-vehicle poller stays off and `GET /api/live/vehicles` returns 503.
    - optional `.env` setting `DELAY_RADIUS_M`: radius for the delay estimate `GET /api/live/delay` (default `30`)
+   - delay simulation on the committed recording `data/live/delay_sample.json.gz`: `uv run python ../algorithms/simulation/simulate_delay.py --radius 30`;
+     rebuild the report `artifacts/delay-simulation.html`: `uv run python ../algorithms/simulation/export_delay_viz.py`;
+     search the best radius (20-200 m every 10 m, then every 1 m): `uv run python ../algorithms/simulation/search_delay_radius.py`;
+     record a new sample (server running, 30 min): `uv run python ../algorithms/simulation/record_delay_sample.py 30`
    - tune that radius on live data (needs `PORTAL_KEY`): `uv run python ../algorithms/simulation/tune_delay_radius.py 8`
 5. **Routes** are part of the uv app in step 4. Do not start a second server on port 8000.
    The package `backend/app/` is the route engine imported by `main.py`. `requirements.txt` is only
