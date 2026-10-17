@@ -1,10 +1,6 @@
-# Changes on `feature/project-structure`
+# Changes on `feature/update-claude-md`
 
-- Added empty top-level folders (kept in git via `.gitkeep`):
-  - `frontend/` - React + TypeScript + Vite, Leaflet + OpenStreetMap map
-  - `backend/` - Python + FastAPI
-  - `algorithms/` - algorithms (mandatory folder)
-  - `db/` - PostgreSQL + PostGIS (SQLite is enough for the POC)
-  - `routing/` - OpenTripPlanner config
-  - `data/` - datasets, one subfolder per data type: `gtfs/`, `gbfs/`, `osm/`, `geojson/`
-- No code yet, structure only. Docker files (`docker-compose.yml`) will be added at the repo root later.
+- `CLAUDE.md`: added a "Keep It Simple" rule.
+- `CLAUDE.md`: Claude must check that the local copy is up to date (`git fetch`, pull `main`) before starting work.
+- `CLAUDE.md`: PRs are created with `gh pr create`.
+- `CLAUDE.md`: new "Project Knowledge" section (about the project, stack, folder structure, decisions) that Claude updates automatically whenever it learns something new.
