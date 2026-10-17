@@ -45,11 +45,12 @@ Everything in this repo (files, commits, PRs) is written in English.
 - To change the API, edit `data/API.md` first, then the code, in the same PR. Never let code and `data/API.md` differ.
 - Before you call or add an endpoint, read `data/API.md`. Use real answers from a running server for the examples.
 
-## Street routing: report only
+## Street routing and the route engine: report only
 
-- **The street routing code has its own maintainer. Do not change it.** This covers
-  `backend/sources/osm.py`, `algorithms/street_model.py`, `algorithms/street_graph.py`,
-  `algorithms/test_street_model.py`, `algorithms/router/` and `backend/preprocess_street.py`.
+- **The street routing code and the route engine have their own maintainers. Do not change them.**
+  - Street routing: `backend/sources/osm.py`, `algorithms/street_model.py`, `algorithms/street_graph.py`,
+    `algorithms/test_street_model.py`, `algorithms/router/` and `backend/preprocess_street.py`.
+  - Route engine: `backend/app/routing/`, `algorithms/plan_trip.py` and `algorithms/lateness.py`.
 - When you find a problem there (bug, slowdown, stale cache, wrong result), only report it:
   1. Open a GitHub issue (`gh issue create`) with the symptom, how to reproduce it, measurements,
      the cause if known and a suggested fix.
