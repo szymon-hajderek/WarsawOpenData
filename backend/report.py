@@ -79,8 +79,7 @@ def build() -> dict:
     by_feed = Counter(s["feed"] for s in verts)
     groups = {s["group"] for s in verts}
     vet = nextbike.stations()
-    e = mkuran.edges(ref)
-    e.pop("list")
+    e = {k: v for k, v in mkuran.edges(ref).items() if k != "list"}  # edges() is cached: do not change it
 
     transit_pts = [(s["lat"], s["lon"]) for s in verts]
     vet_pts = [(s["lat"], s["lon"]) for s in vet]
@@ -89,7 +88,7 @@ def build() -> dict:
 
     osm_counts = {m: osm.counts(m) for m in ("walk", "bike")}
     pts = transit_pts + vet_pts
-    snap = np.array([osm.nearest(lat, lon, "walk")[1] for lat, lon in pts])
+    snap = osm.snap_distances(pts, "walk")
     bench = [
         osm.benchmark(pts, "walk", limit_s=None),
         osm.benchmark(pts, "walk", limit_s=900),
@@ -188,7 +187,7 @@ def fmt(n) -> str:
 def write_md(r: dict, eps) -> str:
     v, e, p, o, f, c = (r["vertices"], r["item1_transit_edges"], r["item2_walk_pairs"], r["item3_osm"],
                         r["item4_feasibility"], r["compatibility"])
-    L = [f"# Data report", "",
+    L = ["# Data report", "",
          f"Generated {r['generated']} by `backend/report.py`. Reference day for timetables: {r['reference_date']}.",
          "Numbers come from the files in `data/`. Re-run the script after a new download.", "",
          "## Where the data comes from", "", MERMAID, "",

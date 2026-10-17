@@ -88,7 +88,8 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - `uv run uvicorn main:app --reload` starts the API at http://localhost:8000 (docs at `/docs`).
      This one process serves the data, geocode and `POST /api/routes` (real GTFS + OSM + Veturilo).
    - `uv run python report.py` rebuilds `data/REPORT.md` (sources, ID links, graph sizes, endpoints)
-   - the first request that needs GTFS / OSM builds caches in `data/derived/` (~25 s / ~45 s)
+   - the server builds the GTFS / OSM caches in `data/derived/` at start (~25 s / ~45 s on the first run, a minute or two
+     with a ready cache). Until then `/api/gtfs`, `/api/osm` and `/api/routes` answer 503 (`Retry-After: 30`)
    - `uv run pytest tests ../algorithms` runs the tests (pytest is in the `dev` group, installed by `uv sync`)
    - bus detection simulation: `uv run python ../algorithms/simulation/simulate_nearest_buses.py`
      (uses the committed sample; record a new one with `uv run python ../algorithms/simulation/record_buses.py`, needs `PORTAL_KEY`)
