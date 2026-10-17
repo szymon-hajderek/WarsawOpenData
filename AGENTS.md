@@ -20,6 +20,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   3. If it is behind, run `git checkout main` and `git pull origin main`.
   4. Only then create a new branch from the updated `main`.
 - Also check that the local copy is up to date before committing/pushing on an existing branch.
+- **Claude resolves merge conflicts automatically — the user never resolves them manually.**
+  This applies in particular to `AGENTS.md`: whenever it conflicts, Claude resolves it on its own,
+  keeping the valid rules and knowledge from both sides and removing duplicates or stale entries.
 
 ## Pull Requests
 
