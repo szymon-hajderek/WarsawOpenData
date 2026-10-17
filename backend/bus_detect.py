@@ -57,28 +57,45 @@ def _direction(line: str, brigade: str, local_time: str) -> str:
         return ""
 
 
-def poll_once() -> None:
+def _store(mode: str, rows: list[dict]) -> None:
+    with _lock:
+        for v in rows:
+            vid = f"{mode}-{v['vehicle']}"
+            point = {"lat": v["lat"], "lon": v["lon"], "t": _epoch(v["time"])}
+            track = _history.setdefault(vid, [])
+            if not track or track[-1]["t"] != point["t"]:
+                track.append(point)
+                del track[:-HISTORY]
+            _info[vid] = {"vehicle": v["vehicle"], "line": v["line"], "brigade": v["brigade"],
+                          "mode": mode, "direction": _direction(v["line"], v["brigade"], v["time"])}
+
+
+def poll_once() -> bool:
     global _updated_at
-    got = False
-    for mode, url in _feeds():
-        try:
-            rows = httpx.get(url, timeout=30).json()
-        except Exception as exc:
-            log.warning("live %s poll failed: %s", mode, exc)
-            continue
-        got = True
-        with _lock:
-            for v in rows:
-                vid = f"{mode}-{v['vehicle']}"
-                point = {"lat": v["lat"], "lon": v["lon"], "t": _epoch(v["time"])}
-                track = _history.setdefault(vid, [])
-                if not track or track[-1]["t"] != point["t"]:
-                    track.append(point)
-                    del track[:-HISTORY]
-                _info[vid] = {"vehicle": v["vehicle"], "line": v["line"], "brigade": v["brigade"],
-                              "mode": mode, "direction": _direction(v["line"], v["brigade"], v["time"])}
-    if got:
+    batches: list[tuple[str, list]] = []
+    if _CUSTOM:
+        for mode, url in _feeds():
+            try:
+                response = httpx.get(url, timeout=30)
+                response.raise_for_status()
+                rows = response.json()
+            except Exception as exc:
+                log.warning("live %s poll failed: %s", mode, exc)
+                continue
+            if isinstance(rows, list):
+                batches.append((mode, rows))
+    else:
+        from sources.um_warszawa import fetch_vehicles
+        for mode in ("bus", "tram"):
+            try:
+                batches.append((mode, fetch_vehicles(mode)))
+            except Exception as exc:
+                log.warning("live %s poll failed: %s", mode, exc)
+    for mode, rows in batches:
+        _store(mode, rows)
+    if batches:
         _updated_at = time.time()
+    return bool(batches)
 
 
 def _loop() -> None:
@@ -91,6 +108,10 @@ def _loop() -> None:
 
 
 def start_poller() -> None:
+    from config import PORTAL_KEY
+    if not _CUSTOM and not PORTAL_KEY:
+        log.warning("live vehicle poller off: PORTAL_KEY is not set")
+        return
     threading.Thread(target=_loop, daemon=True, name="bus-poller").start()
 
 
@@ -115,10 +136,9 @@ def api_nearest_buses(req: NearestRequest):
     if not req.points:
         raise HTTPException(400, "send at least one point")
     if _updated_at is None:  # the poller has not got data yet
-        try:
-            poll_once()
-        except Exception as e:
-            raise HTTPException(503, f"no live bus data yet: {e}")
+        poll_once()
+    if _updated_at is None:
+        raise HTTPException(503, "no live bus data yet")
     user = [{"lat": p.lat, "lon": p.lon, "t": p.time_ms / 1000} for p in req.points[-HISTORY:]]
     with _lock:
         ranked = rank_buses(user, _history, CANDIDATES)

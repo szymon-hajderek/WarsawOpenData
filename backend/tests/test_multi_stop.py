@@ -28,7 +28,7 @@ class FakeEngine(RouteEngine):
         self.table = table or {}
         self.calls: list[tuple[str, str]] = []
 
-    def query_routes(self, frm, to, profile):
+    def query_routes(self, frm, to, profile, when=None):
         self.calls.append((frm.id, to.id))
         return self.table.get((frm.id, to.id), [option(f"{frm.id}{to.id}", 10, leg_to=to.label)])
 

@@ -66,6 +66,8 @@ class RouteRequest(BaseModel):
     from_: Place = Field(alias="from")
     to: Place
     profile: Profile = "standard"
+    # Warsaw local departure. "HH:MM" or an ISO datetime. Empty = now.
+    when: Optional[str] = None
     # Intermediate stops (at most MAX_VIA). `order` says whether to keep them as given or reorder
     # them for the shortest trip (start and destination stay fixed).
     via: list[Place] = Field(default_factory=list, max_length=MAX_VIA)

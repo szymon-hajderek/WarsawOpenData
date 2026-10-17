@@ -1,4 +1,6 @@
-from plan_trip import best_bike_pair, direct_rides, nearby, transfer_rides
+from datetime import datetime, timezone
+
+from plan_trip import best_bike_pair, bike_access_pairs, direct_rides, nearby, service_moment, spread_groups, transfer_rides
 
 
 def _distance(a, b):
@@ -58,6 +60,45 @@ def test_transfer_changes_to_a_second_trip():
     assert len(rides) == 1
     assert rides[0]["second"]["dep"]["trip_id"] == "t2"
     assert rides[0]["walk_m"] == 0
+
+
+def test_spread_groups_keeps_one_post_per_stop_group():
+    posts = [
+        {"id": "p1", "group": "centrum"},
+        {"id": "p2", "group": "centrum"},
+        {"id": "p3", "group": "politechnika"},
+    ]
+    assert [s["id"] for s in spread_groups(posts, 8)] == ["p1", "p3"]
+
+
+def test_service_moment_rolls_the_clock_back_before_4am():
+    assert service_moment(datetime(2026, 10, 18, 1, 30)) == ("20261017", 25 * 3600 + 30 * 60)
+    assert service_moment(datetime(2026, 10, 18, 15, 0)) == ("20261018", 15 * 3600)
+    # 23:30 UTC in October is 01:30 in Warsaw, still the previous service day.
+    assert service_moment(datetime(2026, 10, 17, 23, 30, tzinfo=timezone.utc)) == (
+        "20261017", 25 * 3600 + 30 * 60)
+
+
+def test_best_bike_pair_skips_a_station_that_is_not_accepting_bikes():
+    stations = [
+        {"id": "1", "lat": 0, "lon": 0, "bikes": 2, "docks": 1, "renting": True},
+        {"id": "2", "lat": 1, "lon": 0, "bikes": 0, "docks": 3, "returning": False},
+        {"id": "3", "lat": 1, "lon": 0.1, "bikes": 0, "docks": 2, "returning": True},
+    ]
+    pair = best_bike_pair((0, 0), (1, 0), stations, _distance, max_m=5000)
+    assert pair[1]["id"] == "3"
+
+
+def test_bike_access_drops_the_bike_beside_a_stop_nearer_the_destination():
+    stations = [
+        {"id": "near", "lat": 0, "lon": 0, "bikes": 2, "docks": 0, "renting": True},
+        {"id": "mid", "lat": 2, "lon": 0, "bikes": 0, "docks": 2, "returning": True},
+    ]
+    stops = [{"id": "stop", "lat": 2.1, "lon": 0}]
+    pairs = bike_access_pairs((0, 0), (5, 0), stations, stops, _distance, max_m=5000, stop_m=500)
+    assert pairs[0]["pickup"]["id"] == "near"
+    assert pairs[0]["dropoff"]["id"] == "mid"
+    assert pairs[0]["stop"]["id"] == "stop"
 
 
 def test_best_bike_pair_needs_a_bike_and_a_free_dock():

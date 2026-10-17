@@ -1,8 +1,8 @@
 """The routing seam.
 
 `RouteEngine` is the single boundary between the FastAPI backend and whatever
-actually computes routes. Today the only implementation is `StubRouteEngine`
-(see `stub_engine.py`), which ports the frontend mock so the app feels alive.
+actually computes routes. The running implementation is `RealRouteEngine`.
+`StubRouteEngine` is the old mock.
 
 ## Future: the C++ engine
 
@@ -30,8 +30,11 @@ from ..models import Place, Profile, RouteOption
 
 class RouteEngine(ABC):
     @abstractmethod
-    def query_routes(self, frm: Place, to: Place, profile: Profile) -> list[RouteOption]:
-        """Return ranked connection options from `frm` to `to` for `profile`."""
+    def query_routes(self, frm: Place, to: Place, profile: Profile, when: str | None = None) -> list[RouteOption]:
+        """Return ranked connection options from `frm` to `to` for `profile`.
+
+        `when` is a Warsaw-local ``HH:MM`` or ISO datetime. Empty means now.
+        """
 
     @abstractmethod
     def update_state(self, update: dict[str, Any]) -> None:
