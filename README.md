@@ -62,7 +62,7 @@ cd backend && uv sync && uv run uvicorn main:app --reload   # http://localhost:8
 - [Warsaw city API portal](https://api.um.warszawa.pl/) — live vehicle positions and timetables
 - GTFS from [mkuran.pl](https://mkuran.pl/gtfs/) — ZTM, WKD and other trains
 - Veturilo stations and bikes (Nextbike GBFS)
-- OpenStreetMap street graph (BBBike extract)
+- OpenStreetMap street graph (Geofabrik `mazowieckie`, cut to the ZTM area)
 
 Details, ID links and graph sizes: `data/REPORT.md`.
 
@@ -81,7 +81,8 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
      (default `http://localhost:8000`; set `VITE_API_URL=""` to force the in-browser mock)
 3. **Data** (`data/`). GTFS zips and the OSM extract are stored with Git LFS.
    - install Git LFS once: `brew install git-lfs && git lfs install`, then `git lfs pull`
-   - or download fresh copies: `cd backend && uv run python download.py` (about 250 MB)
+   - or download fresh copies: `cd backend && uv run python download.py` (the OSM step fetches Geofabrik
+     `mazowieckie` (300 MB) and keeps a 31 MB cut, `data/osm/warsaw_ztm.osm.pbf`)
 4. **Backend** (`backend/`, Python + FastAPI, managed with [uv](https://docs.astral.sh/uv/)).
    - install uv: `brew install uv` (or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
    - `cd backend && uv sync` installs Python 3.12 and all dependencies (`osmium`, `scipy`, `fastapi` ...)
@@ -89,8 +90,13 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - `uv run uvicorn main:app --reload` starts the API at http://localhost:8000 (docs at `/docs`).
      This one process serves the data, geocode and `POST /api/routes` (real GTFS + OSM + Veturilo).
    - `uv run python report.py` rebuilds `data/REPORT.md` (sources, ID links, graph sizes, endpoints)
-   - the server builds the GTFS / OSM caches in `data/derived/` at start (~25 s / ~45 s on the first run, a minute or two
+   - the server builds the GTFS / OSM caches in `data/derived/` at start (~25 s / ~17 s on the first run, a minute or two
      with a ready cache). Until then `/api/gtfs`, `/api/osm` and `/api/routes` answer 503 (`Retry-After: 30`)
+   - street matrix (walk / bike / accessible, every pair of stops): needs CMake and a C++23 compiler
+     (GCC 14+ or Clang 19+). Build once: `cmake -S ../algorithms/router/preprocess -B ../algorithms/router/preprocess/build
+     -DCMAKE_BUILD_TYPE=Release && cmake --build ../algorithms/router/preprocess/build`, then
+     `uv run python preprocess_street.py` (~10 min on 16 threads, ~1.6 GB in `data/derived/street/`).
+     Details: `algorithms/router/preprocess/README.md`
    - `uv run pytest tests ../algorithms` runs the tests (pytest is in the `dev` group, installed by `uv sync`)
    - `uv run pytest ../integration` runs the integration tests: synthetic trips on real data in simulation mode,
      about 3 minutes, no keys needed (`-m recorded` / `-m gtfs` for one kind). Results: `integration/RESULTS.md`.

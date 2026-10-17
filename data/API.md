@@ -413,7 +413,7 @@ Walk and bike graph from OpenStreetMap. The first call builds a cache (about 45 
 
 | Query | Type | Default | Meaning |
 |---|---|---|---|
-| `mode` | string | `walk` | `walk` or `bike` |
+| `mode` | string | `walk` | `walk`, `bike` or `accessible` (walk without stairs, with elevators) |
 
 ```json
 {"vertices": 1534865, "edges_undirected": 1741689, "edges_directed": 3483378,
@@ -424,7 +424,7 @@ Walk and bike graph from OpenStreetMap. The first call builds a cache (about 45 
  "nodes_with_signal_timing_tags": 0}
 ```
 
-Error: `400 {"detail": "mode must be walk or bike"}`.
+Error: `400 {"detail": "mode must be walk, bike or accessible"}`.
 
 ### `GET /api/osm/nearest`
 
@@ -433,13 +433,13 @@ Nearest graph node to a point.
 | Query | Type | Default | Meaning |
 |---|---|---|---|
 | `lat`, `lon` | number | required | point (`lat` -90..90, `lon` -180..180, else `422`) |
-| `mode` | string | `walk` | `walk` or `bike` |
+| `mode` | string | `walk` | `walk`, `bike` or `accessible` |
 
 ```json
 {"node": 8405597587, "lat": 52.2296575, "lon": 21.0122762, "distance_m": 7.02}
 ```
 
-A `mode` other than `walk` or `bike` returns `400 {"detail": "mode must be walk or bike"}`.
+A `mode` other than `walk`, `bike` or `accessible` returns `400 {"detail": "mode must be walk, bike or accessible"}`.
 
 ### `GET /api/osm/route`
 
@@ -448,10 +448,16 @@ Street path between two points.
 | Query | Type | Default | Meaning |
 |---|---|---|---|
 | `from_lat`, `from_lon`, `to_lat`, `to_lon` | number | required | start and end (same ranges as above) |
-| `mode` | string | `walk` | `walk` or `bike` |
+| `mode` | string | `walk` | `walk`, `bike` or `accessible` |
 
-Answer: `mode`, `seconds` (total time with waits), `length_m`, `wait_s` (expected wait at crossings),
-`nodes` (count), `snap_m` (distance from start and end to the graph, in metres), `geometry` (list of `[lat, lon]`).
+The start and the end join the street graph through up to 6 nearest nodes (at most 30 m farther than the
+nearest one); these short access segments are walked (on a bike: pushed).
+
+Answer: `mode`, `seconds` (total time with waits), `length_m` (incl. the access segments), `wait_s` (expected
+wait at crossings; signal nodes closer than 30 m by path form one junction, paid once; on a bike also the extra
+time of pushing it on the access segments), `nodes` (graph nodes on the path),
+`snap_m` (distance from start and end to the nearest graph node, in metres), `geometry` (list of `[lat, lon]`,
+from the start point to the end point).
 
 ```json
 {"mode": "bike", "seconds": 765.7, "length_m": 2452.6, "wait_s": 181.7, "nodes": 154,
@@ -459,7 +465,7 @@ Answer: `mode`, `seconds` (total time with waits), `length_m`, `wait_s` (expecte
 ```
 
 Errors:
-- `400 {"detail": "mode must be walk or bike"}` for a `mode` other than `walk` or `bike`.
+- `400 {"detail": "mode must be walk, bike or accessible"}` for a `mode` other than `walk`, `bike` or `accessible`.
 - `422` when the start or the end is more than 1000 m from the street graph (e.g. outside Warsaw):
   `{"detail": "start is 224509 m from the street graph (max 1000 m)"}` (`start`, `end`, or both).
 - `404` with a message when no path exists.
