@@ -89,6 +89,8 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - `uv run python report.py` rebuilds `data/REPORT.md` (sources, ID links, graph sizes, endpoints)
    - the first request that needs GTFS / OSM builds caches in `data/derived/` (~25 s / ~45 s)
    - `uv run pytest ../algorithms` runs the algorithm tests (pytest is in the `dev` group, installed by `uv sync`)
+   - bus detection simulation: `uv run python ../algorithms/simulation/simulate_nearest_buses.py`
+     (uses the committed sample; record a new one with `uv run python ../algorithms/simulation/record_buses.py`, needs `PORTAL_KEY`)
    - optional `.env` setting `LIVE_BUSES_URL`: where bus detection reads live bus positions (default: this backend)
 5. **Routes** are part of the uv app in step 4. Do not start a second server on port 8000.
    The package `backend/app/` is the route engine imported by `main.py`. `requirements.txt` is only
