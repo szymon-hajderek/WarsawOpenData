@@ -23,8 +23,13 @@ import httpx
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 
-from config import (BBOX, DERIVED, GTFS_DIR, atomic_write, haversine_m, in_bbox, load_json, save_json,
+import sys
+
+from config import (BBOX, DERIVED, GTFS_DIR, REPO, atomic_write, haversine_m, in_bbox, load_json, save_json,
                     save_npz)
+
+sys.path.insert(0, str(REPO / "algorithms"))
+from shape_units import shape_meters  # noqa: E402
 
 FEEDS = {
     "ztm": ("warsaw.zip", "https://mkuran.pl/gtfs/warsaw.zip"),
@@ -69,10 +74,7 @@ def _sec(t: str) -> int:
 
 
 def _shape_dist(value) -> int:
-    try:
-        return int(float(value))
-    except (TypeError, ValueError):
-        return -1
+    return shape_meters(value)
 
 
 def _norm_name(name: str) -> str:
@@ -295,8 +297,9 @@ def _ensure_built_locked():
         _build()
         return
     with np.load(npz) as z:
-        has_dist = "shape_dist" in z.files
-    if not has_dist:
+        dist = z["shape_dist"] if "shape_dist" in z.files else None
+    # Old caches stored truncated kilometers (max about 20). Meters along a real trip are larger.
+    if dist is None or (len(dist) and int(dist.max()) < 500):
         _build()
         return
     with open(stops_path, encoding="utf-8") as f:
@@ -489,7 +492,12 @@ def departures(stop_id: str, date_str: str, after_sec: int, limit: int = 20) -> 
     return out[:limit]
 
 
-def trip_onward(trip_id: str, board_stop: str, board_sec: int) -> list[dict]:
+def whole_trip(trip_id: str, board_stop: str, board_sec: int) -> list[dict]:
+    """Every call of the trip, timed so `board_stop` departs at `board_sec`."""
+    return trip_onward(trip_id, board_stop, board_sec, whole=True)
+
+
+def trip_onward(trip_id: str, board_stop: str, board_sec: int, whole: bool = False) -> list[dict]:
     """Stops of one trip from the boarding call onward, times shifted to `board_sec`.
 
     The first item is the boarding stop. Stop ids are canonical (merged rail platforms
@@ -516,7 +524,7 @@ def trip_onward(trip_id: str, board_stop: str, board_sec: int) -> list[dict]:
         return []
     offset = board_sec - best[0]
     out = []
-    for r in range(best[1], end):
+    for r in range(start if whole else best[1], end):
         sid = ids[int(st["stop"][r])]
         stop = by_id[sid]
         out.append({
