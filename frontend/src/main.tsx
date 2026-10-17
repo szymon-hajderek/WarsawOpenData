@@ -9,16 +9,19 @@ import './index.css';
 import { ColorModeProvider } from './colorMode';
 import { HistoryProvider } from './history/HistoryProvider';
 import { PreferencesProvider } from './preferences/PreferencesProvider';
+import ErrorBoundary from './components/ErrorBoundary';
 import App from './App';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ColorModeProvider>
-      <HistoryProvider>
-        <PreferencesProvider>
-          <App />
-        </PreferencesProvider>
-      </HistoryProvider>
-    </ColorModeProvider>
+    <ErrorBoundary>
+      <ColorModeProvider>
+        <HistoryProvider>
+          <PreferencesProvider>
+            <App />
+          </PreferencesProvider>
+        </HistoryProvider>
+      </ColorModeProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );

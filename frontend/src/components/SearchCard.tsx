@@ -294,6 +294,7 @@ export default function SearchCard({
               onChange={(p) => setStop(i, p)}
               placeholder={`Przystanek ${i + 1}`}
               currentLocation={currentLocation}
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- the field is added by the user's own click
               autoFocus={stop === null}
             />,
             <Box sx={{ display: 'flex', alignItems: 'center' }}>

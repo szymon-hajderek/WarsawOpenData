@@ -95,9 +95,10 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Backend: Python + FastAPI
 - Database: none for now. Raw files in `data/`, parsed by Python modules on first use.
   PostgreSQL + PostGIS (or SQLite) later if needed.
-- Routing: a long-running **C++ engine** keeps the graph + live state in memory; Python
-  (FastAPI) is a thin backend that pushes updates and asks it for routes. (OpenTripPlanner
-  was the earlier idea; the team chose a custom C++ engine instead.)
+- Routing: a long-running **C++ engine** builds its own graph at startup and keeps it in memory.
+  After that, Python pushes only live data and values derived from it (vehicle positions, Veturilo
+  availability, alerts, delays), then asks the engine for routes. Python does not send the graph.
+  (OpenTripPlanner was the earlier idea; the team chose a custom C++ engine instead.)
 - Deployment: Docker
 
 ### Folder structure
@@ -136,8 +137,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   also returns positions that are years old: filter by time (`max_age_s`).
 - The BBBike OSM box (52.041-52.451 N, 20.653-21.408 E) is smaller than the ZTM area; ~400 outer
   stops snap far. Geofabrik `mazowieckie` + `osmium extract` is the fix if needed.
-- Bus detection (`backend/bus_detect.py`): a thread polls `LIVE_BUSES_URL` (default our
-  `/api/live/vehicles?type=bus`) every 3 s (vehicle feed cache: 3 s; the feed itself changes about every 10 s) and keeps the last 3 positions per vehicle in memory.
+- Bus detection (`backend/bus_detect.py`): a thread polls live positions every 3 s (vehicle feed cache: 3 s; the feed itself changes about every 10 s) and keeps the last 3 positions per vehicle in memory.
+  Without `PORTAL_KEY` the poller does not start and `GET /api/live/vehicles` returns 503 (no traceback).
+  With the key it calls `fetch_vehicles` directly. `LIVE_BUSES_URL`, when set, is polled over HTTP instead.
   `POST /api/live/nearest-buses` ranks buses by MSE (m^2) between the user's 1-3 points and each bus track
   (each user point paired with the bus point closest in time), `algorithms/nearest_buses.py`. Returns 4
   (1 + 3 for the popup), no distance cut-off. Feed time is read as server local time (Warsaw).
@@ -204,7 +206,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   "Jadę tą linią" confirms. Data: `src/api/vehicle.ts` `detectVehicle` sends the user's last 1-3 positions (memory only,
   one every 10 s) to `POST /api/live/nearest-buses` and returns `{ candidates, lines }` (candidates carry `distanceM` =
   `rmse_m`, `vehicleNo`, `brigade`); falls back to mock data when the backend is down or there is no location.
-  Delay: after "Jadę tą linią" `src/api/delay.ts` `watchDelay` polls `GET /api/live/delay` every 10 s and sends a `bus-delay`
+  Delay: after "Jadę tą linią" `useVehicleDetection` starts `src/api/delay.ts` `watchDelay`, which polls `GET /api/live/delay` every 10 s and sends a `bus-delay`
   event on `window` (`BusDelayDetail` in `types.ts`); stops on a new detection or "Nie jadę komunikacją". No UI shows it yet.
   Detection runs once after start and on `requestLinePopup()`. Each detection also sends a `bus-popup` event on `window`
   (`{ candidates, lines, points }`). Direction is the GTFS `trip_headsign` for that line and brigade.
@@ -227,6 +229,11 @@ Everything in this repo (files, commits, PRs) is written in English.
   time, step-free, pace / wheelchair, excluded areas, and "Zaawansowane" = all preferences as overrides). Only list-like
   filters really change the (mock) list, client-side (`applyListFilters`); speeds, wheelchair and areas are stored only and
   not passed to `fetchRouteOptions` yet.
+- Calories (device-side): `Preferences.body` (weight, height, age, sex; all optional, defaults 70 kg / 170 cm / 35 y) is edited in the "Kalorie" section of the
+  Preferences page only (`components/preferences/BodySection.tsx`); rules and filters never override it (`applyOverrides` keeps it). `routeKcal(route, prefs)` in
+  `src/preferences/model.ts` computes NET kcal of the walk / bike legs (MET from the Compendium of Physical Activities interpolated by the user's km/h x weight x hours
+  minus resting energy (Mifflin-St Jeor); manual wheelchair uses a rough table from Conger and Bassett 2011, electric = 0; transit legs count as resting). It replaces
+  `RouteOption.calories` in the route list, details and the "most active" sort. Not modelled yet: slope, carried load, bike type, wind. Backend `calories` is unchanged (flat kcal/km).
 - Speed history (device-side, privacy first): in the route view "Rozpocznij przejazd" / "Zakończ" records GPS points (memory only, one every 4 s,
   Screen Wake Lock while recording) and sends the track once to `POST /api/history/records` (`backend/app/api/history.py`,
   `algorithms/speed_history.py::split_track`: shares the moving distance between the route's legs by planned distance, ignores standing
@@ -236,6 +243,16 @@ Everything in this repo (files, commits, PRs) is written in English.
   gives the average per mode; the frontend falls back to `localSummary` when the backend is down. Preferences: each of Pieszo / Rower / Wózek shows
   "Twoja średnia z historii" with "Użyj X km/h" (when it differs by 10% or more) and the switch "Zawsze używaj średniej z historii" (`autoSpeed`; when on and
   enough trips, `applyHistory` in `src/preferences/model.ts` replaces the level / typed speed and the selector is locked). History can be cleared on the Preferences page.
+- Backend calls: every call builds its URL with `apiUrl(path)` from `src/config.ts` (routes, geocode, history, vehicle). An empty
+  `API_URL` turns all of them to the in-browser mock. Answers are checked in `src/api/validate.ts`; a wrong shape counts as "backend down".
+- **Example data is marked.** When a call falls back to the mock, `fetchRouteOptions` / `detectVehicle` return `mock: true`; the app shows
+  one snackbar and a "Dane przykładowe" chip on the route list and the vehicle window.
+- Hooks (`src/hooks/`): `useLocationTrack` (one `watchPosition` + the last 3 positions, cleaned up on unmount), `useRouteSearch`,
+  `useVehicleDetection`. `App.tsx` only wires them. `ErrorBoundary` wraps the app. Selection and step are derived while rendering
+  (no effects for derived state). Under the Preferences page the map and panels are `inert`.
+- Selectable cards use `pressableProps` (`components/pressable.ts`): Enter / Space select, Space does not scroll. The map has ONE MapLibre
+  layer; the light / dark switch calls `setStyle`. Leaflet marker icons are plain SVG from `ICON_PATH` in `modes.tsx` (no `react-dom/server`).
+- Checks: `npm run lint` (ESLint 8, `.eslintrc.cjs`), `npm test` (Vitest 1 + Testing Library), `npm run build`.
 - Vite proxies `/api` to the backend at http://localhost:8000.
 - Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with
@@ -253,8 +270,9 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Routing is behind a `RouteEngine` seam (`app/routing/engine.py`): `query_routes(...)` and
   `update_state(...)`. Current impl is `RealRouteEngine` (GTFS + OSM + Veturilo). `StubRouteEngine`
   is the old mock. A `CppRouteEngine` can replace the real engine later; nothing else changes.
-- The Python<->C++ wire format is owned by the C++ team (not defined yet). Python will keep the
-  C++ service current via `update_state` (live data) and delegate routing via `query_routes`.
+- The Python<->C++ wire format is owned by the C++ team (not defined yet). C++ builds the graph
+  itself when it starts. `update_state` then carries only live data and derivatives of that live
+  data, not a new graph. `query_routes` asks C++ for routes. Nothing calls `update_state` yet.
 - Config via env vars (all optional): `CORS_ORIGINS`, `NOMINATIM_URL`, `NOMINATIM_USER_AGENT`.
 
 ### Decisions and notes

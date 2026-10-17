@@ -8,6 +8,7 @@ These are NOT a second stop list. Stops come from GTFS (mkuran). IDs map 1:1:
 
 Keys from .env: PORTAL_KEY (dane.um, header Authorization), WAW_API_KEY (api.um, query apikey).
 """
+import logging
 from datetime import datetime
 
 import httpx
@@ -20,6 +21,7 @@ API = "https://api.um.warszawa.pl/api/action"
 LINES_AT_STOP_ID = "88cd555f-6f31-43ca-9de4-66c479ad5942"
 TIMES_ID = "e923fa0e-d96c-43f9-ae6e-60518c9f3238"
 VEHICLE_TYPES = {"bus": 1, "tram": 2}
+log = logging.getLogger("uvicorn.error")
 
 _cache = TTLCache(30)
 _veh_cache = TTLCache(3)  # bus detection polls the vehicle feed every 3 s
@@ -145,7 +147,13 @@ def api_vehicles(type: str = Query("bus", description="bus or tram"), line: str 
     """Live ZTM bus / tram positions (3 s cache). route_id matches /api/gtfs/routes."""
     if type not in VEHICLE_TYPES:
         raise HTTPException(400, "type must be bus or tram")
-    data = fresh(_veh_cache.get(("veh", type), lambda: fetch_vehicles(type)), max_age_s)
+    if not PORTAL_KEY:
+        raise HTTPException(503, "PORTAL_KEY is not set")
+    try:
+        data = fresh(_veh_cache.get(("veh", type), lambda: fetch_vehicles(type)), max_age_s)
+    except httpx.HTTPError as exc:
+        log.warning("live %s feed failed: %s", type, exc)
+        raise HTTPException(503, "live vehicle feed is unavailable")
     return [v for v in data if not line or v["line"] == line]
 
 

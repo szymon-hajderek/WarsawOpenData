@@ -16,7 +16,7 @@ export default function LegChain({ legs }: { legs: RouteLeg[] }) {
         const Icon = MODE_META[leg.mode].icon;
         const color = modeColor(leg.mode, palette);
         return (
-          <Fragment key={i}>
+          <Fragment key={`${i}-${leg.mode}`}>
             {i > 0 && <ChevronRight sx={{ fontSize: 16, color: 'text.disabled' }} />}
             <Box
               sx={{

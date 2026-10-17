@@ -7,8 +7,10 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import SnapSheet, { type SheetSnap } from './SnapSheet';
 import LegChain from './LegChain';
+import { pressableProps } from './pressable';
 import { formatCost, formatDuration, stopsLabel, transfersLabel } from '../utils/format';
-import type { FilterChip, TimeRule } from '../preferences/model';
+import { routeKcal, type FilterChip, type TimeRule } from '../preferences/model';
+import { usePreferences } from '../preferences/PreferencesProvider';
 import type { RouteOption } from '../types';
 import { RADIUS } from '../layout';
 
@@ -18,6 +20,10 @@ interface Props {
   /** How many routes were found before filtering. */
   foundCount: number;
   loading: boolean;
+  /** The search failed (no routes, not even example ones). */
+  error: boolean;
+  /** The routes are made-up example data. */
+  mock: boolean;
   selectedId: string | null;
   /** Short summary of the preferences the routes follow. */
   summary: string[];
@@ -39,6 +45,8 @@ export default function RouteOptionsSheet({
   options,
   foundCount,
   loading,
+  error,
+  mock,
   selectedId,
   summary,
   activeRule,
@@ -52,6 +60,7 @@ export default function RouteOptionsSheet({
   onConfirm,
 }: Props) {
   const noScrollbar = { scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } } as const;
+  const { effective } = usePreferences();
   const content = useRef<HTMLDivElement>(null);
   const fastest = options.length ? Math.min(...options.map((o) => o.durationMin)) : null;
 
@@ -110,6 +119,7 @@ export default function RouteOptionsSheet({
               sx={{ flexShrink: 0 }}
             />
           )}
+          {mock && <Chip label="Dane przykładowe" size="small" color="warning" sx={{ flexShrink: 0 }} />}
           {chips.map((c) => (
             <Chip
               key={c.id}
@@ -142,7 +152,11 @@ export default function RouteOptionsSheet({
         {!loading && options.length === 0 && (
           <Box sx={{ py: 4, textAlign: 'center' }}>
             <Typography color="text.secondary">
-              {foundCount > 0 ? 'Żadna trasa nie spełnia wybranych filtrów.' : 'Nie znaleziono połączeń.'}
+              {error
+                ? 'Nie udało się pobrać tras. Spróbuj zmienić punkty.'
+                : foundCount > 0
+                  ? 'Żadna trasa nie spełnia wybranych filtrów.'
+                  : 'Nie znaleziono połączeń.'}
             </Typography>
             {foundCount > 0 && (
               <Button onClick={onClearAll} sx={{ mt: 1 }}>
@@ -158,11 +172,7 @@ export default function RouteOptionsSheet({
               <Box
                 key={o.id}
                 data-route-id={o.id}
-                role="button"
-                tabIndex={0}
-                aria-pressed={selected}
-                onClick={() => onSelect(o.id)}
-                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(o.id)}
+                {...pressableProps(selected, () => onSelect(o.id))}
                 sx={(t) => ({
                   display: 'flex',
                   gap: 1.5,
@@ -200,14 +210,14 @@ export default function RouteOptionsSheet({
                     {o.costPln > 0 ? '~' : ''}
                     {formatCost(o.costPln)}
                   </Typography>
-                  {o.calories > 0 && (
+                  {routeKcal(o, effective) > 0 && (
                     <Typography
                       variant="caption"
                       color="secondary"
                       sx={{ display: 'inline-flex', alignItems: 'center', fontWeight: 600 }}
                     >
                       <LocalFireDepartment sx={{ fontSize: 14 }} />
-                      {o.calories} kcal
+                      {routeKcal(o, effective)} kcal
                     </Typography>
                   )}
                 </Box>

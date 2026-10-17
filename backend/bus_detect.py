@@ -79,6 +79,22 @@ def _keep_s(line: str, brigade: str, local_time: str) -> float:
     return BUFFER_DEFAULT_S if seg is None else seg + BUFFER_MARGIN_S
 
 
+def _store(mode: str, rows: list[dict]) -> None:
+    with _lock:
+        for v in rows:
+            vid = f"{mode}-{v['vehicle']}"
+            point = {"lat": v["lat"], "lon": v["lon"], "t": _epoch(v["time"])}
+            track = _history.setdefault(vid, [])
+            if not track or track[-1]["t"] != point["t"]:
+                track.append(point)
+                del track[:-HISTORY]
+                add_point(_buffers.setdefault(vid, []), point, vid in _broken,
+                          _keep_s(v["line"], v["brigade"], v["time"]))
+                _broken.discard(vid)
+            _info[vid] = {"vehicle": v["vehicle"], "line": v["line"], "brigade": v["brigade"],
+                          "mode": mode, "direction": _direction(v["line"], v["brigade"], v["time"])}
+
+
 def _forget_stale() -> None:
     """Drop vehicles that left the feed, so they are not ranked and the dicts do not grow."""
     cutoff = time.time() - STALE_S
@@ -90,36 +106,41 @@ def _forget_stale() -> None:
             _broken.discard(vid)
 
 
-def poll_once() -> None:
+def _mark_broken(mode: str) -> None:
+    """A poll of this feed failed: the next point of each of its vehicles gets no midpoint."""
+    with _lock:
+        _broken.update(vid for vid, i in _info.items() if i["mode"] == mode)
+
+
+def poll_once() -> bool:
     global _updated_at
-    got = False
-    for mode, url in _feeds():
-        try:
-            r = httpx.get(url, timeout=30)
-            r.raise_for_status()
-            rows = r.json()
-        except Exception as exc:
-            log.warning("live %s poll failed: %s", mode, exc)
-            with _lock:
-                _broken.update(vid for vid, i in _info.items() if i["mode"] == mode)
-            continue
-        got = True
-        with _lock:
-            for v in rows:
-                vid = f"{mode}-{v['vehicle']}"
-                point = {"lat": v["lat"], "lon": v["lon"], "t": _epoch(v["time"])}
-                track = _history.setdefault(vid, [])
-                if not track or track[-1]["t"] != point["t"]:
-                    track.append(point)
-                    del track[:-HISTORY]
-                    add_point(_buffers.setdefault(vid, []), point, vid in _broken,
-                              _keep_s(v["line"], v["brigade"], v["time"]))
-                    _broken.discard(vid)
-                _info[vid] = {"vehicle": v["vehicle"], "line": v["line"], "brigade": v["brigade"],
-                              "mode": mode, "direction": _direction(v["line"], v["brigade"], v["time"])}
-    if got:
+    batches: list[tuple[str, list]] = []
+    if _CUSTOM:
+        for mode, url in _feeds():
+            try:
+                response = httpx.get(url, timeout=30)
+                response.raise_for_status()
+                rows = response.json()
+            except Exception as exc:
+                log.warning("live %s poll failed: %s", mode, exc)
+                _mark_broken(mode)
+                continue
+            if isinstance(rows, list):
+                batches.append((mode, rows))
+    else:
+        from sources.um_warszawa import fetch_vehicles
+        for mode in ("bus", "tram"):
+            try:
+                batches.append((mode, fetch_vehicles(mode)))
+            except Exception as exc:
+                log.warning("live %s poll failed: %s", mode, exc)
+                _mark_broken(mode)
+    for mode, rows in batches:
+        _store(mode, rows)
+    if batches:
         _forget_stale()
         _updated_at = time.time()
+    return bool(batches)
 
 
 def _loop() -> None:
@@ -133,6 +154,10 @@ def _loop() -> None:
 
 
 def start_poller() -> None:
+    from config import PORTAL_KEY
+    if not _CUSTOM and not PORTAL_KEY:
+        log.warning("live vehicle poller off: PORTAL_KEY is not set")
+        return
     threading.Thread(target=_loop, daemon=True, name="bus-poller").start()
 
 
@@ -173,7 +198,6 @@ def api_nearest_buses(req: NearestRequest):
         candidates = [{"id": r["id"], **_info[r["id"]], "rmse_m": round(r["rmse_m"], 1)} for r in ranked]
         lines = sorted({i["line"] for i in _info.values()}, key=lambda s: (len(s), s))
     return {"candidates": candidates, "lines": lines, "updated_at": _updated_at}
-
 
 def _clock(epoch: float | None) -> str | None:
     return None if epoch is None else datetime.fromtimestamp(epoch).strftime("%H:%M:%S")

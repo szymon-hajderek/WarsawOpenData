@@ -7,10 +7,8 @@ import Remove from '@mui/icons-material/Remove';
 import MyLocation from '@mui/icons-material/MyLocation';
 import DarkMode from '@mui/icons-material/DarkMode';
 import LightMode from '@mui/icons-material/LightMode';
-import Place from '@mui/icons-material/Place';
 import DirectionsBus from '@mui/icons-material/DirectionsBus';
-import Navigation from '@mui/icons-material/Navigation';
-import { MODE_META, iconHtml, modeColor } from '../modes';
+import { ICON_PATH, MODE_META, iconHtml, modeColor } from '../modes';
 import { PALETTE } from '../map/palette';
 import { createStyle, MAP_ATTRIBUTION } from '../map/mapStyle';
 import type { LatLng, Place as PlaceT, RouteOption } from '../types';
@@ -86,26 +84,35 @@ function MapController({
 /** Basemap: flat vector tiles drawn by MapLibre GL inside the Leaflet map. */
 function VectorBasemap({ mode }: { mode: PaletteMode }) {
   const map = useMap();
+  const layerRef = useRef<L.MaplibreGL | null>(null);
+  const modeRef = useRef(mode);
 
+  // One layer for the life of the map (a new one would open a new WebGL context).
   useEffect(() => {
-    let layer: L.MaplibreGL | undefined;
     let cancelled = false;
     // The vector layer does not report its attribution to Leaflet, so add it ourselves.
     map.attributionControl.addAttribution(MAP_ATTRIBUTION);
     // Loaded on demand, so the first paint does not wait for MapLibre.
     import('@maplibre/maplibre-gl-leaflet').then(({ maplibreGL }) => {
       if (cancelled) return;
-      layer = maplibreGL({
-        style: createStyle(mode),
+      layerRef.current = maplibreGL({
+        style: createStyle(modeRef.current),
         attributionControl: false,
       }).addTo(map);
     });
     return () => {
       cancelled = true;
       map.attributionControl.removeAttribution(MAP_ATTRIBUTION);
-      layer?.remove();
+      layerRef.current?.remove();
+      layerRef.current = null;
     };
-  }, [map, mode]);
+  }, [map]);
+
+  // Light / dark switch: restyle the same layer.
+  useEffect(() => {
+    modeRef.current = mode;
+    layerRef.current?.getMaplibreMap().setStyle(createStyle(mode));
+  }, [mode]);
 
   return null;
 }
@@ -121,13 +128,39 @@ function RouteLayer({
 }) {
   const colors = PALETTE[palette];
 
+  // Icons are rebuilt only when the route or the colours change, not on every render of the app.
+  const transferIcons = useMemo(
+    () =>
+      detailed
+        ? route.legs
+            .slice(1)
+            .filter((leg) => leg.mode !== 'walk')
+            .map((leg) => ({
+              position: leg.path[0],
+              icon: L.divIcon({
+                className: 'app-div-icon',
+                iconSize: [38, 38],
+                iconAnchor: [19, 19],
+                html: `<div style="width:38px;height:38px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;border:3px solid ${
+                  colors.surface
+                };background:${colors.markerTint};box-shadow:${colors.shadow}">${iconHtml(
+                  MODE_META[leg.mode].path,
+                  20,
+                  modeColor(leg.mode, palette),
+                )}</div>`,
+              }),
+            }))
+        : [],
+    [route, detailed, colors, palette],
+  );
+
   return (
     <>
       {route.legs.map((leg, i) => {
         const walk = leg.mode === 'walk';
         const color = walk ? colors.accent : modeColor(leg.mode, palette);
         return (
-          <Fragment key={i}>
+          <Fragment key={`${i}-${leg.mode}`}>
             {!walk && (
               <Polyline
                 positions={leg.path}
@@ -150,29 +183,9 @@ function RouteLayer({
         );
       })}
 
-      {detailed &&
-        route.legs
-          .slice(1)
-          .filter((leg) => leg.mode !== 'walk')
-          .map((leg, i) => (
-            <Marker
-              key={i}
-              position={leg.path[0]}
-              interactive={false}
-              icon={L.divIcon({
-                className: 'app-div-icon',
-                iconSize: [38, 38],
-                iconAnchor: [19, 19],
-                html: `<div style="width:38px;height:38px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;border:3px solid ${
-                  colors.surface
-                };background:${colors.markerTint};box-shadow:${colors.shadow}">${iconHtml(
-                  MODE_META[leg.mode].icon,
-                  20,
-                  modeColor(leg.mode, palette),
-                )}</div>`,
-              })}
-            />
-          ))}
+      {transferIcons.map(({ position, icon }, i) => (
+        <Marker key={`transfer-${i}`} position={position} interactive={false} icon={icon} />
+      ))}
     </>
   );
 }
@@ -211,7 +224,7 @@ export default function MapView({
       user: L.divIcon({
         className: 'app-div-icon',
         html: `<div style="width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:${surface};box-shadow:${shadow}">${iconHtml(
-          Navigation,
+          ICON_PATH.navigation,
           24,
           accent,
         )}</div>`,
@@ -228,7 +241,7 @@ export default function MapView({
       destination: L.divIcon({
         className: 'app-div-icon',
         html: `<div style="width:44px;height:44px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;border:3px solid ${surface};background:${accent};box-shadow:${shadow}">${iconHtml(
-          Place,
+          ICON_PATH.place,
           24,
           colors.theme.primary.contrastText,
         )}</div>`,

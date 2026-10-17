@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useHistory } from '../history/HistoryProvider';
 import {
   applyHistory,
@@ -54,9 +54,19 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [now, setNow] = useState(() => new Date());
   const { summary } = useHistory();
 
-  // Time rules start and end on the clock: re-evaluate every minute.
+  // Time rules start and end on the clock: check every minute. The clock state changes only when the
+  // active rule changes, so the rest of the app does not re-render every minute for nothing.
+  const storedRef = useRef(stored);
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
+    storedRef.current = stored;
+  }, [stored]);
+  useEffect(() => {
+    const activeId = (at: Date) =>
+      effectivePreferences(storedRef.current.base, storedRef.current.rules, at).activeRule?.id ?? null;
+    const id = setInterval(() => {
+      const next = new Date();
+      setNow((prev) => (activeId(prev) === activeId(next) ? prev : next));
+    }, 60_000);
     return () => clearInterval(id);
   }, []);
 
