@@ -1,0 +1,46 @@
+{
+ "last_updated": 1792240758,
+ "ttl": 60,
+ "data": {
+  "vehicle_types": [
+   {
+    "vehicle_type_id": "71",
+    "vehicle_image": "https://static.nextbike.net/app/biketypes-v5/type/vw/71/h500.png",
+    "name": "Rower standardowy",
+    "_description": "",
+    "form_factor": "bicycle",
+    "rider_capacity": 1,
+    "propulsion_type": "human"
+   },
+   {
+    "vehicle_type_id": "150",
+    "vehicle_image": "https://static.nextbike.net/app/biketypes-v5/type/vw/150/h500.png",
+    "name": "Rower standardowy",
+    "_description": "",
+    "form_factor": "bicycle",
+    "rider_capacity": 1,
+    "propulsion_type": "human"
+   },
+   {
+    "vehicle_type_id": "183",
+    "vehicle_image": "https://static.nextbike.net/app/biketypes-v5/type/vw/183/h500.png",
+    "name": "E-Bike",
+    "_description": "- Model ramy \"SWAP\" z Framelockiem\r\n - widelec e-CFC DLS ze złączem ładowania oraz chipem RFID\r\n - Aluminiowy koszyk z panelem reklamowym\r\n - Hamulce rolkowe z przodu i z tyłu\r\n - Czytnik kart RFID",
+    "form_factor": "bicycle",
+    "rider_capacity": 1,
+    "propulsion_type": "electric_assist",
+    "max_range_meters": 60000
+   },
+   {
+    "vehicle_type_id": "228",
+    "vehicle_image": "https://static.nextbike.net/app/biketypes-v5/type/vw/228/h500.png",
+    "name": "z zamkiem elektronicznym",
+    "_description": "",
+    "form_factor": "bicycle",
+    "rider_capacity": 2,
+    "propulsion_type": "human"
+   }
+  ]
+ },
+ "version": "2.3"
+}

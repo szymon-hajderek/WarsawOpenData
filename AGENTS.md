@@ -71,14 +71,16 @@ Everything in this repo (files, commits, PRs) is written in English.
 - **Jury criteria (design for them):** inclusivity / accessibility / diversity, scalability to
   other cities, safety, privacy, evidence-based, technical correctness, business model.
 - **Time frame:** 24h hackathon, so keep everything simple.
-- **Status:** the frontend UI exists (mock routing); backend, routing and data are empty.
+- **Status:** the frontend UI exists (mock routing). The backend has data download, parsers and
+  FastAPI endpoints for all sources (`backend/`, report in `data/REPORT.md`); routing is not built yet.
 
 ### Tech stack
 
 - Frontend: React + TypeScript + Vite
 - Map: Leaflet + OpenStreetMap
 - Backend: Python + FastAPI
-- Database: PostgreSQL + PostGIS (SQLite is enough for the POC)
+- Database: none for now. Raw files in `data/`, parsed by Python modules on first use.
+  PostgreSQL + PostGIS (or SQLite) later if needed.
 - Routing: OpenTripPlanner (supports GTFS, GBFS and OSM)
 - Deployment: Docker
 
@@ -91,6 +93,33 @@ Everything in this repo (files, commits, PRs) is written in English.
 - `db/` — database files and setup
 - `routing/` — OpenTripPlanner config
 - `data/` — datasets, one subfolder per data type: `gtfs/`, `gbfs/`, `osm/`, `geojson/`
+
+### Backend and data (`backend/`, `data/`)
+
+- Python deps with **uv**: `cd backend && uv sync`. Run all commands from `backend/` (imports are flat:
+  `config`, `sources.*`). uv picks Python 3.12 (`.venv` is git-ignored).
+- One file per source in `backend/sources/` with `download()`, parse functions and a FastAPI `router`:
+  `mkuran.py` (GTFS), `um_warszawa.py` (City Hall live APIs), `nextbike.py` (Veturilo GBFS), `osm.py`
+  (walk / bike graph). `sources/registry.py` lists every source, also the ones we only list.
+- Commands: `uv run python download.py [source]`, `uv run uvicorn main:app --reload`
+  (docs at `/docs`), `uv run python report.py` (writes `data/REPORT.md` + `data/report.json`).
+- Raw data: GTFS zips and `Warsaw.osm.pbf` are in Git LFS (`.gitattributes`); run `git lfs install`
+  once after cloning. `data/derived/` holds parsed caches (git-ignored, rebuilt on first use, ~25 s
+  for GTFS, ~45 s for OSM).
+- Dedup: stops only from GTFS. ZTM (bus, tram, metro, SKM) from `warsaw.zip`, WKD from `wkd.zip`,
+  other trains from `polish_trains.zip` without SKM and only inside the ZTM bbox. Rail stations merge
+  across feeds only rail-to-rail (same name, < 150 m, field `same_as`); never with bus / tram stops.
+- IDs: global stop ids have a feed prefix (`ztm:700901`, `wkd:brzoz`, `pkp:33605_RAIL_1_5`).
+  ZTM `700901` = zespół `7009` + słupek `01` = City Hall `busstopId` + `busstopNr`.
+  Live `Lines` / `Brigade` = GTFS `route_short_name` / `block_short_name`.
+  Veturilo and OSM have no shared ids: join by distance.
+- City Hall APIs: `api.um.warszawa.pl` URLs need the trailing slash (`dbtimetable_get/`), else 301.
+  The stop dictionary (`dbstore_get`) returns an error; GTFS covers it. The live vehicle feed
+  also returns positions that are years old: filter by time (`max_age_s`).
+- The BBBike OSM box (52.041-52.451 N, 20.653-21.408 E) is smaller than the ZTM area; ~400 outer
+  stops snap far. Geofabrik `mazowieckie` + `osmium extract` is the fix if needed.
+- Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
+  `WAIT` in `osm.py`). OSM has no signal timing tags in Warsaw.
 
 ### Frontend (`frontend/`)
 

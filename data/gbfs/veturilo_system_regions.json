@@ -1,0 +1,13 @@
+{
+ "last_updated": 1792240758,
+ "ttl": 60,
+ "data": {
+  "regions": [
+   {
+    "region_id": "812",
+    "name": "Warszawa"
+   }
+  ]
+ },
+ "version": "2.3"
+}

@@ -1,0 +1,5244 @@
+{
+ "last_updated": 1792240815,
+ "ttl": 60,
+ "data": {
+  "stations": [
+   {
+    "station_id": "203610",
+    "name": "Koneser",
+    "short_name": "6419",
+    "lat": 52.25602,
+    "lon": 21.046219,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=203610",
+     "ios": "https://app.nextbike.net/station?id=203610",
+     "web": "https://nxtb.it/p/203610"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "448565",
+    "name": "Nestle House",
+    "short_name": "6413",
+    "lat": 52.183992,
+    "lon": 21.00984,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=448565",
+     "ios": "https://app.nextbike.net/station?id=448565",
+     "web": "https://nxtb.it/p/448565"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585259",
+    "name": "UKSW",
+    "short_name": "9402",
+    "lat": 52.296226,
+    "lon": 20.958327,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585259",
+     "ios": "https://app.nextbike.net/station?id=2585259",
+     "web": "https://nxtb.it/p/2585259"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585263",
+    "name": "Metro Młociny",
+    "short_name": "9403",
+    "lat": 52.290974,
+    "lon": 20.929556,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585263",
+     "ios": "https://app.nextbike.net/station?id=2585263",
+     "web": "https://nxtb.it/p/2585263"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585265",
+    "name": "Marymoncka - Dewajtis",
+    "short_name": "9404",
+    "lat": 52.290173,
+    "lon": 20.95037,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585265",
+     "ios": "https://app.nextbike.net/station?id=2585265",
+     "web": "https://nxtb.it/p/2585265"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585267",
+    "name": "Metro Wawrzyszew",
+    "short_name": "9405",
+    "lat": 52.285914,
+    "lon": 20.940561,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585267",
+     "ios": "https://app.nextbike.net/station?id=2585267",
+     "web": "https://nxtb.it/p/2585267"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585269",
+    "name": "Redutowa - Pustola",
+    "short_name": "9406",
+    "lat": 52.233682,
+    "lon": 20.940959,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585269",
+     "ios": "https://app.nextbike.net/station?id=2585269",
+     "web": "https://nxtb.it/p/2585269"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585271",
+    "name": "Metro Stare Bielany",
+    "short_name": "9407",
+    "lat": 52.281627,
+    "lon": 20.949887,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585271",
+     "ios": "https://app.nextbike.net/station?id=2585271",
+     "web": "https://nxtb.it/p/2585271"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585273",
+    "name": "Bielany-Ratusz",
+    "short_name": "9409",
+    "lat": 52.276838,
+    "lon": 20.948216,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585273",
+     "ios": "https://app.nextbike.net/station?id=2585273",
+     "web": "https://nxtb.it/p/2585273"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585275",
+    "name": "Metro Słodowiec",
+    "short_name": "9410",
+    "lat": 52.276157,
+    "lon": 20.961667,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585275",
+     "ios": "https://app.nextbike.net/station?id=2585275",
+     "web": "https://nxtb.it/p/2585275"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585278",
+    "name": "OSiR Żoliborz",
+    "short_name": "9411",
+    "lat": 52.277729,
+    "lon": 20.985734,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585278",
+     "ios": "https://app.nextbike.net/station?id=2585278",
+     "web": "https://nxtb.it/p/2585278"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585280",
+    "name": "al. Komandosów",
+    "short_name": "9412",
+    "lat": 52.253001,
+    "lon": 21.168017,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585280",
+     "ios": "https://app.nextbike.net/station?id=2585280",
+     "web": "https://nxtb.it/p/2585280"
+    },
+    "is_virtual_station": false,
+    "capacity": 6
+   },
+   {
+    "station_id": "2585281",
+    "name": "al. Reymonta - Conrada",
+    "short_name": "9413",
+    "lat": 52.270941,
+    "lon": 20.932627,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585281",
+     "ios": "https://app.nextbike.net/station?id=2585281",
+     "web": "https://nxtb.it/p/2585281"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585283",
+    "name": "Broniewskiego - Perzyńskiego",
+    "short_name": "9414",
+    "lat": 52.270634,
+    "lon": 20.950477,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585283",
+     "ios": "https://app.nextbike.net/station?id=2585283",
+     "web": "https://nxtb.it/p/2585283"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585284",
+    "name": "Metro Marymont",
+    "short_name": "9415",
+    "lat": 52.27142,
+    "lon": 20.97271,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585284",
+     "ios": "https://app.nextbike.net/station?id=2585284",
+     "web": "https://nxtb.it/p/2585284"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585285",
+    "name": "Metro Plac Wilsona",
+    "short_name": "9416",
+    "lat": 52.269299,
+    "lon": 20.98346,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585285",
+     "ios": "https://app.nextbike.net/station?id=2585285",
+     "web": "https://nxtb.it/p/2585285"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585286",
+    "name": "Broniewskiego - Włościańska",
+    "short_name": "9417",
+    "lat": 52.266786,
+    "lon": 20.963697,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585286",
+     "ios": "https://app.nextbike.net/station?id=2585286",
+     "web": "https://nxtb.it/p/2585286"
+    },
+    "is_virtual_station": false,
+    "capacity": 15
+   },
+   {
+    "station_id": "2585288",
+    "name": "Broniewskiego - Krasińskiego",
+    "short_name": "9418",
+    "lat": 52.264398,
+    "lon": 20.972318,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585288",
+     "ios": "https://app.nextbike.net/station?id=2585288",
+     "web": "https://nxtb.it/p/2585288"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585289",
+    "name": "Wybrzeże Gdyńskie - KS Spójnia",
+    "short_name": "9419",
+    "lat": 52.267875,
+    "lon": 21.002067,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585289",
+     "ios": "https://app.nextbike.net/station?id=2585289",
+     "web": "https://nxtb.it/p/2585289"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585291",
+    "name": "Plac Grunwaldzki",
+    "short_name": "9420",
+    "lat": 52.262405,
+    "lon": 20.980255,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585291",
+     "ios": "https://app.nextbike.net/station?id=2585291",
+     "web": "https://nxtb.it/p/2585291"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585296",
+    "name": "Rondo Śmigielskiego",
+    "short_name": "9421",
+    "lat": 52.247163,
+    "lon": 21.189258,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585296",
+     "ios": "https://app.nextbike.net/station?id=2585296",
+     "web": "https://nxtb.it/p/2585296"
+    },
+    "is_virtual_station": false,
+    "capacity": 7
+   },
+   {
+    "station_id": "2585297",
+    "name": "Plac Inwalidów ",
+    "short_name": "9422",
+    "lat": 52.263922,
+    "lon": 20.989578,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585297",
+     "ios": "https://app.nextbike.net/station?id=2585297",
+     "web": "https://nxtb.it/p/2585297"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585299",
+    "name": "Pętla Stare Bemowo",
+    "short_name": "9423",
+    "lat": 52.258245,
+    "lon": 20.898614,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585299",
+     "ios": "https://app.nextbike.net/station?id=2585299",
+     "web": "https://nxtb.it/p/2585299"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585301",
+    "name": "Pętla Nowe Bemowo",
+    "short_name": "9424",
+    "lat": 52.261003,
+    "lon": 20.923905,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585301",
+     "ios": "https://app.nextbike.net/station?id=2585301",
+     "web": "https://nxtb.it/p/2585301"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585304",
+    "name": "Obrońców Tobruku - Pieniążka",
+    "short_name": "9425",
+    "lat": 52.25759,
+    "lon": 20.932337,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585304",
+     "ios": "https://app.nextbike.net/station?id=2585304",
+     "web": "https://nxtb.it/p/2585304"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585305",
+    "name": "Powązkowska - Krasińskiego",
+    "short_name": "9426",
+    "lat": 52.259323,
+    "lon": 20.960551,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585305",
+     "ios": "https://app.nextbike.net/station?id=2585305",
+     "web": "https://nxtb.it/p/2585305"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585306",
+    "name": "Powązkowska - Plac Niemena",
+    "short_name": "9427",
+    "lat": 52.256315,
+    "lon": 20.968231,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585306",
+     "ios": "https://app.nextbike.net/station?id=2585306",
+     "web": "https://nxtb.it/p/2585306"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585307",
+    "name": "Przasnyska - Rydygiera",
+    "short_name": "9428",
+    "lat": 52.258593,
+    "lon": 20.971005,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585307",
+     "ios": "https://app.nextbike.net/station?id=2585307",
+     "web": "https://nxtb.it/p/2585307"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585308",
+    "name": "Powązkowska - Burakowska",
+    "short_name": "9429",
+    "lat": 52.253594,
+    "lon": 20.979874,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585308",
+     "ios": "https://app.nextbike.net/station?id=2585308",
+     "web": "https://nxtb.it/p/2585308"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585311",
+    "name": "Metro Dworzec Gdański",
+    "short_name": "9430",
+    "lat": 52.257602,
+    "lon": 20.994498,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585311",
+     "ios": "https://app.nextbike.net/station?id=2585311",
+     "web": "https://nxtb.it/p/2585311"
+    },
+    "is_virtual_station": false,
+    "capacity": 16
+   },
+   {
+    "station_id": "2585313",
+    "name": "Powstańców Śląskich - Radiowa",
+    "short_name": "9431",
+    "lat": 52.252626,
+    "lon": 20.913638,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585313",
+     "ios": "https://app.nextbike.net/station?id=2585313",
+     "web": "https://nxtb.it/p/2585313"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585315",
+    "name": "Obozowa - Ciołka",
+    "short_name": "9432",
+    "lat": 52.246595,
+    "lon": 20.942922,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585315",
+     "ios": "https://app.nextbike.net/station?id=2585315",
+     "web": "https://nxtb.it/p/2585315"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585317",
+    "name": "al. Prymasa Tysiąclecia - Kasprzaka",
+    "short_name": "9433",
+    "lat": 52.227451,
+    "lon": 20.956839,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585317",
+     "ios": "https://app.nextbike.net/station?id=2585317",
+     "web": "https://nxtb.it/p/2585317"
+    },
+    "is_virtual_station": false,
+    "capacity": 15
+   },
+   {
+    "station_id": "2585319",
+    "name": "Obozowa - Radziwie",
+    "short_name": "9434",
+    "lat": 52.246037,
+    "lon": 20.962463,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585319",
+     "ios": "https://app.nextbike.net/station?id=2585319",
+     "web": "https://nxtb.it/p/2585319"
+    },
+    "is_virtual_station": false,
+    "capacity": 15
+   },
+   {
+    "station_id": "2585321",
+    "name": "al. Jana Pawła II - Stawki",
+    "short_name": "9435",
+    "lat": 52.251471,
+    "lon": 20.985705,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585321",
+     "ios": "https://app.nextbike.net/station?id=2585321",
+     "web": "https://nxtb.it/p/2585321"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585323",
+    "name": "Stawki - Dubois",
+    "short_name": "9436",
+    "lat": 52.253153,
+    "lon": 20.991552,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585323",
+     "ios": "https://app.nextbike.net/station?id=2585323",
+     "web": "https://nxtb.it/p/2585323"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585326",
+    "name": "Andersa - Muranowska",
+    "short_name": "9437",
+    "lat": 52.25416,
+    "lon": 20.998085,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585326",
+     "ios": "https://app.nextbike.net/station?id=2585326",
+     "web": "https://nxtb.it/p/2585326"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585327",
+    "name": "Sanguszki - Wybrzeże Gdańskie",
+    "short_name": "9438",
+    "lat": 52.255877,
+    "lon": 21.009982,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585327",
+     "ios": "https://app.nextbike.net/station?id=2585327",
+     "web": "https://nxtb.it/p/2585327"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585328",
+    "name": "Bysławska",
+    "short_name": "9439",
+    "lat": 52.159742,
+    "lon": 21.205322,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585328",
+     "ios": "https://app.nextbike.net/station?id=2585328",
+     "web": "https://nxtb.it/p/2585328"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "2585330",
+    "name": "Okopowa - Anielewicza",
+    "short_name": "9440",
+    "lat": 52.244114,
+    "lon": 20.977868,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585330",
+     "ios": "https://app.nextbike.net/station?id=2585330",
+     "web": "https://nxtb.it/p/2585330"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585333",
+    "name": "Smocza - Miła",
+    "short_name": "9441",
+    "lat": 52.248553,
+    "lon": 20.983458,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585333",
+     "ios": "https://app.nextbike.net/station?id=2585333",
+     "web": "https://nxtb.it/p/2585333"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585334",
+    "name": "Smocza - Anielewicza",
+    "short_name": "9442",
+    "lat": 52.246149,
+    "lon": 20.985462,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585334",
+     "ios": "https://app.nextbike.net/station?id=2585334",
+     "web": "https://nxtb.it/p/2585334"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585335",
+    "name": "al. Jana Pawła II - Anielewicza",
+    "short_name": "9443",
+    "lat": 52.247017,
+    "lon": 20.989516,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585335",
+     "ios": "https://app.nextbike.net/station?id=2585335",
+     "web": "https://nxtb.it/p/2585335"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585337",
+    "name": "Anielewicza - Zamenhofa",
+    "short_name": "9444",
+    "lat": 52.249052,
+    "lon": 20.994892,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585337",
+     "ios": "https://app.nextbike.net/station?id=2585337",
+     "web": "https://nxtb.it/p/2585337"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585338",
+    "name": "Centrum Zdrowia Dziecka",
+    "short_name": "9445",
+    "lat": 52.207438,
+    "lon": 21.191126,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585338",
+     "ios": "https://app.nextbike.net/station?id=2585338",
+     "web": "https://nxtb.it/p/2585338"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585340",
+    "name": "Bonifraterska - Franciszkańska",
+    "short_name": "9446",
+    "lat": 52.251549,
+    "lon": 21.002749,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585340",
+     "ios": "https://app.nextbike.net/station?id=2585340",
+     "web": "https://nxtb.it/p/2585340"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585341",
+    "name": "Plac Krasińskich",
+    "short_name": "9447",
+    "lat": 52.248862,
+    "lon": 21.005578,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585341",
+     "ios": "https://app.nextbike.net/station?id=2585341",
+     "web": "https://nxtb.it/p/2585341"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585342",
+    "name": "Kościelna - Piesza",
+    "short_name": "9448",
+    "lat": 52.254116,
+    "lon": 21.009353,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585342",
+     "ios": "https://app.nextbike.net/station?id=2585342",
+     "web": "https://nxtb.it/p/2585342"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585344",
+    "name": "Bora-Komorowskiego - Fieldorfa 'Nila'",
+    "short_name": "9449",
+    "lat": 52.22533,
+    "lon": 21.09229,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585344",
+     "ios": "https://app.nextbike.net/station?id=2585344",
+     "web": "https://nxtb.it/p/2585344"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585345",
+    "name": "Metro Bemowo",
+    "short_name": "9450",
+    "lat": 52.239503,
+    "lon": 20.913805,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585345",
+     "ios": "https://app.nextbike.net/station?id=2585345",
+     "web": "https://nxtb.it/p/2585345"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585346",
+    "name": "Metro Księcia Janusza",
+    "short_name": "9451",
+    "lat": 52.239541,
+    "lon": 20.942309,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585346",
+     "ios": "https://app.nextbike.net/station?id=2585346",
+     "web": "https://nxtb.it/p/2585346"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585349",
+    "name": "Czerwonych Beretów - Frontowa",
+    "short_name": "9452",
+    "lat": 52.262273,
+    "lon": 21.177609,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585349",
+     "ios": "https://app.nextbike.net/station?id=2585349",
+     "web": "https://nxtb.it/p/2585349"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585351",
+    "name": "Leszno - Młynarska",
+    "short_name": "9453",
+    "lat": 52.236881,
+    "lon": 20.972332,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585351",
+     "ios": "https://app.nextbike.net/station?id=2585351",
+     "web": "https://nxtb.it/p/2585351"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585352",
+    "name": "Dzielna - Bellottiego",
+    "short_name": "9454",
+    "lat": 52.242888,
+    "lon": 20.980379,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585352",
+     "ios": "https://app.nextbike.net/station?id=2585352",
+     "web": "https://nxtb.it/p/2585352"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585353",
+    "name": "Wolność - Bellottiego",
+    "short_name": "9455",
+    "lat": 52.24108,
+    "lon": 20.98316,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585353",
+     "ios": "https://app.nextbike.net/station?id=2585353",
+     "web": "https://nxtb.it/p/2585353"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585354",
+    "name": "Smocza - Nowolipki",
+    "short_name": "9456",
+    "lat": 52.243545,
+    "lon": 20.987351,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585354",
+     "ios": "https://app.nextbike.net/station?id=2585354",
+     "web": "https://nxtb.it/p/2585354"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585356",
+    "name": "al. Jana Pawła II - Nowolipki",
+    "short_name": "9457",
+    "lat": 52.244577,
+    "lon": 20.99177,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585356",
+     "ios": "https://app.nextbike.net/station?id=2585356",
+     "web": "https://nxtb.it/p/2585356"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585358",
+    "name": "Powstańców Śląskich - Człuchowska",
+    "short_name": "9458",
+    "lat": 52.22868,
+    "lon": 20.91509,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585358",
+     "ios": "https://app.nextbike.net/station?id=2585358",
+     "web": "https://nxtb.it/p/2585358"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585360",
+    "name": "Jana Olbrachta - Antka Rozpylacza",
+    "short_name": "9459",
+    "lat": 52.234223,
+    "lon": 20.934782,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585360",
+     "ios": "https://app.nextbike.net/station?id=2585360",
+     "web": "https://nxtb.it/p/2585360"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585364",
+    "name": "Wola Ratusz",
+    "short_name": "9460",
+    "lat": 52.240102,
+    "lon": 20.987726,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585364",
+     "ios": "https://app.nextbike.net/station?id=2585364",
+     "web": "https://nxtb.it/p/2585364"
+    },
+    "is_virtual_station": false,
+    "capacity": 6
+   },
+   {
+    "station_id": "2585367",
+    "name": "al. Jana Pawła II - al. Solidarności",
+    "short_name": "9461",
+    "lat": 52.242178,
+    "lon": 20.993004,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585367",
+     "ios": "https://app.nextbike.net/station?id=2585367",
+     "web": "https://nxtb.it/p/2585367"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585368",
+    "name": "Dworzec Zachodni",
+    "short_name": "9462",
+    "lat": 52.217954,
+    "lon": 20.966967,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585368",
+     "ios": "https://app.nextbike.net/station?id=2585368",
+     "web": "https://nxtb.it/p/2585368"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585369",
+    "name": "Andersa - Długa",
+    "short_name": "9463",
+    "lat": 52.244973,
+    "lon": 21.001274,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585369",
+     "ios": "https://app.nextbike.net/station?id=2585369",
+     "web": "https://nxtb.it/p/2585369"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585370",
+    "name": "Pl. Bankowy - Ratusz",
+    "short_name": "9464",
+    "lat": 52.243175,
+    "lon": 21.00177,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585370",
+     "ios": "https://app.nextbike.net/station?id=2585370",
+     "web": "https://nxtb.it/p/2585370"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585371",
+    "name": "Senatorska - Bielańska",
+    "short_name": "9465",
+    "lat": 52.243571,
+    "lon": 21.006692,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585371",
+     "ios": "https://app.nextbike.net/station?id=2585371",
+     "web": "https://nxtb.it/p/2585371"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585373",
+    "name": "Pętla Podskarbińska",
+    "short_name": "9466",
+    "lat": 52.254189,
+    "lon": 21.073601,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585373",
+     "ios": "https://app.nextbike.net/station?id=2585373",
+     "web": "https://nxtb.it/p/2585373"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "2585377",
+    "name": "Miodowa",
+    "short_name": "9467",
+    "lat": 52.246541,
+    "lon": 21.011265,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585377",
+     "ios": "https://app.nextbike.net/station?id=2585377",
+     "web": "https://nxtb.it/p/2585377"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585378",
+    "name": "Krakowskie Przedmieście - Trębacka",
+    "short_name": "9468",
+    "lat": 52.243578,
+    "lon": 21.01409,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585378",
+     "ios": "https://app.nextbike.net/station?id=2585378",
+     "web": "https://nxtb.it/p/2585378"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "2585379",
+    "name": "Mariensztat",
+    "short_name": "9469",
+    "lat": 52.246561,
+    "lon": 21.017476,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585379",
+     "ios": "https://app.nextbike.net/station?id=2585379",
+     "web": "https://nxtb.it/p/2585379"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585380",
+    "name": "Powstańców Śląskich - Połczyńska",
+    "short_name": "9470",
+    "lat": 52.220591,
+    "lon": 20.917589,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585380",
+     "ios": "https://app.nextbike.net/station?id=2585380",
+     "web": "https://nxtb.it/p/2585380"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585381",
+    "name": "Jana Kazimierza - Gizów",
+    "short_name": "9471",
+    "lat": 52.224946,
+    "lon": 20.945553,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585381",
+     "ios": "https://app.nextbike.net/station?id=2585381",
+     "web": "https://nxtb.it/p/2585381"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585385",
+    "name": "Gościniec",
+    "short_name": "9472",
+    "lat": 52.222881,
+    "lon": 21.223207,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585385",
+     "ios": "https://app.nextbike.net/station?id=2585385",
+     "web": "https://nxtb.it/p/2585385"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "2585387",
+    "name": "al. Prymasa Tysiąclecia - Górczewska",
+    "short_name": "9473",
+    "lat": 52.237662,
+    "lon": 20.955493,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585387",
+     "ios": "https://app.nextbike.net/station?id=2585387",
+     "web": "https://nxtb.it/p/2585387"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585389",
+    "name": "Wolska - Płocka",
+    "short_name": "9474",
+    "lat": 52.233341,
+    "lon": 20.965197,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585389",
+     "ios": "https://app.nextbike.net/station?id=2585389",
+     "web": "https://nxtb.it/p/2585389"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585391",
+    "name": "Kasprzaka - Skierniewicka",
+    "short_name": "9475",
+    "lat": 52.228522,
+    "lon": 20.969639,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585391",
+     "ios": "https://app.nextbike.net/station?id=2585391",
+     "web": "https://nxtb.it/p/2585391"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585394",
+    "name": "Kasprzaka - Karolkowa",
+    "short_name": "9476",
+    "lat": 52.22898,
+    "lon": 20.97843,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585394",
+     "ios": "https://app.nextbike.net/station?id=2585394",
+     "web": "https://nxtb.it/p/2585394"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585396",
+    "name": "Muzeum Powstania Warszawskiego",
+    "short_name": "9477",
+    "lat": 52.233427,
+    "lon": 20.981703,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585396",
+     "ios": "https://app.nextbike.net/station?id=2585396",
+     "web": "https://nxtb.it/p/2585396"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585398",
+    "name": "Metro Rondo Daszyńskiego",
+    "short_name": "9478",
+    "lat": 52.229707,
+    "lon": 20.983223,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585398",
+     "ios": "https://app.nextbike.net/station?id=2585398",
+     "web": "https://nxtb.it/p/2585398"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585400",
+    "name": "Górczewska - Płocka",
+    "short_name": "9479",
+    "lat": 52.23734,
+    "lon": 20.965578,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585400",
+     "ios": "https://app.nextbike.net/station?id=2585400",
+     "web": "https://nxtb.it/p/2585400"
+    },
+    "is_virtual_station": false,
+    "capacity": 9
+   },
+   {
+    "station_id": "2585401",
+    "name": "Żelazna - Chłodna",
+    "short_name": "9480",
+    "lat": 52.237314,
+    "lon": 20.988849,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585401",
+     "ios": "https://app.nextbike.net/station?id=2585401",
+     "web": "https://nxtb.it/p/2585401"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585402",
+    "name": "Żelazna - Prosta",
+    "short_name": "9481",
+    "lat": 52.232386,
+    "lon": 20.992293,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585402",
+     "ios": "https://app.nextbike.net/station?id=2585402",
+     "web": "https://nxtb.it/p/2585402"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585405",
+    "name": "al. Jana Pawła II - Plac Mirowski",
+    "short_name": "9482",
+    "lat": 52.238024,
+    "lon": 20.995973,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585405",
+     "ios": "https://app.nextbike.net/station?id=2585405",
+     "web": "https://nxtb.it/p/2585405"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585406",
+    "name": "al. Jana Pawła II - Grzybowska",
+    "short_name": "9483",
+    "lat": 52.235706,
+    "lon": 20.996703,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585406",
+     "ios": "https://app.nextbike.net/station?id=2585406",
+     "web": "https://nxtb.it/p/2585406"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585408",
+    "name": "Rondo ONZ",
+    "short_name": "9484",
+    "lat": 52.232628,
+    "lon": 20.997123,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585408",
+     "ios": "https://app.nextbike.net/station?id=2585408",
+     "web": "https://nxtb.it/p/2585408"
+    },
+    "is_virtual_station": false,
+    "capacity": 18
+   },
+   {
+    "station_id": "2585410",
+    "name": "Ptasia - Zimna",
+    "short_name": "9485",
+    "lat": 52.239571,
+    "lon": 21.000301,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585410",
+     "ios": "https://app.nextbike.net/station?id=2585410",
+     "web": "https://nxtb.it/p/2585410"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585412",
+    "name": "Emilii Plater - Świętokrzyska",
+    "short_name": "9486",
+    "lat": 52.23373,
+    "lon": 21.002811,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585412",
+     "ios": "https://app.nextbike.net/station?id=2585412",
+     "web": "https://nxtb.it/p/2585412"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585413",
+    "name": "Plac Grzybowski",
+    "short_name": "9487",
+    "lat": 52.235858,
+    "lon": 21.003731,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585413",
+     "ios": "https://app.nextbike.net/station?id=2585413",
+     "web": "https://nxtb.it/p/2585413"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585416",
+    "name": "Marszałkowska - Królewska",
+    "short_name": "9488",
+    "lat": 52.238549,
+    "lon": 21.006889,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585416",
+     "ios": "https://app.nextbike.net/station?id=2585416",
+     "web": "https://nxtb.it/p/2585416"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585417",
+    "name": "Wolska - Hubalczyków ",
+    "short_name": "9489",
+    "lat": 52.223197,
+    "lon": 20.929879,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585417",
+     "ios": "https://app.nextbike.net/station?id=2585417",
+     "web": "https://nxtb.it/p/2585417"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585419",
+    "name": "Metro Świętokrzyska",
+    "short_name": "9490",
+    "lat": 52.234868,
+    "lon": 21.008976,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585419",
+     "ios": "https://app.nextbike.net/station?id=2585419",
+     "web": "https://nxtb.it/p/2585419"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585420",
+    "name": "Plac Małachowskiego",
+    "short_name": "9491",
+    "lat": 52.239662,
+    "lon": 21.011951,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585420",
+     "ios": "https://app.nextbike.net/station?id=2585420",
+     "web": "https://nxtb.it/p/2585420"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585422",
+    "name": "Plac Powstańców Warszawy",
+    "short_name": "9492",
+    "lat": 52.235973,
+    "lon": 21.012539,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585422",
+     "ios": "https://app.nextbike.net/station?id=2585422",
+     "web": "https://nxtb.it/p/2585422"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585425",
+    "name": "Metro Nowy Świat - Uniwersytet",
+    "short_name": "9494",
+    "lat": 52.236884,
+    "lon": 21.017543,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585425",
+     "ios": "https://app.nextbike.net/station?id=2585425",
+     "web": "https://nxtb.it/p/2585425"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585429",
+    "name": "Oboźna - Kopernika",
+    "short_name": "9495",
+    "lat": 52.23829,
+    "lon": 21.018423,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585429",
+     "ios": "https://app.nextbike.net/station?id=2585429",
+     "web": "https://nxtb.it/p/2585429"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585430",
+    "name": "Lipowa - Dobra",
+    "short_name": "9496",
+    "lat": 52.241841,
+    "lon": 21.024114,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585430",
+     "ios": "https://app.nextbike.net/station?id=2585430",
+     "web": "https://nxtb.it/p/2585430"
+    },
+    "is_virtual_station": false,
+    "capacity": 22
+   },
+   {
+    "station_id": "2585431",
+    "name": "Centrum Nauki Kopernik",
+    "short_name": "9497",
+    "lat": 52.241266,
+    "lon": 21.028187,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585431",
+     "ios": "https://app.nextbike.net/station?id=2585431",
+     "web": "https://nxtb.it/p/2585431"
+    },
+    "is_virtual_station": false,
+    "capacity": 16
+   },
+   {
+    "station_id": "2585432",
+    "name": "Sobieskiego - Nałęczowska",
+    "short_name": "9498",
+    "lat": 52.175294,
+    "lon": 21.063173,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585432",
+     "ios": "https://app.nextbike.net/station?id=2585432",
+     "web": "https://nxtb.it/p/2585432"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585433",
+    "name": "Żelazna - Sienna",
+    "short_name": "9499",
+    "lat": 52.22983,
+    "lon": 20.993996,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585433",
+     "ios": "https://app.nextbike.net/station?id=2585433",
+     "web": "https://nxtb.it/p/2585433"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585435",
+    "name": "al. Jana Pawła II - Złota",
+    "short_name": "9500",
+    "lat": 52.230194,
+    "lon": 20.999486,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585435",
+     "ios": "https://app.nextbike.net/station?id=2585435",
+     "web": "https://nxtb.it/p/2585435"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585438",
+    "name": "Emilii Plater - Złota",
+    "short_name": "9501",
+    "lat": 52.230978,
+    "lon": 21.003676,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585438",
+     "ios": "https://app.nextbike.net/station?id=2585438",
+     "web": "https://nxtb.it/p/2585438"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585442",
+    "name": "Matejki - Wiejska",
+    "short_name": "9503",
+    "lat": 52.22492,
+    "lon": 21.026885,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585442",
+     "ios": "https://app.nextbike.net/station?id=2585442",
+     "web": "https://nxtb.it/p/2585442"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585445",
+    "name": "al. Jerozolimskie - Krucza",
+    "short_name": "9504",
+    "lat": 52.231056,
+    "lon": 21.016738,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585445",
+     "ios": "https://app.nextbike.net/station?id=2585445",
+     "web": "https://nxtb.it/p/2585445"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585446",
+    "name": "Marymoncka - Przy Agorze",
+    "short_name": "9505",
+    "lat": 52.295106,
+    "lon": 20.944576,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585446",
+     "ios": "https://app.nextbike.net/station?id=2585446",
+     "web": "https://nxtb.it/p/2585446"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585447",
+    "name": "Marywilska - P&R Żerań",
+    "short_name": "9506",
+    "lat": 52.315244,
+    "lon": 21.000138,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585447",
+     "ios": "https://app.nextbike.net/station?id=2585447",
+     "web": "https://nxtb.it/p/2585447"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585450",
+    "name": "Topiel - Tamka",
+    "short_name": "9507",
+    "lat": 52.237594,
+    "lon": 21.025689,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585450",
+     "ios": "https://app.nextbike.net/station?id=2585450",
+     "web": "https://nxtb.it/p/2585450"
+    },
+    "is_virtual_station": false,
+    "capacity": 16
+   },
+   {
+    "station_id": "2585452",
+    "name": "Metro Bródno",
+    "short_name": "9508",
+    "lat": 52.293889,
+    "lon": 21.027245,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585452",
+     "ios": "https://app.nextbike.net/station?id=2585452",
+     "web": "https://nxtb.it/p/2585452"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585453",
+    "name": "al. Jerozolimskie - Niemcewicza",
+    "short_name": "9509",
+    "lat": 52.22206,
+    "lon": 20.979201,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585453",
+     "ios": "https://app.nextbike.net/station?id=2585453",
+     "web": "https://nxtb.it/p/2585453"
+    },
+    "is_virtual_station": false,
+    "capacity": 15
+   },
+   {
+    "station_id": "2585455",
+    "name": "Ochota-Ratusz",
+    "short_name": "9510",
+    "lat": 52.222216,
+    "lon": 20.986629,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585455",
+     "ios": "https://app.nextbike.net/station?id=2585455",
+     "web": "https://nxtb.it/p/2585455"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585457",
+    "name": "Plac Zawiszy",
+    "short_name": "9511",
+    "lat": 52.225335,
+    "lon": 20.989825,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585457",
+     "ios": "https://app.nextbike.net/station?id=2585457",
+     "web": "https://nxtb.it/p/2585457"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585460",
+    "name": "al. Jerozolimskie - Lindleya",
+    "short_name": "9512",
+    "lat": 52.22622,
+    "lon": 20.996172,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585460",
+     "ios": "https://app.nextbike.net/station?id=2585460",
+     "web": "https://nxtb.it/p/2585460"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585462",
+    "name": "Lindleya - szpital",
+    "short_name": "9513",
+    "lat": 52.224054,
+    "lon": 20.997567,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585462",
+     "ios": "https://app.nextbike.net/station?id=2585462",
+     "web": "https://nxtb.it/p/2585462"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585464",
+    "name": "Park Kultury w Powsinie",
+    "short_name": "9514",
+    "lat": 52.11625,
+    "lon": 21.087655,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585464",
+     "ios": "https://app.nextbike.net/station?id=2585464",
+     "web": "https://nxtb.it/p/2585464"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585466",
+    "name": "Metro Dworzec Wileński - Targowa",
+    "short_name": "9515",
+    "lat": 52.254419,
+    "lon": 21.035632,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585466",
+     "ios": "https://app.nextbike.net/station?id=2585466",
+     "web": "https://nxtb.it/p/2585466"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585467",
+    "name": "Belwederska - Gagarina",
+    "short_name": "9516",
+    "lat": 52.207179,
+    "lon": 21.031355,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585467",
+     "ios": "https://app.nextbike.net/station?id=2585467",
+     "web": "https://nxtb.it/p/2585467"
+    },
+    "is_virtual_station": false,
+    "capacity": 13
+   },
+   {
+    "station_id": "2585469",
+    "name": "Emilii Plater - al. Jerozolimskie",
+    "short_name": "9517",
+    "lat": 52.229046,
+    "lon": 21.005454,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585469",
+     "ios": "https://app.nextbike.net/station?id=2585469",
+     "web": "https://nxtb.it/p/2585469"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585470",
+    "name": "Emilii Plater - Wspólna",
+    "short_name": "9518",
+    "lat": 52.225892,
+    "lon": 21.006761,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585470",
+     "ios": "https://app.nextbike.net/station?id=2585470",
+     "web": "https://nxtb.it/p/2585470"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585472",
+    "name": "Metro Centrum",
+    "short_name": "9519",
+    "lat": 52.229939,
+    "lon": 21.010973,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585472",
+     "ios": "https://app.nextbike.net/station?id=2585472",
+     "web": "https://nxtb.it/p/2585472"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585473",
+    "name": "Marszałkowska - Al. Jerozolimskie",
+    "short_name": "9520",
+    "lat": 52.230356,
+    "lon": 21.011889,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585473",
+     "ios": "https://app.nextbike.net/station?id=2585473",
+     "web": "https://nxtb.it/p/2585473"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585476",
+    "name": "Metro Kondratowicza ",
+    "short_name": "9521",
+    "lat": 52.291748,
+    "lon": 21.048282,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585476",
+     "ios": "https://app.nextbike.net/station?id=2585476",
+     "web": "https://nxtb.it/p/2585476"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585477",
+    "name": "Marszałkowska - Hoża",
+    "short_name": "9522",
+    "lat": 52.226288,
+    "lon": 21.013571,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585477",
+     "ios": "https://app.nextbike.net/station?id=2585477",
+     "web": "https://nxtb.it/p/2585477"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585492",
+    "name": "Krucza - Wspólna",
+    "short_name": "9523",
+    "lat": 52.228266,
+    "lon": 21.017897,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585492",
+     "ios": "https://app.nextbike.net/station?id=2585492",
+     "web": "https://nxtb.it/p/2585492"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585684",
+    "name": "Rondo de Gaulle'a",
+    "short_name": "9524",
+    "lat": 52.23144,
+    "lon": 21.021304,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585684",
+     "ios": "https://app.nextbike.net/station?id=2585684",
+     "web": "https://nxtb.it/p/2585684"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585694",
+    "name": "Plac Trzech Krzyży",
+    "short_name": "9525",
+    "lat": 52.227849,
+    "lon": 21.023508,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585694",
+     "ios": "https://app.nextbike.net/station?id=2585694",
+     "web": "https://nxtb.it/p/2585694"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585695",
+    "name": "Smolna - PKP Powiśle",
+    "short_name": "9526",
+    "lat": 52.23324,
+    "lon": 21.026118,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585695",
+     "ios": "https://app.nextbike.net/station?id=2585695",
+     "web": "https://nxtb.it/p/2585695"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585699",
+    "name": "Kruczkowskiego – PKP Powiśle",
+    "short_name": "9527",
+    "lat": 52.233971,
+    "lon": 21.029991,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585699",
+     "ios": "https://app.nextbike.net/station?id=2585699",
+     "web": "https://nxtb.it/p/2585699"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585704",
+    "name": "Czerniakowska- Szwoleżerów",
+    "short_name": "9528",
+    "lat": 52.215851,
+    "lon": 21.046341,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585704",
+     "ios": "https://app.nextbike.net/station?id=2585704",
+     "web": "https://nxtb.it/p/2585704"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585708",
+    "name": "Książęca - Rozbrat",
+    "short_name": "9529",
+    "lat": 52.230087,
+    "lon": 21.030236,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585708",
+     "ios": "https://app.nextbike.net/station?id=2585708",
+     "web": "https://nxtb.it/p/2585708"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585711",
+    "name": "Szczęśliwicka - APS",
+    "short_name": "9530",
+    "lat": 52.217218,
+    "lon": 20.971361,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585711",
+     "ios": "https://app.nextbike.net/station?id=2585711",
+     "web": "https://nxtb.it/p/2585711"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585712",
+    "name": "Kopińska - Białobrzeska",
+    "short_name": "9531",
+    "lat": 52.217863,
+    "lon": 20.977596,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585712",
+     "ios": "https://app.nextbike.net/station?id=2585712",
+     "web": "https://nxtb.it/p/2585712"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585714",
+    "name": "Plac Narutowicza",
+    "short_name": "9532",
+    "lat": 52.217915,
+    "lon": 20.982816,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585714",
+     "ios": "https://app.nextbike.net/station?id=2585714",
+     "web": "https://nxtb.it/p/2585714"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585716",
+    "name": "Raszyńska - Wawelska",
+    "short_name": "9533",
+    "lat": 52.216641,
+    "lon": 20.987948,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585716",
+     "ios": "https://app.nextbike.net/station?id=2585716",
+     "web": "https://nxtb.it/p/2585716"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585717",
+    "name": "Metro Ulrychów",
+    "short_name": "9534",
+    "lat": 52.240163,
+    "lon": 20.931161,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585717",
+     "ios": "https://app.nextbike.net/station?id=2585717",
+     "web": "https://nxtb.it/p/2585717"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585720",
+    "name": "al. Niepodległości - Nowowiejska",
+    "short_name": "9535",
+    "lat": 52.220676,
+    "lon": 21.004555,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585720",
+     "ios": "https://app.nextbike.net/station?id=2585720",
+     "web": "https://nxtb.it/p/2585720"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585721",
+    "name": "al. Armii Ludowej - al. Niepodległości",
+    "short_name": "9536",
+    "lat": 52.216751,
+    "lon": 21.004732,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585721",
+     "ios": "https://app.nextbike.net/station?id=2585721",
+     "web": "https://nxtb.it/p/2585721"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585722",
+    "name": "Noakowskiego - Koszykowa",
+    "short_name": "9537",
+    "lat": 52.222683,
+    "lon": 21.00811,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585722",
+     "ios": "https://app.nextbike.net/station?id=2585722",
+     "web": "https://nxtb.it/p/2585722"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585724",
+    "name": "Plac Politechniki",
+    "short_name": "9538",
+    "lat": 52.219916,
+    "lon": 21.011682,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585724",
+     "ios": "https://app.nextbike.net/station?id=2585724",
+     "web": "https://nxtb.it/p/2585724"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585727",
+    "name": "Poznańska - Zespół Szkół Gastronomicznych",
+    "short_name": "9539",
+    "lat": 52.223582,
+    "lon": 21.012871,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585727",
+     "ios": "https://app.nextbike.net/station?id=2585727",
+     "web": "https://nxtb.it/p/2585727"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "2585728",
+    "name": "Rondo Jazdy Polskiej",
+    "short_name": "9540",
+    "lat": 52.217486,
+    "lon": 21.014295,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585728",
+     "ios": "https://app.nextbike.net/station?id=2585728",
+     "web": "https://nxtb.it/p/2585728"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585729",
+    "name": "Metro Zacisze",
+    "short_name": "9541",
+    "lat": 52.283476,
+    "lon": 21.062266,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585729",
+     "ios": "https://app.nextbike.net/station?id=2585729",
+     "web": "https://nxtb.it/p/2585729"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585731",
+    "name": "Plac Zbawiciela",
+    "short_name": "9542",
+    "lat": 52.220223,
+    "lon": 21.0179,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585731",
+     "ios": "https://app.nextbike.net/station?id=2585731",
+     "web": "https://nxtb.it/p/2585731"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585735",
+    "name": "Plac Konstytucji",
+    "short_name": "9543",
+    "lat": 52.222943,
+    "lon": 21.015821,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585735",
+     "ios": "https://app.nextbike.net/station?id=2585735",
+     "web": "https://nxtb.it/p/2585735"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585737",
+    "name": "Mokotowska - Piękna",
+    "short_name": "9544",
+    "lat": 52.223815,
+    "lon": 21.020786,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585737",
+     "ios": "https://app.nextbike.net/station?id=2585737",
+     "web": "https://nxtb.it/p/2585737"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585738",
+    "name": "Plac Na Rozdrożu",
+    "short_name": "9545",
+    "lat": 52.219962,
+    "lon": 21.02583,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585738",
+     "ios": "https://app.nextbike.net/station?id=2585738",
+     "web": "https://nxtb.it/p/2585738"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585742",
+    "name": "Orlich Gniazd",
+    "short_name": "9546",
+    "lat": 52.248845,
+    "lon": 20.920259,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585742",
+     "ios": "https://app.nextbike.net/station?id=2585742",
+     "web": "https://nxtb.it/p/2585742"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585747",
+    "name": "Myśliwiecka - Rozbrat",
+    "short_name": "9547",
+    "lat": 52.222113,
+    "lon": 21.034387,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585747",
+     "ios": "https://app.nextbike.net/station?id=2585747",
+     "web": "https://nxtb.it/p/2585747"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585748",
+    "name": "Port Czerniakowski",
+    "short_name": "9548",
+    "lat": 52.227685,
+    "lon": 21.044317,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585748",
+     "ios": "https://app.nextbike.net/station?id=2585748",
+     "web": "https://nxtb.it/p/2585748"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585749",
+    "name": "Grójecka - Bitwy Warszawskiej 1920 roku",
+    "short_name": "9549",
+    "lat": 52.212891,
+    "lon": 20.977878,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585749",
+     "ios": "https://app.nextbike.net/station?id=2585749",
+     "web": "https://nxtb.it/p/2585749"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585750",
+    "name": "Dw. Wschodni – Lubelska",
+    "short_name": "9550",
+    "lat": 52.25061,
+    "lon": 21.05336,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585750",
+     "ios": "https://app.nextbike.net/station?id=2585750",
+     "web": "https://nxtb.it/p/2585750"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585762",
+    "name": "Stefana Banacha - UW",
+    "short_name": "9551",
+    "lat": 52.210772,
+    "lon": 20.984756,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585762",
+     "ios": "https://app.nextbike.net/station?id=2585762",
+     "web": "https://nxtb.it/p/2585762"
+    },
+    "is_virtual_station": false,
+    "capacity": 21
+   },
+   {
+    "station_id": "2585764",
+    "name": "Biblioteka Narodowa",
+    "short_name": "9552",
+    "lat": 52.212671,
+    "lon": 21.003437,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585764",
+     "ios": "https://app.nextbike.net/station?id=2585764",
+     "web": "https://nxtb.it/p/2585764"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585766",
+    "name": "Marszałkowska - Litewska",
+    "short_name": "9553",
+    "lat": 52.21691,
+    "lon": 21.01997,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585766",
+     "ios": "https://app.nextbike.net/station?id=2585766",
+     "web": "https://nxtb.it/p/2585766"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585770",
+    "name": "Pętla Szczęśliwice",
+    "short_name": "9554",
+    "lat": 52.208386,
+    "lon": 20.96311,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585770",
+     "ios": "https://app.nextbike.net/station?id=2585770",
+     "web": "https://nxtb.it/p/2585770"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585771",
+    "name": "Dickensa - Geodetów",
+    "short_name": "9555",
+    "lat": 52.206101,
+    "lon": 20.97033,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585771",
+     "ios": "https://app.nextbike.net/station?id=2585771",
+     "web": "https://nxtb.it/p/2585771"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585772",
+    "name": "Żwirki i Wigury - Księcia Trojdena",
+    "short_name": "9556",
+    "lat": 52.205197,
+    "lon": 20.985098,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585772",
+     "ios": "https://app.nextbike.net/station?id=2585772",
+     "web": "https://nxtb.it/p/2585772"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585774",
+    "name": "Rakowiecka - Św. A. Boboli",
+    "short_name": "9557",
+    "lat": 52.205545,
+    "lon": 20.998805,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585774",
+     "ios": "https://app.nextbike.net/station?id=2585774",
+     "web": "https://nxtb.it/p/2585774"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585776",
+    "name": "al. Niepodległości - Batorego",
+    "short_name": "9558",
+    "lat": 52.210833,
+    "lon": 21.007851,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585776",
+     "ios": "https://app.nextbike.net/station?id=2585776",
+     "web": "https://nxtb.it/p/2585776"
+    },
+    "is_virtual_station": false,
+    "capacity": 15
+   },
+   {
+    "station_id": "2585779",
+    "name": "Plac Unii Lubelskiej",
+    "short_name": "9559",
+    "lat": 52.213238,
+    "lon": 21.021057,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585779",
+     "ios": "https://app.nextbike.net/station?id=2585779",
+     "web": "https://nxtb.it/p/2585779"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585781",
+    "name": "Grójecka - PKP Rakowiec",
+    "short_name": "9560",
+    "lat": 52.198639,
+    "lon": 20.965252,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585781",
+     "ios": "https://app.nextbike.net/station?id=2585781",
+     "web": "https://nxtb.it/p/2585781"
+    },
+    "is_virtual_station": false,
+    "capacity": 17
+   },
+   {
+    "station_id": "2585782",
+    "name": "Sanocka - Pruszkowska",
+    "short_name": "9561",
+    "lat": 52.201765,
+    "lon": 20.98209,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585782",
+     "ios": "https://app.nextbike.net/station?id=2585782",
+     "web": "https://nxtb.it/p/2585782"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585785",
+    "name": "Żwirki i Wigury - Racławicka",
+    "short_name": "9562",
+    "lat": 52.198137,
+    "lon": 20.983372,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585785",
+     "ios": "https://app.nextbike.net/station?id=2585785",
+     "web": "https://nxtb.it/p/2585785"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585787",
+    "name": "Wołoska - Kulskiego",
+    "short_name": "9563",
+    "lat": 52.20177,
+    "lon": 20.99969,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585787",
+     "ios": "https://app.nextbike.net/station?id=2585787",
+     "web": "https://nxtb.it/p/2585787"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585788",
+    "name": "Madalińskiego - Kazimierzowska",
+    "short_name": "9564",
+    "lat": 52.204264,
+    "lon": 21.014428,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585788",
+     "ios": "https://app.nextbike.net/station?id=2585788",
+     "web": "https://nxtb.it/p/2585788"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585789",
+    "name": "Puławska - Dworkowa",
+    "short_name": "9565",
+    "lat": 52.205518,
+    "lon": 21.023103,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585789",
+     "ios": "https://app.nextbike.net/station?id=2585789",
+     "web": "https://nxtb.it/p/2585789"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585790",
+    "name": "Wał Miedzeszyński - Trakt Lubelski",
+    "short_name": "9566",
+    "lat": 52.17325,
+    "lon": 21.153877,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585790",
+     "ios": "https://app.nextbike.net/station?id=2585790",
+     "web": "https://nxtb.it/p/2585790"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585791",
+    "name": "Czerniakowska - Gagarina",
+    "short_name": "9567",
+    "lat": 52.207728,
+    "lon": 21.047833,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585791",
+     "ios": "https://app.nextbike.net/station?id=2585791",
+     "web": "https://nxtb.it/p/2585791"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585794",
+    "name": "Etiudy Rewolucyjnej - Miączyńska",
+    "short_name": "9568",
+    "lat": 52.193813,
+    "lon": 20.991443,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585794",
+     "ios": "https://app.nextbike.net/station?id=2585794",
+     "web": "https://nxtb.it/p/2585794"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585799",
+    "name": "Metro Racławicka",
+    "short_name": "9570",
+    "lat": 52.199416,
+    "lon": 21.012138,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585799",
+     "ios": "https://app.nextbike.net/station?id=2585799",
+     "web": "https://nxtb.it/p/2585799"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585800",
+    "name": "Puławska - Dolna",
+    "short_name": "9571",
+    "lat": 52.199505,
+    "lon": 21.024098,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585800",
+     "ios": "https://app.nextbike.net/station?id=2585800",
+     "web": "https://nxtb.it/p/2585800"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585802",
+    "name": "Sobieskiego - Chełmska",
+    "short_name": "9572",
+    "lat": 52.201936,
+    "lon": 21.036893,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585802",
+     "ios": "https://app.nextbike.net/station?id=2585802",
+     "web": "https://nxtb.it/p/2585802"
+    },
+    "is_virtual_station": false,
+    "capacity": 21
+   },
+   {
+    "station_id": "2585804",
+    "name": "Czerniakowska - ZUS",
+    "short_name": "9573",
+    "lat": 52.199845,
+    "lon": 21.05095,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585804",
+     "ios": "https://app.nextbike.net/station?id=2585804",
+     "web": "https://nxtb.it/p/2585804"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585807",
+    "name": "PKP Ursus - Niedźwiadek",
+    "short_name": "9574",
+    "lat": 52.191624,
+    "lon": 20.869008,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585807",
+     "ios": "https://app.nextbike.net/station?id=2585807",
+     "web": "https://nxtb.it/p/2585807"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585808",
+    "name": "PKP Ursus",
+    "short_name": "9575",
+    "lat": 52.196047,
+    "lon": 20.884935,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585808",
+     "ios": "https://app.nextbike.net/station?id=2585808",
+     "web": "https://nxtb.it/p/2585808"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585809",
+    "name": "Sosnkowskiego - OSiR Ursus",
+    "short_name": "9576",
+    "lat": 52.186994,
+    "lon": 20.890648,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585809",
+     "ios": "https://app.nextbike.net/station?id=2585809",
+     "web": "https://nxtb.it/p/2585809"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585811",
+    "name": "Pętla Sadyba",
+    "short_name": "9577",
+    "lat": 52.18155,
+    "lon": 21.068532,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585811",
+     "ios": "https://app.nextbike.net/station?id=2585811",
+     "web": "https://nxtb.it/p/2585811"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585814",
+    "name": "Skoroszewska - Prystora",
+    "short_name": "9578",
+    "lat": 52.190638,
+    "lon": 20.899944,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585814",
+     "ios": "https://app.nextbike.net/station?id=2585814",
+     "web": "https://nxtb.it/p/2585814"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585817",
+    "name": "Książąt Mazowieckich - Heroldów",
+    "short_name": "9579",
+    "lat": 52.302867,
+    "lon": 20.929504,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585817",
+     "ios": "https://app.nextbike.net/station?id=2585817",
+     "web": "https://nxtb.it/p/2585817"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585820",
+    "name": "PKP Włochy",
+    "short_name": "9580",
+    "lat": 52.205644,
+    "lon": 20.915914,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585820",
+     "ios": "https://app.nextbike.net/station?id=2585820",
+     "web": "https://nxtb.it/p/2585820"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585821",
+    "name": "al. Jerozolimskie - Popularna",
+    "short_name": "9581",
+    "lat": 52.20115,
+    "lon": 20.935342,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585821",
+     "ios": "https://app.nextbike.net/station?id=2585821",
+     "web": "https://nxtb.it/p/2585821"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585824",
+    "name": "Włochy - Ratusz",
+    "short_name": "9582",
+    "lat": 52.192471,
+    "lon": 20.959666,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585824",
+     "ios": "https://app.nextbike.net/station?id=2585824",
+     "web": "https://nxtb.it/p/2585824"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585825",
+    "name": "Pętla Witolin",
+    "short_name": "9583",
+    "lat": 52.236522,
+    "lon": 21.113097,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585825",
+     "ios": "https://app.nextbike.net/station?id=2585825",
+     "web": "https://nxtb.it/p/2585825"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585827",
+    "name": "Metro Wierzbno",
+    "short_name": "9584",
+    "lat": 52.188957,
+    "lon": 21.017447,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585827",
+     "ios": "https://app.nextbike.net/station?id=2585827",
+     "web": "https://nxtb.it/p/2585827"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585830",
+    "name": "Puławska - Idzikowskiego",
+    "short_name": "9585",
+    "lat": 52.18648,
+    "lon": 21.02538,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585830",
+     "ios": "https://app.nextbike.net/station?id=2585830",
+     "web": "https://nxtb.it/p/2585830"
+    },
+    "is_virtual_station": false,
+    "capacity": 6
+   },
+   {
+    "station_id": "2585835",
+    "name": "Sobieskiego - Mangalia",
+    "short_name": "9586",
+    "lat": 52.188224,
+    "lon": 21.049931,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585835",
+     "ios": "https://app.nextbike.net/station?id=2585835",
+     "web": "https://nxtb.it/p/2585835"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585837",
+    "name": "Wołoska - Woronicza ",
+    "short_name": "9588",
+    "lat": 52.18937,
+    "lon": 21.00247,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585837",
+     "ios": "https://app.nextbike.net/station?id=2585837",
+     "web": "https://nxtb.it/p/2585837"
+    },
+    "is_virtual_station": false,
+    "capacity": 11
+   },
+   {
+    "station_id": "2585838",
+    "name": "Metro Wilanowska - Dworzec Południowy",
+    "short_name": "9589",
+    "lat": 52.18082,
+    "lon": 21.023577,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585838",
+     "ios": "https://app.nextbike.net/station?id=2585838",
+     "web": "https://nxtb.it/p/2585838"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585839",
+    "name": "Pętla Stegny",
+    "short_name": "9590",
+    "lat": 52.1779,
+    "lon": 21.0487,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585839",
+     "ios": "https://app.nextbike.net/station?id=2585839",
+     "web": "https://nxtb.it/p/2585839"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585843",
+    "name": "PKP Rembertów - Cyrulików",
+    "short_name": "9591",
+    "lat": 52.257579,
+    "lon": 21.157396,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585843",
+     "ios": "https://app.nextbike.net/station?id=2585843",
+     "web": "https://nxtb.it/p/2585843"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585844",
+    "name": "Pętla Bokserska",
+    "short_name": "9592",
+    "lat": 52.170182,
+    "lon": 20.99584,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585844",
+     "ios": "https://app.nextbike.net/station?id=2585844",
+     "web": "https://nxtb.it/p/2585844"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585846",
+    "name": "Rzymowskiego – Gotarda",
+    "short_name": "9593",
+    "lat": 52.17105,
+    "lon": 21.005914,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585846",
+     "ios": "https://app.nextbike.net/station?id=2585846",
+     "web": "https://nxtb.it/p/2585846"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585848",
+    "name": "al. Lotników - Modzelewskiego",
+    "short_name": "9594",
+    "lat": 52.174435,
+    "lon": 21.012881,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585848",
+     "ios": "https://app.nextbike.net/station?id=2585848",
+     "web": "https://nxtb.it/p/2585848"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585850",
+    "name": "Metro Służew",
+    "short_name": "9595",
+    "lat": 52.173313,
+    "lon": 21.025731,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585850",
+     "ios": "https://app.nextbike.net/station?id=2585850",
+     "web": "https://nxtb.it/p/2585850"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585853",
+    "name": "Marsa - Chełmżyńska",
+    "short_name": "9596",
+    "lat": 52.241815,
+    "lon": 21.135845,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585853",
+     "ios": "https://app.nextbike.net/station?id=2585853",
+     "web": "https://nxtb.it/p/2585853"
+    },
+    "is_virtual_station": false,
+    "capacity": 7
+   },
+   {
+    "station_id": "2585856",
+    "name": "Branickiego - Rzeczypospolitej",
+    "short_name": "9597",
+    "lat": 52.156896,
+    "lon": 21.076109,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585856",
+     "ios": "https://app.nextbike.net/station?id=2585856",
+     "web": "https://nxtb.it/p/2585856"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585860",
+    "name": "al. Wilanowska - Przyczółkowa",
+    "short_name": "9598",
+    "lat": 52.165588,
+    "lon": 21.083933,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585860",
+     "ios": "https://app.nextbike.net/station?id=2585860",
+     "web": "https://nxtb.it/p/2585860"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585863",
+    "name": "Vogla - Syta",
+    "short_name": "9599",
+    "lat": 52.16479,
+    "lon": 21.10925,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585863",
+     "ios": "https://app.nextbike.net/station?id=2585863",
+     "web": "https://nxtb.it/p/2585863"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585868",
+    "name": "al. Rzeczypospolitej - Klimczaka",
+    "short_name": "9600",
+    "lat": 52.160626,
+    "lon": 21.072325,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585868",
+     "ios": "https://app.nextbike.net/station?id=2585868",
+     "web": "https://nxtb.it/p/2585868"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585871",
+    "name": "PKP Ursus Północny ",
+    "short_name": "9601",
+    "lat": 52.206211,
+    "lon": 20.887875,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585871",
+     "ios": "https://app.nextbike.net/station?id=2585871",
+     "web": "https://nxtb.it/p/2585871"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585872",
+    "name": "Przyczółkowa - Branickiego",
+    "short_name": "9602",
+    "lat": 52.159374,
+    "lon": 21.086449,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585872",
+     "ios": "https://app.nextbike.net/station?id=2585872",
+     "web": "https://nxtb.it/p/2585872"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585873",
+    "name": "Kochanowskiego - Galla Anonima",
+    "short_name": "9603",
+    "lat": 52.269484,
+    "lon": 20.942087,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585873",
+     "ios": "https://app.nextbike.net/station?id=2585873",
+     "web": "https://nxtb.it/p/2585873"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585875",
+    "name": "Metro Ursynów",
+    "short_name": "9604",
+    "lat": 52.162258,
+    "lon": 21.028076,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585875",
+     "ios": "https://app.nextbike.net/station?id=2585875",
+     "web": "https://nxtb.it/p/2585875"
+    },
+    "is_virtual_station": false,
+    "capacity": 16
+   },
+   {
+    "station_id": "2585876",
+    "name": "Jastrzębowskiego - SGGW",
+    "short_name": "9605",
+    "lat": 52.162401,
+    "lon": 21.038381,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585876",
+     "ios": "https://app.nextbike.net/station?id=2585876",
+     "web": "https://nxtb.it/p/2585876"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585880",
+    "name": "PKP Wawer",
+    "short_name": "9606",
+    "lat": 52.223045,
+    "lon": 21.149132,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585880",
+     "ios": "https://app.nextbike.net/station?id=2585880",
+     "web": "https://nxtb.it/p/2585880"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "2585883",
+    "name": "Metro Stokłosy",
+    "short_name": "9607",
+    "lat": 52.156867,
+    "lon": 21.03384,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585883",
+     "ios": "https://app.nextbike.net/station?id=2585883",
+     "web": "https://nxtb.it/p/2585883"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585885",
+    "name": "Rosoła - Ciszewskiego - SGGW",
+    "short_name": "9608",
+    "lat": 52.157289,
+    "lon": 21.044008,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585885",
+     "ios": "https://app.nextbike.net/station?id=2585885",
+     "web": "https://nxtb.it/p/2585885"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585888",
+    "name": "Puławska - Pileckiego",
+    "short_name": "9609",
+    "lat": 52.152355,
+    "lon": 21.018825,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585888",
+     "ios": "https://app.nextbike.net/station?id=2585888",
+     "web": "https://nxtb.it/p/2585888"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585893",
+    "name": "Ciszewskiego - Pileckiego",
+    "short_name": "9610",
+    "lat": 52.149506,
+    "lon": 21.033253,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585893",
+     "ios": "https://app.nextbike.net/station?id=2585893",
+     "web": "https://nxtb.it/p/2585893"
+    },
+    "is_virtual_station": false,
+    "capacity": 6
+   },
+   {
+    "station_id": "2585894",
+    "name": "PKP Wesoła",
+    "short_name": "9611",
+    "lat": 52.252277,
+    "lon": 21.223818,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585894",
+     "ios": "https://app.nextbike.net/station?id=2585894",
+     "web": "https://nxtb.it/p/2585894"
+    },
+    "is_virtual_station": false,
+    "capacity": 7
+   },
+   {
+    "station_id": "2585897",
+    "name": "Metro Imielin",
+    "short_name": "9612",
+    "lat": 52.149311,
+    "lon": 21.045336,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585897",
+     "ios": "https://app.nextbike.net/station?id=2585897",
+     "web": "https://nxtb.it/p/2585897"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585899",
+    "name": "Rosoła - Wesoła",
+    "short_name": "9613",
+    "lat": 52.152233,
+    "lon": 21.056392,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585899",
+     "ios": "https://app.nextbike.net/station?id=2585899",
+     "web": "https://nxtb.it/p/2585899"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585901",
+    "name": "Pileckiego - Alternatywy",
+    "short_name": "9614",
+    "lat": 52.14272,
+    "lon": 21.038362,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585901",
+     "ios": "https://app.nextbike.net/station?id=2585901",
+     "web": "https://nxtb.it/p/2585901"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585902",
+    "name": "Dereniowa - Płaskowickiej",
+    "short_name": "9615",
+    "lat": 52.142735,
+    "lon": 21.044813,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585902",
+     "ios": "https://app.nextbike.net/station?id=2585902",
+     "web": "https://nxtb.it/p/2585902"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585904",
+    "name": "Stryjeńskich - Belgradzka",
+    "short_name": "9616",
+    "lat": 52.137604,
+    "lon": 21.050553,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585904",
+     "ios": "https://app.nextbike.net/station?id=2585904",
+     "web": "https://nxtb.it/p/2585904"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585905",
+    "name": "Metro Natolin",
+    "short_name": "9617",
+    "lat": 52.140391,
+    "lon": 21.056819,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585905",
+     "ios": "https://app.nextbike.net/station?id=2585905",
+     "web": "https://nxtb.it/p/2585905"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585906",
+    "name": "Belgradzka - Rosoła",
+    "short_name": "9618",
+    "lat": 52.142018,
+    "lon": 21.066076,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585906",
+     "ios": "https://app.nextbike.net/station?id=2585906",
+     "web": "https://nxtb.it/p/2585906"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585908",
+    "name": "Stryjeńskich - Wąwozowa",
+    "short_name": "9619",
+    "lat": 52.131433,
+    "lon": 21.056156,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585908",
+     "ios": "https://app.nextbike.net/station?id=2585908",
+     "web": "https://nxtb.it/p/2585908"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585911",
+    "name": "Ordonówny - Światowida",
+    "short_name": "9620",
+    "lat": 52.332605,
+    "lon": 20.94184,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585911",
+     "ios": "https://app.nextbike.net/station?id=2585911",
+     "web": "https://nxtb.it/p/2585911"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585913",
+    "name": "Metro Kabaty",
+    "short_name": "9621",
+    "lat": 52.131093,
+    "lon": 21.06548,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585913",
+     "ios": "https://app.nextbike.net/station?id=2585913",
+     "web": "https://nxtb.it/p/2585913"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585916",
+    "name": "Wąwozowa - Rosoła",
+    "short_name": "9622",
+    "lat": 52.133207,
+    "lon": 21.074828,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585916",
+     "ios": "https://app.nextbike.net/station?id=2585916",
+     "web": "https://nxtb.it/p/2585916"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585917",
+    "name": "Skarbka z Gór - Berensona",
+    "short_name": "9623",
+    "lat": 52.324196,
+    "lon": 21.056547,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585917",
+     "ios": "https://app.nextbike.net/station?id=2585917",
+     "web": "https://nxtb.it/p/2585917"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585919",
+    "name": "Lazurowa - Sternicza",
+    "short_name": "9624",
+    "lat": 52.220789,
+    "lon": 20.897887,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585919",
+     "ios": "https://app.nextbike.net/station?id=2585919",
+     "web": "https://nxtb.it/p/2585919"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585920",
+    "name": "Światowida - Mehoffera",
+    "short_name": "9625",
+    "lat": 52.322698,
+    "lon": 20.944811,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585920",
+     "ios": "https://app.nextbike.net/station?id=2585920",
+     "web": "https://nxtb.it/p/2585920"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585921",
+    "name": "Grupy AK Krybar",
+    "short_name": "9626",
+    "lat": 52.208763,
+    "lon": 21.066342,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585921",
+     "ios": "https://app.nextbike.net/station?id=2585921",
+     "web": "https://nxtb.it/p/2585921"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585922",
+    "name": "Białołęka - Ratusz",
+    "short_name": "9627",
+    "lat": 52.321127,
+    "lon": 20.971296,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585922",
+     "ios": "https://app.nextbike.net/station?id=2585922",
+     "web": "https://nxtb.it/p/2585922"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585924",
+    "name": "Myśliborska - al. Kuklińskiego",
+    "short_name": "9628",
+    "lat": 52.313298,
+    "lon": 20.965532,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585924",
+     "ios": "https://app.nextbike.net/station?id=2585924",
+     "web": "https://nxtb.it/p/2585924"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585925",
+    "name": "Modlińska - Żerańska",
+    "short_name": "9629",
+    "lat": 52.303198,
+    "lon": 20.989167,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585925",
+     "ios": "https://app.nextbike.net/station?id=2585925",
+     "web": "https://nxtb.it/p/2585925"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585926",
+    "name": "Świderska - Świętosławskiego",
+    "short_name": "9630",
+    "lat": 52.316765,
+    "lon": 20.95171,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585926",
+     "ios": "https://app.nextbike.net/station?id=2585926",
+     "web": "https://nxtb.it/p/2585926"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585928",
+    "name": "Pętla Bródno - Podgrodzie",
+    "short_name": "9631",
+    "lat": 52.300027,
+    "lon": 21.042527,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585928",
+     "ios": "https://app.nextbike.net/station?id=2585928",
+     "web": "https://nxtb.it/p/2585928"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585929",
+    "name": "Plac Hallera - Dąbrowszczaków",
+    "short_name": "9632",
+    "lat": 52.261381,
+    "lon": 21.030544,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585929",
+     "ios": "https://app.nextbike.net/station?id=2585929",
+     "web": "https://nxtb.it/p/2585929"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585931",
+    "name": "Kaliskiego - Kocjana ",
+    "short_name": "9633",
+    "lat": 52.249465,
+    "lon": 20.897757,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585931",
+     "ios": "https://app.nextbike.net/station?id=2585931",
+     "web": "https://nxtb.it/p/2585931"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585932",
+    "name": "Kondratowicza - Chodecka",
+    "short_name": "9634",
+    "lat": 52.292359,
+    "lon": 21.040962,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585932",
+     "ios": "https://app.nextbike.net/station?id=2585932",
+     "web": "https://nxtb.it/p/2585932"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585934",
+    "name": "Kondratowicza - Przy Grodzisku",
+    "short_name": "9635",
+    "lat": 52.292425,
+    "lon": 21.056741,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585934",
+     "ios": "https://app.nextbike.net/station?id=2585934",
+     "web": "https://nxtb.it/p/2585934"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585936",
+    "name": "Wysockiego - Poborzańska",
+    "short_name": "9636",
+    "lat": 52.287807,
+    "lon": 21.021383,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585936",
+     "ios": "https://app.nextbike.net/station?id=2585936",
+     "web": "https://nxtb.it/p/2585936"
+    },
+    "is_virtual_station": false,
+    "capacity": 18
+   },
+   {
+    "station_id": "2585937",
+    "name": "Rembielińska - Wyszogrodzka",
+    "short_name": "9637",
+    "lat": 52.288592,
+    "lon": 21.031009,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585937",
+     "ios": "https://app.nextbike.net/station?id=2585937",
+     "web": "https://nxtb.it/p/2585937"
+    },
+    "is_virtual_station": false,
+    "capacity": 21
+   },
+   {
+    "station_id": "2585938",
+    "name": "Radzymińska - Łodygowa",
+    "short_name": "9638",
+    "lat": 52.286662,
+    "lon": 21.07535,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585938",
+     "ios": "https://app.nextbike.net/station?id=2585938",
+     "web": "https://nxtb.it/p/2585938"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585939",
+    "name": "Wysockiego - Matki Teresy z Kalkuty",
+    "short_name": "9639",
+    "lat": 52.281231,
+    "lon": 21.025853,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585939",
+     "ios": "https://app.nextbike.net/station?id=2585939",
+     "web": "https://nxtb.it/p/2585939"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585941",
+    "name": "Rondo Bułhaka",
+    "short_name": "9640",
+    "lat": 52.246276,
+    "lon": 21.223424,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585941",
+     "ios": "https://app.nextbike.net/station?id=2585941",
+     "web": "https://nxtb.it/p/2585941"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "2585942",
+    "name": "Metro Trocka",
+    "short_name": "9641",
+    "lat": 52.275799,
+    "lon": 21.056083,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585942",
+     "ios": "https://app.nextbike.net/station?id=2585942",
+     "web": "https://nxtb.it/p/2585942"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585945",
+    "name": "Św. Wincentego – Kołowa",
+    "short_name": "9643",
+    "lat": 52.273679,
+    "lon": 21.043095,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585945",
+     "ios": "https://app.nextbike.net/station?id=2585945",
+     "web": "https://nxtb.it/p/2585945"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585947",
+    "name": "Metro Targówek Mieszkaniowy ",
+    "short_name": "9644",
+    "lat": 52.269795,
+    "lon": 21.051284,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585947",
+     "ios": "https://app.nextbike.net/station?id=2585947",
+     "web": "https://nxtb.it/p/2585947"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585951",
+    "name": "Radzymińska - Trocka",
+    "short_name": "9645",
+    "lat": 52.272602,
+    "lon": 21.06321,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585951",
+     "ios": "https://app.nextbike.net/station?id=2585951",
+     "web": "https://nxtb.it/p/2585951"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585953",
+    "name": "Bukowiecka - Zamkowa",
+    "short_name": "9646",
+    "lat": 52.27347,
+    "lon": 21.07698,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585953",
+     "ios": "https://app.nextbike.net/station?id=2585953",
+     "web": "https://nxtb.it/p/2585953"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585954",
+    "name": "Radzymińska - Piotra Skargi",
+    "short_name": "9647",
+    "lat": 52.266889,
+    "lon": 21.058568,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585954",
+     "ios": "https://app.nextbike.net/station?id=2585954",
+     "web": "https://nxtb.it/p/2585954"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585955",
+    "name": "Wybrzeże Helskie - ZOO",
+    "short_name": "9648",
+    "lat": 52.261437,
+    "lon": 21.015574,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585955",
+     "ios": "https://app.nextbike.net/station?id=2585955",
+     "web": "https://nxtb.it/p/2585955"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585956",
+    "name": "Rondo Starzyńskiego",
+    "short_name": "9649",
+    "lat": 52.263182,
+    "lon": 21.021278,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585956",
+     "ios": "https://app.nextbike.net/station?id=2585956",
+     "web": "https://nxtb.it/p/2585956"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585958",
+    "name": "Darwina - Nusbauma-Hilarowicza",
+    "short_name": "9650",
+    "lat": 52.26421,
+    "lon": 21.02618,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585958",
+     "ios": "https://app.nextbike.net/station?id=2585958",
+     "web": "https://nxtb.it/p/2585958"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585960",
+    "name": "Namysłowska - Darwina",
+    "short_name": "9651",
+    "lat": 52.265499,
+    "lon": 21.031197,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585960",
+     "ios": "https://app.nextbike.net/station?id=2585960",
+     "web": "https://nxtb.it/p/2585960"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585961",
+    "name": "Rondo Żaba",
+    "short_name": "9652",
+    "lat": 52.269041,
+    "lon": 21.037949,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585961",
+     "ios": "https://app.nextbike.net/station?id=2585961",
+     "web": "https://nxtb.it/p/2585961"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585963",
+    "name": "Jagiellońska - Plac Hallera",
+    "short_name": "9653",
+    "lat": 52.259066,
+    "lon": 21.026144,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585963",
+     "ios": "https://app.nextbike.net/station?id=2585963",
+     "web": "https://nxtb.it/p/2585963"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585968",
+    "name": "Ratuszowa - ZOO",
+    "short_name": "9656",
+    "lat": 52.253851,
+    "lon": 21.02328,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585968",
+     "ios": "https://app.nextbike.net/station?id=2585968",
+     "web": "https://nxtb.it/p/2585968"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585971",
+    "name": "Jagiellońska - Ratuszowa",
+    "short_name": "9657",
+    "lat": 52.256355,
+    "lon": 21.029538,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585971",
+     "ios": "https://app.nextbike.net/station?id=2585971",
+     "web": "https://nxtb.it/p/2585971"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585972",
+    "name": "11 Listopada - Ratuszowa",
+    "short_name": "9658",
+    "lat": 52.261449,
+    "lon": 21.037614,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585972",
+     "ios": "https://app.nextbike.net/station?id=2585972",
+     "web": "https://nxtb.it/p/2585972"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2585974",
+    "name": "Park Kępa Potocka",
+    "short_name": "9659",
+    "lat": 52.28794,
+    "lon": 20.978694,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585974",
+     "ios": "https://app.nextbike.net/station?id=2585974",
+     "web": "https://nxtb.it/p/2585974"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585975",
+    "name": "11 listopada - Inżynierska",
+    "short_name": "9660",
+    "lat": 52.258547,
+    "lon": 21.035176,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585975",
+     "ios": "https://app.nextbike.net/station?id=2585975",
+     "web": "https://nxtb.it/p/2585975"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585978",
+    "name": "Ostrobramska - Motorowa",
+    "short_name": "9661",
+    "lat": 52.235377,
+    "lon": 21.080967,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585978",
+     "ios": "https://app.nextbike.net/station?id=2585978",
+     "web": "https://nxtb.it/p/2585978"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585981",
+    "name": "Floriańska - Park Praski",
+    "short_name": "9662",
+    "lat": 52.252425,
+    "lon": 21.030388,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585981",
+     "ios": "https://app.nextbike.net/station?id=2585981",
+     "web": "https://nxtb.it/p/2585981"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585982",
+    "name": "Rondo Fieldorfa",
+    "short_name": "9663",
+    "lat": 52.264811,
+    "lon": 21.169537,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585982",
+     "ios": "https://app.nextbike.net/station?id=2585982",
+     "web": "https://nxtb.it/p/2585982"
+    },
+    "is_virtual_station": false,
+    "capacity": 7
+   },
+   {
+    "station_id": "2585983",
+    "name": "Wileńska - Rzeszotarskiej",
+    "short_name": "9664",
+    "lat": 52.257958,
+    "lon": 21.03998,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585983",
+     "ios": "https://app.nextbike.net/station?id=2585983",
+     "web": "https://nxtb.it/p/2585983"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585984",
+    "name": "al. Prymasa Tysiąclecia - Obozowa",
+    "short_name": "9665",
+    "lat": 52.247585,
+    "lon": 20.9568,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585984",
+     "ios": "https://app.nextbike.net/station?id=2585984",
+     "web": "https://nxtb.it/p/2585984"
+    },
+    "is_virtual_station": false,
+    "capacity": 11
+   },
+   {
+    "station_id": "2585985",
+    "name": "Jagiellońska - Okrzei",
+    "short_name": "9666",
+    "lat": 52.251577,
+    "lon": 21.035361,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585985",
+     "ios": "https://app.nextbike.net/station?id=2585985",
+     "web": "https://nxtb.it/p/2585985"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585987",
+    "name": "Sierakowskiego - Kłopotowskiego",
+    "short_name": "9667",
+    "lat": 52.250633,
+    "lon": 21.031117,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585987",
+     "ios": "https://app.nextbike.net/station?id=2585987",
+     "web": "https://nxtb.it/p/2585987"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2585990",
+    "name": "Targowa - Ząbkowska",
+    "short_name": "9668",
+    "lat": 52.252088,
+    "lon": 21.038137,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585990",
+     "ios": "https://app.nextbike.net/station?id=2585990",
+     "web": "https://nxtb.it/p/2585990"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585992",
+    "name": "Rondo Mościckiego",
+    "short_name": "9669",
+    "lat": 52.23393,
+    "lon": 21.126986,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585992",
+     "ios": "https://app.nextbike.net/station?id=2585992",
+     "web": "https://nxtb.it/p/2585992"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585994",
+    "name": "Radzymińska - Wiosenna",
+    "short_name": "9670",
+    "lat": 52.255882,
+    "lon": 21.049793,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585994",
+     "ios": "https://app.nextbike.net/station?id=2585994",
+     "web": "https://nxtb.it/p/2585994"
+    },
+    "is_virtual_station": false,
+    "capacity": 16
+   },
+   {
+    "station_id": "2585995",
+    "name": "Radzymińska - Łomżyńska",
+    "short_name": "9671",
+    "lat": 52.259519,
+    "lon": 21.052616,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585995",
+     "ios": "https://app.nextbike.net/station?id=2585995",
+     "web": "https://nxtb.it/p/2585995"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2585996",
+    "name": "Pętla Kawęczyńska - Bazylika",
+    "short_name": "9672",
+    "lat": 52.258351,
+    "lon": 21.058534,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585996",
+     "ios": "https://app.nextbike.net/station?id=2585996",
+     "web": "https://nxtb.it/p/2585996"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2585997",
+    "name": "Targowa - Kijowska",
+    "short_name": "9673",
+    "lat": 52.249865,
+    "lon": 21.042911,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2585997",
+     "ios": "https://app.nextbike.net/station?id=2585997",
+     "web": "https://nxtb.it/p/2585997"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2586000",
+    "name": "Dworzec Wschodni - Kijowska",
+    "short_name": "9674",
+    "lat": 52.252745,
+    "lon": 21.051033,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586000",
+     "ios": "https://app.nextbike.net/station?id=2586000",
+     "web": "https://nxtb.it/p/2586000"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2586001",
+    "name": "Metro Stadion Narodowy",
+    "short_name": "9675",
+    "lat": 52.247314,
+    "lon": 21.042731,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586001",
+     "ios": "https://app.nextbike.net/station?id=2586001",
+     "web": "https://nxtb.it/p/2586001"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2586003",
+    "name": "al. Zieleniecka - Teatr Powszechny",
+    "short_name": "9676",
+    "lat": 52.247231,
+    "lon": 21.047646,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586003",
+     "ios": "https://app.nextbike.net/station?id=2586003",
+     "web": "https://nxtb.it/p/2586003"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2586005",
+    "name": "Grochowska - Mińska",
+    "short_name": "9677",
+    "lat": 52.247136,
+    "lon": 21.056658,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586005",
+     "ios": "https://app.nextbike.net/station?id=2586005",
+     "web": "https://nxtb.it/p/2586005"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2586009",
+    "name": "Praga-Południe-Ratusz",
+    "short_name": "9678",
+    "lat": 52.2464,
+    "lon": 21.06868,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586009",
+     "ios": "https://app.nextbike.net/station?id=2586009",
+     "web": "https://nxtb.it/p/2586009"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2586011",
+    "name": "Dwernickiego - Siennicka",
+    "short_name": "9679",
+    "lat": 52.2504,
+    "lon": 21.077598,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586011",
+     "ios": "https://app.nextbike.net/station?id=2586011",
+     "web": "https://nxtb.it/p/2586011"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2586012",
+    "name": "Stalowa - Czynszowa",
+    "short_name": "9680",
+    "lat": 52.260532,
+    "lon": 21.04172,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586012",
+     "ios": "https://app.nextbike.net/station?id=2586012",
+     "web": "https://nxtb.it/p/2586012"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2586014",
+    "name": "Wybrzeże Szczecińskie - Stadion Narodowy",
+    "short_name": "9681",
+    "lat": 52.237208,
+    "lon": 21.043758,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586014",
+     "ios": "https://app.nextbike.net/station?id=2586014",
+     "web": "https://nxtb.it/p/2586014"
+    },
+    "is_virtual_station": false,
+    "capacity": 16
+   },
+   {
+    "station_id": "2586018",
+    "name": "Rondo Waszyngtona - Stadion Narodowy",
+    "short_name": "9682",
+    "lat": 52.238733,
+    "lon": 21.050845,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586018",
+     "ios": "https://app.nextbike.net/station?id=2586018",
+     "web": "https://nxtb.it/p/2586018"
+    },
+    "is_virtual_station": false,
+    "capacity": 20
+   },
+   {
+    "station_id": "2586019",
+    "name": "Waszyngtona - Kinowa",
+    "short_name": "9683",
+    "lat": 52.242281,
+    "lon": 21.07116,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586019",
+     "ios": "https://app.nextbike.net/station?id=2586019",
+     "web": "https://nxtb.it/p/2586019"
+    },
+    "is_virtual_station": false,
+    "capacity": 7
+   },
+   {
+    "station_id": "2586021",
+    "name": "Rondo Wiatraczna",
+    "short_name": "9684",
+    "lat": 52.244564,
+    "lon": 21.083806,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586021",
+     "ios": "https://app.nextbike.net/station?id=2586021",
+     "web": "https://nxtb.it/p/2586021"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2586022",
+    "name": "Francuska - Walecznych",
+    "short_name": "9685",
+    "lat": 52.234745,
+    "lon": 21.053651,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586022",
+     "ios": "https://app.nextbike.net/station?id=2586022",
+     "web": "https://nxtb.it/p/2586022"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2586024",
+    "name": "Międzynarodowa - Walecznych",
+    "short_name": "9686",
+    "lat": 52.236598,
+    "lon": 21.064774,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586024",
+     "ios": "https://app.nextbike.net/station?id=2586024",
+     "web": "https://nxtb.it/p/2586024"
+    },
+    "is_virtual_station": false,
+    "capacity": 16
+   },
+   {
+    "station_id": "2586026",
+    "name": "Plac Szembeka",
+    "short_name": "9687",
+    "lat": 52.242685,
+    "lon": 21.102494,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586026",
+     "ios": "https://app.nextbike.net/station?id=2586026",
+     "web": "https://nxtb.it/p/2586026"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2586028",
+    "name": "Pętla Gocławek",
+    "short_name": "9688",
+    "lat": 52.237559,
+    "lon": 21.120087,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586028",
+     "ios": "https://app.nextbike.net/station?id=2586028",
+     "web": "https://nxtb.it/p/2586028"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2586030",
+    "name": "Brukselska - PROM",
+    "short_name": "9689",
+    "lat": 52.22585,
+    "lon": 21.060062,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586030",
+     "ios": "https://app.nextbike.net/station?id=2586030",
+     "web": "https://nxtb.it/p/2586030"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2586031",
+    "name": "Metro Szwedzka",
+    "short_name": "9690",
+    "lat": 52.263298,
+    "lon": 21.046161,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586031",
+     "ios": "https://app.nextbike.net/station?id=2586031",
+     "web": "https://nxtb.it/p/2586031"
+    },
+    "is_virtual_station": false,
+    "capacity": 9
+   },
+   {
+    "station_id": "2586032",
+    "name": "Stanów Zjednoczonych - Międzynarodowa",
+    "short_name": "9691",
+    "lat": 52.230115,
+    "lon": 21.067961,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586032",
+     "ios": "https://app.nextbike.net/station?id=2586032",
+     "web": "https://nxtb.it/p/2586032"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2586034",
+    "name": "Ostrobramska - Zamieniecka",
+    "short_name": "9692",
+    "lat": 52.23483,
+    "lon": 21.09975,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586034",
+     "ios": "https://app.nextbike.net/station?id=2586034",
+     "web": "https://nxtb.it/p/2586034"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2586037",
+    "name": "Afrykańska - Egipska",
+    "short_name": "9693",
+    "lat": 52.225197,
+    "lon": 21.071289,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586037",
+     "ios": "https://app.nextbike.net/station?id=2586037",
+     "web": "https://nxtb.it/p/2586037"
+    },
+    "is_virtual_station": false,
+    "capacity": 16
+   },
+   {
+    "station_id": "2586039",
+    "name": "Bora-Komorowskiego - Umińskiego",
+    "short_name": "9694",
+    "lat": 52.223495,
+    "lon": 21.10133,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586039",
+     "ios": "https://app.nextbike.net/station?id=2586039",
+     "web": "https://nxtb.it/p/2586039"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2586042",
+    "name": "Fieldorfa - Bukowskiego",
+    "short_name": "9695",
+    "lat": 52.229435,
+    "lon": 21.094524,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586042",
+     "ios": "https://app.nextbike.net/station?id=2586042",
+     "web": "https://nxtb.it/p/2586042"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2586044",
+    "name": "Rechniewskiego - Nowaka-Jeziorańskiego",
+    "short_name": "9696",
+    "lat": 52.22974,
+    "lon": 21.10624,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586044",
+     "ios": "https://app.nextbike.net/station?id=2586044",
+     "web": "https://nxtb.it/p/2586044"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2586045",
+    "name": "Meissnera - Fieldorfa",
+    "short_name": "9697",
+    "lat": 52.222228,
+    "lon": 21.09076,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586045",
+     "ios": "https://app.nextbike.net/station?id=2586045",
+     "web": "https://nxtb.it/p/2586045"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2586268",
+    "name": "Krakowskie Przedmieście - Traugutta",
+    "short_name": "9493",
+    "lat": 52.239374,
+    "lon": 21.016657,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2586268",
+     "ios": "https://app.nextbike.net/station?id=2586268",
+     "web": "https://nxtb.it/p/2586268"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "2681601",
+    "name": "Arkadia",
+    "short_name": "6401",
+    "lat": 52.25574,
+    "lon": 20.984343,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2681601",
+     "ios": "https://app.nextbike.net/station?id=2681601",
+     "web": "https://nxtb.it/p/2681601"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "2681611",
+    "name": "Blue City",
+    "short_name": "6404",
+    "lat": 52.213254,
+    "lon": 20.954946,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2681611",
+     "ios": "https://app.nextbike.net/station?id=2681611",
+     "web": "https://nxtb.it/p/2681611"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2681618",
+    "name": "Eurocentrum",
+    "short_name": "6407",
+    "lat": 52.220709,
+    "lon": 20.972267,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2681618",
+     "ios": "https://app.nextbike.net/station?id=2681618",
+     "web": "https://nxtb.it/p/2681618"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2681621",
+    "name": "Westfield Mokotów ",
+    "short_name": "6409",
+    "lat": 52.178689,
+    "lon": 21.002814,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2681621",
+     "ios": "https://app.nextbike.net/station?id=2681621",
+     "web": "https://nxtb.it/p/2681621"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2681652",
+    "name": "The Park Warsaw",
+    "short_name": "6420",
+    "lat": 52.189299,
+    "lon": 20.945091,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2681652",
+     "ios": "https://app.nextbike.net/station?id=2681652",
+     "web": "https://nxtb.it/p/2681652"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "2681666",
+    "name": "Warsaw Spire",
+    "short_name": "6423",
+    "lat": 52.232538,
+    "lon": 20.983233,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2681666",
+     "ios": "https://app.nextbike.net/station?id=2681666",
+     "web": "https://nxtb.it/p/2681666"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "2681672",
+    "name": "Wola Park",
+    "short_name": "6424",
+    "lat": 52.2414,
+    "lon": 20.929192,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=2681672",
+     "ios": "https://app.nextbike.net/station?id=2681672",
+     "web": "https://nxtb.it/p/2681672"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "3110680",
+    "name": "Szaserów – Garwolińska",
+    "short_name": "9698",
+    "lat": 52.249684,
+    "lon": 21.092105,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=3110680",
+     "ios": "https://app.nextbike.net/station?id=3110680",
+     "web": "https://nxtb.it/p/3110680"
+    },
+    "is_virtual_station": false,
+    "capacity": 16
+   },
+   {
+    "station_id": "3318614",
+    "name": "Wolska - Redutowa",
+    "short_name": "9701",
+    "lat": 52.226543,
+    "lon": 20.941158,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=3318614",
+     "ios": "https://app.nextbike.net/station?id=3318614",
+     "web": "https://nxtb.it/p/3318614"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "3318682",
+    "name": "Żwirki i Wigury - Woronicza",
+    "short_name": "9702",
+    "lat": 52.194579,
+    "lon": 20.982139,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=3318682",
+     "ios": "https://app.nextbike.net/station?id=3318682",
+     "web": "https://nxtb.it/p/3318682"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "3470029",
+    "name": "Marymoncka - Podleśna",
+    "short_name": "9699",
+    "lat": 52.281039,
+    "lon": 20.958925,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=3470029",
+     "ios": "https://app.nextbike.net/station?id=3470029",
+     "web": "https://nxtb.it/p/3470029"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "3616030",
+    "name": "Factory Annopol",
+    "short_name": "6426",
+    "lat": 52.298441,
+    "lon": 21.024163,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=3616030",
+     "ios": "https://app.nextbike.net/station?id=3616030",
+     "web": "https://nxtb.it/p/3616030"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "4215025",
+    "name": "Bulwar - most Śląsko - Dąbrowski",
+    "short_name": "9569",
+    "lat": 52.247972,
+    "lon": 21.019663,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=4215025",
+     "ios": "https://app.nextbike.net/station?id=4215025",
+     "web": "https://nxtb.it/p/4215025"
+    },
+    "is_virtual_station": false,
+    "capacity": 11
+   },
+   {
+    "station_id": "4393742",
+    "name": "Metro Centrum Nauki Kopernik",
+    "short_name": "9700",
+    "lat": 52.239358,
+    "lon": 21.031136,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=4393742",
+     "ios": "https://app.nextbike.net/station?id=4393742",
+     "web": "https://nxtb.it/p/4393742"
+    },
+    "is_virtual_station": false,
+    "capacity": 14
+   },
+   {
+    "station_id": "4585378",
+    "name": "Wołoska - Odyńca",
+    "short_name": "9401",
+    "lat": 52.195747,
+    "lon": 21.002554,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=4585378",
+     "ios": "https://app.nextbike.net/station?id=4585378",
+     "web": "https://nxtb.it/p/4585378"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "7261966",
+    "name": "Platan Park",
+    "short_name": "6441",
+    "lat": 52.1544,
+    "lon": 21.0064,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=7261966",
+     "ios": "https://app.nextbike.net/station?id=7261966",
+     "web": "https://nxtb.it/p/7261966"
+    },
+    "is_virtual_station": false,
+    "capacity": 6
+   },
+   {
+    "station_id": "8746360",
+    "name": "Marynarska 12",
+    "short_name": "6444",
+    "lat": 52.181168,
+    "lon": 20.992578,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=8746360",
+     "ios": "https://app.nextbike.net/station?id=8746360",
+     "web": "https://nxtb.it/p/8746360"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "14083304",
+    "name": "Procter & Gamble",
+    "short_name": "6446",
+    "lat": 52.260904,
+    "lon": 21.072881,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=14083304",
+     "ios": "https://app.nextbike.net/station?id=14083304",
+     "web": "https://nxtb.it/p/14083304"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "14083322",
+    "name": "PRAGA 306/PZO",
+    "short_name": "6445",
+    "lat": 52.247517,
+    "lon": 21.062427,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=14083322",
+     "ios": "https://app.nextbike.net/station?id=14083322",
+     "web": "https://nxtb.it/p/14083322"
+    },
+    "is_virtual_station": false,
+    "capacity": 6
+   },
+   {
+    "station_id": "18751910",
+    "name": "Signum Work Station",
+    "short_name": "6448",
+    "lat": 52.183037,
+    "lon": 20.991542,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=18751910",
+     "ios": "https://app.nextbike.net/station?id=18751910",
+     "web": "https://nxtb.it/p/18751910"
+    },
+    "is_virtual_station": false,
+    "capacity": 6
+   },
+   {
+    "station_id": "21122602",
+    "name": "Park Rozwoju",
+    "short_name": "6450",
+    "lat": 52.186191,
+    "lon": 20.988205,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=21122602",
+     "ios": "https://app.nextbike.net/station?id=21122602",
+     "web": "https://nxtb.it/p/21122602"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "28113055",
+    "name": "Uniwersytet - SWPS ",
+    "short_name": "6429",
+    "lat": 52.247531,
+    "lon": 21.066431,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=28113055",
+     "ios": "https://app.nextbike.net/station?id=28113055",
+     "web": "https://nxtb.it/p/28113055"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "44581598",
+    "name": "Powstańców Śląskich - Wrocławska",
+    "short_name": "9642",
+    "lat": 52.257631,
+    "lon": 20.91931,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=44581598",
+     "ios": "https://app.nextbike.net/station?id=44581598",
+     "web": "https://nxtb.it/p/44581598"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "44583449",
+    "name": "PKP Międzylesie",
+    "short_name": "9587",
+    "lat": 52.205017,
+    "lon": 21.168801,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=44583449",
+     "ios": "https://app.nextbike.net/station?id=44583449",
+     "web": "https://nxtb.it/p/44583449"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "44583483",
+    "name": "Wólczyńska - Conrada",
+    "short_name": "9408",
+    "lat": 52.281063,
+    "lon": 20.923405,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=44583483",
+     "ios": "https://app.nextbike.net/station?id=44583483",
+     "web": "https://nxtb.it/p/44583483"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "48372123",
+    "name": "Miasteczko Orange",
+    "short_name": "6453",
+    "lat": 52.208525,
+    "lon": 20.946525,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=48372123",
+     "ios": "https://app.nextbike.net/station?id=48372123",
+     "web": "https://nxtb.it/p/48372123"
+    },
+    "is_virtual_station": false,
+    "capacity": 6
+   },
+   {
+    "station_id": "52488396",
+    "name": "Warsaw UNIT",
+    "short_name": "6454",
+    "lat": 52.229887,
+    "lon": 20.98569,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=52488396",
+     "ios": "https://app.nextbike.net/station?id=52488396",
+     "web": "https://nxtb.it/p/52488396"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "145175382",
+    "name": "Korkowa",
+    "short_name": "9502",
+    "lat": 52.23828,
+    "lon": 21.147235,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=145175382",
+     "ios": "https://app.nextbike.net/station?id=145175382",
+     "web": "https://nxtb.it/p/145175382"
+    },
+    "is_virtual_station": false,
+    "capacity": 6
+   },
+   {
+    "station_id": "163208604",
+    "name": "Paderewskiego - Czwartaków",
+    "short_name": "9703",
+    "lat": 52.271148,
+    "lon": 21.149855,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=163208604",
+     "ios": "https://app.nextbike.net/station?id=163208604",
+     "web": "https://nxtb.it/p/163208604"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "172293631",
+    "name": "Dolina Służewiecka - Nowoursynowska",
+    "short_name": "9704",
+    "lat": 52.17034,
+    "lon": 21.041258,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=172293631",
+     "ios": "https://app.nextbike.net/station?id=172293631",
+     "web": "https://nxtb.it/p/172293631"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "172294162",
+    "name": "Kłobucka – Jurajska",
+    "short_name": "9705",
+    "lat": 52.1637,
+    "lon": 20.992412,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=172294162",
+     "ios": "https://app.nextbike.net/station?id=172294162",
+     "web": "https://nxtb.it/p/172294162"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "172295073",
+    "name": "Puławska - Kajakowa",
+    "short_name": "9706",
+    "lat": 52.129592,
+    "lon": 21.018367,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=172295073",
+     "ios": "https://app.nextbike.net/station?id=172295073",
+     "web": "https://nxtb.it/p/172295073"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "172295258",
+    "name": "Kleszczowa – Krańcowa",
+    "short_name": "9707",
+    "lat": 52.196958,
+    "lon": 20.923586,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=172295258",
+     "ios": "https://app.nextbike.net/station?id=172295258",
+     "web": "https://nxtb.it/p/172295258"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "172295624",
+    "name": "Chrościckiego – al. 4 Czerwca 1989 r.",
+    "short_name": "9708",
+    "lat": 52.209302,
+    "lon": 20.893987,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=172295624",
+     "ios": "https://app.nextbike.net/station?id=172295624",
+     "web": "https://nxtb.it/p/172295624"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "172295958",
+    "name": "1 Sierpnia – DK Włochy",
+    "short_name": "9709",
+    "lat": 52.194609,
+    "lon": 20.967765,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=172295958",
+     "ios": "https://app.nextbike.net/station?id=172295958",
+     "web": "https://nxtb.it/p/172295958"
+    },
+    "is_virtual_station": false,
+    "capacity": 6
+   },
+   {
+    "station_id": "206401280",
+    "name": "Włodarzewska - Maszynowa",
+    "short_name": "9710",
+    "lat": 52.202733,
+    "lon": 20.950999,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=206401280",
+     "ios": "https://app.nextbike.net/station?id=206401280",
+     "web": "https://nxtb.it/p/206401280"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "276784510",
+    "name": "Puławska – Pelikanów",
+    "short_name": "9711",
+    "lat": 52.12293,
+    "lon": 21.01854,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=276784510",
+     "ios": "https://app.nextbike.net/station?id=276784510",
+     "web": "https://nxtb.it/p/276784510"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "276784802",
+    "name": "Puławska – Karmazynowa ",
+    "short_name": "9712",
+    "lat": 52.111877,
+    "lon": 21.01887,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=276784802",
+     "ios": "https://app.nextbike.net/station?id=276784802",
+     "web": "https://nxtb.it/p/276784802"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "276785706",
+    "name": "Al.KEN – Płaskowickiej",
+    "short_name": "9714",
+    "lat": 52.14447,
+    "lon": 21.052094,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=276785706",
+     "ios": "https://app.nextbike.net/station?id=276785706",
+     "web": "https://nxtb.it/p/276785706"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "281045539",
+    "name": "Rembrandta – Miedza ",
+    "short_name": "9713",
+    "lat": 52.280625,
+    "lon": 21.049645,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=281045539",
+     "ios": "https://app.nextbike.net/station?id=281045539",
+     "web": "https://nxtb.it/p/281045539"
+    },
+    "is_virtual_station": false,
+    "capacity": 8
+   },
+   {
+    "station_id": "390869127",
+    "name": "Aleja Wilanowska - Sobieskiego",
+    "short_name": "9715",
+    "lat": 52.170234,
+    "lon": 21.068462,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=390869127",
+     "ios": "https://app.nextbike.net/station?id=390869127",
+     "web": "https://nxtb.it/p/390869127"
+    },
+    "is_virtual_station": false,
+    "capacity": 9
+   },
+   {
+    "station_id": "492876492",
+    "name": "Ursus Ratusz",
+    "short_name": "9716",
+    "lat": 52.200496,
+    "lon": 20.893806,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=492876492",
+     "ios": "https://app.nextbike.net/station?id=492876492",
+     "web": "https://nxtb.it/p/492876492"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "507751401",
+    "name": "Giserska - Habicha",
+    "short_name": "9717",
+    "lat": 52.202161,
+    "lon": 20.883169,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=507751401",
+     "ios": "https://app.nextbike.net/station?id=507751401",
+     "web": "https://nxtb.it/p/507751401"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "507751479",
+    "name": "EkoPark - Warszawska",
+    "short_name": "9718",
+    "lat": 52.200323,
+    "lon": 20.874611,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=507751479",
+     "ios": "https://app.nextbike.net/station?id=507751479",
+     "web": "https://nxtb.it/p/507751479"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "507751599",
+    "name": "PKP Gołąbki ",
+    "short_name": "9719",
+    "lat": 52.208074,
+    "lon": 20.86491,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=507751599",
+     "ios": "https://app.nextbike.net/station?id=507751599",
+     "web": "https://nxtb.it/p/507751599"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "507751678",
+    "name": "Warszawska - Hermana",
+    "short_name": "9720",
+    "lat": 52.194985,
+    "lon": 20.862216,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=507751678",
+     "ios": "https://app.nextbike.net/station?id=507751678",
+     "web": "https://nxtb.it/p/507751678"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "533572913",
+    "name": "City Point Targówek",
+    "short_name": "6415",
+    "lat": 52.261518,
+    "lon": 21.08448,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=533572913",
+     "ios": "https://app.nextbike.net/station?id=533572913",
+     "web": "https://nxtb.it/p/533572913"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "535013644",
+    "name": "al. Rzeczypospolitej - Oś Królewska",
+    "short_name": "9721",
+    "lat": 52.16453,
+    "lon": 21.07056,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=535013644",
+     "ios": "https://app.nextbike.net/station?id=535013644",
+     "web": "https://nxtb.it/p/535013644"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "535013750",
+    "name": "Wał Zawadowski - Zaściankowa",
+    "short_name": "9722",
+    "lat": 52.17096,
+    "lon": 21.122148,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=535013750",
+     "ios": "https://app.nextbike.net/station?id=535013750",
+     "web": "https://nxtb.it/p/535013750"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "535013898",
+    "name": "Drewny - Korbońskiego",
+    "short_name": "9723",
+    "lat": 52.131222,
+    "lon": 21.098231,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=535013898",
+     "ios": "https://app.nextbike.net/station?id=535013898",
+     "web": "https://nxtb.it/p/535013898"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "544509498",
+    "name": "WKD Raków",
+    "short_name": "9724",
+    "lat": 52.194452,
+    "lon": 20.935516,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=544509498",
+     "ios": "https://app.nextbike.net/station?id=544509498",
+     "web": "https://nxtb.it/p/544509498"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "544509678",
+    "name": "Ostródzka- Hemara",
+    "short_name": "9725",
+    "lat": 52.326732,
+    "lon": 21.048469,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=544509678",
+     "ios": "https://app.nextbike.net/station?id=544509678",
+     "web": "https://nxtb.it/p/544509678"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "544510014",
+    "name": "Solec – Al. 3 Maja",
+    "short_name": "9726",
+    "lat": 52.234651,
+    "lon": 21.034109,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=544510014",
+     "ios": "https://app.nextbike.net/station?id=544510014",
+     "web": "https://nxtb.it/p/544510014"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "544510267",
+    "name": "Sobieskiego – Bonifacego",
+    "short_name": "9727",
+    "lat": 52.181743,
+    "lon": 21.056354,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=544510267",
+     "ios": "https://app.nextbike.net/station?id=544510267",
+     "web": "https://nxtb.it/p/544510267"
+    },
+    "is_virtual_station": false,
+    "capacity": 12
+   },
+   {
+    "station_id": "616337742",
+    "name": "Muzeum Woli – ”Bez Trzymanki”",
+    "short_name": "6456",
+    "lat": 52.22756,
+    "lon": 20.989702,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=616337742",
+     "ios": "https://app.nextbike.net/station?id=616337742",
+     "web": "https://nxtb.it/p/616337742"
+    },
+    "is_virtual_station": false,
+    "capacity": 5
+   },
+   {
+    "station_id": "616559266",
+    "name": "Branickiego - Ledóchowskiej",
+    "short_name": "9729",
+    "lat": 52.155349,
+    "lon": 21.073522,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=616559266",
+     "ios": "https://app.nextbike.net/station?id=616559266",
+     "web": "https://nxtb.it/p/616559266"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "616559469",
+    "name": "al. Wilanowska - Sarmacka",
+    "short_name": "9728",
+    "lat": 52.168238,
+    "lon": 21.075418,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=616559469",
+     "ios": "https://app.nextbike.net/station?id=616559469",
+     "web": "https://nxtb.it/p/616559469"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   },
+   {
+    "station_id": "639790292",
+    "name": "Rosoła - Indiry Gandhi",
+    "short_name": "9730",
+    "lat": 52.154904,
+    "lon": 21.049513,
+    "region_id": "812",
+    "rental_uris": {
+     "android": "https://app.nextbike.net/station?id=639790292",
+     "ios": "https://app.nextbike.net/station?id=639790292",
+     "web": "https://nxtb.it/p/639790292"
+    },
+    "is_virtual_station": false,
+    "capacity": 10
+   }
+  ]
+ },
+ "version": "2.3"
+}

@@ -1,0 +1,29 @@
+{
+ "last_updated": 1792240758,
+ "ttl": 60,
+ "data": {
+  "system_id": "nextbike_vw",
+  "language": "pl",
+  "name": "VETURILO 3.0",
+  "operator": "Nextbike Polska S.A. ul. Staniewicka 5, 03-310 Warszawa KRS 0000646950 NIP: 895-198-10-07 REGON: 021336152",
+  "url": "https://www.veturilo.waw.pl/",
+  "phone_number": "00482219115",
+  "email": "ck@veturilo.waw.pl",
+  "feed_contact_email": "gbfs@nextbike.net",
+  "timezone": "Europe/Warsaw",
+  "license_id": "CC0-1.0",
+  "rental_apps": {
+   "android": {
+    "store_uri": "https://play.google.com/store/apps/details?id=de.nextbike",
+    "discovery_uri": "nextbike://",
+    "x_app_link_host": "app.nextbike.net"
+   },
+   "ios": {
+    "store_uri": "https://apps.apple.com/app/id504288371",
+    "discovery_uri": "nextbike://",
+    "x_universal_link_host": "app.nextbike.net"
+   }
+  }
+ },
+ "version": "2.3"
+}

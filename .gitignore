@@ -17,7 +17,8 @@ __pycache__/
 node_modules/
 dist/
 
-# Large downloaded data (GTFS, GTFS-RT, OSM extracts)
-data/**/*.zip
+# GTFS zips and the OSM .pbf are committed through Git LFS (see .gitattributes).
+# GTFS-RT protobuf snapshots are not kept.
 data/**/*.pb
-data/**/*.osm.pbf
+# Parsed caches, rebuilt from the raw files by backend/sources/*
+data/derived/

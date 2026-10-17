@@ -24,9 +24,14 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - `cd frontend && npm install` (if `~/.npm` is root-owned: `npm install --cache <some dir>`)
    - `npm run dev` starts the app at http://localhost:5173
    - `npm run build` type-checks and builds
-3. **Backend** (`backend/`, Python + FastAPI, managed with [uv](https://docs.astral.sh/uv/)).
-   Not set up yet: there is no `pyproject.toml`. When it exists:
+3. **Data** (`data/`). GTFS zips and the OSM extract are stored with Git LFS.
+   - install Git LFS once: `brew install git-lfs && git lfs install`, then `git lfs pull`
+   - or download fresh copies: `cd backend && uv run python download.py` (about 250 MB)
+4. **Backend** (`backend/`, Python + FastAPI, managed with [uv](https://docs.astral.sh/uv/)).
    - install uv: `brew install uv` (or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
-   - `cd backend && uv sync` installs Python and all dependencies
-   - `uv run fastapi dev` starts the API
-4. **Routing, database, Docker.** Not set up yet (OpenTripPlanner, PostgreSQL + PostGIS, Docker).
+   - `cd backend && uv sync` installs Python 3.12 and all dependencies (`osmium`, `scipy`, `fastapi` ...)
+   - run every backend command from `backend/`
+   - `uv run uvicorn main:app --reload` starts the API at http://localhost:8000 (docs at `/docs`)
+   - `uv run python report.py` rebuilds `data/REPORT.md` (sources, ID links, graph sizes, endpoints)
+   - the first request that needs GTFS / OSM builds caches in `data/derived/` (~25 s / ~45 s)
+5. **Routing, database, Docker.** Not set up yet (OpenTripPlanner, PostgreSQL + PostGIS, Docker).
