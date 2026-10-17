@@ -39,3 +39,14 @@ First version of the Python backend (FastAPI), no database.
 ## Not included (by decision)
 
 - No database, no real C++ engine (only the interface + stub), no Docker.
+
+## Merge with `main` (data layer)
+
+- `main` meanwhile gained a data layer (PR #23: `backend/main.py`, `download.py`, `report.py`,
+  `backend/sources/`, data in `data/`, managed with `uv`).
+- Decision: keep **both** parts side by side in `backend/` — the data layer untouched, and this
+  routing API in its own package `backend/app/` (venv + `requirements.txt`). They run as two apps
+  for now (both default to port 8000; run one at a time). Unifying them into one FastAPI app is a
+  later cleanup.
+- Resolved conflicts in `AGENTS.md` and `backend/README.md` by combining both sides. Updated the
+  README "Environment setup (for agents)" section with the routing-API steps and `VITE_API_URL`.
