@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Box, Snackbar, useMediaQuery, useTheme } from '@mui/material';
+import { Alert, Box, Button, Snackbar, Typography, useMediaQuery, useTheme } from '@mui/material';
 import MapView, { type MapPadding } from './components/MapView';
 import SearchCard from './components/SearchCard';
 import RouteOptionsSheet from './components/RouteOptionsSheet';
@@ -12,6 +12,7 @@ import { useColorMode } from './colorMode';
 import { fetchRouteOptions } from './api/routes';
 import { BUS_POPUP_REQUEST_EVENT, detectVehicle, manualCandidate, requestLinePopup } from './api/vehicle';
 import { usePreferences } from './preferences/PreferencesProvider';
+import { useHistory } from './history/HistoryProvider';
 import {
   applyListFilters,
   applyOverrides,
@@ -37,6 +38,7 @@ export default function App() {
   const [destination, setDestination] = useState<Place | null>(null);
   const [tab, setTab] = useState<Tab>('map');
   const { effective, activeRule } = usePreferences();
+  const { tracker } = useHistory();
   // Filters apply to the current search only; they start from the saved preferences.
   const [filters, setFilters] = useState<TripFilters>(DEFAULT_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -276,6 +278,35 @@ export default function App() {
         trip={trip}
         resultCount={visible.length}
       />
+
+      {tracker.status === 'tracking' && step !== 'route' && (
+        <Box
+          sx={{
+            position: 'fixed',
+            zIndex: 1150,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            bottom: `calc(env(safe-area-inset-bottom) + ${BOTTOM_NAV_HEIGHT + 8}px)`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            pl: 2,
+            pr: 0.75,
+            py: 0.5,
+            borderRadius: 999,
+            bgcolor: 'error.main',
+            color: 'error.contrastText',
+            boxShadow: 6,
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            ● Zapisuję przejazd · {Math.floor(tracker.elapsedS / 60)}:{String(tracker.elapsedS % 60).padStart(2, '0')}
+          </Typography>
+          <Button size="small" variant="contained" color="inherit" sx={{ color: 'error.main', py: 0.25 }} onClick={() => void tracker.stop()}>
+            Zakończ
+          </Button>
+        </Box>
+      )}
 
       {tab === 'preferences' && <PreferencesPage />}
       <BottomNav tab={tab} onChange={setTab} />

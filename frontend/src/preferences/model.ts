@@ -1,4 +1,5 @@
 import type { LatLng, RouteOption, TransportMode } from '../types';
+import type { SpeedMode, SpeedSummary } from '../history/types';
 
 /**
  * Preferences and trip filters (UI model only: choosing routes from them is the backend's job).
@@ -88,6 +89,8 @@ export interface WalkingSetting {
   level: PaceLevel;
   /** Average speed typed by the user (replaces the level). */
   customKmh: number | null;
+  /** Always use the average speed from the trip history (once there are enough trips). */
+  autoSpeed: boolean;
 }
 
 export interface CyclingSetting {
@@ -95,12 +98,14 @@ export interface CyclingSetting {
   enabled: boolean;
   level: BikeLevel;
   customKmh: number | null;
+  autoSpeed: boolean;
 }
 
 export interface WheelchairSetting {
   type: WheelchairType;
   level: PaceLevel;
   customKmh: number | null;
+  autoSpeed: boolean;
   stepFree: boolean;
   lowFloorOnly: boolean;
   preferLifts: boolean;
@@ -130,12 +135,13 @@ export interface Preferences {
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
-  walking: { level: 'normal', customKmh: null },
-  cycling: { enabled: true, level: 'recreational', customKmh: null },
+  walking: { level: 'normal', customKmh: null, autoSpeed: false },
+  cycling: { enabled: true, level: 'recreational', customKmh: null, autoSpeed: false },
   wheelchair: {
     type: 'none',
     level: 'normal',
     customKmh: null,
+    autoSpeed: false,
     stepFree: false,
     lowFloorOnly: false,
     preferLifts: false,
@@ -253,6 +259,37 @@ export function effectivePreferences(
   return best
     ? { prefs: applyOverrides(base, best.rule.overrides), activeRule: best.rule }
     : { prefs: base, activeRule: null };
+}
+
+/** The speed from the trip history that is used instead of the configured one, per mode. */
+export type AutoSpeeds = Partial<Record<SpeedMode, { kmh: number; trips: number }>>;
+
+/**
+ * Where "always use the average from my history" is on and there are enough trips, the average
+ * replaces the level / typed speed (as `customKmh`). Other modes are left as they are.
+ */
+export function applyHistory(p: Preferences, summary: SpeedSummary): { prefs: Preferences; used: AutoSpeeds } {
+  const used: AutoSpeeds = {};
+  const pick = (mode: SpeedMode, on: boolean) => {
+    const s = summary[mode];
+    if (on && s.enough && s.avgKmh !== null) {
+      used[mode] = { kmh: s.avgKmh, trips: s.trips };
+      return s.avgKmh;
+    }
+    return null;
+  };
+  const walking = pick('walking', p.walking.autoSpeed);
+  const cycling = pick('cycling', p.cycling.enabled && p.cycling.autoSpeed);
+  const wheelchair = pick('wheelchair', p.wheelchair.type !== 'none' && p.wheelchair.autoSpeed);
+  return {
+    used,
+    prefs: {
+      ...p,
+      walking: walking === null ? p.walking : { ...p.walking, customKmh: walking },
+      cycling: cycling === null ? p.cycling : { ...p.cycling, customKmh: cycling },
+      wheelchair: wheelchair === null ? p.wheelchair : { ...p.wheelchair, customKmh: wheelchair },
+    },
+  };
 }
 
 export function describeRule(rule: TimeRule): string {

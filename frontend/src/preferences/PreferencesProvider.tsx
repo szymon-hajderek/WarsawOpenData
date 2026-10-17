@@ -1,7 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useHistory } from '../history/HistoryProvider';
 import {
+  applyHistory,
   DEFAULT_PREFERENCES,
   effectivePreferences,
+  type AutoSpeeds,
   sanitizeStored,
   type Preferences,
   type StoredPreferences,
@@ -12,8 +15,10 @@ interface PreferencesValue {
   /** Saved preferences, without time rules. */
   base: Preferences;
   rules: TimeRule[];
-  /** Preferences valid right now (base + the active time rule). */
+  /** Preferences valid right now (base + the active time rule + the average speeds from the history). */
   effective: Preferences;
+  /** Speeds taken from the trip history instead of the configured ones. */
+  autoUsed: AutoSpeeds;
   activeRule: TimeRule | null;
   setBase: (next: Preferences) => void;
   setRules: (next: TimeRule[]) => void;
@@ -27,6 +32,7 @@ const PreferencesContext = createContext<PreferencesValue>({
   base: DEFAULT_PREFERENCES,
   rules: [],
   effective: DEFAULT_PREFERENCES,
+  autoUsed: {},
   activeRule: null,
   setBase: () => {},
   setRules: () => {},
@@ -46,6 +52,7 @@ function load(): StoredPreferences {
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [stored, setStored] = useState<StoredPreferences>(load);
   const [now, setNow] = useState(() => new Date());
+  const { summary } = useHistory();
 
   // Time rules start and end on the clock: re-evaluate every minute.
   useEffect(() => {
@@ -66,9 +73,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const reset = useCallback(() => setStored(DEFAULT_STORED), []);
 
   const value = useMemo<PreferencesValue>(() => {
-    const { prefs, activeRule } = effectivePreferences(stored.base, stored.rules, now);
-    return { base: stored.base, rules: stored.rules, effective: prefs, activeRule, setBase, setRules, reset };
-  }, [stored, now, setBase, setRules, reset]);
+    const { prefs: ruled, activeRule } = effectivePreferences(stored.base, stored.rules, now);
+    const { prefs, used } = applyHistory(ruled, summary);
+    return { base: stored.base, rules: stored.rules, effective: prefs, autoUsed: used, activeRule, setBase, setRules, reset };
+  }, [stored, now, summary, setBase, setRules, reset]);
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
 }
