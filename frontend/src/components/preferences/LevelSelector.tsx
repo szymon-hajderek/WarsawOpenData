@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { alpha, Box, Button, Collapse, InputAdornment, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { formatKmh, type LevelDef } from '../../preferences/model';
 import { RADIUS } from '../../layout';
@@ -34,13 +34,14 @@ export default function LevelSelector<L extends string>({
   const invalid = text !== '' && (Number.isNaN(value) || value < range[0] || value > range[1]);
 
   // Keep the text in sync when the value changes from outside (e.g. "restore defaults").
-  useEffect(() => {
-    const typed = parse(text);
-    if (customKmh === null ? text !== '' && !invalid : typed !== customKmh) {
+  // Adjusted while rendering, as React recommends, so there is no extra render with stale text.
+  const [seenKmh, setSeenKmh] = useState(customKmh);
+  if (customKmh !== seenKmh) {
+    setSeenKmh(customKmh);
+    if (customKmh === null ? text !== '' && !invalid : value !== customKmh) {
       setText(customKmh === null ? '' : String(customKmh));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customKmh]);
+  }
 
   const onText = (next: string) => {
     setText(next);

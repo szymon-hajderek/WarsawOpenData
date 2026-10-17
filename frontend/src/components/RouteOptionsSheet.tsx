@@ -1,9 +1,13 @@
+import { useEffect, useRef } from 'react';
 import { alpha, Badge, Box, Button, Chip, CircularProgress, Typography } from '@mui/material';
 import Tune from '@mui/icons-material/Tune';
 import Schedule from '@mui/icons-material/Schedule';
 import LocalFireDepartment from '@mui/icons-material/LocalFireDepartment';
-import Sheet from './Sheet';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
+import SnapSheet, { type SheetSnap } from './SnapSheet';
 import LegChain from './LegChain';
+import { pressableProps } from './pressable';
 import { formatCost, formatDuration, stopsLabel, transfersLabel } from '../utils/format';
 import type { FilterChip, TimeRule } from '../preferences/model';
 import type { RouteOption } from '../types';
@@ -15,6 +19,10 @@ interface Props {
   /** How many routes were found before filtering. */
   foundCount: number;
   loading: boolean;
+  /** The search failed (no routes, not even example ones). */
+  error: boolean;
+  /** The routes are made-up example data. */
+  mock: boolean;
   selectedId: string | null;
   /** Short summary of the preferences the routes follow. */
   summary: string[];
@@ -22,6 +30,8 @@ interface Props {
   activeRule: TimeRule | null;
   /** Chips of the filters that differ from the defaults. */
   chips: FilterChip[];
+  snap: SheetSnap;
+  onSnapChange: (snap: SheetSnap) => void;
   onSelect: (id: string) => void;
   onOpenFilters: () => void;
   onClearChip: (id: FilterChip['id']) => void;
@@ -34,10 +44,14 @@ export default function RouteOptionsSheet({
   options,
   foundCount,
   loading,
+  error,
+  mock,
   selectedId,
   summary,
   activeRule,
   chips,
+  snap,
+  onSnapChange,
   onSelect,
   onOpenFilters,
   onClearChip,
@@ -45,22 +59,55 @@ export default function RouteOptionsSheet({
   onConfirm,
 }: Props) {
   const noScrollbar = { scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } } as const;
+  const content = useRef<HTMLDivElement>(null);
+  const fastest = options.length ? Math.min(...options.map((o) => o.durationMin)) : null;
+
+  // Below the full height only a part of the list is visible: bring the selected route into view
+  // (the filters row stays visible when the selected route is already on screen).
+  useEffect(() => {
+    if (snap === 'full') return;
+    const box = content.current;
+    const row = box?.querySelector<HTMLElement>(`[data-route-id="${selectedId}"]`);
+    if (!box || !row) return;
+    const b = box.getBoundingClientRect();
+    const r = row.getBoundingClientRect();
+    if (r.top >= b.top && r.bottom <= b.bottom) return;
+    box.scrollTo({ top: Math.max(0, r.top - b.top + box.scrollTop - 8), behavior: 'smooth' });
+  }, [snap, selectedId, options]);
 
   return (
-    <Sheet maxHeight={{ xs: '54vh', sm: 'calc(100vh - 200px)' }}>
-      <Box sx={{ px: 2.5, pb: 1 }}>
+    <SnapSheet
+      snap={snap}
+      onSnapChange={onSnapChange}
+      middleHeight={352}
+      ariaLabel="Lista tras"
+      contentRef={content}
+      header={({ barLike, full }) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>
-            Wybierz trasę
-          </Typography>
-          <Badge badgeContent={chips.length} color="primary" overlap="rectangular">
-            <Button variant="outlined" size="small" startIcon={<Tune />} onClick={onOpenFilters} sx={{ py: 0.75 }}>
-              Filtry
-            </Button>
-          </Badge>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.25 }}>
+              Wybierz trasę
+            </Typography>
+            <Typography variant="body2" color="text.secondary" noWrap>
+              {loading
+                ? 'Szukam połączeń…'
+                : options.length === 0
+                  ? 'Brak tras'
+                  : `${options.length} ${options.length === 1 ? 'trasa' : 'tras'}${fastest !== null ? ` · najszybsza ${formatDuration(fastest)}` : ''}`}
+            </Typography>
+          </Box>
+          {barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />}
         </Box>
-
-        <Box sx={{ display: 'flex', gap: 1, mt: 1, overflowX: 'auto', alignItems: 'center', ...noScrollbar }}>
+      )}
+      toolbar={
+        <>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Badge badgeContent={chips.length} color="primary" overlap="rectangular" sx={{ flexShrink: 0 }}>
+          <Button variant="outlined" size="small" startIcon={<Tune />} onClick={onOpenFilters} sx={{ py: 0.75 }}>
+            Filtry
+          </Button>
+        </Badge>
+        <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', alignItems: 'center', minWidth: 0, ...noScrollbar }}>
           {activeRule && (
             <Chip
               icon={<Schedule />}
@@ -70,6 +117,7 @@ export default function RouteOptionsSheet({
               sx={{ flexShrink: 0 }}
             />
           )}
+          {mock && <Chip label="Dane przykładowe" size="small" color="warning" sx={{ flexShrink: 0 }} />}
           {chips.map((c) => (
             <Chip
               key={c.id}
@@ -81,12 +129,19 @@ export default function RouteOptionsSheet({
             />
           ))}
         </Box>
-        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', mt: 0.75 }} title={summary.join(' · ')}>
-          Dla Ciebie: {summary.join(' · ')}
-        </Typography>
       </Box>
-
-      <Box sx={{ flex: 1, overflowY: 'auto', px: 1.5, minHeight: 120 }}>
+      <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', mt: 0.75 }} title={summary.join(' · ')}>
+        Dla Ciebie: {summary.join(' · ')}
+      </Typography>
+        </>
+      }
+      footer={
+        <Button fullWidth variant="contained" size="large" disabled={!selectedId || loading} onClick={onConfirm}>
+          Wybierz tę trasę
+        </Button>
+      }
+    >
+      <Box sx={{ mt: 0.5 }}>
         {loading && (
           <Box sx={{ display: 'grid', placeItems: 'center', py: 5 }}>
             <CircularProgress size={32} />
@@ -95,7 +150,11 @@ export default function RouteOptionsSheet({
         {!loading && options.length === 0 && (
           <Box sx={{ py: 4, textAlign: 'center' }}>
             <Typography color="text.secondary">
-              {foundCount > 0 ? 'Żadna trasa nie spełnia wybranych filtrów.' : 'Nie znaleziono połączeń.'}
+              {error
+                ? 'Nie udało się pobrać tras. Spróbuj zmienić punkty.'
+                : foundCount > 0
+                  ? 'Żadna trasa nie spełnia wybranych filtrów.'
+                  : 'Nie znaleziono połączeń.'}
             </Typography>
             {foundCount > 0 && (
               <Button onClick={onClearAll} sx={{ mt: 1 }}>
@@ -110,11 +169,8 @@ export default function RouteOptionsSheet({
             return (
               <Box
                 key={o.id}
-                role="button"
-                tabIndex={0}
-                aria-pressed={selected}
-                onClick={() => onSelect(o.id)}
-                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(o.id)}
+                data-route-id={o.id}
+                {...pressableProps(selected, () => onSelect(o.id))}
                 sx={(t) => ({
                   display: 'flex',
                   gap: 1.5,
@@ -167,12 +223,6 @@ export default function RouteOptionsSheet({
             );
           })}
       </Box>
-
-      <Box sx={{ p: 2 }}>
-        <Button fullWidth variant="contained" size="large" disabled={!selectedId || loading} onClick={onConfirm}>
-          Wybierz tę trasę
-        </Button>
-      </Box>
-    </Sheet>
+    </SnapSheet>
   );
 }

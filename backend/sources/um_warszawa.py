@@ -12,9 +12,9 @@ import logging
 from datetime import datetime
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Path, Query
 
-from config import LIVE_DIR, PORTAL_KEY, WAW_API_KEY, TTLCache, load_json, save_json
+from config import LIVE_DIR, PORTAL_KEY, WAW_API_KEY, TTLCache, UpstreamError, load_json, require_key, save_json
 
 PORTAL = "https://dane.um.warszawa.pl/api/action"
 API = "https://api.um.warszawa.pl/api/action"
@@ -45,11 +45,11 @@ def join_stop_id(zespol: str, slupek: str) -> str:
 
 def fetch_vehicles(kind: str) -> list[dict]:
     r = httpx.post(f"{PORTAL}/get_ztm_lokalizacja_pojazdow", json={"type": VEHICLE_TYPES[kind]},
-                   headers={"Authorization": PORTAL_KEY}, timeout=30)
+                   headers={"Authorization": require_key("PORTAL_KEY", PORTAL_KEY)}, timeout=30)
     r.raise_for_status()
     data = r.json()
     if not isinstance(data, list):
-        raise RuntimeError(f"unexpected answer: {str(data)[:200]}")
+        raise UpstreamError(f"unexpected answer: {str(data)[:200]}")
     return [{"line": v["Lines"], "brigade": v["Brigade"], "lat": v["Lat"], "lon": v["Lon"],
              "time": v["Time"], "vehicle": v["VehicleNumber"], "mode": kind,
              "route_id": f"ztm:{v['Lines']}"} for v in data]
@@ -63,11 +63,12 @@ def fresh(vehicles: list[dict], max_age_s: int = 300, now: datetime | None = Non
 
 
 def _dbtimetable(params: dict):
-    r = httpx.get(f"{API}/dbtimetable_get/", params={**params, "apikey": WAW_API_KEY}, timeout=30)
+    r = httpx.get(f"{API}/dbtimetable_get/", params={**params, "apikey": require_key("WAW_API_KEY", WAW_API_KEY)},
+                  timeout=30)
     r.raise_for_status()
     result = r.json().get("result")
     if isinstance(result, str):
-        raise RuntimeError(result)
+        raise UpstreamError(result)
     return result or []
 
 
@@ -90,7 +91,8 @@ def fetch_times(stop_id: str, line: str) -> list[dict]:
 
 def fetch_route_variants() -> dict:
     """Official route variants: line -> variant -> order -> {nr_zespolu, nr_przystanku, odleglosc ...}."""
-    r = httpx.get(f"{API}/public_transport_routes/", params={"apikey": WAW_API_KEY}, timeout=120)
+    r = httpx.get(f"{API}/public_transport_routes/", params={"apikey": require_key("WAW_API_KEY", WAW_API_KEY)},
+                  timeout=120)
     r.raise_for_status()
     return r.json()["result"]
 
@@ -131,9 +133,17 @@ def vehicles_snapshot() -> list[dict]:
 router = APIRouter(prefix="/api", tags=["um.warszawa.pl (live)"])
 
 
+def check_stop(stop_id: str) -> None:
+    """400 for an id that has no City Hall form. Runs before the cache, so junk ids never fill it."""
+    try:
+        split_stop_id(stop_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+
+
 @router.get("/live/vehicles")
-def api_vehicles(type: str = Query("bus", description="bus or tram"), line: str | None = None,
-                 max_age_s: int = Query(300, description="drop positions older than this")):
+def api_vehicles(type: str = Query("bus", description="bus or tram"), line: str | None = Query(None, max_length=10),
+                 max_age_s: int = Query(300, ge=1, le=86400, description="drop positions older than this")):
     """Live ZTM bus / tram positions (3 s cache). route_id matches /api/gtfs/routes."""
     if type not in VEHICLE_TYPES:
         raise HTTPException(400, "type must be bus or tram")
@@ -150,19 +160,15 @@ def api_vehicles(type: str = Query("bus", description="bus or tram"), line: str 
 @router.get("/ztm/stops/{stop_id}/lines")
 def api_lines(stop_id: str):
     """Lines that stop at a ZTM post (City Hall timetable API)."""
-    try:
-        return _cache.get(("lines", stop_id), lambda: fetch_lines_at_stop(stop_id))
-    except ValueError as e:
-        raise HTTPException(400, str(e))
+    check_stop(stop_id)
+    return _cache.get(("lines", stop_id), lambda: fetch_lines_at_stop(stop_id))
 
 
 @router.get("/ztm/stops/{stop_id}/lines/{line}/times")
-def api_times(stop_id: str, line: str):
+def api_times(stop_id: str, line: str = Path(..., pattern=r"^[0-9A-Za-z]{1,6}$")):
     """Today's planned times of one line at one ZTM post (City Hall timetable API)."""
-    try:
-        return _cache.get(("times", stop_id, line), lambda: fetch_times(stop_id, line))
-    except ValueError as e:
-        raise HTTPException(400, str(e))
+    check_stop(stop_id)
+    return _cache.get(("times", stop_id, line), lambda: fetch_times(stop_id, line))
 
 
 @router.get("/ztm/routes/{line}")

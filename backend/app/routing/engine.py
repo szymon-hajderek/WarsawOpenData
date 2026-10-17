@@ -6,15 +6,15 @@ actually computes routes. The running implementation is `RealRouteEngine`.
 
 ## Future: the C++ engine
 
-The plan is a long-running C++ service that keeps the whole graph and live
-state (e.g. where each line's next vehicle is) in memory, so re-loading is
-cheap. Python stays a thin backend: it periodically fetches external APIs and
-pushes updates into C++, then asks it for routes.
+The plan is a long-running C++ service. On startup it builds its own graph and
+keeps that graph in memory. Python does not send the graph. After startup,
+Python only pushes live data and values derived from it (vehicle positions,
+Veturilo availability, alerts, delays), then asks C++ for routes.
 
 A `CppRouteEngine(RouteEngine)` will therefore:
   - hold a connection to that persistent C++ process (local socket / HTTP / a
     native binding — decided together with the C++ team),
-  - implement `update_state(...)` to push graph/state updates,
+  - implement `update_state(...)` for live updates only, not for rebuilding the graph,
   - implement `query_routes(...)` to delegate the actual routing and map the
     result back into `RouteOption` objects.
 
@@ -38,8 +38,9 @@ class RouteEngine(ABC):
 
     @abstractmethod
     def update_state(self, update: dict[str, Any]) -> None:
-        """Push a graph/state update to the engine.
+        """Push a live update to the engine.
 
-        No-op for the stub; the C++ engine will use this to stay current with
-        live data (vehicle positions, Veturilo availability, closures, ...).
+        The C++ process builds its own graph at startup. This call carries only
+        live data and values derived from it (vehicle positions, Veturilo
+        availability, alerts, delays). No-op until that process exists.
         """

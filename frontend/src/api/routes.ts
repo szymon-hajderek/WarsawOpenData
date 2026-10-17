@@ -1,7 +1,8 @@
 import type { LatLng, Place, Profile, RouteLeg, RouteOption, StopOrder, TransportMode } from '../types';
 import { buildPath, haversine, slicePath } from '../utils/geo';
 import { formatTime } from '../utils/format';
-import { API_URL } from '../config';
+import { API_URL, apiUrl } from '../config';
+import { isRouteOptions } from './validate';
 import { bestOrder, combineSegments } from './multiStop';
 
 /**
@@ -21,24 +22,35 @@ export interface RouteQuery {
   order?: StopOrder;
 }
 
-export async function fetchRouteOptions(query: RouteQuery): Promise<RouteOption[]> {
+export interface RouteResult {
+  options: RouteOption[];
+  /** True when the options are made-up example data (the backend is off or sent a bad answer). */
+  mock: boolean;
+}
+
+export async function fetchRouteOptions(query: RouteQuery, signal?: AbortSignal): Promise<RouteResult> {
   const { from, to, profile } = query;
   const via = query.via ?? [];
   const order = query.order ?? 'given';
   if (API_URL) {
     try {
-      const res = await fetch(`${API_URL}/api/routes`, {
+      const res = await fetch(apiUrl('/api/routes'), {
+        signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(via.length ? { from, to, profile, via, order } : { from, to, profile }),
       });
       if (!res.ok) throw new Error(`Routing failed: ${res.status}`);
-      return (await res.json()) as RouteOption[];
+      const data: unknown = await res.json();
+      if (!isRouteOptions(data)) throw new Error('Routing answer has an unexpected shape');
+      return { options: data, mock: false };
     } catch (err) {
+      if (signal?.aborted) throw err;
       console.warn('Backend unavailable, falling back to mock routing.', err);
     }
   }
-  return via.length ? mockMultiStop(query) : mockRouteOptions(from, to, profile);
+  const options = via.length ? await mockMultiStop(query) : await mockRouteOptions(from, to, profile);
+  return { options, mock: true };
 }
 
 /** Local fallback for trips with stops: one mock query per segment, chained like the backend does. */

@@ -36,6 +36,47 @@ Run from `backend/`: `uv run python ../algorithms/simulation/simulate_nearest_bu
   and the bus has moved since then (reports come every ~10-20 s). Moving the bus forward to the user's
   time (speed from its last two reports) should lower it.
 
+## Second run: point at u * L, u ~ U(0, 1)
+
+Same recording and the same 15 lines, but each point is drawn explicitly: u from U(0, 1), the point lies at
+distance u * L from the start of the polyline (L = its length). This is the same distribution as above
+(uniform by length), now with 10 points per line = 150 trials per row and u stored for every trial
+(`export_viz.py`, seeds 2026 for u and 2027 for the radius).
+
+| radius | points | top-1 | in popup (top-4) | right line in top-4 | median RMSE to own bus |
+|---|---|---|---|---|---|
+| 10 m | 1 | 85% | 100% | 100% | 49 m |
+| 10 m | 3 | 97% | 100% | 100% | 34 m |
+| 25 m | 1 | 83% | 100% | 100% | 46 m |
+| 25 m | 3 | 97% | 100% | 100% | 40 m |
+| 50 m | 1 | 86% | 100% | 100% | 52 m |
+| 50 m | 3 | 97% | 100% | 100% | 48 m |
+| 100 m | 1 | 81% | 100% | 100% | 84 m |
+| 100 m | 3 | 96% | 100% | 100% | 78 m |
+
+- The numbers agree with the first run: the own bus is always in the popup; top-1 is 96-97% with 3 points
+  and 81-86% with 1 point.
+- By u (all radii, 3 points): 100 / 99 / 99 / 100 / 89% for u in 0-0.2 ... 0.8-1.0. The drop at the end comes
+  almost only from line 131 (13 of 15 misses), so it is about that route, not about the end of a polyline.
+
+## How time is handled
+
+1. Bus reports keep the feed time t_i (Warsaw time). Repeated reports of the cached feed are removed.
+2. A point on the polyline gets its time t_p by linear interpolation between the two reports around it.
+3. User track: 1 point at t_p, or 3 points at t_p - 20 s, t_p - 10 s, t_p (the app samples every 10 s).
+   Positions come from the polyline (clamped to the first report), then move inside radius R.
+4. The algorithm sees, for every bus, only reports with t <= t_p, the last 3 (like `backend/bus_detect.py`).
+5. Each user point is paired with the bus report closest in time; MSE = mean squared haversine distance.
+6. The last report is 0-20 s older than t_p, so even at R = 10 m the RMSE to the own bus is about 40 m.
+
+## Complexity
+
+- `rank_buses` per request: O(V * K * H + V log V); V buses (~880), K user points (<= 3), H reports per bus (3).
+  About 8k distances; measured median ~2 ms on the dev laptop. Linear in V: 0.6 ms at 250 buses, 22.5 ms at 8000.
+- Poller: O(V) per 10 s; memory O(V * H).
+- One simulation trial: O(V * T) to build the backend view (T <= 13 reports per bus) + the ranking.
+- The full sort can be replaced by `heapq.nsmallest(4, ...)`: O(V log 4).
+
 ## Limits
 
 - One 2-minute window at one time of day; 15 lines, 75 trials per row.

@@ -26,7 +26,7 @@ Done:
 
 Planned:
 
-- **Real routing** with a custom C++ engine (keeps the graph + live state in memory; Python feeds it data).
+- **Real routing** with a custom C++ engine. It builds its own graph at startup. Python then sends only live data and values derived from it.
 - **Multi-stop routes.** Plan one trip through many places, with many means of transport.
 - **Online route planning.** Change the route while the user travels.
 - **Live delays.** Use real-time vehicle data to find the fastest route now.
@@ -45,6 +45,7 @@ Planned:
 - `data/` — datasets, the API reference `data/API.md` and the data report `data/REPORT.md`
 - `algorithms/`, `db/`, `routing/` — placeholders for the next steps
 - `ui/` — UI concept art
+- `artifacts/` — HTML pages with results (open in a browser), e.g. the bus detection simulation
 - `changes/` — one change note per branch
 
 ## Quick start
@@ -75,6 +76,7 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - `cd frontend && npm install` (if `~/.npm` is root-owned: `npm install --cache <some dir>`)
    - `npm run dev` starts the app at http://localhost:5173
    - `npm run build` type-checks and builds
+   - `npm run lint` runs ESLint (react-hooks + jsx-a11y rules); `npm test` runs the Vitest tests (jsdom, no browser needed)
    - optional: `VITE_API_URL` in `frontend/.env` points the app at the routing API
      (default `http://localhost:8000`; set `VITE_API_URL=""` to force the in-browser mock)
 3. **Data** (`data/`). GTFS zips and the OSM extract are stored with Git LFS.
@@ -87,13 +89,15 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - `uv run uvicorn main:app --reload` starts the API at http://localhost:8000 (docs at `/docs`).
      This one process serves the data, geocode and `POST /api/routes` (real GTFS + OSM + Veturilo).
    - `uv run python report.py` rebuilds `data/REPORT.md` (sources, ID links, graph sizes, endpoints)
-   - the first request that needs GTFS / OSM builds caches in `data/derived/` (~25 s / ~45 s)
+   - the server builds the GTFS / OSM caches in `data/derived/` at start (~25 s / ~45 s on the first run, a minute or two
+     with a ready cache). Until then `/api/gtfs`, `/api/osm` and `/api/routes` answer 503 (`Retry-After: 30`)
    - `uv run pytest tests ../algorithms` runs the tests (pytest is in the `dev` group, installed by `uv sync`)
    - bus detection simulation: `uv run python ../algorithms/simulation/simulate_nearest_buses.py`
      (uses the committed sample; record a new one with `uv run python ../algorithms/simulation/record_buses.py`, needs `PORTAL_KEY`)
+   - rebuild the results page `artifacts/bus-detection-simulation.html`: `uv run python ../algorithms/simulation/export_viz.py`
    - optional `.env` setting `LIVE_BUSES_URL`: where bus detection reads live bus positions (default: the City Hall feed via `PORTAL_KEY`). Without `PORTAL_KEY` the live-vehicle poller stays off and `GET /api/live/vehicles` returns 503.
 5. **Routes** are part of the uv app in step 4. Do not start a second server on port 8000.
    The package `backend/app/` is the route engine imported by `main.py`. `requirements.txt` is only
    the old slim app and cannot load the timetable (it has no numpy/scipy).
 6. **Database, Docker.** Not set up yet (PostgreSQL + PostGIS, Docker). The C++ routing engine is
-   planned (a long-running service that keeps the graph + live state in memory).
+   planned (a long-running service that builds its own graph at startup; Python then sends only live updates).
