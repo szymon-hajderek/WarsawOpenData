@@ -71,8 +71,9 @@ def compatibility(ref_date: str) -> dict:
     }
 
 
-def street_matrix(sample: int = 100, seed: int = 1) -> dict | None:
-    """Junction counts, matrix stats and a check against osm.route() on random pairs (needs preprocess_street.py)."""
+def street_matrix(seed: int = 1) -> dict | None:
+    """Junction counts and matrix stats read from the street matrix (needs preprocess_street.py).
+    The check against osm.route() is algorithms/router/preprocess/check_pairs.py."""
     out_dir = DERIVED / "street"
     if not (out_dir / "meta.json").exists():
         return None
@@ -92,21 +93,14 @@ def street_matrix(sample: int = 100, seed: int = 1) -> dict | None:
         s, d, _, _, jid = osm.edges(mode)
         nw = osm.node_wait(mode)
         signal = np.isin(osm.graph()["kind"], (1, 3)) & (nw > 0)
-        diffs = []
-        plain = np.array([i for i, p in enumerate(pts) if int(p["entrances"]) == 0])  # osm.route() has no metro entrances
-        for a, b in rng.choice(plain, size=(sample, 2)):
-            if a == b:
-                continue
-            r = osm.route(float(pts[a]["lat"]), float(pts[a]["lon"]), float(pts[b]["lat"]), float(pts[b]["lon"]),
-                          mode, limit_s=np.inf)
-            diffs.append((abs(float(mm[0, a, b]) - r["length_m"]), abs(float(mm[1, a, b]) - r["wait_s"])))
-        diffs = np.array(diffs)
         # sanity: path >= straight line, detour factor, walk symmetry (end points outside junctions)
         lat = np.array([float(p["lat"]) for p in pts])
         lon = np.array([float(p["lon"]) for p in pts])
         x, y = to_xy(lat, lon)
         air = np.hypot(x[rows, None] - x[None, :], y[rows, None] - y[None, :])
-        far = (air > 500) & np.isfinite(dist)
+        metro = np.array([int(p["entrances"]) > 0 for p in pts])  # joined through entrances, not at their position
+        plain = ~metro[rows, None] & ~metro[None, :]
+        far = (air > 500) & np.isfinite(dist) & plain
         ratio = dist[far] / air[far]
         sym = None
         if mode != "bike":
@@ -115,7 +109,7 @@ def street_matrix(sample: int = 100, seed: int = 1) -> dict | None:
             cost = mm[0][np.ix_(ok, ok)] / osm.SPEED[mode] + mm[1][np.ix_(ok, ok)]
             sym = round(float(np.nanmax(np.abs(cost - cost.T))), 2)
         out["modes"][mode] = {
-            "shorter_than_straight_line": int((dist < air - 1).sum()),
+            "shorter_than_straight_line": int(((dist < air - 1) & plain).sum()),
             "detour_median": round(float(np.median(ratio)), 2), "detour_p99": round(float(np.percentile(ratio, 99)), 2),
             "walk_symmetry_max_diff_s": sym,
             **meta[mode],
@@ -123,8 +117,6 @@ def street_matrix(sample: int = 100, seed: int = 1) -> dict | None:
             "junction_interior_nodes": int(((jid >= 0) & ~signal).sum()),
             "nan_share_sampled_rows": round(float(np.isnan(dist).mean()), 4),
             "median_distance_m": round(float(np.nanmedian(dist))), "median_wait_s": round(float(np.nanmedian(wait))),
-            "check_pairs": len(diffs), "check_max_distance_diff_m": round(float(diffs[:, 0].max()), 2),
-            "check_max_wait_diff_s": round(float(diffs[:, 1].max()), 2),
         }
     out["threads"] = meta.get("threads")
     return out
@@ -342,26 +334,26 @@ def write_md(r: dict, eps) -> str:
     if sm:
         L += ["### 5. Street matrix: every pair of stops / stations", "",
               "Built by `cd backend && uv run python preprocess_street.py` into `data/derived/street/` (git-ignored): "
-              "`points.csv` (index, id, kind, lat, lon, snap per mode) and `walk.bin` / `bike.bin` "
+              "`points.csv` (index, id, kind, lat, lon, snap per mode) and `walk.bin` / `bike.bin` / `accessible.bin` "
               "(float32, shape (2, N, N): `[0]` distance_m, `[1]` wait_s; row = from, col = to; NaN = no path). "
               "Each point joins the graph through up to 6 nearest nodes (at most 30 m farther than the nearest), "
               "a multi-source Dijkstra via virtual nodes; these access segments are walked (a bike is pushed, "
               "the extra time is in wait_s). Time with the default speeds = distance_m / speed + wait_s.", "",
               f"Points: {fmt(sm['points'])}. Threads (C++): {sm['threads']}.", "",
               "| Mode | Build (min) | File | Far points (> 1000 m) | Signal nodes | Junctions | Island nodes | "
-              "Median distance | Median wait | Check vs `osm.route()` (max diff) |",
-              "|---|---|---|---|---|---|---|---|---|---|"]
+              "Median distance | Median wait |",
+              "|---|---|---|---|---|---|---|---|---|"]
         checks = []
         for mode, m in sm["modes"].items():
             L.append(f"| {mode} | {round(m['seconds'] / 60, 1)} | {fmt(m['file_mb'])} MB | {m['far_points']} | "
                      f"{fmt(m['signal_nodes'])} | {fmt(m['junctions'])} | {fmt(m['junction_interior_nodes'])} | "
-                     f"{fmt(m['median_distance_m'])} m | {m['median_wait_s']} s | "
-                     f"{m['check_pairs']} pairs: {m['check_max_distance_diff_m']} m, {m['check_max_wait_diff_s']} s |")
+                     f"{fmt(m['median_distance_m'])} m | {m['median_wait_s']} s |")
             checks.append(f"- {mode}: paths shorter than the straight line: {m['shorter_than_straight_line']}; "
                           f"detour factor (pairs > 500 m apart) median {m['detour_median']}, p99 {m['detour_p99']}"
                           + (f"; A -> B vs B -> A time, max diff {m['walk_symmetry_max_diff_s']} s"
                              if m["walk_symmetry_max_diff_s"] is not None else "") + ".")
-        L += ["", "Checks on 200 random rows (all columns):", ""] + checks
+        L += ["", "Checks on 200 random rows (all columns; metro platforms left out of the straight-line checks, "
+              "they join the graph through their station entrances):", ""] + checks
         L += ["", "Known limit: an L-shaped walk across two legs of the same junction pays its wait only once "
               "(an underestimate). Waits are averages (no signal timing data, no green wave).", ""]
     L += ["## Endpoints", "",

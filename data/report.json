@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-17T14:48:45",
+ "generated": "2026-10-17T20:55:50",
  "reference_date": "20261021",
  "vertices": {
   "transit_posts": 7145,
@@ -16,8 +16,8 @@
    "rail": 212
   },
   "veturilo_stations": 349,
-  "osm_walk": 1534865,
-  "osm_bike": 1000177
+  "osm_walk": 1792617,
+  "osm_bike": 1222025
  },
  "item1_transit_edges": {
   "unique_from_to_route": 22611,
@@ -45,48 +45,57 @@
  },
  "item3_osm": {
   "walk": {
-   "vertices": 1534865,
-   "edges_undirected": 1741689,
-   "edges_directed": 3483378,
-   "simplified_vertices": 548631,
-   "simplified_edges_undirected": 755455,
-   "signal_crossings": 7708,
-   "other_crossings": 38148,
-   "road_signals": 4047
+   "vertices": 1792617,
+   "edges_undirected": 2019691,
+   "edges_directed": 4039382,
+   "simplified_vertices": 623594,
+   "simplified_edges_undirected": 850668,
+   "signal_crossings": 7815,
+   "other_crossings": 42063,
+   "road_signals": 4178
   },
   "bike": {
-   "vertices": 1000177,
-   "edges_undirected": 1061573,
-   "edges_directed": 2003918,
-   "simplified_vertices": 314022,
-   "simplified_edges_undirected": 375418,
-   "signal_crossings": 7007,
-   "other_crossings": 37044,
-   "road_signals": 4107
+   "vertices": 1222025,
+   "edges_undirected": 1294298,
+   "edges_directed": 2460323,
+   "simplified_vertices": 376279,
+   "simplified_edges_undirected": 448552,
+   "signal_crossings": 7110,
+   "other_crossings": 40887,
+   "road_signals": 4242
   }
  },
  "item4_feasibility": {
   "speeds_m_s": {
    "walk": 1.3,
-   "bike": 4.2
+   "bike": 4.2,
+   "accessible": 1.3
   },
   "waits_s": {
    "walk": {
     "crossing_signals": 27.22222222222222,
     "crossing": 2.0,
-    "traffic_signals": 0.0
+    "traffic_signals": 0.0,
+    "elevator": 0.0
    },
    "bike": {
     "crossing_signals": 27.22222222222222,
     "crossing": 0.0,
-    "traffic_signals": 20.0
+    "traffic_signals": 20.0,
+    "elevator": 60.0
+   },
+   "accessible": {
+    "crossing_signals": 27.22222222222222,
+    "crossing": 2.0,
+    "traffic_signals": 0.0,
+    "elevator": 60.0
    }
   },
   "nodes_with_signal_timing_tags": 0,
   "snap_to_walk_graph_m": {
-   "median": 5.4,
-   "p99": 6780.9,
-   "over_200m": 410
+   "median": 5.2,
+   "p99": 27.2,
+   "over_200m": 0
   },
   "benchmarks": [
    {
@@ -94,8 +103,8 @@
     "points": 7494,
     "sample_sources": 50,
     "limit_s": null,
-    "seconds_per_source": 0.188,
-    "all_pairs_hours_1_core": 0.3904,
+    "seconds_per_source": 0.23,
+    "all_pairs_hours_1_core": 0.4778,
     "avg_points_reached": 7494.0,
     "pairs_to_store": 56160036,
     "dense_matrix_mb_float32": 224.6
@@ -105,10 +114,10 @@
     "points": 7494,
     "sample_sources": 50,
     "limit_s": 900,
-    "seconds_per_source": 0.001,
-    "all_pairs_hours_1_core": 0.002,
-    "avg_points_reached": 28.8,
-    "pairs_to_store": 215827,
+    "seconds_per_source": 0.002,
+    "all_pairs_hours_1_core": 0.0047,
+    "avg_points_reached": 27.2,
+    "pairs_to_store": 204136,
     "dense_matrix_mb_float32": 224.6
    },
    {
@@ -116,8 +125,8 @@
     "points": 7494,
     "sample_sources": 50,
     "limit_s": null,
-    "seconds_per_source": 0.114,
-    "all_pairs_hours_1_core": 0.2377,
+    "seconds_per_source": 0.242,
+    "all_pairs_hours_1_core": 0.5029,
     "avg_points_reached": 7494.0,
     "pairs_to_store": 56160036,
     "dense_matrix_mb_float32": 224.6
@@ -127,10 +136,10 @@
     "points": 7494,
     "sample_sources": 50,
     "limit_s": 1200,
-    "seconds_per_source": 0.003,
-    "all_pairs_hours_1_core": 0.0062,
-    "avg_points_reached": 264.8,
-    "pairs_to_store": 1984710,
+    "seconds_per_source": 0.009,
+    "all_pairs_hours_1_core": 0.019,
+    "avg_points_reached": 304.3,
+    "pairs_to_store": 2280723,
     "dense_matrix_mb_float32": 224.6
    }
   ]
@@ -193,7 +202,67 @@
    }
   ]
  },
- "seconds_to_build": 24.3,
+ "street_matrix": {
+  "points": 7494,
+  "modes": {
+   "walk": {
+    "shorter_than_straight_line": 0,
+    "detour_median": 1.16,
+    "detour_p99": 1.58,
+    "walk_symmetry_max_diff_s": 0.0,
+    "mode": "walk",
+    "engine": "cpp",
+    "points": 7494,
+    "far_points": 0,
+    "seconds": 208,
+    "file_mb": 449,
+    "signal_nodes": 8200,
+    "junctions": 2439,
+    "junction_interior_nodes": 12542,
+    "nan_share_sampled_rows": 0.0,
+    "median_distance_m": 17376,
+    "median_wait_s": 292
+   },
+   "bike": {
+    "shorter_than_straight_line": 0,
+    "detour_median": 1.21,
+    "detour_p99": 1.64,
+    "walk_symmetry_max_diff_s": null,
+    "mode": "bike",
+    "engine": "cpp",
+    "points": 7494,
+    "far_points": 0,
+    "seconds": 242,
+    "file_mb": 449,
+    "signal_nodes": 12592,
+    "junctions": 2359,
+    "junction_interior_nodes": 22757,
+    "nan_share_sampled_rows": 0.0,
+    "median_distance_m": 19278,
+    "median_wait_s": 266
+   },
+   "accessible": {
+    "shorter_than_straight_line": 0,
+    "detour_median": 1.17,
+    "detour_p99": 1.61,
+    "walk_symmetry_max_diff_s": 0.0,
+    "mode": "accessible",
+    "engine": "cpp",
+    "points": 7494,
+    "far_points": 0,
+    "seconds": 221,
+    "file_mb": 449,
+    "signal_nodes": 8200,
+    "junctions": 2439,
+    "junction_interior_nodes": 12535,
+    "nan_share_sampled_rows": 0.0,
+    "median_distance_m": 17692,
+    "median_wait_s": 351
+   }
+  },
+  "threads": 16
+ },
+ "seconds_to_build": 40.5,
  "endpoints": [
   {
    "method": "GET",
@@ -238,7 +307,7 @@
   {
    "method": "GET",
    "path": "/api/live/vehicles?type&line&max_age_s",
-   "doc": "Live ZTM bus / tram positions (30 s cache). route_id matches /api/gtfs/routes."
+   "doc": "Live ZTM bus / tram positions (3 s cache). route_id matches /api/gtfs/routes."
   },
   {
    "method": "GET",
@@ -278,12 +347,12 @@
   {
    "method": "GET",
    "path": "/api/veturilo/vehicle-types",
-   "doc": "Bike types (classic, e-bike ...)."
+   "doc": "GBFS pricing plans (saved file). Each plan has ``per_min_pricing``."
   },
   {
    "method": "GET",
    "path": "/api/osm/graph/summary?mode",
-   "doc": "Vertex / edge / crossing counts of the walk or bike graph, speeds and waits."
+   "doc": "Vertex / edge / crossing counts of the walk, bike or accessible graph, speeds and waits."
   },
   {
    "method": "GET",
@@ -293,7 +362,37 @@
   {
    "method": "GET",
    "path": "/api/osm/route?from_lat&from_lon&to_lat&to_lon&mode",
-   "doc": "Street path with length, expected waits and total seconds (walk or bike)."
+   "doc": "Street path with length, expected waits and total seconds (walk, bike or accessible: walk without stairs)."
+  },
+  {
+   "method": "POST",
+   "path": "/api/live/nearest-buses",
+   "doc": "The buses closest to the user's last 1-3 positions (lowest MSE first) + all live lines."
+  },
+  {
+   "method": "GET",
+   "path": "/api/live/delay?vehicle",
+   "doc": "Estimated delay of one vehicle at its previous stop, shown as the expected delay at the next stop."
+  },
+  {
+   "method": "POST",
+   "path": "/api/routes",
+   "doc": "Get Routes"
+  },
+  {
+   "method": "GET",
+   "path": "/api/geocode?q",
+   "doc": "Geocode"
+  },
+  {
+   "method": "POST",
+   "path": "/api/history/records",
+   "doc": "Records (walking / cycling / wheelchair) of one ridden route. Empty when the track is too short or does not fit the route."
+  },
+  {
+   "method": "POST",
+   "path": "/api/history/summary",
+   "doc": "Average speed per mode from the records (the latest `window` of each mode)."
   },
   {
    "method": "GET",

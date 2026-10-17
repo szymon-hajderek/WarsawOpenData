@@ -132,4 +132,20 @@ Little-endian. P = points, n = graph nodes incl. 2 virtual nodes per point, m = 
 
 ## Last run
 
-_Filled in after the run._
+2026-10-17, map `warsaw_ztm.osm.pbf` (1 847 096 nodes, 2 092 772 segments), GTFS of that day, 16 threads.
+
+| Mode | Points | Graph nodes (incl. virtual) | Directed edges | C++ time | File |
+|---|---|---|---|---|---|
+| walk | 7 494 | 1 862 084 | 4 125 134 | 208 s | 449 MB |
+| bike | 7 494 | 1 862 084 | 4 233 311 | 242 s | 449 MB |
+| accessible | 7 494 | 1 862 084 | 4 097 508 | 221 s | 449 MB |
+
+- Far points (> 1000 m from the graph): 0. Unreachable pairs: 0.
+- 100-pair check: C++ = `osm.route()` within 0.05 m / 0.05 s (walk and bike). GTFS vs OSM platform position:
+  walk median 7 m (max 63 m), bike median 12 m (max 141 m).
+- Walk and accessible are symmetric: 1500 × 1500 random pairs, A → B vs B → A time difference max 0.00 s.
+- Accessible vs walk, distance ratio over 11.1 M pairs (> 300 m apart, metro left out): equal for 44.7%,
+  ≤ +5% for 95.8%, ≤ +20% for 99.5%, > 1.5× for 0.12%. No point has a median ratio above 1.1.
+  371 elevator nodes connect two levels; 3 564 graph nodes are reachable without steps only through an elevator.
+- Examples (walk): Grójecka 01 ↔ 02: 109 m + 27.2 s = 1.8 min. Metro Centrum → Centrum 03: 52 m + 120 s = 2.7 min.
+  Świętokrzyska M1 → M2: 1 m + 240 s = 4.0 min (out and in again).
