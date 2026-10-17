@@ -12,7 +12,7 @@ import {
 /**
  * SPEED HISTORY.
  *
- * The backend only computes (`POST /api/history/records`, `POST /api/history/summary`); it stores nothing.
+ * These endpoints only compute (`POST /api/history/records`, `POST /api/history/summary`); they store nothing.
  * The device keeps the records (no coordinates). `fetchTripRecords` needs the backend; `fetchSummary` falls
  * back to a small local calculation when the backend is unreachable.
  */

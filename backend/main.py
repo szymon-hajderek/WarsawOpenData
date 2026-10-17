@@ -14,8 +14,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 import bus_detect
+import journey_stats
 import street_router
-from app.api import geocode, history
+from app.api import geocode, history, journeys
 from app.api import routes as route_api
 from app.config import settings
 from config import DATA, MissingKey, UpstreamError, load_json
@@ -36,6 +37,7 @@ NEEDS_CACHES = ("/api/gtfs", "/api/osm", "/api/routes", "/api/live/nearest-buses
 
 def _warm_up() -> None:
     try:
+        journey_stats.initialize()
         mkuran.warm()
         osm.warm()
         siting.warm()  # hex grid for /api/veturilo/siting (first run ~2.5 min, then cached)
@@ -57,7 +59,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, title="WarsawOpenData data API",
               description="GTFS, City Hall, Veturilo, OSM, and route options from that data. "
-                          "No database: files in data/, parsed on first use.")
+                          "Source files in data/; optional journey counters in SQLite.")
 
 
 @app.middleware("http")
@@ -101,6 +103,7 @@ app.include_router(bus_detect.router)
 app.include_router(route_api.router)
 app.include_router(geocode.router)
 app.include_router(history.router)
+app.include_router(journeys.router)
 
 # Simulation mode (integration tests, demo): the live feeds replay a scenario on a movable clock.
 if os.getenv("SIM_SCENARIO"):

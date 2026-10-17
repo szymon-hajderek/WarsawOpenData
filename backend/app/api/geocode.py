@@ -47,11 +47,13 @@ async def geocode(q: str = Query(..., min_length=1, max_length=200)) -> list[Pla
             res.raise_for_status()
             items = res.json()
     except (httpx.HTTPError, ValueError) as exc:  # ValueError: the answer was not JSON
-        log.warning("geocoding failed: %s", exc)
+        log.warning("geocoding failed (%s)", type(exc).__name__)
         raise HTTPException(status_code=502, detail="Geocoding service failed") from exc
 
     places: list[Place] = []
     for item in items:
+        if item.get("osm_type") not in ("node", "way", "relation") or not item.get("osm_id"):
+            continue
         address = item.get("address") or {}
         street = " ".join(x for x in [address.get("road"), address.get("house_number")] if x)
         label = item.get("name") or street or item["display_name"].split(",")[0]
@@ -67,7 +69,7 @@ async def geocode(q: str = Query(..., min_length=1, max_length=200)) -> list[Pla
         )
         places.append(
             Place(
-                id=f"osm-{item.get('place_id', item['lat'] + item['lon'])}",
+                id=f"osm:{item['osm_type']}:{item['osm_id']}",
                 label=label,
                 sublabel=sublabel or None,
                 position=(float(item["lat"]), float(item["lon"])),
