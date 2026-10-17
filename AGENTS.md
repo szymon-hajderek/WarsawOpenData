@@ -20,6 +20,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   3. If it is behind, run `git checkout main` and `git pull origin main`.
   4. Only then create a new branch from the updated `main`.
 - Also check that the local copy is up to date before committing/pushing on an existing branch.
+- **Claude resolves merge conflicts automatically — the user never resolves them manually.**
+  This applies in particular to `AGENTS.md`: whenever it conflicts, Claude resolves it on its own,
+  keeping the valid rules and knowledge from both sides and removing duplicates or stale entries.
 
 ## Pull Requests
 
@@ -33,10 +36,12 @@ Everything in this repo (files, commits, PRs) is written in English.
 - **Before you create any new branch, run the `deep-planning` skill** (`.claude/skills/deep-planning/SKILL.md`).
   Plan the change with the user first. Create the branch only after the user approves the plan.
   If your tool cannot run skills, read that file and follow its steps.
-- **Every new branch created for a feature must contain a `CHANGES.md` file.**
-- The `CHANGES.md` file briefly describes the changes made on that branch.
-- The description should be concise — a short list of the most important changes / points is enough.
-- The `CHANGES.md` file is kept up to date as work on the branch progresses.
+- **Every feature branch adds its own file under `changes/`**, named after the branch with
+  slashes replaced by dashes (e.g. branch `feature/add-map` -> `changes/feature-add-map.md`).
+- That file briefly describes the changes made on the branch — a short list of the most
+  important points is enough — and is kept up to date as work on the branch progresses.
+- **Do not use a single shared `CHANGES.md`.** One file per branch means two branches never
+  edit the same file, so these change notes never cause merge conflicts. See `changes/README.md`.
 
 ## Project Knowledge
 
@@ -119,3 +124,5 @@ Everything in this repo (files, commits, PRs) is written in English.
 - The Cursor workspace root is the parent folder `hackathon`, and this repo lives in
   its subfolder `WarsawOpenData`. The repo's instruction file is `AGENTS.md`, because
   Cursor reads it (a plain `CLAUDE.md` may not be loaded).
+- Change notes live in `changes/` (one file per branch), not in a single shared
+  `CHANGES.md`, so parallel branches do not create merge conflicts in change notes.
