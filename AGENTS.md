@@ -261,8 +261,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   is off/unreachable. Types in `src/types.ts`. The mock's costs and speeds are rough estimates.
 - Backend URL: `src/config.ts` reads `VITE_API_URL` (default `http://localhost:8000`;
   set `VITE_API_URL=""` in `frontend/.env` to force the mock).
-- Place search: `src/api/geocode.ts` (`searchPlaces`), debounced, limited to Warsaw. Calls the
-  backend geocode proxy when `API_URL` is set, else Nominatim directly (≈1 request/second limit).
+- Place search: `src/api/geocode.ts` (`searchPlaces`, `MIN_QUERY`), debounced (300 ms), limited to Warsaw. Calls the backend (`GET /api/geocode`) when `API_URL` is set
+  (from 2 characters; sends the user's position as `lat` / `lon`), else Nominatim directly (3 characters, ≈1 request/second limit). The backend answers with our own
+  stops and Veturilo stations first (`algorithms/place_search.py`: start-of-word match, accents folded, distance as a tie-break), then Nominatim; stops still come when Nominatim is down.
 - Colours: one palette, the Warsaw colours (red + yellow): `src/map/palette.ts` (`PALETTE`, light / dark). Red is the main
   colour in light mode, yellow the accent at night. It sets the map colours, the round map buttons / markers AND the accent
   of the whole UI (the MUI theme in `src/theme.ts` is built from it). The old lavender look and the look switch were removed.
