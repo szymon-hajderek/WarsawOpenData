@@ -1,12 +1,34 @@
 import { useRef, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { alpha, Box, Button, Chip, CircularProgress, Collapse, Paper, Typography, useTheme, type Theme } from '@mui/material';
+import {
+  alpha,
+  Autocomplete,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Collapse,
+  IconButton,
+  Paper,
+  TextField,
+  Typography,
+  useTheme,
+  type Theme,
+} from '@mui/material';
+import Close from '@mui/icons-material/Close';
+import Refresh from '@mui/icons-material/Refresh';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { MODE_META, modeColor } from '../modes';
 import type { VehicleCandidate } from '../types';
 import { PANEL_BOTTOM } from '../layout';
+import { formatDistance } from '../utils/format';
 
 const vehicleName = (v: VehicleCandidate) => `${MODE_META[v.mode].label} ${v.line}`;
+/** "kier. X", or nothing when the direction is unknown (live buses have none yet). */
+const directionText = (v: VehicleCandidate) => (v.direction ? `kier. ${v.direction}` : '');
+/** Distance of the vehicle from the user, when the backend sent it. */
+const distanceText = (v: VehicleCandidate) =>
+  v.distanceM !== undefined ? `ok. ${formatDistance(v.distanceM)} od Ciebie` : '';
 
 /** Tap, swipe down or swipe up on an element. */
 function useSwipe(onTap: () => void, onUp: () => void, onDown: () => void) {
@@ -59,6 +81,10 @@ function ModeBadge({ vehicle, size = 44 }: { vehicle: VehicleCandidate; size?: n
 interface Props {
   /** The most likely vehicle first, then up to 3 other possible ones. */
   candidates: VehicleCandidate[];
+  /** All lines the user can pick by hand. */
+  lines: string[];
+  /** The line picked by hand, if any. */
+  manual: VehicleCandidate | null;
   loading: boolean;
   open: boolean;
   selectedId: string | null;
@@ -66,6 +92,10 @@ interface Props {
   confirmed: VehicleCandidate | null;
   onOpenChange: (open: boolean) => void;
   onSelect: (id: string) => void;
+  onManualLine: (line: string) => void;
+  onClearManual: () => void;
+  /** Detect the vehicle again. */
+  onRedetect: () => void;
   onConfirm: () => void;
   /** "I am not in a vehicle". */
   onDismiss: () => void;
@@ -77,12 +107,17 @@ interface Props {
  */
 export default function VehicleSheet({
   candidates,
+  lines,
+  manual,
   loading,
   open,
   selectedId,
   confirmed,
   onOpenChange,
   onSelect,
+  onManualLine,
+  onClearManual,
+  onRedetect,
   onConfirm,
   onDismiss,
 }: Props) {
@@ -94,7 +129,7 @@ export default function VehicleSheet({
 
   const suggested = candidates[0];
   const others = candidates.slice(1, 4);
-  const selected = candidates.find((c) => c.id === selectedId) ?? null;
+  const selected = [...candidates, ...(manual ? [manual] : [])].find((c) => c.id === selectedId) ?? null;
   const shown = confirmed ?? suggested;
 
   const cardSx = (isSelected: boolean) => (t: Theme) => ({
@@ -169,9 +204,11 @@ export default function VehicleSheet({
                   <Typography noWrap sx={{ fontWeight: 700 }}>
                     {confirmed ? `Jedziesz: ${vehicleName(shown)}` : vehicleName(shown)}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" noWrap>
-                    kier. {shown.direction}
-                  </Typography>
+                  {directionText(shown) && (
+                    <Typography variant="body2" color="text.secondary" noWrap>
+                      {directionText(shown)}
+                    </Typography>
+                  )}
                 </Box>
                 <Typography variant="body2" color="primary" sx={{ fontWeight: 700 }}>
                   {confirmed ? 'Zmień' : 'Pokaż'}
@@ -190,6 +227,12 @@ export default function VehicleSheet({
 
       <Collapse in={open} unmountOnExit>
         <Box sx={{ overflowY: 'auto', px: 2, pb: 2, maxHeight: { xs: 'calc(62vh - 90px)', sm: 'none' } }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
+            <Button size="small" startIcon={<Refresh />} disabled={loading} onClick={onRedetect}>
+              {loading ? 'Szukam…' : 'Wykryj ponownie'}
+            </Button>
+          </Box>
+
           {loading && candidates.length === 0 && (
             <Box sx={{ display: 'grid', placeItems: 'center', py: 4 }}>
               <CircularProgress size={32} />
@@ -209,9 +252,11 @@ export default function VehicleSheet({
                   </Typography>
                   <Chip label="Sugerowana" size="small" color="secondary" variant="outlined" />
                 </Box>
-                <Typography variant="body2" color="text.secondary" noWrap>
-                  kier. {suggested.direction}
-                </Typography>
+                {[directionText(suggested), distanceText(suggested)].filter(Boolean).length > 0 && (
+                  <Typography variant="body2" color="text.secondary" noWrap>
+                    {[directionText(suggested), distanceText(suggested)].filter(Boolean).join(' · ')}
+                  </Typography>
+                )}
               </Box>
             </Box>
           )}
@@ -235,13 +280,54 @@ export default function VehicleSheet({
                     <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
                       {vehicleName(c)}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
-                      kier. {c.direction}
-                    </Typography>
+                    {directionText(c) && (
+                      <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+                        {directionText(c)}
+                      </Typography>
+                    )}
                   </Box>
                 ))}
               </Box>
             </>
+          )}
+
+          <Autocomplete
+            size="small"
+            options={lines}
+            value={null}
+            blurOnSelect
+            disabled={lines.length === 0}
+            noOptionsText="Brak takiej linii"
+            onChange={(_, line) => line && onManualLine(line)}
+            renderInput={(params) => <TextField {...params} label="Inna linia" placeholder="Wpisz numer linii" />}
+            sx={{ mt: 1.5 }}
+          />
+          {manual && (
+            <Box
+              {...pressable(manual)}
+              sx={[
+                { display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, mt: 1, borderRadius: 3.5 },
+                cardSx(manual.id === selectedId),
+              ]}
+            >
+              <ModeBadge vehicle={manual} size={40} />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 700, lineHeight: 1.2 }}>{vehicleName(manual)}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  wybrana ręcznie
+                </Typography>
+              </Box>
+              <IconButton
+                size="small"
+                aria-label="Usuń ręcznie wybraną linię"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClearManual();
+                }}
+              >
+                <Close fontSize="small" />
+              </IconButton>
+            </Box>
           )}
 
           <Button

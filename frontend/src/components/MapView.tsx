@@ -9,6 +9,7 @@ import DarkMode from '@mui/icons-material/DarkMode';
 import LightMode from '@mui/icons-material/LightMode';
 import Place from '@mui/icons-material/Place';
 import Layers from '@mui/icons-material/Layers';
+import DirectionsBus from '@mui/icons-material/DirectionsBus';
 import Navigation from '@mui/icons-material/Navigation';
 import { MODE_META, iconHtml, modeColor } from '../modes';
 import { useMapLook } from '../mapLook';
@@ -37,6 +38,8 @@ interface Props {
   /** The chosen route: also draw markers at transfers. */
   detailed: boolean;
   padding: MapPadding;
+  /** Shows a button that detects the vehicle the user is in (and reopens the vehicle window). */
+  onDetectVehicle?: () => void;
 }
 
 /** Fits the view to what is visible (route / points) and handles the first geolocation fix. */
@@ -184,6 +187,7 @@ export default function MapView({
   route,
   detailed,
   padding,
+  onDetectVehicle,
 }: Props) {
   const { look, toggle: toggleLook } = useMapLook();
   const [map, setMap] = useState<L.Map | null>(null);
@@ -290,6 +294,12 @@ export default function MapView({
             {paletteMode === 'dark' ? <LightMode /> : <DarkMode />}
           </IconButton>,
         )}
+        {onDetectVehicle &&
+          fab(
+            <IconButton aria-label="Wykryj pojazd, w którym jesteś" onClick={onDetectVehicle}>
+              <DirectionsBus />
+            </IconButton>,
+          )}
         {fab(
           <IconButton aria-label="Moja lokalizacja" onClick={onLocate}>
             <MyLocation />

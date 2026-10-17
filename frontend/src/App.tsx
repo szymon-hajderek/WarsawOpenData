@@ -10,7 +10,7 @@ import PreferencesPage from './components/PreferencesPage';
 import FilterSheet from './components/FilterSheet';
 import { useColorMode } from './colorMode';
 import { fetchRouteOptions } from './api/routes';
-import { BUS_POPUP_REQUEST_EVENT, detectVehicle } from './api/vehicle';
+import { BUS_POPUP_REQUEST_EVENT, detectVehicle, manualCandidate, requestLinePopup } from './api/vehicle';
 import { usePreferences } from './preferences/PreferencesProvider';
 import {
   applyListFilters,
@@ -49,6 +49,8 @@ export default function App() {
 
   // "Which vehicle am I in?" window: open from the start, can be hidden and brought back.
   const [vehicles, setVehicles] = useState<VehicleCandidate[]>([]);
+  const [vehicleLines, setVehicleLines] = useState<string[]>([]);
+  const [manualVehicle, setManualVehicle] = useState<VehicleCandidate | null>(null);
   const [vehiclesLoading, setVehiclesLoading] = useState(true);
   const [vehicleOpen, setVehicleOpen] = useState(true);
   const [vehicleDismissed, setVehicleDismissed] = useState(false);
@@ -104,8 +106,12 @@ export default function App() {
     detectVehicle(userPositionRef.current)
       .then((found) => {
         if (cancelled) return;
-        setVehicles(found);
-        setSelectedVehicleId((prev) => (found.some((v) => v.id === prev) ? prev : found[0]?.id ?? null));
+        setVehicles(found.candidates);
+        setVehicleLines(found.lines);
+        setManualVehicle(null);
+        setSelectedVehicleId((prev) =>
+          found.candidates.some((v) => v.id === prev) ? prev : found.candidates[0]?.id ?? null,
+        );
       })
       .finally(() => !cancelled && setVehiclesLoading(false));
     return () => {
@@ -185,6 +191,7 @@ export default function App() {
         route={preview}
         detailed={step === 'route'}
         padding={padding}
+        onDetectVehicle={step === 'search' ? requestLinePopup : undefined}
       />
 
       {step !== 'route' && (
@@ -202,14 +209,27 @@ export default function App() {
       {step === 'search' && !vehicleDismissed && (
         <VehicleSheet
           candidates={vehicles}
+          lines={vehicleLines}
+          manual={manualVehicle}
           loading={vehiclesLoading}
           open={vehicleOpen}
           selectedId={selectedVehicleId}
           confirmed={confirmedVehicle}
           onOpenChange={setVehicleOpen}
           onSelect={setSelectedVehicleId}
+          onManualLine={(line) => {
+            const v = manualCandidate(line);
+            setManualVehicle(v);
+            setSelectedVehicleId(v.id);
+          }}
+          onClearManual={() => {
+            setManualVehicle(null);
+            setSelectedVehicleId(vehicles[0]?.id ?? null);
+          }}
+          onRedetect={requestLinePopup}
           onConfirm={() => {
-            setConfirmedVehicle(vehicles.find((v) => v.id === selectedVehicleId) ?? null);
+            const all = manualVehicle ? [...vehicles, manualVehicle] : vehicles;
+            setConfirmedVehicle(all.find((v) => v.id === selectedVehicleId) ?? null);
             setVehicleOpen(false);
           }}
           onDismiss={() => setVehicleDismissed(true)}
