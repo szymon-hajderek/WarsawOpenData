@@ -50,8 +50,19 @@ Everything in this repo (files, commits, PRs) is written in English.
 ### What is this project
 
 - **Name:** WarsawOpenData — a hackathon project based on Warsaw open data.
-- **Goal:** _TODO — to be filled in when the user describes it._
-- **Status:** early stage, only the folder structure exists (no code yet).
+- **Goal:** a route planner for Warsaw that uses Veturilo (city bikes) at every stage of a trip
+  together with public transport, which is hard to do today. Further goals: create new city data
+  automatically (anonymised), inclusivity (adjust the pace for walking / cycling / stroller),
+  and later "own bike + public transport".
+- **POC use case:** (1) start = user's location or typed, (2) destination, (3) get n connection
+  options that use Veturilo at any stage.
+- **Planned features:** Veturilo rental integration, anonymised data for the city, intermediate
+  stops, search priorities (max transfers, excluded areas, preferred modes, safety / roadworks,
+  scenic, calories), "Discover" tourist routes, own bike, e-scooters, travel profile.
+- **Jury criteria (design for them):** inclusivity / accessibility / diversity, scalability to
+  other cities, safety, privacy, evidence-based, technical correctness, business model.
+- **Time frame:** 24h hackathon, so keep everything simple.
+- **Status:** the frontend UI exists (mock routing); backend, routing and data are empty.
 
 ### Tech stack
 
@@ -72,7 +83,35 @@ Everything in this repo (files, commits, PRs) is written in English.
 - `routing/` — OpenTripPlanner config
 - `data/` — datasets, one subfolder per data type: `gtfs/`, `gbfs/`, `osm/`, `geojson/`
 
+### Frontend (`frontend/`)
+
+- Stack: React 18, Vite 5, TypeScript, Material UI v6 (+ icons), Leaflet 1.9 with `react-leaflet` 4.
+  Node on the dev machine is 18.18, so stay on these versions (newer Vite needs Node 20+).
+- Screens, one flow: map with the user's location and start / destination fields on top ->
+  list of connection options (with preview on the map) -> chosen route (clean route on the map,
+  summary, steps). State lives in `src/App.tsx` (`step`: search / options / route).
+- **Routing is a mock.** `src/api/routes.ts` (`fetchRouteOptions`) is the only seam to the backend.
+  Replace its body with a call to FastAPI / OpenTripPlanner returning `RouteOption[]`
+  (types in `src/types.ts`). Costs and speeds in the mock are rough estimates.
+- Place search: Nominatim (`src/api/geocode.ts`), limited to Warsaw, debounced; it has a usage
+  limit of about 1 request per second.
+- Theme: all colours in `src/theme.ts` (light + dark; toggle on the map, defaults to the system
+  setting). Colours and icons of transport modes: `src/modes.tsx`.
+- Map tiles: plain OpenStreetMap tiles; dark mode is a CSS filter (`.tiles-dark` in `src/index.css`).
+  CARTO basemaps now return "API KEY REQUIRED", so do not use them.
+- Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
+- Design references (user's screenshots): ride-choice list (selected card outlined), dark map with
+  a clean route and round stop markers, light map with a bottom sheet.
+- Run: `npm install`, `npm run dev` (http://localhost:5173), `npm run build` (type-check + build).
+
 ### Decisions and notes
+
+- Texts shown in the app are in Polish (users are in Warsaw); code, comments and docs are in English.
+- The user is the UI person on the team; other people work on pathfinding, data and the backend.
+- Local tooling quirks: `~/.npm` can be root-owned, so use `npm i --cache <some dir>`;
+  `gh` is in `/opt/homebrew/bin` and `npm` in `/usr/local/bin` (add them to `PATH` in shell calls).
+- In the Vite dev server, editing a file re-runs effects (hot reload), which resets the UI step.
+- The browser pane has no geolocation, so the start must be typed when testing.
 
 - Empty folders are kept in git with `.gitkeep`.
 - Docker files (`docker-compose.yml`, `Dockerfile`) are not added yet.
