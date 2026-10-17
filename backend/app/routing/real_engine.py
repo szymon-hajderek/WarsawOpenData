@@ -1,8 +1,8 @@
 """Routes from the parsed GTFS timetable, the OSM street graph and live Veturilo status.
 
-A walk, a Veturilo ride, Veturilo joined to one public-transport ride, a direct ride and one
-transfer. Street geometry comes from OSM for the options that are returned; the search itself
-ranks with straight-line time so it does not run Dijkstra for every stop.
+A walk, a Veturilo ride, Veturilo before or after one ride, Veturilo between two rides, a direct
+ride and one transfer. A matched live bus or tram shifts the clock when it is behind schedule.
+Street geometry comes from OSM for the options that are returned.
 """
 from __future__ import annotations
 
@@ -15,9 +15,10 @@ from config import REPO, haversine_m
 
 sys.path.insert(0, str(REPO / "algorithms"))
 from fares import brackets_for, cheapest_fare, veturilo_from_brackets, veturilo_pln  # noqa: E402
+from lateness import lateness_s  # noqa: E402
 from plan_trip import (  # noqa: E402
-    as_warsaw, best_bike_pair, bike_access_pairs, direct_rides, nearby, service_moment, spread_groups,
-    transfer_rides, warsaw_offset,
+    as_warsaw, best_bike_pair, bike_access_pairs, bike_between, direct_rides, nearby, service_moment,
+    spread_groups, transfer_rides, warsaw_offset,
 )
 
 log = logging.getLogger("uvicorn.error")
@@ -56,6 +57,7 @@ class RealRouteEngine(RouteEngine):
     def query_routes(self, frm: Place, to: Place, profile: Profile, when: str | None = None) -> list[RouteOption]:
         now = _clock(when)
         date, now_sec = service_moment(now)
+        self._vehicles = _live_vehicles()
         accessible = profile == "accessible"
         origin = tuple(frm.position)
         dest = tuple(to.position)
@@ -91,6 +93,11 @@ class RealRouteEngine(RouteEngine):
                 built.extend(self._bike_with_transit(
                     frm, to, origin, dest, profile, now, now_sec, stops, dest_ids, directs,
                     departures, onward, accessible))
+                middle = self._bike_in_the_middle(
+                    frm, to, origin, dest, profile, now, now_sec, stops, dest_ids,
+                    [s["id"] for s in boards], departures, onward, accessible)
+                if middle:
+                    built.append(middle)
             for ride in directs:
                 option = self._transit_option(frm, to, origin, dest, profile, now, now_sec, [ride], 0, None)
                 if option:
@@ -192,8 +199,33 @@ class RealRouteEngine(RouteEngine):
                         found.append(option)
         return found
 
+    def _bike_in_the_middle(self, frm, to, origin, dest, profile, now, now_sec, stops, dest_ids, boards,
+                            departures, onward, accessible):
+        """Veturilo between two public-transport rides."""
+        found = bike_between(
+            boards, dest_ids, dest, departures, onward, _stations(), stops, _distance, accessible)
+        if not found:
+            return None
+        alight = found["first"]["calls"][-1]
+        board = found["second"]["calls"][0]
+        bridge = _bike_bridge(
+            (alight["lat"], alight["lon"]), alight["name"], found["pickup"], found["dropoff"],
+            (board["lat"], board["lon"]), board["name"], profile)
+        if bridge is None:
+            return None
+        legs, seconds, ride_s = bridge
+        option = self._transit_option(
+            frm, to, origin, dest, profile, now, now_sec,
+            [found["first"], found["second"]], 0, None,
+            between=(legs, seconds),
+            extra_cost=_bike_price(ride_s / 60, found["pickup"].get("electric")))
+        if option:
+            lines = [found["first"]["dep"]["line"], found["second"]["dep"]["line"]]
+            option.title = f"{lines[0]} + Veturilo + {lines[1]}"
+        return option
+
     def _transit_option(self, frm, to, origin, dest, profile, now, now_sec, rides, between_m, between_stop,
-                        lead=None, skip_access=False, egress=None, extra_cost=0.0):
+                        lead=None, skip_access=False, egress=None, extra_cost=0.0, between=None):
         first = rides[0]["calls"][0]
         last = rides[-1]["calls"][-1]
         lead_legs, lead_s = lead if lead else ([], 0.0)
@@ -223,7 +255,12 @@ class RealRouteEngine(RouteEngine):
         route_ids = set()
         for index, ride in enumerate(rides):
             calls = ride["calls"]
-            if index > 0 and between_m > 0 and between_stop is not None:
+            if index > 0 and between is not None:
+                between_legs, between_s = between
+                if ride["dep"]["sec"] < rides[index - 1]["calls"][-1]["arr"] + between_s - CATCH_SLACK_S:
+                    return None
+                legs.extend(between_legs)
+            elif index > 0 and between_m > 0 and between_stop is not None:
                 mid = _street((between_stop["lat"], between_stop["lon"]),
                               (calls[0]["lat"], calls[0]["lon"]), "walk", profile)
                 if mid is None:
@@ -249,14 +286,49 @@ class RealRouteEngine(RouteEngine):
             price = 7.0 if feeds - {"ztm"} else 4.4
         price += extra_cost
         title = " + ".join(ride["dep"]["line"] for ride in rides)
-        if lead or egress:
+        if between is not None:
+            parts = title.split(" + ")
+            if len(parts) == 2:
+                title = f"{parts[0]} + Veturilo + {parts[1]}"
+        elif lead or egress:
             title = "Veturilo + " + title
+        delay = self._delay(rides[0], now_sec)
+        leave = leave + timedelta(seconds=delay)
         door_s = (rides[-1]["calls"][-1]["arr"] + egress_s) - (rides[0]["dep"]["sec"] - access_s - lead_s)
         option = _option("pt-" + "-".join(ride["dep"]["trip_id"] for ride in rides), title, legs, leave,
                          price, door_s)
+        if delay >= 60:
+            option.tags.append(f"opóźnienie {max(1, round(delay / 60))} min")
         if any(ride["dep"]["line"] in alerts.alerted_lines() for ride in rides):
             option.tags.append("Zmiana na trasie")
         return option
+
+    def _delay(self, ride: dict, now_sec: int) -> int:
+        dep = ride["dep"]
+        if dep.get("mode") not in ("bus", "tram") or not ride.get("calls"):
+            return 0
+        vehicle = next((v for v in getattr(self, "_vehicles", [])
+                        if v.get("line") == dep.get("line")
+                        and str(v.get("brigade")) == str(dep.get("brigade"))), None)
+        if vehicle is None:
+            return 0
+        calls = mkuran.whole_trip(dep["trip_id"], ride["calls"][0]["stop_id"], dep["sec"])
+        if len(calls) < 2:
+            return 0
+        return lateness_s(calls, (vehicle["lat"], vehicle["lon"]), now_sec, _distance)
+
+
+def _live_vehicles() -> list[dict]:
+    """Bus and tram positions. Empty when the key is missing or the feed fails."""
+    try:
+        from sources.um_warszawa import fetch_vehicles, fresh
+        rows = []
+        for kind in ("bus", "tram"):
+            rows.extend(fresh(fetch_vehicles(kind)))
+        return rows
+    except Exception as exc:
+        log.warning("live positions skipped: %s", exc)
+        return []
 
 
 _FOOT_CACHE: dict = {}

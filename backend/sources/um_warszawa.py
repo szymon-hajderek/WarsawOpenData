@@ -153,7 +153,7 @@ def api_vehicles(type: str = Query("bus", description="bus or tram"), line: str 
         data = fresh(_veh_cache.get(("veh", type), lambda: fetch_vehicles(type)), max_age_s)
     except httpx.HTTPError as exc:
         log.warning("live %s feed failed: %s", type, exc)
-        raise HTTPException(503, "live vehicle feed is unavailable")
+        raise HTTPException(502, "live vehicle feed is unavailable") from None
     return [v for v in data if not line or v["line"] == line]
 
 
