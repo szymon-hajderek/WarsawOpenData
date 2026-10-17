@@ -98,7 +98,15 @@ export default function PlaceField({
       onClose={(_, reason) => {
         if (reason === 'blur' || reason === 'escape') setInput(value?.label ?? '');
       }}
-      noOptionsText={typing ? (loading ? 'Szukam…' : 'Brak wyników w Warszawie') : 'Wpisz adres lub miejsce'}
+      noOptionsText={
+        typing
+          ? loading
+            ? 'Szukam…'
+            : input.trim().length < 3
+              ? 'Brak przystanków. Wpisz co najmniej 3 znaki, aby szukać adresów.'
+              : 'Brak wyników w Warszawie'
+          : 'Wpisz adres lub miejsce'
+      }
       loadingText="Szukam…"
       clearText="Wyczyść"
       openText="Otwórz"
