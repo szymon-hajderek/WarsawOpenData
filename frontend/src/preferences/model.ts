@@ -103,7 +103,18 @@ export interface CyclingSetting {
   level: BikeLevel;
   customKmh: number | null;
   autoSpeed: boolean;
+  /** Rent only at docks with at least this many bikes now (live data). 0 = any dock. */
+  minBikes: number;
 }
+
+/** Choices of "Rowery na stacji" (CyclingSetting.minBikes). */
+export const MIN_BIKES_CHOICES: { value: number; label: string }[] = [
+  { value: 0, label: 'Dowolnie' },
+  { value: 1, label: '1+' },
+  { value: 2, label: '2+' },
+  { value: 3, label: '3+' },
+  { value: 5, label: '5+' },
+];
 
 export interface WheelchairSetting {
   type: WheelchairType;
@@ -157,7 +168,7 @@ export interface Preferences {
 
 export const DEFAULT_PREFERENCES: Preferences = {
   walking: { level: 'normal', customKmh: null, autoSpeed: false },
-  cycling: { enabled: true, level: 'recreational', customKmh: null, autoSpeed: false },
+  cycling: { enabled: true, level: 'recreational', customKmh: null, autoSpeed: false, minBikes: 1 },
   wheelchair: {
     type: 'none',
     level: 'normal',
@@ -198,6 +209,7 @@ export function routeSearchBody(
     walkKmh,
     bikeKmh: !p.cycling.enabled || chair || access === 'stroller' ? 0 : cyclingKmh(p.cycling),
     stepFree: access === null ? p.wheelchair.stepFree || chair : chair,
+    minBikes: p.cycling.minBikes,
     maxTransfers: p.priorities.maxTransfers,
     excludedDistricts: p.priorities.excluded.districts,
     excludedPoints: p.priorities.excluded.points.map((pt) => ({ position: pt.position, radiusM: pt.radiusM })),

@@ -38,6 +38,7 @@ PROFILE_SPEED = {
 _SPEED = contextvars.ContextVar("route_speed", default=None)
 _BLOCK = contextvars.ContextVar("route_block", default=None)
 _EXCLUDE = contextvars.ContextVar("route_exclude", default=frozenset())
+_MIN_BIKES = contextvars.ContextVar("route_min_bikes", default=0)
 _WALK_MODE = contextvars.ContextVar("route_walk_mode", default=None)
 
 
@@ -87,7 +88,8 @@ class RealRouteEngine(RouteEngine):
                 speed["bike"] = OSM_SPEED["bike"]  # bikeKmh 0 only switches Veturilo off
         elif travel == "transit" and "veturilo" in exclude:
             speed["bike"] = 0.0  # no rented bike; an own-bike trip (travel=bike) is not affected
-        tokens = (_SPEED.set(speed), _BLOCK.set(block), _WALK_MODE.set(graph), _EXCLUDE.set(exclude))
+        tokens = (_SPEED.set(speed), _BLOCK.set(block), _WALK_MODE.set(graph), _EXCLUDE.set(exclude),
+                  _MIN_BIKES.set(getattr(search, "minBikes", None) or 0))
         try:
             if travel != "transit":
                 option = self._street_option(frm, to, origin, dest, profile, now, travel)
@@ -107,6 +109,7 @@ class RealRouteEngine(RouteEngine):
             _BLOCK.reset(tokens[1])
             _WALK_MODE.reset(tokens[2])
             _EXCLUDE.reset(tokens[3])
+            _MIN_BIKES.reset(tokens[4])
 
     def _plan(self, frm, to, profile, now, origin, dest, mode, speed, max_transfers) -> list[RouteOption]:
         """Transit options planned by RAPTOR in the router (POST /plan), plus one later query for more departures."""
@@ -182,12 +185,14 @@ def _plan_ready(mode: str) -> bool:
 
 
 def _plan_options(speed, max_transfers, profile) -> dict:
-    """The /plan keys from the preferences: speeds, counted legs, no Veturilo when cycling is off."""
+    """The /plan keys from the preferences: speeds, counted legs, no Veturilo when cycling is off, min_bikes."""
     options = {"speeds": _router_speeds(profile), "max_legs": max_transfers + 1}
     if speed["bike"] <= 0:
         options["veturilo_s"] = 0
     if _EXCLUDE.get():
         options["exclude_modes"] = sorted(_EXCLUDE.get())
+    if _MIN_BIKES.get():
+        options["min_bikes"] = _MIN_BIKES.get()
     return options
 
 

@@ -640,8 +640,10 @@ when the option rides transit (`POST /api/live/route-delays` reads it), `bike` f
 `departure` / `arrival` come from the router's `dep_s` / `arr_s` on the service day (leaving home just in time);
 `transfers` = counted legs - 1 (a Veturilo rental counts). Every limit of `/plan` is left unlimited; `max_legs` =
 `maxTransfers` + 1 (default 3); `bikeKmh` 0 sends `veturilo_s: 0`. Timetable times only: no live delay shifts
-the times (live delays of suggested rides: `POST /api/live/route-delays`). Veturilo docks are assumed to have a
-bike and a free place. A line in the current ZTM alerts gets the tag `Zmiana na trasie`. Options whose path enters an
+the times (live delays of suggested rides: `POST /api/live/route-delays`). `minBikes` > 0 is sent as `min_bikes`:
+a bike is rented only at docks that have at least that many bikes in the router's live state (Nextbike status,
+pushed every 30 s, frozen for the whole search); without it every dock is assumed to have a bike. Free places at
+the return dock are not checked. A line in the current ZTM alerts gets the tag `Zmiana na trasie`. Options whose path enters an
 excluded district or point are dropped after planning.
 
 No Python fallback: while the router's `/health` says the timetable or the plan of the mode is not ready
@@ -658,7 +660,8 @@ graph and matrices; Veturilo only in the walk mode.
 Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow`, `accessible` or `stroller`, default `standard`),
 `when` (optional, Warsaw local `HH:MM` or an ISO datetime; empty means now),
 `via` (optional list of `Place`, at most 5) and `order` (`given` or `optimal`).
-Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Veturilo), `stepFree` (bool),
+Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Veturilo), `minBikes` (0–50, integer;
+rent Veturilo only at docks with at least this many bikes now; empty / 0 = every dock), `stepFree` (bool),
 `maxTransfers` (`0`, `1`, `2` or `null` = up to two), `excludedDistricts` (Warsaw district names),
 `excludedPoints` (`position`, `radiusM`) and `body` (`wheelchair` `none` | `manual` | `electric`; a wheelchair
 implies `accessible` routing and no Veturilo; `weightKg`, `heightCm`, `age` and `sex` are accepted but not used by the route search).

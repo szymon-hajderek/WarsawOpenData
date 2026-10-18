@@ -162,6 +162,8 @@ class RouteRequest(BaseModel):
     walkKmh: Optional[float] = Field(None, ge=1, le=10)
     bikeKmh: Optional[float] = Field(None, ge=0, le=45)
     stepFree: bool = False
+    # Rent a Veturilo bike only at docks with at least this many bikes now (live state). None / 0 = every dock.
+    minBikes: Optional[int] = Field(None, ge=0, le=50)
     # None = up to two transfers. 0 = direct rides only.
     maxTransfers: Optional[int] = Field(None, ge=0, le=2)
     excludedDistricts: list[str] = Field(default_factory=list, max_length=18)
