@@ -58,14 +58,17 @@ export default function PlaceField({
     setLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const found = await searchPlaces(q, ac.signal, nearRef.current); // Nominatim: debounce, max ~1 req/s
+        // Our own places arrive first (a few ms), Nominatim's are merged in later (searchPlaces waits for it).
+        const found = await searchPlaces(q, ac.signal, nearRef.current, (local) => {
+          if (!ac.signal.aborted) setResults(local);
+        });
         if (!ac.signal.aborted) setResults(found);
       } catch {
         if (!ac.signal.aborted) setResults([]);
       } finally {
         if (!ac.signal.aborted) setLoading(false);
       }
-    }, 300);
+    }, 150);
     return () => {
       ac.abort(); // also cancels the request that is already on its way
       clearTimeout(timer);
