@@ -1,7 +1,6 @@
 """Geometry helpers, ported from `frontend/src/utils/geo.ts` and `format.ts`.
 
-Used by the stub engine to produce plausible route geometry until the real
-C++ routing service provides it.
+Time formatting and rounding used by the real engine.
 """
 import math
 from datetime import datetime

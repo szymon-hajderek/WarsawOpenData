@@ -167,7 +167,7 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
       points.current = [];
       ride.current = {
         legs, walkAs, startedAt: Date.now(),
-        journey: sharing.current && journey && !journey.mock ? journeySubmission(journey) : undefined,
+        journey: sharing.current && journey ? journeySubmission(journey) : undefined,
       };
       setElapsedS(0);
       setMessage(null);

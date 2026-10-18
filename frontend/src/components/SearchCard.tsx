@@ -14,7 +14,7 @@ import Add from '@mui/icons-material/Add';
 import Close from '@mui/icons-material/Close';
 import DragIndicator from '@mui/icons-material/DragIndicator';
 import PlaceField from './PlaceField';
-import { MAX_STOPS } from '../api/multiStop';
+import { MAX_STOPS } from '../api/routes';
 import type { Place, StopOrder } from '../types';
 import { RADIUS } from '../layout';
 import { TRAVEL_LABELS, TRAVEL_MODES, type TravelMode } from '../travel';

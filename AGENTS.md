@@ -99,7 +99,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   `POST /api/routes`. The route engine (`backend/app/routing/real_engine.py`, Python) builds options from
   GTFS departures, street paths and live Veturilo docks. Street paths (walk, bike, accessible, stroller) come from
   the C++ street router (`algorithms/router/`), which the backend starts. The router also plans transit trips with
-  RAPTOR (`POST /plan`), which the route engine uses for transit (Python planner = fallback). `StubRouteEngine` remains only as the old mock.
+  RAPTOR (`POST /plan`), which the route engine uses for transit (Python planner = fallback). There is no mock engine and no frontend mock any more.
 
 ### Tech stack
 
@@ -320,11 +320,11 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Screens, one flow: map with the user's location and start / destination fields on top ->
   list of connection options (with preview on the map) -> chosen route (clean route on the map,
   summary, steps). State lives in `src/App.tsx` (`step`: search / options / route).
-- **Routing seam.** `src/api/routes.ts` (`fetchRouteOptions`) calls the backend (`POST /api/routes`)
-  when `API_URL` is set. If the backend is unreachable or answers badly, the call throws `BackendOfflineError` and the app says "Nie połączono z serwerem" (no made-up routes).
-  The in-browser mock (`mockRouteOptions`) is used only when the backend is switched off on purpose (`VITE_API_URL=""`). Types in `src/types.ts`. The mock's speeds are rough estimates.
+- **Routing seam.** `src/api/routes.ts` (`fetchRouteOptions`) calls the backend (`POST /api/routes`).
+  If the backend is switched off (`VITE_API_URL=""`), unreachable or answers badly, the call throws `BackendOfflineError` and the app says "Nie połączono z serwerem".
+  There is no in-browser mock (removed in `feature/no-mocks`): the app never shows made-up routes or vehicles. Types in `src/types.ts`.
 - Backend URL: `src/config.ts` reads `VITE_API_URL` (default `http://localhost:8000`;
-  set `VITE_API_URL=""` in `frontend/.env` to force the mock). On a phone, `localhost` is the phone itself: set it to
+  `VITE_API_URL=""` in `frontend/.env` = backend off, the app says "Nie połączono z serwerem"). On a phone, `localhost` is the phone itself: set it to
   the page's own origin (`VITE_API_URL=https://<laptop-ip>:5173 npm run dev:https`); Vite then proxies `/api`.
 - Place search: `src/api/geocode.ts` (`searchPlaces`, `MIN_QUERY`), debounced (300 ms), limited to Warsaw. Calls the backend (`GET /api/geocode`) when `API_URL` is set
   (from 2 characters; sends the user's position as `lat` / `lon`), else Nominatim directly (3 characters, ≈1 request/second limit). The backend answers with our own
@@ -360,7 +360,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   "Jadę tą linią" confirms. Data: `src/api/vehicle.ts` `detectVehicle` sends the user's last 1-3 positions (memory only,
   one every 10 s) to `POST /api/live/nearest-buses` and returns `{ candidates, lines }` (candidates carry `distanceM` =
   `rmse_m`, `vehicleNo`, `brigade`); when the backend is down it returns `offline: true` (the window says "Nie połączono z serwerem" with a retry button), with no location it returns nothing;
-  mock data only when `API_URL` is empty.
+  an empty `API_URL` also counts as offline (no mock data).
   Delay: after "Jadę tą linią" `useVehicleDetection` starts `src/api/delay.ts` `watchDelay`, which polls `GET /api/live/delay` every 10 s and sends a `bus-delay`
   event on `window` (`BusDelayDetail` in `types.ts`); stops on a new detection or "Nie jadę komunikacją". No UI shows it yet.
   Detection runs once after start and on `requestLinePopup()`. Each detection also sends a `bus-popup` event on `window`
@@ -374,7 +374,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   takes `{ from, to, profile, via, order }` and sends `via` + `order` to `POST /api/routes`. Backend: `RouteRequest.via` / `order`, `RouteOption.waypoints`
   (start, stops in visiting order, destination), `RouteLeg.stop` (1-based number of the stop the leg ends at); `backend/app/routing/multi.py` asks the
   engine once per segment and chains the n-th best option of every segment (max 3 options); "optimal" = `algorithms/stop_order.py` (exact, a walk under 700 m otherwise a wait plus transit time,
-  start and destination fixed). The next segment starts at the previous arrival plus 2 minutes. The frontend mock does the same chaining in `src/api/multiStop.ts` without the wait.
+  start and destination fixed). The next segment starts at the previous arrival plus 2 minutes.
 - Preferences are sent with the search (`walkKmh`, `bikeKmh`, `stepFree`, `maxTransfers`, excluded areas, `body`). Vehicles and max walking time still filter the list in the browser. Model, level tables (default speeds), time
   rules and list filtering: `src/preferences/model.ts`; storage in localStorage key `preferences`
   (`src/preferences/PreferencesProvider.tsx`). Preferences page: `src/components/PreferencesPage.tsx`; reusable fields
@@ -420,19 +420,17 @@ Everything in this repo (files, commits, PRs) is written in English.
   a wheelchair user must know the path was really checked. Filters and sorting do not apply to a street trip.
 - Route representation extras (all optional): `RouteLeg.elevators` / `steps` (`[lat, lon]`, drawn as icons via `accessPoints` in `src/utils/overlay.ts`),
   `RouteLeg.waitS` (transit: seconds at the boarding stop), `RouteLeg.tripId` (GTFS, no UI), `RouteOption.waitS` (all standing time). Texts from `src/utils/format.ts`:
-  `formatWait` "czekasz N min" in the route steps, `formatTotalWait` "w tym czekanie N min" next to the duration (list + details); nothing below 60 s. The mock fills them too.
+  `formatWait` "czekasz N min" in the route steps, `formatTotalWait` "w tym czekanie N min" next to the duration (list + details); nothing below 60 s.
 - Stop overlay: `RouteLeg.fromId` / `toId` (ids of `GET /api/stations`, `null` for a place that is not a stop; both optional until the backend sends them, see backend issue #79).
   `src/api/stations.ts` (`fetchStation`, `fetchStations(bbox)`), `src/hooks/useRouteStations.ts` loads the stops a route names (by id, cached), `src/utils/overlay.ts` (`buildOverlay`)
   returns the markers, the leg paths with their ends moved onto the stops and the metro entrances. The map draws small stop markers, joins the legs at them, draws metro rides
   dashed and muted, shows the entrance where a walk goes down, and elevator / steps icons on street trips. Without answers the overlay is empty (nothing is made up).
 - Backend calls build their URL with `apiUrl(path)` from `src/config.ts` (routes, geocode, history, vehicle, street routes,
-  stations, journeys, sim); `src/api/delay.ts` still uses a relative `/api/live/delay`. An empty `API_URL` gives example routes and
-  vehicles, place search straight from Nominatim / `places.json`, and the local speed summary; street trips have no mock.
+  stations, journeys, sim); `src/api/delay.ts` still uses a relative `/api/live/delay`. An empty `API_URL` = backend off: routes and
+  vehicles say "Nie połączono z serwerem"; only place search (Nominatim / `places.json`) and the local speed summary still work.
   Answers are checked in `src/api/validate.ts`; a wrong shape counts as "backend down".
-- **A missing backend is said out loud.** With `API_URL` set, a network error, a 5xx or a wrong shape means "not connected": a red snackbar "Nie połączono z serwerem. Sprawdź, czy backend działa."
+- **A missing backend is said out loud.** An empty `API_URL`, a network error, a 5xx or a wrong shape means "not connected": a red snackbar "Nie połączono z serwerem. Sprawdź, czy backend działa."
   plus the same text in the route list (`useRouteSearch` `offline`) and the vehicle window (`useVehicleDetection` `offline`). A 4xx (the backend refused the query) stays the generic "Nie udało się pobrać tras".
-- **Example data is marked.** When the backend is switched off on purpose (`VITE_API_URL=""`), `fetchRouteOptions` / `detectVehicle` return `mock: true`; the app shows
-  one snackbar and a "Dane przykładowe" chip on the route list and the vehicle window.
 - Hooks (`src/hooks/`): `useLocationTrack` (one `watchPosition` + the last 3 positions, cleaned up on unmount), `useRouteSearch`,
   `useVehicleDetection`, `useRouteStations`, `useRidePlayback` (demo). `App.tsx` only wires them. `ErrorBoundary` wraps the app. Selection and step are derived while rendering
   (no effects for derived state). Under the Preferences page the map and panels are `inert`.
@@ -461,8 +459,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   nearest boarding stop/platform or Veturilo station (no distance cutoff; ties by ID). Daily Warsaw-time counters,
   plus random per-recording token-only receipts for atomic retry deduplication; no full tracks, user/device IDs or
   precise journey timestamps. No public read/export endpoint. Counts and receipts stay until the DB is cleared.
-  The recorder snapshots endpoints and opt-in at start; revocation invalidates the current submission. Mock,
-  interrupted and GPS-less recordings do not count; statistics failures do not block local speed history.
+  The recorder snapshots endpoints and opt-in at start; revocation invalidates the current submission.
+  Interrupted and GPS-less recordings do not count; statistics failures do not block local speed history.
   Geocoded places use `osm:<node|way|relation>:<osm_id>` instead of Nominatim's temporary `place_id`.
 
 - `app/routing/geometry.py` builds leg shapes for rendering: street path from the router, transit GTFS shape, else a
@@ -476,8 +474,8 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Endpoints: `POST /api/routes` -> `RouteOption[]` (backend side of `fetchRouteOptions`),
   `GET /api/geocode?q=` -> `Place[]` (Nominatim proxy, Warsaw-limited), `GET /health` on `app.main`.
 - Routing is behind a `RouteEngine` seam (`app/routing/engine.py`): `query_routes(...)` and
-  `update_state(...)`. Current impl is `RealRouteEngine` (GTFS + OSM + Veturilo). `StubRouteEngine`
-  is the old mock. A `CppRouteEngine` can replace the real engine later; nothing else changes.
+  `update_state(...)`. Current impl is `RealRouteEngine` (GTFS + OSM + Veturilo); the old
+  `StubRouteEngine` mock was removed. A `CppRouteEngine` can replace the real engine later; nothing else changes.
 - The street protocol is owned by the C++ team: `/route` returns `legs` with optional `segments`,
   while `/access` returns station costs without paths. Python preprocessing writes the graph files once;
   the long-running street router loads them and keeps them in memory. Python still plans GTFS combinations.
