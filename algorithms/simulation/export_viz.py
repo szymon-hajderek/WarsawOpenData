@@ -39,6 +39,12 @@ FRACTION_SEED, FRACTION_POINTS = 2026, 10
 BENCH_SIZES = (250, 500, 1000, 2000, 4000, 8000)
 
 
+def feed_clock(snap: dict) -> datetime:
+    """Warsaw wall-clock time of a poll: the median feed time (feed times are Warsaw times stored as local
+    epochs, so fromtimestamp() gives them back on any machine; the recorder's own clock may be wrong)."""
+    return datetime.fromtimestamp(statistics.median(v["t"] for v in snap["vehicles"]))
+
+
 def r5(x: float) -> float:
     return round(x, 5)
 
@@ -111,9 +117,7 @@ def page_data(sample, tracks, line_of, moving, targets, per, summary, trials, se
     reports = [len(tr) for tr in tracks.values()]
     return {
         "mode": mode, "per": per,
-        # Feed times are Warsaw wall-clock times stored as local epochs, so fromtimestamp() gives them back
-        # in Warsaw time on any machine (the recorder's own clock may be in another zone).
-        "recorded": datetime.fromtimestamp(max(v["t"] for v in first_poll["vehicles"])).strftime("%d.%m.%Y, %H:%M"),
+        "recorded": feed_clock(first_poll).strftime("%d.%m.%Y, %H:%M"),
         "buses": len(tracks), "moving": len(moving), "max_reports": max(reports),
         "lines": [{"line": line_of[v], "vid": v, "len_m": round(sim.length_m(tracks[v])),
                    "path": [[r5(p["lat"]), r5(p["lon"])] for p in tracks[v]]} for v in targets],
@@ -188,7 +192,7 @@ def hotspots_page(bench) -> None:
             points.append((vid, sim.time_at_fraction(part, u), u))
 
     # 10 lines with the most GTFS trips that day: one moving vehicle each, 5 points u * L on its whole track.
-    date = datetime.fromtimestamp(max(v["t"] for v in snaps[0]["vehicles"])).strftime("%Y%m%d")
+    date = feed_clock(snaps[0]).strftime("%Y%m%d")
     freq = trips_per_line(date)
     for (mode, line), n in sorted(freq.items(), key=lambda kv: (-kv[1], kv[0])):
         if len([t for t in targets if t["group"] == "line"]) == HOT_N:
