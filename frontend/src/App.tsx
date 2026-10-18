@@ -17,7 +17,7 @@ import { simState } from './api/sim';
 import FilterSheet from './components/FilterSheet';
 import SidePanel from './components/SidePanel';
 import { useColorMode } from './colorMode';
-import { detectionPoints, requestLinePopup } from './api/vehicle';
+import { detectionPoints } from './api/vehicle';
 import { geoErrorText, useLocationTrack } from './hooks/useLocationTrack';
 import { useRouteSearch } from './hooks/useRouteSearch';
 import { useTripProgress } from './hooks/useTripProgress';
@@ -77,6 +77,8 @@ export default function App() {
   const [stopOrder, setStopOrder] = useState<StopOrder>('given');
   // Public transport (default) or a street-only trip: walking or own bike.
   const [travel, setTravel] = useState<TravelMode>('transit');
+  // The search card on a phone shows only "Dokąd jedziesz?" until it is opened (on a wide screen it is always open).
+  const [searchOpen, setSearchOpen] = useState(false);
   // The 3D map prototype (a tilted map with extruded buildings), remembered on the device.
   const [map3d, setMap3d] = useMap3d();
   // Accessibility picked for this search (transit and walking); null = not picked, follow the wheelchair preference.
@@ -352,6 +354,15 @@ export default function App() {
         right: 70,
       };
 
+  // Where the round map buttons start: below the search card, whatever its height is.
+  const searchCollapsed = !desktop && !searchOpen && !replanning; // a new search during a trip keeps "Wróć do przejazdu" in view
+  const mapControlsOffset =
+    inTrip || step === 'route'
+      ? 0
+      : searchCollapsed
+        ? -56 + (destination && !origin ? 34 : 0)
+        : 84 + stopFields.length * 56 + (hasAccess(travel) && !byBike ? 36 : 0) + (travel === 'transit' ? 36 : 0);
+
   return (
     <Box sx={{ position: 'fixed', inset: 0, bgcolor: 'background.default' }}>
       {/* Under the Preferences page the map and panels cannot take focus or be read by a screen reader. */}
@@ -373,8 +384,9 @@ export default function App() {
               route={preview}
               padding={padding}
               stops={inTrip ? [] : via}
-              controlsOffset={inTrip || step === 'route' ? 0 : 84 + stopFields.length * 56 + (hasAccess(travel) && !byBike ? 36 : 0) + (travel === 'transit' ? 36 : 0)}
-              onDetectVehicle={!activeTrip && step === 'search' ? requestLinePopup : undefined}
+              controlsOffset={mapControlsOffset}
+              onDetectVehicle={!activeTrip && step === 'search' ? vehicle.toggle : undefined}
+              vehicleOpen={vehicle.open}
               onClose3d={() => setMap3d(false)}
             />
           </Suspense>
@@ -390,8 +402,9 @@ export default function App() {
           detailed={inTrip || step === 'route'}
           padding={padding}
           stops={inTrip ? [] : via}
-          controlsOffset={inTrip || step === 'route' ? 0 : 84 + stopFields.length * 56 + (hasAccess(travel) && !byBike ? 36 : 0) + (travel === 'transit' ? 36 : 0)}
-          onDetectVehicle={!activeTrip && step === 'search' ? requestLinePopup : undefined}
+          controlsOffset={mapControlsOffset}
+          onDetectVehicle={!activeTrip && step === 'search' ? vehicle.toggle : undefined}
+              vehicleOpen={vehicle.open}
           follow={inTrip}
           onMapPick={picking !== null && !pickBusy ? (p) => void pickAt(picking, p) : undefined}
           onContextPick={!inTrip && picking === null ? (target, p) => void pickAt(target, p) : undefined}
@@ -407,6 +420,8 @@ export default function App() {
 
         {!inTrip && step !== 'route' && picking === null && (
           <SearchCard
+            collapsed={searchCollapsed}
+            onToggleCollapsed={desktop ? undefined : () => setSearchOpen((o) => !o)}
             origin={origin}
             destination={destination}
             stops={stopFields}

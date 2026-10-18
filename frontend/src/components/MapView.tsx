@@ -56,6 +56,8 @@ interface Props {
   controlsOffset?: number;
   /** Shows a button that detects the vehicle the user is in (and reopens the vehicle window). */
   onDetectVehicle?: () => void;
+  /** The vehicle window is shown: the bus button is pressed and a second click hides it. */
+  vehicleOpen?: boolean;
   /** What the phone reports in the demo (with GPS error), drawn as a small dot next to the real position. */
   gpsPosition?: LatLng | null;
   /** Active trip: the map keeps the user's position in view. */
@@ -345,6 +347,7 @@ export default function MapView({
   stops = [],
   controlsOffset = 0,
   onDetectVehicle,
+  vehicleOpen = false,
   gpsPosition = null,
   follow = false,
   onMapPick,
@@ -510,6 +513,7 @@ export default function MapView({
         overlayZoomedOut={OVERLAYS.some((o) => overlayIds.includes(o.id) && overlayData.zoom < o.minZoom)}
         onLocate={onLocate}
         onDetectVehicle={onDetectVehicle}
+        vehicleOpen={vehicleOpen}
         controlsOffset={controlsOffset}
       />
     </>

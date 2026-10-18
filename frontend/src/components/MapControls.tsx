@@ -26,6 +26,8 @@ interface Props {
   onLocate: () => void;
   /** Shows a button that detects the vehicle the user is in (and reopens the vehicle window). */
   onDetectVehicle?: () => void;
+  /** The vehicle window is on screen (the bus button is pressed; a second click hides it). */
+  vehicleOpen?: boolean;
   /** The 3D map only: the rotate mode (one finger turns and tilts the map instead of moving it). */
   rotate?: { on: boolean; onToggle: () => void };
   /** Extra top offset (px) on phones, when the search card grows. */
@@ -47,6 +49,7 @@ export default function MapControls({
   overlayZoomedOut,
   onLocate,
   onDetectVehicle,
+  vehicleOpen = false,
   rotate,
   controlsOffset = 0,
 }: Props) {
@@ -128,7 +131,7 @@ export default function MapControls({
       </Popover>
       {onDetectVehicle &&
         fab(
-          <IconButton aria-label="Wykryj pojazd, w którym jesteś" onClick={onDetectVehicle}>
+          <IconButton aria-label="Wykryj pojazd, w którym jesteś" aria-pressed={vehicleOpen} onClick={onDetectVehicle}>
             <DirectionsBus />
           </IconButton>,
         )}
