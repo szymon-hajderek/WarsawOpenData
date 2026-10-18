@@ -154,7 +154,7 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const via = useMemo(() => stopFields.filter((p): p is Place => p !== null), [viaKey]);
   const trip = useMemo(() => applyOverrides(effective, filters.overrides), [effective, filters.overrides]);
-  // A wheelchair in the preferences preselects "Wózek inwalidzki"; a picked accessibility wins for this search.
+  // A wheelchair in the preferences preselects "Na wózku"; a picked accessibility wins for this search.
   // The own bike as access mode drops the wheelchair / stroller (the backend refuses the pair).
   const byBike = travel === 'transit' && transitAccess === 'bike';
   const access: Access = byBike ? 'standard' : (accessChoice ?? (trip.wheelchair.type !== 'none' ? 'wheelchair' : 'standard'));

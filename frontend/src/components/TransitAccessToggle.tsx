@@ -1,32 +1,33 @@
-import { Box, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { TRANSIT_ACCESS_LABELS, TRANSIT_ACCESS_OPTIONS, type TransitAccess } from '../travel';
+import { FormControlLabel, Switch } from '@mui/material';
+import DirectionsBike from '@mui/icons-material/DirectionsBike';
+import type { TransitAccess } from '../travel';
 
 interface Props {
   value: TransitAccess;
   onChange: (value: TransitAccess) => void;
 }
 
-/** "Dojazd: Pieszo | Rowerem" of a public transport search: reach the stops on foot or by the own bike. */
+/**
+ * "Z własnym rowerem" of a public transport search (off by default): the user takes their own bike along and rides it
+ * to, from and between stops, carried on transit (`access: "bike"`). On hides the accessibility choice.
+ */
 export default function TransitAccessToggle({ value, onChange }: Props) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
-      <Typography variant="caption" color="text.secondary" id="transit-access-label">
-        Dojazd:
-      </Typography>
-      <ToggleButtonGroup
-        exclusive
-        size="small"
-        value={value}
-        aria-labelledby="transit-access-label"
-        onChange={(_, v: TransitAccess | null) => v && onChange(v)}
-        sx={{ '& .MuiToggleButton-root': { py: 0.25, px: 1.25, fontSize: 12 } }}
-      >
-        {TRANSIT_ACCESS_OPTIONS.map((a) => (
-          <ToggleButton key={a} value={a}>
-            {TRANSIT_ACCESS_LABELS[a]}
-          </ToggleButton>
-        ))}
-      </ToggleButtonGroup>
-    </Box>
+    <FormControlLabel
+      sx={{ mt: 0.5, ml: 0, gap: 0.5, '& .MuiFormControlLabel-label': { fontSize: 13 } }}
+      control={
+        <Switch
+          size="small"
+          checked={value === 'bike'}
+          onChange={(_, on) => onChange(on ? 'bike' : 'walk')}
+          inputProps={{ 'aria-label': 'Z własnym rowerem' }}
+        />
+      }
+      label={
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <DirectionsBike sx={{ fontSize: 16 }} /> Z własnym rowerem
+        </span>
+      }
+    />
   );
 }

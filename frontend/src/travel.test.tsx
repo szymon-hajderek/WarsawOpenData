@@ -75,7 +75,7 @@ describe('picked accessibility wins over the preferences', () => {
     expect(body.body.wheelchair).toBe('manual');
   });
 
-  it('"Zwykle" drops the wheelchair and step-free preferences', () => {
+  it('"Pieszo" (standard) drops the wheelchair and step-free preferences', () => {
     const stepFree = { ...chair, wheelchair: { ...chair.wheelchair, stepFree: true } };
     const body = routeSearchBody(stepFree, null, 'standard');
     expect(body.stepFree).toBe(false);
@@ -121,13 +121,13 @@ describe('travel controls in the search card', () => {
     const modes = screen.getByRole('group', { name: 'Sposób podróży' });
     expect(Array.from(modes.children).map((c) => c.textContent)).toEqual(['Komunikacja', 'Pieszo', 'Rower']);
     expect(screen.getByRole('group', { name: 'Dostępność' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Wózek dziecięcy' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Z wózkiem dziecięcym' }));
     expect(onAccess).toHaveBeenCalledWith('stroller');
     fireEvent.click(screen.getByText('Rower'));
     expect(onTravel).toHaveBeenCalledWith('bike');
 
     rerender(<SearchCard {...props} travel="walk" onTravelChange={onTravel} access="wheelchair" onAccessChange={onAccess} />);
-    expect(screen.getByRole('button', { name: 'Wózek inwalidzki' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Na wózku' })).toHaveAttribute('aria-pressed', 'true');
 
     rerender(<SearchCard {...props} travel="bike" onTravelChange={onTravel} access="standard" onAccessChange={onAccess} />);
     expect(screen.queryByRole('group', { name: 'Dostępność' })).toBeNull();

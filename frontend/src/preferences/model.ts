@@ -176,7 +176,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
  * Fields `POST /api/routes` uses to pace and filter the search. `allowedModes` = the vehicle chips of the trip
  * filters (null = follow the preferences); when given, they replace the preference's excluded modes.
  * `access` = the accessibility picked in the search card for this search (null = not picked: follow the preferences).
- * A picked one wins over the wheelchair / step-free preferences: "Zwykle" drops them, a stroller is not a wheelchair,
+ * A picked one wins over the wheelchair / step-free preferences: "Pieszo" (standard) drops them, a stroller is not a wheelchair,
  * and wheelchair / stroller leave out `walkKmh` (the backend then uses its profile's walking speed) unless the user's
  * wheelchair speed is known.
  */
