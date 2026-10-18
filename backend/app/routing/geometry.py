@@ -10,6 +10,7 @@ import functools
 
 import stations
 from sources import mkuran
+from shape_geometry import slice_shape_by_stops  # algorithms/ (on sys.path via mkuran)
 
 STREET_MODES = ("walk", "bike", "veturilo")
 
@@ -49,24 +50,42 @@ def _latlon(points) -> list[list[float]]:
 
 
 def _ride_path(trip_id, calls) -> list[list[float]]:
-    """GTFS shape of one ride by stop distances, else the shape with the stops projected on it; [] if none."""
+    """GTFS shape of one ride, joined to the mapped positions of its first and last stop; [] if no shape.
+
+    The shape comes by stop distances, else with the stops projected on it. It is then cut at the projections
+    of the two mapped stop positions (the markers of `GET /api/stations`) and starts / ends exactly there, so the
+    ride meets its stop markers and the street legs (which the router ends at the same positions)."""
     if not trip_id or len(calls) < 2:
         return []
     try:
         shape_id = mkuran.trip_shape_id(trip_id)
     except (KeyError, OSError, ValueError):
         return []
+    ends = [list(pos(call.get("stop_id"), (call["lat"], call["lon"]))) for call in (calls[0], calls[-1])]
     try:
         shape = mkuran.shape_slice(shape_id, calls[0].get("shape_dist", -1), calls[-1].get("shape_dist", -1))
     except (KeyError, OSError, ValueError):
         shape = []
-    if len(shape) >= 2:
-        return shape
-    try:
-        shape = mkuran.shape_by_stops(shape_id, calls)
-    except (KeyError, OSError, ValueError):
-        shape = []
-    return shape if len(shape) >= 2 else []
+    if len(shape) < 2:
+        mapped = [{**call, "lat": lat, "lon": lon}
+                  for call in calls for lat, lon in [pos(call.get("stop_id"), (call["lat"], call["lon"]))]]
+        try:
+            shape = mkuran.shape_by_stops(shape_id, mapped)
+        except (KeyError, OSError, ValueError):
+            shape = []
+    if len(shape) < 2:
+        return []
+    return _join_ends(slice_shape_by_stops(shape, ends) or shape, ends[0], ends[1])
+
+
+def _join_ends(shape, start, end) -> list[list[float]]:
+    """`shape` with `start` prepended and `end` appended (no repeated point)."""
+    out: list[list[float]] = []
+    for point in [start, *shape, end]:
+        point = [point[0], point[1]]
+        if not out or out[-1] != point:
+            out.append(point)
+    return out
 
 
 def _router_calls(raw: dict) -> list[dict]:

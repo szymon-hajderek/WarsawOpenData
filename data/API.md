@@ -675,7 +675,9 @@ Accessible options carry `bez schodów`; stroller options carry `schody tylko z 
 (with stroller rails), else `bez schodów`; routes with elevators carry `windy: N`.
 
 Answer: list of `RouteOption`. Public-transport geometry follows the GTFS shape between the stops
-boarded and alighted (by stop distances, else the shape with the stops projected on it). A trip without any shape
+boarded and alighted (by stop distances, else the shape with the stops projected on it), cut at the projections of
+the two mapped stop positions and joined to them: a transit `path` starts and ends exactly at the `fromId` / `toId`
+positions of `GET /api/stations`. A trip without any shape
 is still offered: its `path` joins every stop of the ride in order and the leg has `approximatePath: true`. Walk and bike geometry comes only from the street router, using StationLocations IDs
 at stop and Veturilo endpoints (metro access includes the entrances). A missing street path drops the mixed
 candidate. The result may be empty. No straight lines replace missing street paths.
