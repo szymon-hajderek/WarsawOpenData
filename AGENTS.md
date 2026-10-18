@@ -414,6 +414,11 @@ Everything in this repo (files, commits, PRs) is written in English.
   walk / accessible / stroller / bike for street-only trips without timetable/live queries; default is transit.
   Stroller is a profile; stepFree/wheelchair uses the accessible graph. Route totals include pushed-bike metres
   in walkDistance and ridden metres in bikeDistance, including multi-stop trips.
+- Transit with the own bike: `RouteRequest.access` = `walk` (default) | `bike`. `bike` runs `/plan` in mode `bike` (no
+  Veturilo; `bikeKmh` 0 keeps the default speed), street legs are `bike`, titles "Rower + 525 + Rower" (ridden legs only,
+  repeats merged), street-only = "Własny rower" (id `bike`). 422 with a wheelchair / stroller (profile, travel, stepFree,
+  body.wheelchair). Frontend: "Dojazd: Pieszo | Rowerem" (`TransitAccessToggle.tsx`, `TransitAccess` in `travel.ts`) under
+  Komunikacja; Rowerem hides the accessibility toggle and sends profile `standard` + `access: "bike"`.
 - The C++ router never returns transit shapes. Transit geometry comes from GTFS in `geometry.py` (`_ride_path`: `shape_slice`,
   then `shape_by_stops`); without any shape, a polyline through the stops with `approximatePath: true`. The shape is cut at
   the projections of the first / last stop's mapped (`stations.json`) positions and joined to them, so rides start / end on

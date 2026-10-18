@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BackendOfflineError, fetchRouteOptions, VehicleNotFoundError } from '../api/routes';
 import { fetchStreetTrip, StreetRouteError } from '../api/streetRoute';
-import { streetMode, TRANSIT_PROFILE, type Access, type TravelMode } from '../travel';
+import { streetMode, TRANSIT_PROFILE, type Access, type TransitAccess, type TravelMode } from '../travel';
 import type { RouteSearchBody } from '../preferences/model';
 import type { Place, RouteOption, StopOrder } from '../types';
 
@@ -15,6 +15,8 @@ interface Query {
   travel?: TravelMode;
   /** Accessibility of a transit search (its `profile`) or of a walk (its `travel`); the bike ignores it. */
   access?: Access;
+  /** How a transit search reaches the stops: on foot or by the own bike (then `access` is ignored: no wheelchair). */
+  transitAccess?: TransitAccess;
   /** Plan from this vehicle (the user rides it); the start is then only its label. */
   onboardVehicleId?: string | null;
   /** Warsaw local departure `YYYY-MM-DDTHH:MM`; empty = now. Sent to every kind of search. */
@@ -22,7 +24,7 @@ interface Query {
 }
 
 /** Fetches the connections as soon as both points are set; a new query cancels the old one. */
-export function useRouteSearch({ origin, destination, via, order, search, travel = 'transit', access = 'standard', onboardVehicleId = null, when }: Query) {
+export function useRouteSearch({ origin, destination, via, order, search, travel = 'transit', access = 'standard', transitAccess = 'walk', onboardVehicleId = null, when }: Query) {
   const [options, setOptions] = useState<RouteOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -48,7 +50,17 @@ export function useRouteSearch({ origin, destination, via, order, search, travel
     const request = street
       ? fetchStreetTrip({ from: origin, to: destination, via, order, when }, street, ac.signal).then((found) => ({ options: found }))
       : fetchRouteOptions(
-          { from: origin, to: destination, profile: TRANSIT_PROFILE[access], via, order, search, when, onboard: onboardVehicleId ? { vehicleId: onboardVehicleId } : null },
+          {
+            from: origin,
+            to: destination,
+            profile: transitAccess === 'bike' ? 'standard' : TRANSIT_PROFILE[access],
+            via,
+            order,
+            search,
+            when,
+            onboard: onboardVehicleId ? { vehicleId: onboardVehicleId } : null,
+            access: transitAccess,
+          },
           ac.signal,
         );
     request
@@ -67,7 +79,7 @@ export function useRouteSearch({ origin, destination, via, order, search, travel
         setLoading(false);
       });
     return () => ac.abort();
-  }, [origin, destination, via, order, search, travel, access, onboardVehicleId, when]);
+  }, [origin, destination, via, order, search, travel, access, transitAccess, onboardVehicleId, when]);
 
   return { options, loading, error, offline, errorMessage, vehicleNotFound };
 }
