@@ -4,6 +4,7 @@ import DirectionsWalk from '@mui/icons-material/DirectionsWalk';
 import DirectionsBike from '@mui/icons-material/DirectionsBike';
 import Accessible from '@mui/icons-material/Accessible';
 import SwapHoriz from '@mui/icons-material/SwapHoriz';
+import DirectionsBus from '@mui/icons-material/DirectionsBus';
 import LevelSelector from './LevelSelector';
 import HistoryHint, { type HistoryInfo } from './HistoryHint';
 import AreaPicker from './AreaPicker';
@@ -11,6 +12,9 @@ import type { SpeedSummary } from '../../history/types';
 import {
   BIKE_LEVELS,
   cyclingKmh,
+  FILTER_MODES,
+  modeName,
+  type ExcludableMode,
   SPEED_RANGE,
   walkingKmh,
   wheelchairKmh,
@@ -253,6 +257,30 @@ export function PrioritiesSection({
   );
 }
 
+/** "Środki transportu": the vehicles the search may use (the unchecked ones are sent as `excludeModes`). */
+export function TransportModesSection({ value, onChange }: { value: ExcludableMode[]; onChange: (excluded: ExcludableMode[]) => void }) {
+  return (
+    <Section icon={<DirectionsBus />} title="Środki transportu" hint="Którymi pojazdami chcesz jeździć. Odznaczone pomijamy w wyszukiwaniu.">
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }} role="group" aria-label="Środki transportu">
+        {FILTER_MODES.map((m) => {
+          const on = !value.includes(m);
+          return (
+            <Chip
+              key={m}
+              label={modeName(m)}
+              clickable
+              color={on ? 'primary' : 'default'}
+              variant={on ? 'filled' : 'outlined'}
+              aria-pressed={on}
+              onClick={() => onChange(on ? [...value, m] : value.filter((x) => x !== m))}
+            />
+          );
+        })}
+      </Box>
+    </Section>
+  );
+}
+
 /** All preference sections. Used on the Preferences page and (as overrides) in the trip filters. */
 export default function PreferenceFields({
   value,
@@ -276,6 +304,7 @@ export default function PreferenceFields({
         onChange={(wheelchair) => onChange({ ...value, wheelchair })}
         history={value.wheelchair.type === 'none' ? undefined : info('wheelchair')}
       />
+      <TransportModesSection value={value.excludedModes} onChange={(excludedModes) => onChange({ ...value, excludedModes })} />
       <PrioritiesSection value={value.priorities} onChange={(priorities) => onChange({ ...value, priorities })} />
     </Box>
   );
