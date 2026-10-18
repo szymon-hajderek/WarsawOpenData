@@ -64,6 +64,8 @@ interface Props {
   loading: boolean;
   /** The backend could not be reached, so nothing was detected. */
   offline?: boolean;
+  /** The server has no live vehicle data now (not a connection problem). */
+  liveUnavailable?: boolean;
   snap: VehicleSnap;
   selectedId: string | null;
   /** The vehicle the user confirmed (shown in the hidden bar). */
@@ -89,6 +91,7 @@ export default function VehicleSheet({
   manual,
   loading,
   offline = false,
+  liveUnavailable = false,
   snap,
   selectedId,
   confirmed,
@@ -163,7 +166,7 @@ export default function VehicleSheet({
               </>
             ) : (
               <>
-                <Typography sx={{ flex: 1 }}>{offline ? 'Nie połączono z serwerem' : 'Nie wykryto pojazdu'}</Typography>
+                <Typography sx={{ flex: 1 }}>{offline ? 'Nie połączono z serwerem' : liveUnavailable ? 'Dane na żywo niedostępne' : 'Nie wykryto pojazdu'}</Typography>
                 <ExpandLess color="action" />
               </>
             )}
@@ -178,6 +181,17 @@ export default function VehicleSheet({
           {loading && candidates.length === 0 && (
             <Box sx={{ display: 'grid', placeItems: 'center', py: 3 }}>
               <CircularProgress size={32} />
+            </Box>
+          )}
+
+          {liveUnavailable && !offline && !loading && candidates.length === 0 && (
+            <Box sx={{ py: 2, textAlign: 'center' }}>
+              <Typography color="text.secondary">
+                Dane o pojazdach na żywo są teraz niedostępne, więc nie wykryję pojazdu. Wybierz linię ręcznie.
+              </Typography>
+              <Button onClick={onRedetect} sx={{ mt: 1 }}>
+                Spróbuj ponownie
+              </Button>
             </Box>
           )}
 

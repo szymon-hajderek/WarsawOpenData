@@ -41,4 +41,10 @@ describe('backend not connected', () => {
     const result = await detectVehicle([], [52.2, 21.0]);
     expect(result).toMatchObject({ candidates: [], offline: true });
   });
+
+  it('vehicle: a 503 (no live data on the server) is not "offline"', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"detail": "PORTAL_KEY missing"}', { status: 503 })));
+    const result = await detectVehicle([], [52.2, 21.0]);
+    expect(result).toMatchObject({ candidates: [], offline: false, liveUnavailable: true });
+  });
 });
