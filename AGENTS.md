@@ -384,15 +384,18 @@ Everything in this repo (files, commits, PRs) is written in English.
   (start, stops in visiting order, destination), `RouteLeg.stop` (1-based number of the stop the leg ends at); `backend/app/routing/multi.py` asks the
   engine once per segment and chains the n-th best option of every segment (max 3 options); "optimal" = `algorithms/stop_order.py` (exact, a walk under 700 m otherwise a wait plus transit time,
   start and destination fixed). The next segment starts at the previous arrival plus 2 minutes.
-- Preferences are sent with the search (`walkKmh`, `bikeKmh`, `stepFree`, `maxTransfers`, excluded areas, `body`). Vehicles and max walking time still filter the list in the browser. Model, level tables (default speeds), time
+- Preferences are sent with the search (`walkKmh`, `bikeKmh`, `stepFree`, `maxTransfers`, excluded areas, `excludeModes`, `body`). Only max walking time still filters the list in the browser. Model, level tables (default speeds), time
   rules and list filtering: `src/preferences/model.ts`; storage in localStorage key `preferences`
   (`src/preferences/PreferencesProvider.tsx`). Preferences page: `src/components/PreferencesPage.tsx`; reusable fields
   (levels + custom km/h, wheelchair, priorities, excluded districts / own points): `src/components/preferences/`.
   Time rules (`RuleDialog.tsx`) override any section for given days and hours (may cross midnight); the latest started
   active rule wins. `FilterSheet.tsx` = filters for the current search only (sorting, max transfers, vehicles, max walking
-  time, step-free, pace / wheelchair, excluded areas, and "Zaawansowane" = all preferences as overrides). Vehicles and max walking
-  time still filter the list in the browser (`applyListFilters`).
-  `fetchRouteOptions` sends `walkKmh`, `bikeKmh`, `stepFree`, `maxTransfers`, excluded districts and points, and `body`.
+  time, step-free, pace / wheelchair, excluded areas, and "Zaawansowane" = all preferences as overrides). Max walking
+  time still filters the list in the browser (`applyListFilters`); vehicles do not any more.
+  "Środki transportu" (`Preferences.excludedModes`: bus / tram / metro / rail / veturilo, `TransportModesSection`, time rules may
+  override it) is the persistent exclusion; the FilterSheet vehicle chips (`TripFilters.modes`, null = as in the preferences)
+  replace it for one search. `routeSearchBody(trip, filters.modes)` turns both into `excludeModes` for `POST /api/routes`.
+  `fetchRouteOptions` sends `walkKmh`, `bikeKmh`, `stepFree`, `maxTransfers`, excluded districts and points, `excludeModes` and `body`.
 - Calories (device-side): `Preferences.body` (weight, height, age, sex; all optional, defaults 70 kg / 170 cm / 35 y) is edited in the "Kalorie" section of the
   Preferences page only (`components/preferences/BodySection.tsx`); rules and filters never override it (`applyOverrides` keeps it). `routeKcal(route, prefs)` in
   `src/preferences/model.ts` computes NET kcal of the walk / bike legs (MET from the Compendium of Physical Activities interpolated by the user's km/h x weight x hours
@@ -421,6 +424,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   gives the average per mode; the frontend falls back to `localSummary` when the backend is down. Preferences: each of Pieszo / Rower / Wózek shows
   "Twoja średnia z historii" with "Użyj X km/h" (when it differs by 10% or more) and the switch "Zawsze używaj średniej z historii" (`autoSpeed`; when on and
   enough trips, `applyHistory` in `src/preferences/model.ts` replaces the level / typed speed and the selector is locked). History can be cleared on the Preferences page.
+- Departure time: the "Wyjazd: Teraz" chip in the search card (`DepartureControl.tsx`, helpers `src/utils/departure.ts`) picks
+  Dziś / Jutro / a date + a time, or "Teraz". State `departure` in `App.tsx` (`null` = now, not saved). A chosen time is sent as
+  `when` = `YYYY-MM-DDTHH:MM` with every search (transit, `via`, street-only); now sends no `when`. A past time is allowed (chip muted).
+  The route list header shows "Wyjazd 14:30" when not now.
 - Travel modes (`src/travel.ts`): chips in the search card (Komunikacja | Pieszo | Wózek inwalidzki | Wózek dziecięcy | Własny rower, not saved). `Komunikacja` is the
   normal `POST /api/routes` search. The other four are street-only trips: `src/api/streetRoute.ts` (`fetchStreetTrip`, also with `via` / `order`; `fetchStreetRoute` = no stops)
   posts to the same `POST /api/routes` with `travel` (`ROUTER_MODE`: `walk`, `accessible`, `stroller`, `bike`) and shows the one `RouteOption` of the answer as it is

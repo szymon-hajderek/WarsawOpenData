@@ -31,7 +31,7 @@ const messageFor = (status: number) => MESSAGES[status] ?? 'Serwer tras nie dzia
 
 /** A street trip, also through intermediate stops (the backend chains the parts and orders the stops). */
 export async function fetchStreetTrip(
-  { from, to, via = [], order = 'given' }: { from: Place; to: Place; via?: Place[]; order?: StopOrder },
+  { from, to, via = [], order = 'given', when }: { from: Place; to: Place; via?: Place[]; order?: StopOrder; when?: string },
   mode: StreetMode,
   signal?: AbortSignal,
 ): Promise<RouteOption[]> {
@@ -42,7 +42,7 @@ export async function fetchStreetTrip(
       signal,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to, travel: ROUTER_MODE[mode], ...(via.length ? { via, order } : {}) }),
+      body: JSON.stringify({ from, to, travel: ROUTER_MODE[mode], ...(via.length ? { via, order } : {}), ...(when ? { when } : {}) }),
     });
   } catch (err) {
     if (signal?.aborted) throw err;

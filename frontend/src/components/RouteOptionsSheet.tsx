@@ -19,6 +19,8 @@ import { delaysByLeg } from '../api/routeDelays';
 interface Props {
   /** Routes after filtering and sorting. */
   options: RouteOption[];
+  /** "Wyjazd 14:30" when the search was for a chosen departure; nothing for now. */
+  departure?: string | null;
   /** How many routes were found before filtering. */
   foundCount: number;
   loading: boolean;
@@ -47,6 +49,7 @@ interface Props {
 /** List of connections - "Choose your route" - with the preference summary and filters. */
 export default function RouteOptionsSheet({
   options,
+  departure = null,
   foundCount,
   loading,
   error,
@@ -97,6 +100,7 @@ export default function RouteOptionsSheet({
               Wybierz trasę
             </Typography>
             <Typography variant="body2" color="text.secondary" noWrap>
+              {departure && `${departure} · `}
               {loading
                 ? 'Szukam połączeń…'
                 : options.length === 0

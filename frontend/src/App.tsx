@@ -16,6 +16,7 @@ import { requestLinePopup } from './api/vehicle';
 import { geoErrorText, useLocationTrack } from './hooks/useLocationTrack';
 import { useRouteSearch } from './hooks/useRouteSearch';
 import type { TravelMode } from './travel';
+import { departureSummary, departureWhen, type Departure } from './utils/departure';
 import { useVehicleDetection } from './hooks/useVehicleDetection';
 import { usePreferences } from './preferences/PreferencesProvider';
 import { useHistory } from './history/HistoryProvider';
@@ -47,6 +48,8 @@ export default function App() {
   const [stopOrder, setStopOrder] = useState<StopOrder>('given');
   // Public transport (default) or a street-only trip: walking, wheelchair, stroller, own bike.
   const [travel, setTravel] = useState<TravelMode>('transit');
+  // Departure time of the search: `null` = now (not saved, so a reload starts from now again).
+  const [departure, setDeparture] = useState<Departure>(null);
   const [tab, setTab] = useState<Tab>('map');
   // The Demo tab exists only when the backend runs in simulation mode (SIM_SCENARIO).
   const [simulation, setSimulation] = useState(false);
@@ -87,7 +90,8 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const via = useMemo(() => stopFields.filter((p): p is Place => p !== null), [viaKey]);
   const trip = useMemo(() => applyOverrides(effective, filters.overrides), [effective, filters.overrides]);
-  const search = useMemo(() => routeSearchBody(trip), [trip]);
+  // The vehicle chips of the filters override the preference's excluded modes for this search.
+  const search = useMemo(() => routeSearchBody(trip, filters.modes), [trip, filters.modes]);
 
   const { options, loading, error: searchError, offline: routesOffline, errorMessage } = useRouteSearch({
     origin,
@@ -96,6 +100,7 @@ export default function App() {
     order: stopOrder,
     search,
     travel,
+    when: departureWhen(departure),
   });
 
   // A new search starts clean: no filters, no chosen route.
@@ -103,7 +108,7 @@ export default function App() {
     setFilters(DEFAULT_FILTERS);
     setPickedId(null);
     setChosenId(null);
-  }, [origin, destination, via, stopOrder, travel]);
+  }, [origin, destination, via, stopOrder, travel, departure]);
 
   // The backend is switched off or could not be reached: say so each time it happens (no made-up data is shown).
   const offlineShown = routesOffline || vehicle.offline;
@@ -187,6 +192,8 @@ export default function App() {
             order={stopOrder}
             travel={travel}
             onTravelChange={setTravel}
+            departure={departure}
+            onDepartureChange={setDeparture}
             currentLocation={currentLocation}
             onOriginChange={setOrigin}
             onDestinationChange={setDestination}
@@ -220,6 +227,7 @@ export default function App() {
         {step === 'options' && (
           <RouteOptionsSheet
             options={visible}
+            departure={departureSummary(departure)}
             foundCount={options.length}
             loading={loading}
             error={searchError}
