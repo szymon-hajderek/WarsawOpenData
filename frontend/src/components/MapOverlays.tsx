@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import L from 'leaflet';
-import { CircleMarker, Marker, Popup, useMap } from 'react-leaflet';
+import { CircleMarker, Marker, Pane, Popup, useMap } from 'react-leaflet';
 import { Box, Button, Typography, type PaletteMode } from '@mui/material';
 import type { Station } from '../api/stations';
 import type { DockStatus } from '../api/veturilo';
@@ -46,7 +46,7 @@ function StationPopup({ station, dock, onPlacePick }: { station: Station; dock?:
     onPlacePick?.(target, stationPlace(station));
   };
   return (
-    <Popup>
+    <Popup pane="popupPane">
       <Box sx={{ minWidth: 170 }}>
         <Typography variant="subtitle2">{stationLabel(station)}</Typography>
         {station.kind === 'veturilo' && (
@@ -80,12 +80,16 @@ function dockIcon(count: number | null, color: string): L.DivIcon {
   });
 }
 
+/** Own panes: stop dots above the route lines' pane (400), Veturilo counts above the dots and below the route markers (600). */
+const STOPS_PANE = 'overlay-stops';
+const DOCKS_PANE = 'overlay-docks';
+
 /** Pills are shared by every station with the same count. */
 const DOCK_ICONS = new Map<string, L.DivIcon>();
 
 /** Stops (small dots in the mode colour) and Veturilo stations (bike count) of the switched-on overlays. */
 export function MapOverlays({ stations, status, paletteMode, onPlacePick }: Props) {
-  const renderer = useMemo(() => L.canvas({ padding: 0.3 }), []);
+  const renderer = useMemo(() => L.canvas({ padding: 0.3, pane: STOPS_PANE }), []);
   const vetColor = modeColor('veturilo', paletteMode);
   const iconFor = (n: number | null) => {
     const key = `${vetColor}:${n}`;
@@ -94,29 +98,35 @@ export function MapOverlays({ stations, status, paletteMode, onPlacePick }: Prop
     return icon;
   };
 
+  const docks = stations.filter((s) => s.kind === 'veturilo');
+  const stops = stations.filter((s) => s.kind !== 'veturilo');
   return (
     <>
-      {stations.map((s) => {
-        if (s.kind === 'veturilo') {
+      <Pane name={STOPS_PANE} style={{ zIndex: 450 }}>
+        {stops.map((s) => {
+          const big = s.kind !== 'bus_post' && s.kind !== 'tram_post';
+          return (
+            <CircleMarker
+              key={s.id}
+              center={s.position}
+              radius={big ? 6 : 4.5}
+              pathOptions={{ color: '#fff', weight: 1.5, fillColor: modeColor(KIND_MODE[s.kind] ?? 'bus', paletteMode), fillOpacity: 1, renderer } as L.PathOptions}
+            >
+              <StationPopup station={s} onPlacePick={onPlacePick} />
+            </CircleMarker>
+          );
+        })}
+      </Pane>
+      <Pane name={DOCKS_PANE} style={{ zIndex: 550 }}>
+        {docks.map((s) => {
           const dock = status.get(s.id);
           return (
-            <Marker key={s.id} position={s.position} icon={iconFor(dock ? dock.bikes : null)} zIndexOffset={-500}>
+            <Marker key={s.id} position={s.position} icon={iconFor(dock ? dock.bikes : null)}>
               <StationPopup station={s} dock={dock} onPlacePick={onPlacePick} />
             </Marker>
           );
-        }
-        const big = s.kind !== 'bus_post' && s.kind !== 'tram_post';
-        return (
-          <CircleMarker
-            key={s.id}
-            center={s.position}
-            radius={big ? 6 : 4.5}
-            pathOptions={{ color: '#fff', weight: 1.5, fillColor: modeColor(KIND_MODE[s.kind] ?? 'bus', paletteMode), fillOpacity: 1, renderer } as L.PathOptions}
-          >
-            <StationPopup station={s} onPlacePick={onPlacePick} />
-          </CircleMarker>
-        );
-      })}
+        })}
+      </Pane>
     </>
   );
 }
