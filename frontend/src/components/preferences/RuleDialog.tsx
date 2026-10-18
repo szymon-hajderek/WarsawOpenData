@@ -17,7 +17,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { CyclingSection, TransferChips, WalkingSection, WheelchairSection } from './PreferenceFields';
+import { CyclingSection, TransferChips, TransportModesSection, WalkingSection, WheelchairSection } from './PreferenceFields';
 import AreaPicker from './AreaPicker';
 import { DAY_LABELS, type PreferenceOverrides, type Preferences, type TimeRule } from '../../preferences/model';
 
@@ -50,6 +50,7 @@ export default function RuleDialog({ rule, base, onSave, onClose }: Props) {
       if (!on) delete next[key];
       else if (key === 'maxTransfers') next.maxTransfers = base.priorities.maxTransfers;
       else if (key === 'excluded') next.excluded = base.priorities.excluded;
+      else if (key === 'excludedModes') next.excludedModes = base.excludedModes;
       else (next as Record<string, unknown>)[key] = base[key];
       return next;
     });
@@ -155,6 +156,14 @@ export default function RuleDialog({ rule, base, onSave, onClose }: Props) {
             {switchRow('wheelchair', 'Wózek i dostępność', 'wheelchair' in o)}
             <Collapse in={'wheelchair' in o} unmountOnExit>
               {o.wheelchair && <WheelchairSection value={o.wheelchair} onChange={(wheelchair) => setO({ ...o, wheelchair })} />}
+            </Collapse>
+          </Box>
+          <Box>
+            {switchRow('excludedModes', 'Środki transportu', 'excludedModes' in o)}
+            <Collapse in={'excludedModes' in o} unmountOnExit>
+              {o.excludedModes && (
+                <TransportModesSection value={o.excludedModes} onChange={(excludedModes) => setO({ ...o, excludedModes })} />
+              )}
             </Collapse>
           </Box>
           <Box>

@@ -87,7 +87,8 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const via = useMemo(() => stopFields.filter((p): p is Place => p !== null), [viaKey]);
   const trip = useMemo(() => applyOverrides(effective, filters.overrides), [effective, filters.overrides]);
-  const search = useMemo(() => routeSearchBody(trip), [trip]);
+  // The vehicle chips of the filters override the preference's excluded modes for this search.
+  const search = useMemo(() => routeSearchBody(trip, filters.modes), [trip, filters.modes]);
 
   const { options, loading, error: searchError, offline: routesOffline, errorMessage } = useRouteSearch({
     origin,

@@ -21,6 +21,7 @@ const OVERRIDE_LABELS: Record<keyof PreferenceOverrides, string> = {
   wheelchair: 'Wózek',
   maxTransfers: 'Przesiadki',
   excluded: 'Okolice',
+  excludedModes: 'Pojazdy',
 };
 
 /** Preferences tab: how the user moves, priorities and time rules. */

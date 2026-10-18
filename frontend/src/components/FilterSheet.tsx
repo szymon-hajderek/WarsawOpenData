@@ -67,10 +67,12 @@ export default function FilterSheet({ open, onClose, filters, onChange, effectiv
   const [advanced, setAdvanced] = useState(false);
 
   const setTrip = (next: Preferences) => onChange({ ...filters, overrides: diffOverrides(effective, next) });
-  const selectedModes = filters.modes ?? FILTER_MODES;
+  // The chips start from the preference ("Środki transportu") and override it for this search only.
+  const preferred = FILTER_MODES.filter((m) => !trip.excludedModes.includes(m));
+  const selectedModes = filters.modes ?? preferred;
   const toggleMode = (m: FilterMode) => {
-    const next = selectedModes.includes(m) ? selectedModes.filter((x) => x !== m) : [...selectedModes, m];
-    onChange({ ...filters, modes: next.length === FILTER_MODES.length ? null : next });
+    const next = FILTER_MODES.filter((x) => (x === m ? !selectedModes.includes(x) : selectedModes.includes(x)));
+    onChange({ ...filters, modes: next.length === preferred.length && next.every((x) => preferred.includes(x)) ? null : next });
   };
 
   return (

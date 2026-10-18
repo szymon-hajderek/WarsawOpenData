@@ -1,4 +1,4 @@
-import type { LatLng, RouteOption, TransportMode } from '../types';
+import type { LatLng, RouteOption } from '../types';
 import type { SpeedMode, SpeedSummary } from '../history/types';
 
 /**
@@ -7,6 +7,10 @@ import type { SpeedMode, SpeedSummary } from '../history/types';
  * - `TimeRule`: hours in which some preferences change (e.g. "Noc").
  * - `TripFilters`: changes for one search only (sorting, allowed modes, overrides of the preferences).
  */
+
+/** Means of transport the user can exclude; sent as `excludeModes` to `POST /api/routes` (trolleybus counts as bus). */
+export type ExcludableMode = 'bus' | 'tram' | 'metro' | 'rail' | 'veturilo';
+export const FILTER_MODES: ExcludableMode[] = ['bus', 'tram', 'metro', 'rail', 'veturilo'];
 
 // ---------------------------------------------------------------- districts
 
@@ -146,6 +150,8 @@ export interface Preferences {
     maxTransfers: number | null;
     excluded: ExcludedAreas;
   };
+  /** Means of transport never used in a search ("Środki transportu"). */
+  excludedModes: ExcludableMode[];
   body: BodySetting;
 }
 
@@ -162,13 +168,18 @@ export const DEFAULT_PREFERENCES: Preferences = {
     preferLifts: false,
   },
   priorities: { maxTransfers: null, excluded: { districts: [], points: [] } },
+  excludedModes: [],
   body: { weightKg: null, heightCm: null, age: null, sex: null },
 };
 
-/** Fields `POST /api/routes` uses to pace, filter and price the search. */
-export function routeSearchBody(p: Preferences) {
+/**
+ * Fields `POST /api/routes` uses to pace and filter the search. `allowedModes` = the vehicle chips of the trip
+ * filters (null = follow the preferences); when given, they replace the preference's excluded modes.
+ */
+export function routeSearchBody(p: Preferences, allowedModes: ExcludableMode[] | null = null) {
   const chair = p.wheelchair.type !== 'none';
   return {
+    excludeModes: allowedModes ? FILTER_MODES.filter((m) => !allowedModes.includes(m)) : p.excludedModes,
     walkKmh: chair ? (wheelchairKmh(p.wheelchair) ?? walkingKmh(p.walking)) : walkingKmh(p.walking),
     bikeKmh: !p.cycling.enabled || chair ? 0 : cyclingKmh(p.cycling),
     stepFree: p.wheelchair.stepFree || chair,
@@ -211,6 +222,7 @@ export function summarize(p: Preferences): string[] {
   if (p.priorities.maxTransfers !== null) out.push(`Maks. przesiadek: ${p.priorities.maxTransfers}`);
   const areas = p.priorities.excluded.districts.length + p.priorities.excluded.points.length;
   if (areas > 0) out.push(`Omijam: ${areas}`);
+  if (p.excludedModes.length > 0) out.push(`Bez: ${p.excludedModes.map(modeName).join(', ')}`);
   return out;
 }
 
@@ -279,6 +291,7 @@ export interface PreferenceOverrides {
   /** `null` is a real value: any number of transfers. */
   maxTransfers?: number | null;
   excluded?: ExcludedAreas;
+  excludedModes?: ExcludableMode[];
 }
 
 export interface TimeRule {
@@ -322,6 +335,7 @@ export function applyOverrides(p: Preferences, o: PreferenceOverrides): Preferen
       maxTransfers: o.maxTransfers !== undefined ? o.maxTransfers : p.priorities.maxTransfers,
       excluded: o.excluded ?? p.priorities.excluded,
     },
+    excludedModes: o.excludedModes ?? p.excludedModes,
     body: p.body, // personal data: not changed by rules or filters
   };
 }
@@ -336,6 +350,7 @@ export function diffOverrides(base: Preferences, next: Preferences): PreferenceO
   if (!same(base.wheelchair, next.wheelchair)) o.wheelchair = next.wheelchair;
   if (base.priorities.maxTransfers !== next.priorities.maxTransfers) o.maxTransfers = next.priorities.maxTransfers;
   if (!same(base.priorities.excluded, next.priorities.excluded)) o.excluded = next.priorities.excluded;
+  if (!same(base.excludedModes, next.excludedModes)) o.excludedModes = next.excludedModes;
   return o;
 }
 
@@ -395,7 +410,7 @@ export function describeRule(rule: TimeRule): string {
 // ------------------------------------------------------------ trip filters
 
 export type SortKey = 'fastest' | 'fewest-transfers' | 'most-active';
-export type FilterMode = Exclude<TransportMode, 'walk'>;
+export type FilterMode = ExcludableMode;
 
 export const SORT_LABELS: Record<SortKey, string> = {
   fastest: 'Najszybsze',
@@ -403,11 +418,9 @@ export const SORT_LABELS: Record<SortKey, string> = {
   'most-active': 'Najaktywniejsze',
 };
 
-export const FILTER_MODES: FilterMode[] = ['bus', 'tram', 'metro', 'rail', 'veturilo'];
-
 export interface TripFilters {
   sort: SortKey;
-  /** Allowed vehicles; null = all. */
+  /** Allowed vehicles for this search (sent as `excludeModes`); null = as in the preferences. */
   modes: FilterMode[] | null;
   /** Max total walking time in minutes; null = no limit. */
   maxWalkMin: number | null;
@@ -418,7 +431,7 @@ export interface TripFilters {
 export const DEFAULT_FILTERS: TripFilters = { sort: 'fastest', modes: null, maxWalkMin: null, overrides: {} };
 
 export interface FilterChip {
-  id: 'sort' | 'modes' | 'walk' | 'maxTransfers' | 'walking' | 'cycling' | 'wheelchair' | 'excluded';
+  id: 'sort' | 'modes' | 'walk' | 'maxTransfers' | 'walking' | 'cycling' | 'wheelchair' | 'excluded' | 'excludedModes';
   label: string;
 }
 
@@ -427,7 +440,6 @@ const MODE_NAMES: Record<FilterMode, string> = {
   tram: 'Tramwaj',
   metro: 'Metro',
   rail: 'Kolej',
-  bike: 'Rower',
   veturilo: 'Veturilo',
 };
 export const modeName = (m: FilterMode) => MODE_NAMES[m];
@@ -455,6 +467,8 @@ export function filterChips(f: TripFilters, trip: Preferences): FilterChip[] {
     const n = trip.priorities.excluded.districts.length + trip.priorities.excluded.points.length;
     chips.push({ id: 'excluded', label: n ? `Omijam: ${n}` : 'Bez wykluczeń' });
   }
+  if (o.excludedModes && !f.modes)
+    chips.push({ id: 'excludedModes', label: trip.excludedModes.length ? `Bez: ${trip.excludedModes.map(modeName).join(', ')}` : 'Wszystkie pojazdy' });
   return chips;
 }
 
@@ -473,7 +487,7 @@ export function clearFilter(f: TripFilters, id: FilterChip['id']): TripFilters {
     }
     default: {
       const rest = { ...overrides };
-      delete rest[id as 'walking' | 'cycling' | 'wheelchair' | 'excluded'];
+      delete rest[id as 'walking' | 'cycling' | 'wheelchair' | 'excluded' | 'excludedModes'];
       return { ...f, overrides: rest };
     }
   }
@@ -484,14 +498,13 @@ export const countActiveFilters = (f: TripFilters, trip: Preferences) => filterC
 const walkMinutes = (o: RouteOption) => o.legs.filter((l) => l.mode === 'walk').reduce((s, l) => s + l.durationMin, 0);
 
 /**
- * Client-side filtering and sorting of the routes that were found. Vehicles and max walking time
- * still apply here. Speeds, wheelchair, transfers and excluded areas are also sent to the backend.
+ * Client-side filtering and sorting of the routes that were found. Only max walking time (and transfers, as a
+ * safety net) apply here; vehicles, speeds, wheelchair and excluded areas are sent to the backend.
  */
 export function applyListFilters(options: RouteOption[], trip: Preferences, f: TripFilters): RouteOption[] {
   const maxTransfers = trip.priorities.maxTransfers;
   const list = options.filter((o) => {
     if (maxTransfers !== null && o.transfers > maxTransfers) return false;
-    if (f.modes && o.legs.some((l) => l.mode !== 'walk' && l.mode !== 'bike' && !f.modes!.includes(l.mode as FilterMode))) return false;
     if (f.maxWalkMin !== null && walkMinutes(o) > f.maxWalkMin) return false;
     return true;
   });
@@ -528,6 +541,7 @@ export function sanitizeStored(raw: unknown): StoredPreferences {
         maxTransfers: b.priorities?.maxTransfers ?? d.priorities.maxTransfers,
         excluded: { ...d.priorities.excluded, ...b.priorities?.excluded },
       },
+      excludedModes: Array.isArray(b.excludedModes) ? b.excludedModes.filter((m) => FILTER_MODES.includes(m)) : [],
       body: { ...d.body, ...b.body },
     },
     rules: Array.isArray(r.rules) ? r.rules : [],
