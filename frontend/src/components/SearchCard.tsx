@@ -51,6 +51,8 @@ interface Props {
   /** Reverses the whole trip (start <-> destination, stops in reverse). */
   onSwap: () => void;
   onLocate: () => void;
+  /** Active trip: a "Wróć do przejazdu" button on top leaves the new search without changing the route. */
+  onBackToTrip?: () => void;
 }
 
 /** One row of the timeline column: a gradient segment above and below the icon. */
@@ -110,6 +112,7 @@ export default function SearchCard({
   onOrderChange,
   onSwap,
   onLocate,
+  onBackToTrip,
 }: Props) {
   const { routeStart, routeEnd } = PALETTE[useTheme().palette.mode];
   const count = stops.length + 2; // rows: start, stops, destination
@@ -267,6 +270,11 @@ export default function SearchCard({
       }}
     >
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        {onBackToTrip && (
+          <Button size="small" onClick={onBackToTrip} sx={{ alignSelf: 'flex-start', mb: 0.5 }}>
+            ← Wróć do przejazdu
+          </Button>
+        )}
         {row(
           0,
           <TripOriginIcon sx={{ fontSize: 20, color: routeStart }} />,

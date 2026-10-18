@@ -15,7 +15,7 @@ import { legNotes } from '../utils/legStyle';
 import type { Place, RouteLeg, RouteOption } from '../types';
 import { RADIUS } from '../layout';
 
-function instruction(leg: RouteLeg): string {
+export function instruction(leg: RouteLeg): string {
   const dist = formatDistance(leg.distanceM);
   switch (leg.mode) {
     case 'walk':
@@ -43,7 +43,7 @@ function Tile({ label, value }: { label: string; value: string }) {
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 /** Records the ride with GPS so the app can learn the user's real pace (see `src/history/`). */
-function TripRecorder({ route, origin, destination }: { route: RouteOption; origin: Place; destination: Place }) {
+function TripRecorder({ route, origin, destination, onStart }: { route: RouteOption; origin: Place; destination: Place; onStart?: (begin: () => void) => void }) {
   const { tracker } = useHistory();
   const { effective } = usePreferences();
   const walkAs = effective.wheelchair.type !== 'none' ? 'wheelchair' : 'walking';
@@ -75,7 +75,12 @@ function TripRecorder({ route, origin, destination }: { route: RouteOption; orig
             fullWidth
             variant="outlined"
             startIcon={<FiberManualRecord sx={{ color: 'error.main' }} />}
-            onClick={() => tracker.start(legs, walkAs, { from: origin, to: destination })}
+            onClick={() => {
+              const begin = () => tracker.start(legs, walkAs, { from: origin, to: destination });
+              // The app decides when the recording begins (a later departure waits for its time).
+              if (onStart) onStart(begin);
+              else begin();
+            }}
           >
             Rozpocznij przejazd
           </Button>
@@ -111,6 +116,8 @@ interface Props {
   snap: SheetSnap;
   onSnapChange: (snap: SheetSnap) => void;
   onBack: () => void;
+  /** "Rozpocznij przejazd": the app enters the active trip mode and calls `begin` (starts the recording) when the trip really starts. */
+  onStart?: (begin: () => void) => void;
 }
 
 /** The chosen route: a header at the top and a summary + steps panel at the bottom. */
@@ -121,6 +128,7 @@ export default function RouteDetailsSheet({
   snap,
   onSnapChange,
   onBack,
+  onStart,
 }: Props) {
   const theme = useTheme();
   const palette = theme.palette.mode;
@@ -249,7 +257,7 @@ export default function RouteDetailsSheet({
             <Tile label="Spalone kalorie" value={`${routeKcal(route, effective)} kcal`} />
           </Box>
 
-          <TripRecorder route={route} origin={origin} destination={destination} />
+          <TripRecorder route={route} origin={origin} destination={destination} onStart={onStart} />
 
           {/* steps */}
           <Typography variant="subtitle2" sx={{ mt: 2.5, mb: 1, fontWeight: 700 }}>

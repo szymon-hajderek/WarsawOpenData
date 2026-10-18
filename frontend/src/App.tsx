@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Box, Button, Snackbar, Typography, useMediaQuery, useTheme } from '@mui/material';
 import MapView, { type MapPadding } from './components/MapView';
 import SearchCard from './components/SearchCard';
 import RouteOptionsSheet from './components/RouteOptionsSheet';
 import RouteDetailsSheet from './components/RouteDetailsSheet';
 import VehicleSheet from './components/VehicleSheet';
+import ActiveTripSheet from './components/ActiveTripSheet';
 import { useSnapHeights, type SheetSnap } from './components/SnapSheet';
 import BottomNav, { type Tab } from './components/BottomNav';
 import PreferencesPage from './components/PreferencesPage';
@@ -12,9 +13,11 @@ import DemoPage from './components/DemoPage';
 import { simState } from './api/sim';
 import FilterSheet from './components/FilterSheet';
 import { useColorMode } from './colorMode';
-import { requestLinePopup } from './api/vehicle';
+import { detectionPoints, requestLinePopup } from './api/vehicle';
 import { geoErrorText, useLocationTrack } from './hooks/useLocationTrack';
 import { useRouteSearch } from './hooks/useRouteSearch';
+import { useTripProgress } from './hooks/useTripProgress';
+import { countdownText, mustWait, secondsUntil, tripStartAt } from './utils/tripStart';
 import type { TravelMode } from './travel';
 import { departureSummary, departureWhen, type Departure } from './utils/departure';
 import { useVehicleDetection } from './hooks/useVehicleDetection';
@@ -31,7 +34,21 @@ import {
   type TripFilters,
 } from './preferences/model';
 import { BOTTOM_NAV_HEIGHT, MAP_PADDING } from './layout';
-import type { Place, StopOrder } from './types';
+import type { Place, RouteOption, StopOrder } from './types';
+
+/** Origin id prefix of "plan from the vehicle I am in" (`onboard` in `POST /api/routes`). */
+const ONBOARD_PREFIX = 'onboard:';
+
+/** The active trip ("Rozpocznij przejazd" ... "Zakończ"): the route being travelled and its ends. */
+interface ActiveTrip {
+  route: RouteOption;
+  origin: Place;
+  destination: Place;
+  /** Full local departure datetime of the route (today + `route.departure`, or the searched date). */
+  startAt: Date;
+  /** False while waiting for a later departure: no GPS progress, no off-route check, no recording yet. */
+  started: boolean;
+}
 
 type Step = 'search' | 'options' | 'route';
 
@@ -69,8 +86,41 @@ export default function App() {
   const optionsHeights = useSnapHeights(352);
   const detailsHeights = useSnapHeights(292);
 
-  // "Which vehicle am I in?" window: open from the start, can be hidden and brought back.
-  const vehicle = useVehicleDetection({ position: userPosition, geoError, getTrack });
+  // Active trip mode, and the search for a new destination / route inside it.
+  const [activeTrip, setActiveTrip] = useState<ActiveTrip | null>(null);
+  const [replanning, setReplanning] = useState(false);
+  const [tripSnap, setTripSnap] = useState<SheetSnap>('middle');
+  const [tripVehicleOpen, setTripVehicleOpen] = useState(false);
+  const [onboardNotice, setOnboardNotice] = useState(false);
+  const tripHeights = useSnapHeights(300);
+
+  // "Which vehicle am I in?" window: open from the start, can be hidden and brought back. In the active trip it
+  // detects from the trip's own track (the recorder's points), else from the last 1-3 positions.
+  const tripTrack = () => {
+    const points = activeTrip ? detectionPoints(tracker.track()) : [];
+    return points.length > 0 ? points : getTrack();
+  };
+  const vehicle = useVehicleDetection({ position: userPosition, geoError, getTrack: tripTrack });
+  const progress = useTripProgress(activeTrip?.started ? activeTrip.route : null, userPosition);
+
+  // Waiting for a later departure: a live countdown, then the trip starts by itself (or on "Ruszam teraz").
+  const beginRecording = useRef<(() => void) | null>(null);
+  const [now, setNow] = useState(() => new Date());
+  const waitingTrip = activeTrip !== null && !activeTrip.started;
+  useEffect(() => {
+    if (!waitingTrip) return;
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, [waitingTrip]);
+  const launchTrip = () => {
+    beginRecording.current?.();
+    beginRecording.current = null;
+    setActiveTrip((t) => (t ? { ...t, started: true } : t));
+  };
+  useEffect(() => {
+    if (activeTrip && !activeTrip.started && secondsUntil(activeTrip.startAt, now) <= 0) launchTrip();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTrip, now]);
 
   const currentLocation = useMemo<Place | null>(
     () =>
@@ -93,15 +143,24 @@ export default function App() {
   // The vehicle chips of the filters override the preference's excluded modes for this search.
   const search = useMemo(() => routeSearchBody(trip, filters.modes), [trip, filters.modes]);
 
-  const { options, loading, error: searchError, offline: routesOffline, errorMessage } = useRouteSearch({
+  const onboardVehicleId = origin?.id.startsWith(ONBOARD_PREFIX) ? origin.id.slice(ONBOARD_PREFIX.length) : null;
+  const { options, loading, error: searchError, offline: routesOffline, errorMessage, vehicleNotFound } = useRouteSearch({
     origin,
     destination,
     via,
     order: stopOrder,
     search,
     travel,
+    onboardVehicleId,
     when: departureWhen(departure),
   });
+
+  // The backend does not know the vehicle (404): plan from the GPS position instead, with a short note.
+  useEffect(() => {
+    if (!vehicleNotFound || !origin?.id.startsWith(ONBOARD_PREFIX)) return;
+    setOrigin(currentLocation ?? { id: 'current-location', label: 'Twoja lokalizacja', position: origin.position, isCurrentLocation: true });
+    setOnboardNotice(true);
+  }, [vehicleNotFound, origin, currentLocation]);
 
   // A new search starts clean: no filters, no chosen route.
   useEffect(() => {
@@ -149,16 +208,80 @@ export default function App() {
     if (step === 'route') setDetailsSnap('middle');
   }, [step]);
 
-  const preview = step === 'route' ? chosen : step === 'options' ? visible.find((o) => o.id === selectedId) ?? null : null;
+  // What is on the screen: the active trip (unless a new route is being searched) or the normal flow.
+  const inTrip = activeTrip !== null && !replanning;
+
+  const startTrip = (begin: () => void) => {
+    if (!chosen || !origin || !destination) return;
+    const current = new Date();
+    // The route's departure on the searched day (the departure picker's `when`, or today for "now").
+    const startAt = tripStartAt(chosen.departure, current, departure);
+    const wait = mustWait(startAt, current);
+    if (wait) beginRecording.current = begin;
+    else begin();
+    setNow(current);
+    setActiveTrip({ route: chosen, origin, destination, startAt, started: !wait });
+    setReplanning(false);
+    setTripSnap('middle');
+  };
+
+  const endTrip = () => {
+    beginRecording.current = null;
+    void tracker.stop(); // saves the pace recording, as before (nothing while still waiting)
+    setActiveTrip(null);
+    setReplanning(false);
+    setTripVehicleOpen(false);
+  };
+
+  /** "Zmień cel" / "Zmień trasę": the full search card; the start = the confirmed vehicle, else the GPS position. */
+  const replan = (keepDestination: boolean) => {
+    if (!activeTrip) return;
+    const here = userPosition ?? activeTrip.origin.position;
+    const v = vehicle.confirmed;
+    setOrigin(
+      v && !v.manual
+        ? { id: `${ONBOARD_PREFIX}${v.id}`, label: `Z pojazdu: ${v.line} (następne przystanki)`, position: here }
+        : currentLocation ?? { id: 'current-location', label: 'Twoja lokalizacja', position: here, isCurrentLocation: true },
+    );
+    setDestination(keepDestination ? activeTrip.destination : null);
+    setStopFields([]);
+    setTravel('transit');
+    setDeparture(null); // a new plan inside a running trip is for now
+    setTripVehicleOpen(false);
+    setReplanning(true);
+  };
+
+  const confirmOption = () => {
+    if (activeTrip && replanning) {
+      const picked = visible.find((o) => o.id === selectedId);
+      if (!picked || !origin || !destination) return;
+      // The new route replaces the old one; the trip (and its recording) goes on.
+      setActiveTrip({ ...activeTrip, route: picked, origin, destination });
+      setReplanning(false);
+      setTripSnap('middle');
+      return;
+    }
+    setChosenId(selectedId);
+  };
+
+  const detectInTrip = () => {
+    setTripVehicleOpen(true);
+    vehicle.redetect();
+  };
+
+  const preview = inTrip ? activeTrip.route : step === 'route' ? chosen : step === 'options' ? visible.find((o) => o.id === selectedId) ?? null : null;
 
   // Parts of the map covered by the panels, so the route stays in the visible area.
   const padding: MapPadding = desktop
     ? MAP_PADDING.desktop
     : {
-        top: step === 'route' ? 100 : 190,
+        top: inTrip ? 40 : step === 'route' ? 100 : 190,
         left: 40,
         // keep the route visible above the sheet at its current height
-        bottom: BOTTOM_NAV_HEIGHT + 40 + (step === 'route' ? detailsHeights[detailsSnap] : step === 'options' ? optionsHeights[optionsSnap] : 260),
+        bottom:
+          BOTTOM_NAV_HEIGHT +
+          40 +
+          (inTrip ? tripHeights[tripSnap] : step === 'route' ? detailsHeights[detailsSnap] : step === 'options' ? optionsHeights[optionsSnap] : 260),
         right: 70,
       };
 
@@ -174,17 +297,18 @@ export default function App() {
           onToggleMode={toggle}
           userPosition={userPosition}
           onLocate={locate}
-          origin={origin}
-          destination={destination}
+          origin={inTrip ? activeTrip.origin : origin}
+          destination={inTrip ? activeTrip.destination : destination}
           route={preview}
-          detailed={step === 'route'}
+          detailed={inTrip || step === 'route'}
           padding={padding}
-          stops={via}
-          controlsOffset={step === 'route' ? 0 : 84 + stopFields.length * 56}
-          onDetectVehicle={step === 'search' ? requestLinePopup : undefined}
+          stops={inTrip ? [] : via}
+          controlsOffset={inTrip || step === 'route' ? 0 : 84 + stopFields.length * 56}
+          onDetectVehicle={!activeTrip && step === 'search' ? requestLinePopup : undefined}
+          follow={inTrip}
         />
 
-        {step !== 'route' && (
+        {!inTrip && step !== 'route' && (
           <SearchCard
             origin={origin}
             destination={destination}
@@ -201,10 +325,11 @@ export default function App() {
             onOrderChange={setStopOrder}
             onSwap={swap}
             onLocate={handleLocateOrigin}
+            onBackToTrip={replanning ? () => setReplanning(false) : undefined}
           />
         )}
 
-        {step === 'search' && !vehicle.dismissed && (
+        {!activeTrip && step === 'search' && !vehicle.dismissed && (
           <VehicleSheet
             candidates={vehicle.vehicles}
             lines={vehicle.lines}
@@ -224,7 +349,54 @@ export default function App() {
           />
         )}
 
-        {step === 'options' && (
+        {inTrip && (
+          <ActiveTripSheet
+            route={activeTrip.route}
+            progress={progress}
+            elapsedS={tracker.elapsedS}
+            vehicle={vehicle.confirmed}
+            snap={tripSnap}
+            onSnapChange={setTripSnap}
+            onDetectVehicle={detectInTrip}
+            onChangeDestination={() => replan(false)}
+            onReroute={() => replan(true)}
+            onEnd={endTrip}
+            waiting={
+              activeTrip.started
+                ? null
+                : { departure: activeTrip.route.departure, countdown: countdownText(secondsUntil(activeTrip.startAt, now)) }
+            }
+            onStartNow={launchTrip}
+          />
+        )}
+
+        {inTrip && tripVehicleOpen && !vehicle.dismissed && (
+          <VehicleSheet
+            candidates={vehicle.vehicles}
+            lines={vehicle.lines}
+            manual={vehicle.manual}
+            loading={vehicle.loading}
+            offline={vehicle.offline}
+            snap={vehicle.snap}
+            selectedId={vehicle.selectedId}
+            confirmed={vehicle.confirmed}
+            onSnapChange={vehicle.setSnap}
+            onSelect={vehicle.setSelectedId}
+            onManualLine={vehicle.selectManualLine}
+            onClearManual={vehicle.clearManual}
+            onRedetect={vehicle.redetect}
+            onConfirm={() => {
+              vehicle.confirm();
+              setTripVehicleOpen(false);
+            }}
+            onDismiss={() => {
+              vehicle.dismiss();
+              setTripVehicleOpen(false);
+            }}
+          />
+        )}
+
+        {!inTrip && step === 'options' && (
           <RouteOptionsSheet
             options={visible}
             departure={departureSummary(departure)}
@@ -243,11 +415,11 @@ export default function App() {
             onOpenFilters={() => setFiltersOpen(true)}
             onClearChip={(id) => setFilters((f) => clearFilter(f, id))}
             onClearAll={() => setFilters(DEFAULT_FILTERS)}
-            onConfirm={() => setChosenId(selectedId)}
+            onConfirm={confirmOption}
           />
         )}
 
-        {step === 'route' && chosen && origin && destination && (
+        {!activeTrip && step === 'route' && chosen && origin && destination && (
           <RouteDetailsSheet
             route={chosen}
             origin={origin}
@@ -255,6 +427,7 @@ export default function App() {
             snap={detailsSnap}
             onSnapChange={setDetailsSnap}
             onBack={() => setChosenId(null)}
+            onStart={startTrip}
           />
         )}
 
@@ -270,7 +443,7 @@ export default function App() {
 
       </Box>
 
-      {tracker.status === 'tracking' && step !== 'route' && (
+      {tracker.status === 'tracking' && !activeTrip && step !== 'route' && (
         <Box
           sx={{
             position: 'fixed',
@@ -324,6 +497,18 @@ export default function App() {
       >
         <Alert severity="error" variant="filled" onClose={() => setOfflineNoticeOpen(false)}>
           Nie połączono z serwerem. Sprawdź, czy backend działa.
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={onboardNotice}
+        autoHideDuration={6000}
+        onClose={() => setOnboardNotice(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{ top: { xs: 150 } }}
+      >
+        <Alert severity="info" variant="filled" onClose={() => setOnboardNotice(false)}>
+          Nie znaleziono pojazdu. Planuję od Twojej lokalizacji.
         </Alert>
       </Snackbar>
     </Box>
