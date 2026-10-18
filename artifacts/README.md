@@ -5,6 +5,8 @@ Fonts load from Google Fonts and fall back to system fonts offline.
 
 | Page | What it shows | Rebuild (from `backend/`) |
 |---|---|---|
+| `delays-report.html` | Report on live bus / tram delays: how the estimate works on the server, what the app shows (route list), accuracy on the 2026-10-17 recording, radius search, tests, limits and PR status | none, edited by hand |
+| `bus-delay-ui-guide.html` | Guide for the UI developer: how to receive the `bus-delay` window event (delay of the confirmed vehicle), its fields, the states to design, a ready React hook, how to test | none, edited by hand |
 | `delay-simulation.html` | Delay estimate (`algorithms/bus_delay.py`) on 30 min of live data recorded on a local server: availability, error vs the full-track reference, robustness (lost polls, GPS noise), one vehicle stop by stop, maps and tables per line and stop, live server answers | `uv run python ../algorithms/simulation/export_delay_viz.py` (sample: `record_delay_sample.py`) |
 | `veturilo-siting.html` | Where to put new Veturilo stations: hex grid (175 m) with the J_synergy cost, layers T / E / S / d_net / J, mock traffic counters and e-scooter events, greedy picks step by step with a slider, top-10 table; canvas map without base tiles. T and E are mock data | `uv run python siting_report.py` |
 | `bus-detection-simulation.html` | Nearest bus detection (MSE) on 2 minutes of live ZTM data: hit rate by GPS radius, median RMSE, one mini map per line with every simulated rider, results table, how time is handled, complexity | `uv run python ../algorithms/simulation/export_viz.py` |
