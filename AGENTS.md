@@ -237,7 +237,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   transit option at all), #65 (direct bus / tram options dropped after PR #56), #66 (`lateness.py` shows 4 min as 3).
 - Walking-only route totals and arrival times come from the walking leg; never pass a zero-second total override
   to `_option`. Regression tests: `backend/tests/test_walk_duration.py` (including arrival after midnight; #72).
-- `/api/osm/route` returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`, stored in the graph file and
+- The router returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`, stored in the graph file and
   checked by the C++ router) from the graph; `osm.nearest()` in Python has no limit.
 - Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
   `WAIT` in `osm.py`). OSM has no signal timing tags in Warsaw. The wait is per edge (`osm.edges()`):
@@ -286,7 +286,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   Target architecture (user): OSM layer for own bike / walk / accessible + a simple station network for RAPTOR with
   precomputed foot / bike paths; query = access Dijkstra → RAPTOR → egress Dijkstra.
   `street_router matrix` builds the stop-to-stop matrices (float32 (3, N, N): walk_m, bike_m, wait_s).
-  `osm.route()` is gone; `/api/osm/route` and `real_engine._street()` call the router. Full docs:
+  `osm.route()` and `GET /api/osm/route` are gone; `real_engine._street()` calls the router. Full docs:
   `algorithms/router/README.md` (keep it current).
 - Rail platforms: `polish_trains.zip` has stations with children per platform + track (`33506_RAIL_2_20` =
   "2 t. 20"), also for SKM. They fold into one location per platform (`pkp:33506_P2`, see "Rail in mkuran");
@@ -395,7 +395,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   enough trips, `applyHistory` in `src/preferences/model.ts` replaces the level / typed speed and the selector is locked). History can be cleared on the Preferences page.
 - Travel modes (`src/travel.ts`): chips in the search card (Komunikacja | Pieszo | Wózek inwalidzki | Wózek dziecięcy | Własny rower, not saved). `Komunikacja` is the
   normal `POST /api/routes` search. The other four are street-only trips: `src/api/streetRoute.ts` (`fetchStreetRoute`, `fetchStreetTrip` for trips with stops) calls
-  `GET /api/osm/route` (modes `walk`, `accessible`, `stroller`, `bike`) and builds a one-leg `RouteOption` (`start` / `end` from the path as `[lon, lat]`, `elevators` / `steps` on
+  the street router (modes `walk`, `accessible`, `stroller`, `bike`; the backend now serves this only as `POST /api/routes` with `travel`, `GET /api/osm/route` was removed) and builds a one-leg `RouteOption` (`start` / `end` from the path as `[lon, lat]`, `elevators` / `steps` on
   the leg, tags "bez schodów" and "windy: N"). Errors are said in Polish: 422 "Punkt poza zasięgiem mapy", 404 "Brak trasy", 503 "Serwer tras nie działa", 400 "Ten tryb nie jest
   jeszcze dostępny na serwerze". **No mock and no straight line** for street trips: a wheelchair user must know the path was really checked.
   Filters and sorting do not apply to a street trip.
@@ -443,6 +443,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   interrupted and GPS-less recordings do not count; statistics failures do not block local speed history.
   Geocoded places use `osm:<node|way|relation>:<osm_id>` instead of Nominatim's temporary `place_id`.
 
+- `app/routing/geometry.py` builds leg shapes for rendering: street path from the router, transit GTFS shape, else a
+  polyline through the named points (`approximatePath`). The router answers ids only (null = query point);
+  `legs_from_router()` accepts the old and the new router format. Legs carry `elevators` / `steps` (street),
+  `waitS` + `tripId` (transit); `RouteOption.waitS` = all standing (transit waits + street waits).
 - Separate package `backend/app/` holds the route models and `RealRouteEngine`. `backend/main.py`
   mounts it, so one uv process serves data, geocode and `POST /api/routes`.
 - Models (`app/models.py`) mirror `frontend/src/types.ts` exactly (camelCase JSON keys; `from`
