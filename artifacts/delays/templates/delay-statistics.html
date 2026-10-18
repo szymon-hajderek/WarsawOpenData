@@ -79,6 +79,7 @@ td { font-variant-numeric: tabular-nums; }
 .late { color: var(--bad); } .early { color: var(--good); } .ontime { color: var(--ink-2); }
 .na { color: var(--muted); font-style: italic; }
 .badge-line { font: 700 15px var(--f-display); }
+.cx td { white-space: normal; vertical-align: top; }
 
 .method { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 24px; }
 .method ol, .method ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--ink-2); }
@@ -169,6 +170,27 @@ pre { margin: 0; background: var(--surface); border: 1px solid var(--grid); bord
     <h2>Serwer na żywo</h2>
     <p class="sub-lead" id="live-lead"></p>
     <div class="tiles" id="live-tiles"></div>
+  </section>
+
+  <section>
+    <h2>Złożoność obliczeniowa</h2>
+    <p class="sub-lead" id="cx-lead"></p>
+    <div class="tiles" id="cx-tiles"></div>
+    <div class="tbl"><table class="cx">
+      <thead><tr><th class="l">krok</th><th class="l">złożoność</th><th class="l">przy naszych danych</th></tr></thead>
+      <tbody>
+        <tr><td class="l">Odpytanie feedu co 3 s (<code>poll_once</code>) i dopisanie punktu do bufora (<code>add_point</code>)</td><td class="l">O(V) na odpytanie, O(B) na pojazd (usunięcie starych punktów z początku listy)</td><td class="l" id="cx-poll"></td></tr>
+        <tr><td class="l">Pamięć buforów</td><td class="l">O(V·B)</td><td class="l" id="cx-mem"></td></tr>
+        <tr><td class="l">Wybór kursu (<code>match_trip</code>: rzut na trasę każdego kandydata)</td><td class="l">O(C·S)</td><td class="l" id="cx-match"></td></tr>
+        <tr><td class="l">K-1 i rozkład w punkcie (<code>previous_stop</code>, <code>sched_at</code>)</td><td class="l">O(C·P)</td><td class="l">P = przystanki kursu, przegląd od początku listy</td></tr>
+        <tr><td class="l">Moment przejazdu (<code>pass_time</code>: najbliższy punkt bufora)</td><td class="l">O(B)</td><td class="l" id="cx-pass"></td></tr>
+        <tr><td class="l">Jedno zapytanie <code>GET /api/live/delay</code> (<code>estimate</code>)</td><td class="l">O(C·(S + P) + B)</td><td class="l" id="cx-req"></td></tr>
+        <tr><td class="l"><code>POST /api/live/route-delays</code></td><td class="l">O(Σ odcinków · (C·(S + P) + B))</td><td class="l">do 20 propozycji, zwykle 1–3 odcinki komunikacji; metro, pociąg i <code>multi-N</code> bez obliczeń</td></tr>
+        <tr><td class="l">Symulacja na nagraniu (estimate po każdym punkcie)</td><td class="l">O(N·(C·(S + P) + B))</td><td class="l" id="cx-sim"></td></tr>
+        <tr><td class="l">Szukanie R (<code>evaluate_many</code>: wiele promieni w jednym przebiegu)</td><td class="l">O(N·(C·(S + P) + B) + M·Z)</td><td class="l">symulacja raz, potem dla każdego z M promieni przegląd Z zapamiętanych obserwacji</td></tr>
+      </tbody>
+    </table></div>
+    <p class="sub-lead" style="font-size:13px;color:var(--muted)">V = pojazdy na żywo, B = punkty w buforze pojazdu (najdłuższy planowy przejazd między przystankami kursu + 60 s, punkt co ~5 s), C = kursy tej linii i brygady jadące teraz ± 15 min, S = punkty trasy (shape) kursu, P = przystanki kursu, N = punkty nagrania, M = sprawdzane promienie, Z = obserwacje (pojazd, przystanek). C, S, P i B są ograniczone przez rozkład, a nie przez wielkość miasta, więc jedno zapytanie ma stały koszt; rośnie tylko odpytywanie feedu, liniowo z V. Kandydatów można by zawęzić indeksem przestrzennym trasy, ale przy C ≤ kilku nie ma takiej potrzeby.</p>
   </section>
 
   <section>
@@ -425,4 +447,26 @@ document.getElementById("live-tiles").innerHTML = [
   [sec(D.live.abs_err_median), "mediana błędu", `90%: do ${sec(D.live.abs_err_p90)}`],
   [pct(D.live.within_30s), "błąd do 30 s", "odpowiedzi serwera na żywo"],
 ].map(([b, l, s]) => `<div class="tile"><span class="big">${b}</span><span class="lbl">${l}</span><span class="sub">${s}</span></div>`).join("");
+// complexity
+(() => {
+  const c = D.cx;
+  if (!c) return;
+  const ms = (x) => `${String(x).replace(".", ",")} ms`;
+  const n = (x) => x.toLocaleString("pl-PL");
+  document.getElementById("cx-lead").textContent =
+    `Czas zmierzyliśmy w symulacji: po każdym punkcie pojazdów badanych linii (${n(c.calls)} punktów z ${n(c.points)} w nagraniu) liczymy dokładnie to, co liczy serwer przy GET /api/live/delay ` +
+    `(jedno wywołanie estimate na punkt, Python na laptopie deweloperskim). Cały przebieg symulacji z oceną trwał ${String(c.run_s).replace(".", ",")} s.`;
+  document.getElementById("cx-tiles").innerHTML = [
+    [ms(c.ms_median), "mediana jednego oszacowania", `90%: do ${ms(c.ms_p90)}, maks. ${ms(c.ms_max)}`],
+    [`${c.trips_median}`, "kursów-kandydatów (mediana)", `maks. ${c.trips_max} (C)`],
+    [n(c.shape_median), "punktów tras do rzutowania", `mediana C·S, maks. ${n(c.shape_max)}`],
+    [`${c.buffer_median}`, "punktów w buforze (mediana)", `maks. ${c.buffer_max} (B)`],
+  ].map(([b, l, s]) => `<div class="tile"><span class="big">${b}</span><span class="lbl">${l}</span><span class="sub">${s}</span></div>`).join("");
+  document.getElementById("cx-poll").textContent = `V = ${m.vehicles_all} pojazdów w nagraniu, feed zmienia się co ~10 s`;
+  document.getElementById("cx-mem").textContent = `mediana B = ${c.buffer_median}, maks. ${c.buffer_max} punktów na pojazd`;
+  document.getElementById("cx-match").textContent = `mediana C = ${c.trips_median}, C·S = ${n(c.shape_median)} odcinków trasy (maks. ${n(c.shape_max)})`;
+  document.getElementById("cx-pass").textContent = `mediana ${c.buffer_median} odległości`;
+  document.getElementById("cx-req").textContent = `mediana ${ms(c.ms_median)}, 90%: ${ms(c.ms_p90)}`;
+  document.getElementById("cx-sim").textContent = `N = ${n(c.calls)}: ${String(c.run_s).replace(".", ",")} s`;
+})();
 </script>

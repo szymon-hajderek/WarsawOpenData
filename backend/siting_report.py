@@ -10,11 +10,12 @@ Writes data/SITING_REPORT.md, data/siting_report.json and artifacts/veturilo-sit
 import argparse
 import json
 import math
+import time
 
 import numpy as np
 
 from config import DATA, REPO, load_json, save_json
-from sources import nextbike, siting
+from sources import nextbike, osm, siting
 from station_siting import DEFAULTS, HEX_SIZE_M
 
 N = 10
@@ -36,9 +37,11 @@ def main() -> None:
     args = ap.parse_args()
     if args.mocks:
         print("mocks:", siting.make_mocks())
+    t0 = time.perf_counter()
     h = siting.hexes(rebuild=args.rebuild or args.mocks)
+    build_s = time.perf_counter() - t0 if args.rebuild or args.mocks else None
     p = dict(DEFAULTS)
-    steps = siting.run(N, **p)
+    cx, steps = measure(h, p, build_s)
     options = [siting.option(h, k + 1, s, p) for k, s in enumerate(steps)]
 
     tc = load_json(siting.TRAFFIC)["counters"]
@@ -54,8 +57,38 @@ def main() -> None:
     save_json(DATA / "siting_report.json", {"mock": True, "params": p, "hex_size_m": HEX_SIZE_M,
                                             "summary": summary, "stats": stats, "options": options})
     write_markdown(p, summary, stats, options)
-    write_html(h, p, steps, options, tc, stations, summary)
+    write_html(h, p, steps, options, tc, stations, summary, cx)
+    print("complexity:", cx)
     print(f"wrote data/SITING_REPORT.md, data/siting_report.json, {OUT.relative_to(REPO)}")
+
+
+def measure(h: dict, p: dict, build_s: float | None) -> tuple[dict, list]:
+    """Sizes and run times for the complexity section: graph, multi-source Dijkstra, greedy ranking."""
+    g = siting.bike_csr()
+    st = nextbike.stations()
+    st_node, _ = osm.nearest_many(np.array([v["lat"] for v in st]), np.array([v["lon"] for v in st]), "bike")
+    t0 = time.perf_counter()
+    siting.network_distance(st_node, h["node"], h["snap"], siting.MAX_R_M)
+    multi_s = time.perf_counter() - t0
+
+    calls = []
+    inner = siting.network_distance
+
+    def timed(*a):
+        t = time.perf_counter()
+        out = inner(*a)
+        calls.append(time.perf_counter() - t)
+        return out
+    siting.network_distance = timed
+    t0 = time.perf_counter()
+    steps = siting.run(N, **p)
+    greedy_s = time.perf_counter() - t0
+    siting.network_distance = inner
+    cx = {"nodes": int(g.shape[0]), "edges": int(g.nnz), "hexes": int(len(h["q"])), "stations": len(st),
+          "multi_s": round(multi_s, 2), "greedy_s": round(greedy_s, 2), "picks": len(steps),
+          "step_ms": round(1000 * float(np.median(calls)), 1) if calls else None,
+          "build_s": None if build_s is None else round(build_s, 1)}
+    return cx, steps
 
 
 def write_markdown(p, summary, stats, options) -> None:
@@ -107,7 +140,7 @@ def write_markdown(p, summary, stats, options) -> None:
     (DATA / "SITING_REPORT.md").write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
 
-def write_html(h, p, steps, options, tc, stations, summary) -> None:
+def write_html(h, p, steps, options, tc, stations, summary, cx) -> None:
     d0 = np.where(np.isinf(h["d_net"]), -1, np.round(h["d_net"])).astype(int)
     prev = h["d_net"]
     step_data = []
@@ -119,7 +152,7 @@ def write_html(h, p, steps, options, tc, stations, summary) -> None:
     geo = load_json(siting.BOUNDARY)["geometry"]
     polys = [geo["coordinates"]] if geo["type"] == "Polygon" else geo["coordinates"]
     data = {
-        "params": p, "hexSize": HEX_SIZE_M, "maxR": siting.MAX_R_M, "summary": summary,
+        "params": p, "hexSize": HEX_SIZE_M, "maxR": siting.MAX_R_M, "summary": summary, "cx": cx,
         "boundary": [[[round(c[1], 5), round(c[0], 5)] for c in ring] for poly in polys for ring in poly],
         "hex": {"lat": np.round(h["lat"], 5).tolist(), "lon": np.round(h["lon"], 5).tolist(),
                 "t": np.round(h["t"], 3).tolist(), "e": np.round(h["e"], 3).tolist(), "s": np.round(h["s"], 3).tolist(),

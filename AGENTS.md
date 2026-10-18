@@ -222,6 +222,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   With these defaults T saturates at 1 in many hexes, so picks are mostly ranked by E and P; a weak quadratic P lets picks sit
   ~750 m (network) apart. Report: `uv run python siting_report.py` -> `data/SITING_REPORT.md`, `artifacts/veturilo-siting/veturilo-siting.html`
   (own canvas map with pan / zoom, no external scripts: Leaflet from a CDN failed to load for the user and broke the page).
+- Every result page in `artifacts/` has a "Złożoność obliczeniowa" section with measured times on our data:
+  one delay `estimate` ~0.27 ms (O(C·(S + P) + B), C = 1-2 candidate trips), `rank_buses` ~2 ms for ~880 buses,
+  siting: multi-source Dijkstra ~0.2 s, one greedy step ~30 ms (scipy allocates an O(V) array, V = 1.85 M bike nodes).
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
 - **Ride demo** (`./demo.sh [scenario]`): Demo tab in the frontend, shown only when `GET /api/sim/state` answers (backend in
   simulation mode). `POST /api/sim/ride` (`backend/sim/api.py`, `backend/sim/journey.py`) computes the whole ride (30-60 s), the page

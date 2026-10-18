@@ -10,3 +10,7 @@
 - RESULTS.md: third run.
 - Assumptions: crowding counts only vehicles that moved at least 100 m (the 5 am recording put parked depots first);
   the ranking covers buses and trams together; the recording is from a quiet Sunday morning.
+- Complexity sections on all result pages: `delay-statistics.html` (table + time of one `estimate`, measured in the
+  simulation by `export_delay_viz.py`), `delay-docs.html` and `delay-tests.html` (test 10 "Czas obliczeń"),
+  `veturilo-siting.html` (table + measured Dijkstra / greedy / hex build times from `siting_report.py --rebuild`).
+  Bus detection pages: poll every 3 s and the delay buffer in memory.

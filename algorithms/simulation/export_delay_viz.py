@@ -10,6 +10,7 @@ import argparse
 import json
 import statistics
 import sys
+import time
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -46,6 +47,29 @@ def shape_points(shape, n=160):
     return pts
 
 
+def timed_estimate(calls: list):
+    """Wrap sd.estimate so each call records (ms, candidate trips, buffer points, shape points of the candidates)."""
+    inner = sd.estimate
+
+    def wrapper(buffer, trips, radius_m, prev=None):
+        t0 = time.perf_counter()
+        r = inner(buffer, trips, radius_m, prev)
+        calls.append((1000 * (time.perf_counter() - t0), len(trips), len(buffer),
+                      sum(len(t["shape"][0]) for t in trips)))
+        return r
+    return wrapper
+
+
+def complexity(calls: list, run_s: float, points: int) -> dict:
+    """Measured cost of one estimate (the work of GET /api/live/delay) on the recording."""
+    ms, trips, buf, shape = (sorted(c[i] for c in calls) for i in range(4))
+    q = lambda v, p: v[min(len(v) - 1, int(p / 100 * len(v)))]  # noqa: E731
+    return {"calls": len(calls), "ms_median": round(q(ms, 50), 3), "ms_p90": round(q(ms, 90), 3),
+            "ms_max": round(ms[-1], 2), "trips_median": q(trips, 50), "trips_max": trips[-1],
+            "buffer_median": q(buf, 50), "buffer_max": buf[-1], "shape_median": q(shape, 50), "shape_max": shape[-1],
+            "run_s": round(run_s, 1), "points": points}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sample", type=Path, default=sd.SAMPLE)
@@ -55,7 +79,12 @@ def main():
     lines = sample["lines"]
 
     print("base run ...", flush=True)
+    calls, plain = [], sd.estimate
+    sd.estimate = timed_estimate(calls)
+    t0 = time.perf_counter()
     base = sd.evaluate(sample, a.radius, keep_pairs=True)
+    run_s = time.perf_counter() - t0
+    sd.estimate = plain
     variants = [summary(base)]
     for kind, value in VARIANTS:
         print(f"variant {kind}={value} ...", flush=True)
@@ -153,11 +182,13 @@ def main():
         "errors": [p["est"] - p["ref"] for p in ok],
         "scatter": [[p["ref"], p["est"], p["line"]] for p in ok][:1500],
         "per_line": per_line, "per_stop": per_stop, "live": live, "story": story,
+        "cx": complexity(calls, run_s, len(times)),
     }
     html = TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/null", json.dumps(data, ensure_ascii=False))
     OUT.write_text(html, encoding="utf-8", newline="\n")
     print(json.dumps(variants, indent=1))
     print("best R:", search["best"], "pair:", search["pair"])
+    print("complexity:", data["cx"])
     print("live:", {k: v for k, v in live.items() if k != "points"})
     print(f"wrote {OUT}")
 

@@ -69,6 +69,7 @@ table { border-collapse: collapse; width: 100%; font-size: 14px; }
 th, td { padding: 9px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--grid); }
 th { font: 500 12px var(--f-mono); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 td:first-child { white-space: nowrap; }
+.cx td:first-child { white-space: normal; }
 tbody tr:last-child td { border-bottom: 0; }
 .state { font: 500 12px/1 var(--f-mono); padding: 4px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
 .state.done { color: var(--done); } .state.open { color: var(--open); }
@@ -259,8 +260,23 @@ export function useBusDelay(): BusDelayDetail | null {
       <div class="tile"><span class="big">2 s</span><span class="sub">mediana błędu; 90% do 14 s</span></div>
       <div class="tile"><span class="big">91,4%</span><span class="sub">dostępne, gdy ginie 30% pobrań danych</span></div>
       <div class="tile"><span class="big">30 m</span><span class="sub">używany promień R; najlepszy w wyszukiwaniu 80 m (+1,5 pp.)</span></div>
+      <div class="tile"><span class="big">0,27 ms</span><span class="sub">mediana obliczenia jednego opóźnienia; 90% do 0,49 ms</span></div>
     </div>
     <p class="note">Szczegóły, wykresy, mapy linii, wyniki per linia i przystanek oraz testy: <code>artifacts/delays/delay-statistics.html</code>.</p>
+  </section>
+
+  <section>
+    <h2>Złożoność obliczeniowa</h2>
+    <div class="tbl"><table class="cx">
+      <thead><tr><th>krok</th><th>złożoność</th><th>na nagraniu</th></tr></thead>
+      <tbody>
+        <tr><td>odpytanie feedu co 3 s + dopisanie punktów do buforów</td><td>O(V)</td><td>wszystkie autobusy i tramwaje naraz</td></tr>
+        <tr><td>pamięć buforów</td><td>O(V·B)</td><td>B: mediana 49, maks. 123 punkty na pojazd</td></tr>
+        <tr><td>jedno <code>GET /api/live/delay</code> (<code>estimate</code>)</td><td>O(C·(S + P) + B)</td><td>mediana 0,27 ms, 90% do 0,49 ms; C = 1 (maks. 2), C·S = 788 punktów trasy (maks. 1909)</td></tr>
+        <tr><td><code>POST /api/live/route-delays</code></td><td>O(Σ odcinków · (C·(S + P) + B))</td><td>do 20 propozycji, po jednym <code>estimate</code> na odcinek autobusu / tramwaju</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">V = pojazdy na żywo, B = punkty w buforze pojazdu, C = kursy tej linii i brygady jadące teraz ± 15 min, S = punkty trasy kursu, P = przystanki kursu. C, S, P i B zależą od rozkładu, a nie od wielkości miasta, więc koszt jednego zapytania jest stały; z liczbą pojazdów rośnie tylko odpytywanie feedu. Pomiar: 11 992 oszacowania w symulacji na nagraniu, Python na laptopie. Szczegóły: <code>artifacts/delays/delay-statistics.html</code>, sekcja „Złożoność obliczeniowa”.</p>
   </section>
 
   <section>
