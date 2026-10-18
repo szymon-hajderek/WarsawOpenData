@@ -8,7 +8,7 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import SnapSheet, { type SheetSnap } from './SnapSheet';
 import LegChain from './LegChain';
 import { pressableProps } from './pressable';
-import { formatDuration, stopsLabel, transfersLabel } from '../utils/format';
+import { formatDuration, formatTotalWait, stopsLabel, transfersLabel } from '../utils/format';
 import { routeKcal, type FilterChip, type TimeRule } from '../preferences/model';
 import { usePreferences } from '../preferences/PreferencesProvider';
 import type { RouteOption } from '../types';
@@ -220,6 +220,11 @@ export default function RouteOptionsSheet({
                   <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
                     {formatDuration(o.durationMin)}
                   </Typography>
+                  {formatTotalWait(o.waitS) && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'nowrap' }}>
+                      {formatTotalWait(o.waitS)}
+                    </Typography>
+                  )}
                   {routeKcal(o, effective) > 0 && (
                     <Typography
                       variant="caption"
