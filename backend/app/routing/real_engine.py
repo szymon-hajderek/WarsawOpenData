@@ -527,7 +527,8 @@ def _street(a, b, mode: str, profile: Profile):
     speeds = {"walk": PROFILE_SPEED[profile]["walk"], "bike": PROFILE_SPEED[profile]["bike"] or OSM_SPEED["bike"]}
     try:
         raw = street_router.route(a, b, graph, speeds=speeds)
-        return {"seconds": raw["seconds"], "length_m": raw["length_m"], "geometry": raw["geometry"]}
+        return {"seconds": raw["seconds"], "length_m": raw["length_m"], "geometry": raw["geometry"],
+                **({"network_geometry": raw["network_geometry"]} if "network_geometry" in raw else {})}
     except (ValueError, OSError, FileNotFoundError):
         meters = _distance(a, b) * 1.25
         return {"seconds": meters / speed, "length_m": meters, "geometry": [list(a), list(b)]}
@@ -571,7 +572,10 @@ def _stations() -> list[dict]:
 
 def _ride_path(trip_id: str, calls: list[dict]) -> list[list[float]]:
     try:
-        shape = mkuran.shape_slice(mkuran.trip_shape_id(trip_id), calls[0]["shape_dist"], calls[-1]["shape_dist"])
+        shape_id = mkuran.trip_shape_id(trip_id)
+        shape = mkuran.shape_slice(shape_id, calls[0]["shape_dist"], calls[-1]["shape_dist"])
+        if len(shape) < 2:
+            shape = mkuran.shape_by_stops(shape_id, calls)
     except (KeyError, OSError, ValueError):
         shape = []
     if len(shape) >= 2:
@@ -581,7 +585,8 @@ def _ride_path(trip_id: str, calls: list[dict]) -> list[list[float]]:
 
 def _leg(mode, frm, to, line, street) -> RouteLeg:
     return RouteLeg(mode=mode, from_=frm, to=to, line=line, durationMin=_minutes(street["seconds"]),
-                    distanceM=round(street["length_m"], 1), path=street["geometry"])
+                    distanceM=round(street["length_m"], 1), path=street["geometry"],
+                    networkPath=street.get("network_geometry"))
 
 
 def _option(option_id, title, legs, leave, door_s: float | None = None) -> RouteOption:

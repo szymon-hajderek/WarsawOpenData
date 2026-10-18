@@ -39,6 +39,7 @@ class RouteLeg(BaseModel):
     durationMin: int
     distanceM: float
     path: list[LatLng]
+    networkPath: Optional[list[LatLng]] = None
     # Where the leg starts and ends, `[lon, lat]`. Filled from `path` when not given.
     start: Optional[LonLat] = None
     end: Optional[LonLat] = None

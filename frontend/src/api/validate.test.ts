@@ -31,6 +31,13 @@ describe('isRouteOptions', () => {
     expect(isRouteOptions([{ ...option, legs: [{ ...leg, start: [1] }] }])).toBe(false);
   });
 
+  it('accepts optional network geometry and rejects invalid graph coordinates', () => {
+    for (const networkPath of [undefined, null, [], [[52.2, 21]]]) {
+      expect(isRouteOptions([{ ...option, legs: [{ ...leg, networkPath }] }])).toBe(true);
+    }
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, networkPath: [[52.2, 'x']] }] }])).toBe(false);
+  });
+
   it('rejects an answer that is not a list', () => {
     expect(isRouteOptions({ detail: 'error' })).toBe(false);
     expect(isRouteOptions(null)).toBe(false);
