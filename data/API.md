@@ -661,7 +661,11 @@ Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow`, `a
 Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Veturilo), `stepFree` (bool),
 `maxTransfers` (`0`, `1`, `2` or `null` = up to two), `excludedDistricts` (Warsaw district names),
 `excludedPoints` (`position`, `radiusM`) and `body` (`wheelchair` `none` | `manual` | `electric`; a wheelchair
-implies `accessible` routing and no Veturilo; `weightKg`, `heightCm`, `age` and `sex` are accepted but not used by the route search). A trip with stops plans the next leg from the
+implies `accessible` routing and no Veturilo; `weightKg`, `heightCm`, `age` and `sex` are accepted but not used by the route search).
+`excludeModes` (optional list of `bus`, `tram`, `metro`, `rail`, `veturilo`; default `[]`): the search does not use
+those modes (a GTFS trolleybus counts as `bus`); `veturilo` drops rented bikes, not walking and not `travel: "bike"`
+(own bike). Sent to `/plan` as `exclude_modes`; the Python fallback skips those departures; any option that still
+has a leg of an excluded mode is dropped. Any other value → `422`. A trip with stops plans the next leg from the
 previous arrival plus 2 minutes at the stop. `order` `optimal` minimises a time estimate, not straight-line distance.
 
 Optional `travel`: `transit` (default, the usual mixed options), `walk`, `accessible`, `stroller` or `bike`.

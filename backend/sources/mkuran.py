@@ -507,7 +507,10 @@ def _targets(stop_id: str) -> list[int]:
             or s["platform"] == stop_id]
 
 
-def departures(stop_id: str, date_str: str, after_sec: int, limit: int = 20) -> list[dict]:
+def departures(stop_id: str, date_str: str, after_sec: int, limit: int = 20, exclude_modes=()) -> list[dict]:
+    """Departures from a stop after `after_sec`; `exclude_modes` (bus, tram, metro, rail; a trolleybus counts as
+    bus) are skipped before the limit."""
+    excluded = set(exclude_modes)
     st = stop_times()
     tr = trips()
     rts = routes()
@@ -523,6 +526,8 @@ def departures(stop_id: str, date_str: str, after_sec: int, limit: int = 20) -> 
         ti = int(st["trip"][r])
         trip_id, route_id, service_id, block = tr[ti][:4]
         if date_str not in svc.get(service_id, ()):
+            continue
+        if excluded and ("bus" if rts[route_id]["mode"] == "trolleybus" else rts[route_id]["mode"]) in excluded:
             continue
         offsets = [0]
         if ti in freq:  # frequency-based template (metro): expand runs
