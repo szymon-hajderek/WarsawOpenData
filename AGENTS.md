@@ -480,7 +480,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   wins over the stepFree / wheelchair preferences (`routeSearchBody(p, modes, access)`: "Pieszo" (standard) sends `stepFree: false` and wheelchair `none`,
   wheelchair / stroller leave out `walkKmh` unless the wheelchair speed is known). Vehicle exclusions only go with Komunikacja. Pieszo = `travel`
   walk / accessible / stroller, Rower = `travel` bike (`streetMode(mode, access)`). Street-only trips: `src/api/streetRoute.ts` (`fetchStreetTrip`, also with `via` / `order`; `fetchStreetRoute` = no stops)
-  posts to the same `POST /api/routes` with `travel` (`ROUTER_MODE`: `walk`, `accessible`, `stroller`, `bike`) and shows the one `RouteOption` of the answer as it is
+  posts to the same `POST /api/routes` with `travel` (`ROUTER_MODE`: `walk`, `accessible`, `stroller`, `bike`) and the user's pace (`walkKmh`, and `bikeKmh` for the bike, from the same preferences as the transit search, so "Rower" and "Komunikacja + Z własnym rowerem" ride at the same speed) and shows the one `RouteOption` of the answer as it is
   (checked by `isRouteOptions`; `GET /api/osm/route` is gone, the frontend no longer parses raw router answers). Errors are said in Polish: 422 "Punkt poza zasięgiem mapy",
   404 (or an empty list) "Brak trasy", 503 "Serwer tras nie działa", 400 "Ten tryb nie jest jeszcze dostępny na serwerze". **No mock and no straight line** for street trips:
   a wheelchair user must know the path was really checked. Filters and sorting do not apply to a street trip.
