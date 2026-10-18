@@ -130,7 +130,8 @@ def test_gtfs_cache_build_runs_once(tmp_path, monkeypatch):
         time.sleep(0.2)  # the real build takes 25 s: other threads must wait, not start a second build
         config.save_json(tmp_path / "gtfs_stops.json", [{"zone": ""}])
         config.save_json(tmp_path / "gtfs_trips.json", [])
-        config.save_npz(tmp_path / "gtfs_stop_times.npz", shape_dist=np.array([1200]))
+        config.save_npz(tmp_path / "gtfs_stop_times.npz", shape_dist=np.array([1200]),
+                        cache_version=np.int32(mkuran.CACHE_VERSION))
 
     monkeypatch.setattr(mkuran, "_build", fake_build)
     threads = [threading.Thread(target=mkuran._ensure_built) for _ in range(6)]

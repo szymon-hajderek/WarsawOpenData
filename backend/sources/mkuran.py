@@ -30,6 +30,7 @@ from config import (BBOX, DERIVED, GTFS_DIR, REPO, atomic_write, haversine_m, in
 
 sys.path.insert(0, str(REPO / "algorithms"))
 from shape_units import shape_meters  # noqa: E402
+from shape_geometry import slice_shape_by_stops  # noqa: E402
 from station_map import parse_platform_code  # noqa: E402
 
 FEEDS = {
@@ -43,6 +44,9 @@ DROP_PKP_AGENCIES: set[str] = set()
 DROP_ZTM_ROUTE_TYPES = {2}
 MERGE_RADIUS_M = 150
 ROUTE_TYPES = {0: "tram", 1: "metro", 2: "rail", 3: "bus", 11: "trolleybus"}
+# Version 2 includes metre distances and the current platform/boarding fields.
+# Version 1 predates the platform/boarding fields.
+CACHE_VERSION = 2
 
 
 # ---------------------------------------------------------------- download
@@ -318,7 +322,8 @@ def _build() -> None:
     save_json(DERIVED / "gtfs_trips.json", trips)
     save_json(DERIVED / "gtfs_merge.json", {"merged": merged, "unmatched_near": unmatched_near})
     save_json(DERIVED / "gtfs_frequencies.json", {str(k): v for k, v in freq.items()})
-    save_npz(DERIVED / "gtfs_stop_times.npz", **st, runs=runs, trip_route_type=trip_route_type)
+    save_npz(DERIVED / "gtfs_stop_times.npz", **st, runs=runs, trip_route_type=trip_route_type,
+             cache_version=np.int32(CACHE_VERSION))
 
 
 _BUILD_LOCK = threading.Lock()
@@ -338,9 +343,10 @@ def _ensure_built_locked():
         _build()
         return
     with np.load(npz) as z:
-        dist = z["shape_dist"] if "shape_dist" in z.files else None
-    # Old caches stored truncated kilometers (max about 20). Meters along a real trip are larger.
-    if dist is None or (len(dist) and int(dist.max()) < 500):
+        version = int(z["cache_version"]) if "cache_version" in z.files else None
+        has_distances = "shape_dist" in z.files
+    # Another feed's large distances can hide stale truncated kilometres in ZTM data.
+    if version != CACHE_VERSION or not has_distances:
         _build()
         return
     with open(stops_path, encoding="utf-8") as f:
@@ -375,7 +381,7 @@ def merge_info() -> dict:
 def stop_times() -> dict:
     _ensure_built()
     with np.load(DERIVED / "gtfs_stop_times.npz") as z:
-        return {k: z[k] for k in z.files}
+        return {k: z[k] for k in z.files if k != "cache_version"}
 
 
 @lru_cache
@@ -603,11 +609,11 @@ def _shapes() -> dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]]:
         except KeyError:
             continue
         current = None
-        bucket_d, bucket_lat, bucket_lon = [], [], []
+        bucket_d, bucket_lat, bucket_lon, bucket_seq = [], [], [], []
 
         def flush():
             if current and bucket_d:
-                order = np.argsort(np.array(bucket_d))
+                order = np.argsort(np.array(bucket_seq), kind="stable")
                 out[current] = (np.array(bucket_d, dtype=np.float64)[order],
                                 np.array(bucket_lat, dtype=np.float64)[order],
                                 np.array(bucket_lon, dtype=np.float64)[order])
@@ -617,10 +623,11 @@ def _shapes() -> dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]]:
             if key != current:
                 flush()
                 current = key
-                bucket_d, bucket_lat, bucket_lon = [], [], []
+                bucket_d, bucket_lat, bucket_lon, bucket_seq = [], [], [], []
             bucket_d.append(float(_shape_dist(row.get("shape_dist_traveled"))))
             bucket_lat.append(float(row["shape_pt_lat"]))
             bucket_lon.append(float(row["shape_pt_lon"]))
+            bucket_seq.append(int(row["shape_pt_sequence"]))
         flush()
     return out
 
@@ -633,11 +640,22 @@ def shape_slice(shape_id: str, dist_from: int, dist_to: int) -> list[list[float]
     if pack is None:
         return []
     dist, lat, lon = pack
+    if np.any(dist < 0) or np.any(np.diff(dist) < 0):
+        return []  # unusable feed measures: callers can project onto the ordered coordinates instead
     i = int(np.searchsorted(dist, dist_from, side="left"))
     j = int(np.searchsorted(dist, dist_to, side="right"))
     i = min(max(i, 0), len(dist) - 1)
     j = min(max(j, i + 1), len(dist))
     return [[round(float(lat[k]), 6), round(float(lon[k]), 6)] for k in range(i, j)]
+
+
+def shape_by_stops(shape_id: str, calls: list[dict]) -> list[list[float]]:
+    """Use the actual ordered shape when stop distances are absent (e.g. WKD)."""
+    pack = _shapes().get(shape_id)
+    if pack is None:
+        return []
+    _, lat, lon = pack
+    return slice_shape_by_stops(np.column_stack((lat, lon)), [(c["lat"], c["lon"]) for c in calls])
 
 
 def _load_fares(feed: str) -> list[dict]:
@@ -797,8 +815,8 @@ def max_segment_for(line: str, brigade: str, when: datetime) -> int | None:
 def _trip_static(ti: int) -> tuple | None:
     """(stops with seconds since service midnight, shape (metres, lat, lon)) of a trip; None without a shape.
 
-    Distances are computed here from the coordinates: GTFS shape_dist_traveled is in km in warsaw.zip and
-    `_shape_dist` keeps only whole units. Each stop is placed on the nearest shape point at or after the
+    Distances are computed here from coordinates, independently of the feed's shape_dist_traveled units.
+    Each stop is placed on the nearest shape point at or after the
     previous stop's point.
     """
     shape = _shapes().get(trips()[ti][6] if len(trips()[ti]) > 6 else "")
