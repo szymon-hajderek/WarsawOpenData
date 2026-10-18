@@ -122,8 +122,7 @@ class RealRouteEngine(RouteEngine):
         dest_ids = {s["id"] for s in alights}
 
         def departures(stop_id, after):
-            return mkuran.departures(stop_id, date, now_sec if after is None else int(after), limit=12,
-                                     exclude_modes=_EXCLUDE.get())
+            return mkuran.departures(stop_id, date, now_sec if after is None else int(after), limit=12)
 
         def onward(trip_id, stop_id, sec):
             return [_mapped(call, "stop_id") for call in mkuran.trip_onward(trip_id, stop_id, sec)]
