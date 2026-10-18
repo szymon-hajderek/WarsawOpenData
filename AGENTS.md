@@ -361,11 +361,13 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Station-aware routing (#79): `real_engine` copies GTFS stops/calls onto `stations.locations()` positions and passes
   station IDs (including `vet:`) to the street router. One `legs_from_router` adapter converts paths/optional segments;
   all stop-touching legs carry `fromId` / `toId` and exact catalog `start` / `end` (street geometry stays router-rounded).
-  Access/egress candidate ranking uses one `/access` call in the appropriate direction. Missing street paths or GTFS
-  shapes drop mixed options; router downtime returns 503. `POST /api/routes` also accepts `travel` =
+  Access/egress candidate ranking uses one `/access` call in the appropriate direction. Missing street paths
+  drop mixed options; router downtime returns 503. `POST /api/routes` also accepts `travel` =
   walk / accessible / stroller / bike for street-only trips without timetable/live queries; default is transit.
   Stroller is a profile; stepFree/wheelchair uses the accessible graph. Route totals include pushed-bike metres
   in walkDistance and ridden metres in bikeDistance, including multi-stop trips.
+- The C++ router never returns transit shapes. Transit geometry comes from GTFS in `real_engine` (`_ride_path`: `shape_slice`,
+  then `shape_by_stops`); without any shape, a polyline through the stops with `approximatePath: true`.
 - Speed history (device-side, privacy first): in the route view "Rozpocznij przejazd" / "Zakończ" records GPS points (memory only, one every 4 s,
   Screen Wake Lock while recording) and sends the track once to `POST /api/history/records` (`backend/app/api/history.py`,
   `algorithms/speed_history.py::split_track`: shares the moving distance between the route's legs by planned distance, ignores standing

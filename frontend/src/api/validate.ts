@@ -38,7 +38,8 @@ export function isRouteOptions(value: unknown): value is RouteOption[] {
             isOptionalId(l.toId) &&
             isOptionalPoint(l.start) &&
             isOptionalPoint(l.end) &&
-            isSegments(l.segments),
+            isSegments(l.segments) &&
+            (l.approximatePath === undefined || typeof l.approximatePath === 'boolean'),
         ),
     )
   );

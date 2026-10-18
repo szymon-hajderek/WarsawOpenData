@@ -11,6 +11,8 @@ from app.api import routes
 from app.models import Place, RouteRequest
 from app.routing import real_engine as engine
 
+_RIDE_PATH = engine._ride_path  # the real one; the fixture stubs it
+
 A, B, C, D = "ztm:A", "ztm:B", "ztm:C", "ztm:D"
 P, Q = "vet:P", "vet:Q"
 START = Place(id="start", label="Start", position=(52.2300, 21.0100))
@@ -68,7 +70,7 @@ def router(monkeypatch):
     monkeypatch.setattr(engine, "_trip_delays", lambda: {})
     monkeypatch.setattr(engine, "_station_delays", lambda: {})
     monkeypatch.setattr(engine.alerts, "alerted_lines", lambda: set())
-    monkeypatch.setattr(engine, "_ride_path", lambda *args: [(52.25, 21.04), (52.26, 21.05)])
+    monkeypatch.setattr(engine, "_ride_path", lambda *args: ([(52.25, 21.04), (52.26, 21.05)], False))
     yield calls, by_id, answer
     engine._overlay.cache_clear()
     engine._FOOT_CACHE.clear()
@@ -244,10 +246,68 @@ def test_exact_marker_position_is_preserved_when_router_rounds_coordinates(route
     assert leg.end == (21.0105123, 52.2305123)
 
 
-def test_missing_transit_shape_drops_the_option(router, monkeypatch):
-    monkeypatch.setattr(engine, "_ride_path", lambda *args: [])
+def _shapes(monkeypatch, sliced, by_stops):
+    """Use the real _ride_path with fake GTFS shapes; returns the shape ids passed to shape_by_stops."""
+    seen = []
+    monkeypatch.setattr(engine, "_ride_path", _RIDE_PATH)
+    monkeypatch.setattr(engine.mkuran, "trip_shape_id", lambda trip_id: "shape-" + trip_id)
+    monkeypatch.setattr(engine.mkuran, "shape_slice", lambda *args: sliced)
+    monkeypatch.setattr(engine.mkuran, "shape_by_stops", lambda shape_id, calls: seen.append(shape_id) or by_stops)
+    return seen
+
+
+def test_ride_without_stop_distances_uses_the_shape_projected_on_the_stops(router, monkeypatch):
+    shape = [[52.25, 21.04], [52.255, 21.045], [52.26, 21.05]]
+    seen = _shapes(monkeypatch, [], shape)
+    trip = ride(line="wkd1")
+    assert engine._ride_path("wkd1", trip["calls"]) == (shape, False)
+    assert seen == ["shape-wkd1"]
+    option = engine.RealRouteEngine()._transit_option(
+        START, END, START.position, END.position, "standard", NOW, 28800, [trip], 0, None)
+    transit = next(leg for leg in option.legs if leg.mode == "bus")
+    assert transit.path == [tuple(p) for p in shape] and transit.approximatePath is False
+
+
+def test_ride_without_any_shape_is_kept_as_a_polyline_through_every_call(router, monkeypatch):
+    _, locations, _ = router
+    _shapes(monkeypatch, [], [])
+    trip = ride(A, C)
+    trip["calls"].insert(1, {**trip["calls"][0], "stop_id": B, "name": B, "dep": 29700, "arr": 29700})
+    expected = [[locations[s]["position"]["lat"], locations[s]["position"]["lon"]] for s in (A, B, C)]
+    assert engine._ride_path(trip["dep"]["trip_id"], trip["calls"]) == (expected, True)
+    option = engine.RealRouteEngine()._transit_option(
+        START, END, START.position, END.position, "standard", NOW, 28800, [trip], 0, None)
+    assert option is not None
+    transit = next(leg for leg in option.legs if leg.mode == "bus")
+    assert [list(p) for p in transit.path] == expected  # mapped positions, not the GTFS call coordinates
+    assert transit.model_dump(by_alias=True)["approximatePath"] is True
+    assert all(not leg.approximatePath for leg in option.legs if leg.mode == "walk")
+
+
+def test_ride_with_a_single_call_is_dropped(router):
+    trip = ride()
+    trip["calls"] = trip["calls"][:1]
     assert engine.RealRouteEngine()._transit_option(
-        START, END, START.position, END.position, "standard", NOW, 28800, [ride()], 0, None) is None
+        START, END, START.position, END.position, "standard", NOW, 28800, [trip], 0, None) is None
+
+
+@pytest.mark.parametrize("profile, steps, tag", [
+    ("accessible", [], "bez schodów"),
+    ("accessible", [[21.01, 52.23]], "bez schodów"),
+    ("stroller", [], "bez schodów"),
+    ("stroller", [[21.01, 52.23]], "schody tylko z rynnami"),
+])
+def test_step_free_tags_per_profile(router, profile, steps, tag):
+    option = engine._option("walk", "Pieszo", [], NOW, 60)
+    engine._street_tags(option, {"steps": steps, "elevators": []}, profile)
+    assert option.tags == [tag]
+
+
+def test_by_street_falls_back_to_the_nearest_candidates_when_access_reaches_none(router, monkeypatch):
+    monkeypatch.setattr(street_router, "access", lambda *args, **kwargs: [{"id": "ztm:other", "seconds": 30}])
+    candidates = [{"id": f"ztm:{i}", "lat": 52.2300 + 0.001 * (10 - i), "lon": 21.0100} for i in range(10)]
+    picked = engine._by_street(START.position, candidates, "standard")
+    assert [stop["id"] for stop in picked] == [f"ztm:{i}" for i in (9, 8, 7, 6, 5, 4, 3, 2)]
 
 
 def test_other_router_errors_are_not_hidden(router, monkeypatch):

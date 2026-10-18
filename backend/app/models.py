@@ -55,6 +55,8 @@ class RouteLeg(BaseModel):
     _street_distances: Optional[tuple[float, float]] = PrivateAttr(default=None)
     # 1-based number of the intermediate stop this leg ends at (multi-stop trips), else None.
     stop: Optional[int] = None
+    # True when GTFS has no shape for the trip and `path` only joins the stops in order.
+    approximatePath: bool = False
 
     @model_validator(mode="after")
     def _fill_ends(self) -> "RouteLeg":

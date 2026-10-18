@@ -333,9 +333,9 @@ class RealRouteEngine(RouteEngine):
                     legs.extend(legs_from_router(mid, from_name=prev["name"], to_name=calls[0]["name"]))
                 elif ride["dep"]["sec"] < prev["arr"] - CATCH_SLACK_S:
                     return None
-            path = _ride_path(ride["dep"]["trip_id"], calls)
-            if len(path) < 2:
+            if len(calls) < 2:
                 return None
+            path, approximate = _ride_path(ride["dep"]["trip_id"], calls)
             meters = sum(_distance(path[i], path[i + 1]) for i in range(len(path) - 1))
             seconds = max(0, calls[-1]["arr"] - calls[0]["dep"])
             dep = ride["dep"]
@@ -345,6 +345,7 @@ class RealRouteEngine(RouteEngine):
                 fromId=calls[0]["stop_id"], toId=calls[-1]["stop_id"],
                 start=tuple(reversed(_pos(calls[0]["stop_id"], (calls[0]["lat"], calls[0]["lon"])))),
                 end=tuple(reversed(_pos(calls[-1]["stop_id"], (calls[-1]["lat"], calls[-1]["lon"])))),
+                approximatePath=approximate,
             ))
         legs.extend(egress_legs)
         title = " + ".join(ride["dep"]["line"] for ride in rides)
@@ -422,7 +423,10 @@ def _inside(lat, lon) -> bool:
 
 
 def _by_street(origin, candidates, profile, direction="from"):
-    """Rank candidates with one search; egress follows the streets towards the destination."""
+    """Rank candidates with one search; egress follows the streets towards the destination.
+
+    When the search works but reaches none of them, fall back to the 8 nearest by straight line
+    (a point off the street graph, 404 / 422, cannot walk to any stop, so it gets none)."""
     if not candidates:
         return []
     try:
@@ -433,7 +437,10 @@ def _by_street(origin, candidates, profile, direction="from"):
             raise
         return []
     times = {stop["id"]: stop["seconds"] for stop in reachable if stop["seconds"] <= 18 * 60}
-    return sorted((stop for stop in candidates if stop["id"] in times), key=lambda stop: times[stop["id"]])
+    ranked = sorted((stop for stop in candidates if stop["id"] in times), key=lambda stop: times[stop["id"]])
+    if ranked:
+        return ranked
+    return sorted(candidates, key=lambda stop: _distance(origin, (stop["lat"], stop["lon"])))[:8]
 
 
 def _ride_clear(ride) -> bool:
@@ -639,14 +646,26 @@ def _stations() -> list[dict]:
         return []
 
 
-def _ride_path(trip_id: str, calls: list[dict]) -> list[list[float]]:
+def _ride_path(trip_id: str, calls: list[dict]) -> tuple[list[list[float]], bool]:
+    """Vehicle path of one ride and whether it is approximate.
+
+    GTFS shape by stop distances, then the shape with the stops projected on it (feeds without
+    distances, e.g. WKD), else a polyline through every call at its mapped position (approximate).
+    The C++ router never returns transit shapes."""
+    shape_id = mkuran.trip_shape_id(trip_id)
     try:
-        shape = mkuran.shape_slice(mkuran.trip_shape_id(trip_id), calls[0]["shape_dist"], calls[-1]["shape_dist"])
+        shape = mkuran.shape_slice(shape_id, calls[0]["shape_dist"], calls[-1]["shape_dist"])
     except (KeyError, OSError, ValueError):
         shape = []
     if len(shape) >= 2:
-        return shape
-    return []
+        return shape, False
+    try:
+        shape = mkuran.shape_by_stops(shape_id, calls)
+    except (KeyError, OSError, ValueError):
+        shape = []
+    if len(shape) >= 2:
+        return shape, False
+    return [list(_pos(call["stop_id"], (call["lat"], call["lon"]))) for call in calls], True
 
 
 def legs_from_router(answer: dict, names: dict[str, str] | None = None, *,
@@ -695,8 +714,9 @@ def legs_from_router(answer: dict, names: dict[str, str] | None = None, *,
 
 
 def _street_tags(option, answer, profile):
-    if all(leg.mode == "walk" for leg in option.legs) and _router_mode("walk", profile) in ("accessible", "stroller"):
-        option.tags.append("bez schodów")
+    mode = _router_mode("walk", profile)
+    if all(leg.mode == "walk" for leg in option.legs) and mode in ("accessible", "stroller"):
+        option.tags.append("schody tylko z rynnami" if mode == "stroller" and answer.get("steps") else "bez schodów")
     if answer.get("elevators"):
         option.tags.append(f"windy: {len(answer['elevators'])}")
     return option

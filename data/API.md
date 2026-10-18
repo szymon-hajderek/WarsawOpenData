@@ -579,7 +579,7 @@ Types:
 | `LatLng` | `[lat, lon]` (used in `path` and `Place.position`) |
 | `LonLat` | `[lon, lat]` (GPS / GeoJSON order, used in a leg's `start` and `end`) |
 | `Place` | `id`, `label`, `sublabel` (optional), `position` (`LatLng`), `isCurrentLocation` (optional bool) |
-| `RouteLeg` | `mode` (`walk`, `bike` = own bike, `veturilo` = rented Veturilo bike, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names), `fromId`, `toId` (StationLocations IDs or `null` for non-station places), `line` (or `null`), `durationMin`, `distanceM`, `start`, `end` (`LonLat`, mapped stop positions or the router's place endpoints), `path` (list of `LatLng`), `segments` (optional list; empty when unavailable), `stop` (optional, 1-based number of the intermediate stop the leg ends at) |
+| `RouteLeg` | `mode` (`walk`, `bike` = own bike, `veturilo` = rented Veturilo bike, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names), `fromId`, `toId` (StationLocations IDs or `null` for non-station places), `line` (or `null`), `durationMin`, `distanceM`, `start`, `end` (`LonLat`, mapped stop positions or the router's place endpoints), `path` (list of `LatLng`), `segments` (optional list; empty when unavailable), `stop` (optional, 1-based number of the intermediate stop the leg ends at), `approximatePath` (bool, optional, default `false`: `true` when GTFS has no shape for the trip and `path` only joins the stops in order; street legs never set it) |
 | `RouteOption` | `id`, `title`, `legs`, `departure`, `arrival` (`HH:MM`), `durationMin`, `distanceM`, `walkDistance`, `bikeDistance`, `transfers`, `tags`, `waypoints` (optional, trips with stops) |
 
 `segments` contains `{kind, path, lengthM}`: kind is `ride`, `push`, `walk`, `steps`, `elevator` or `metro_access`;
@@ -622,12 +622,14 @@ They also support `via`. Walk uses the accessible graph for an accessible profil
 and the stroller graph for the stroller profile. Explicit `accessible` / `stroller` travel selects that profile's
 default walking speed (unless walkKmh overrides it). Bike legs use the bike graph. Accessible and stroller profiles
 disable Veturilo. A zero cycling speed rejects an explicit own-bike request with 422.
-Accessible / stroller options carry `bez schodów`; routes with elevators carry `windy: N`.
+Accessible options carry `bez schodów`; stroller options carry `schody tylko z rynnami` when the path takes steps
+(with stroller rails), else `bez schodów`; routes with elevators carry `windy: N`.
 
 Answer: list of `RouteOption`. Public-transport geometry follows the GTFS shape between the stops
-boarded and alighted. Walk and bike geometry comes only from the street router, using StationLocations IDs
+boarded and alighted (by stop distances, else the shape with the stops projected on it). A trip without any shape
+is still offered: its `path` joins every stop of the ride in order and the leg has `approximatePath: true`. Walk and bike geometry comes only from the street router, using StationLocations IDs
 at stop and Veturilo endpoints (metro access includes the entrances). A missing street path drops the mixed
-candidate; a missing GTFS shape drops the transit option. The result may be empty. No straight lines replace missing paths.
+candidate. The result may be empty. No straight lines replace missing street paths.
 
 Verified through a running local API and C++ router, with the repository's GTFS/OSM data:
 

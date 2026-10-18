@@ -34,6 +34,8 @@ export interface RouteLeg {
   /** `GET /api/stations` id of the stop / station at each end (`ztm:435102`, `vet:14083304`), `null` for a place that is not one. */
   fromId?: string | null;
   toId?: string | null;
+  /** True when GTFS has no shape for the trip and `path` only joins the stops in order. */
+  approximatePath?: boolean;
   segments?: {
     kind: 'ride' | 'push' | 'walk' | 'steps' | 'elevator' | 'metro_access';
     path: LatLng[];

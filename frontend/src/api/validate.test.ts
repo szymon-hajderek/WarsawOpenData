@@ -47,6 +47,12 @@ describe('isRouteOptions', () => {
       expect(isRouteOptions([{ ...option, legs: [{ ...leg, segments: broken }] }])).toBe(false);
     }
   });
+
+  it('accepts a boolean or missing approximatePath and rejects other values', () => {
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, approximatePath: true }] }])).toBe(true);
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, approximatePath: false }] }])).toBe(true);
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, approximatePath: 'yes' }] }])).toBe(false);
+  });
 });
 
 describe('isNearestBuses', () => {
