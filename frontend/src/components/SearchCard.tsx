@@ -19,7 +19,7 @@ import type { Departure } from '../utils/departure';
 import { MAX_STOPS } from '../api/routes';
 import type { Place, StopOrder } from '../types';
 import { RADIUS } from '../layout';
-import { TRAVEL_LABELS, TRAVEL_MODES, type TravelMode } from '../travel';
+import { ACCESS_LABELS, ACCESS_OPTIONS, hasAccess, TRAVEL_LABELS, TRAVEL_MODES, type Access, type TravelMode } from '../travel';
 import { PALETTE } from '../map/palette';
 
 /** Colour between `a` and `b` (hex), `t` in 0..1. */
@@ -40,6 +40,9 @@ interface Props {
   travel?: TravelMode;
   /** Without it the row of travel modes is not shown (the ride demo). */
   onTravelChange?: (mode: TravelMode) => void;
+  /** Accessibility of a transit or walking search ("Zwykle" / wheelchair / stroller); not shown for the bike. */
+  access?: Access;
+  onAccessChange?: (access: Access) => void;
   /** Departure time (`null` = now). Without `onDepartureChange` the control is not shown (the ride demo). */
   departure?: Departure;
   onDepartureChange?: (d: Departure) => void;
@@ -103,6 +106,8 @@ export default function SearchCard({
   order,
   travel = 'transit',
   onTravelChange,
+  access = 'standard',
+  onAccessChange,
   departure = null,
   onDepartureChange,
   currentLocation,
@@ -390,6 +395,23 @@ export default function SearchCard({
             />
           ))}
         </Box>
+        )}
+
+        {onTravelChange && onAccessChange && hasAccess(travel) && (
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={access}
+            aria-label="Dostępność"
+            onChange={(_, v: Access | null) => v && onAccessChange(v)}
+            sx={{ mt: 0.75, '& .MuiToggleButton-root': { py: 0.25, px: 1.25, fontSize: 12 } }}
+          >
+            {ACCESS_OPTIONS.map((a) => (
+              <ToggleButton key={a} value={a}>
+                {ACCESS_LABELS[a]}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
         )}
       </Box>
 
