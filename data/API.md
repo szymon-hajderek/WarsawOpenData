@@ -634,9 +634,12 @@ Route options between two places. Transit trips are planned by RAPTOR in the C++
 GTFS timetable, see `algorithms/router/README.md`): the street-only walk (dropped when longer than 50 minutes), then
 for each number of counted legs (a ride or a Veturilo rental) the earliest arrival that beats the options with fewer
 legs, plus the same for one later query (60 s after the earliest transit departure) for the next departures. Options
-are deduplicated, sorted by `durationMin`, at most 6; the first gets the tag `Najszybsza`. `title` = the lines in
+are deduplicated (the same rides arriving at the same time are one option: the one leaving latest stays), sorted by
+`durationMin`, at most 6; the first gets the tag `Najszybsza`. `title` = the lines in
 order joined by ` + ` (a Veturilo rental as `Veturilo`); `Pieszo` for the walk. `id` = `pt-<trip id>-<trip id>...`
 when the option rides transit (`POST /api/live/route-delays` reads it), `bike` for Veturilo only, `walk` otherwise.
+Ids are unique in one answer: a later option with an id already used (another run of a metro frequency trip, which
+shares the trip id) gets `@HHMM` of its departure appended (`pt-ztm:M1:NdM:KAB@0608`); `route-delays` ignores it.
 `departure` / `arrival` come from the router's `dep_s` / `arr_s` on the service day (leaving home just in time);
 `transfers` = counted legs - 1 (a Veturilo rental counts). Every limit of `/plan` is left unlimited; `max_legs` =
 `maxTransfers` + 1 (default 3); `bikeKmh` 0 sends `veturilo_s: 0`. Timetable times only: no live delay shifts
