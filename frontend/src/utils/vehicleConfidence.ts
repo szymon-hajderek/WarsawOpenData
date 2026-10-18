@@ -17,6 +17,19 @@ import type { VehicleCandidate } from '../types';
  */
 export const CONFIDENT_MAX_RMSE_M = 60;
 export const CONFIDENT_MIN_RATIO = 2.5;
+/**
+ * Above this top-1 RMSE nothing plausible was matched, so an automatic detection shows nothing (the bus button
+ * still opens the sheet). The backend always returns the 4 nearest vehicles with no distance cut-off, so without
+ * this the sheet opened for vehicles hundreds of metres away. A rider's own vehicle is ~40-50 m with a good fix and
+ * ~80 m with 100 m GPS error (same replay as above), so 120 m keeps real riders and drops absurd matches.
+ */
+export const PLAUSIBLE_MAX_RMSE_M = 120;
+
+/** Is the best match close enough to be a vehicle the user may be in? */
+export function isPlausible(candidates: VehicleCandidate[]): boolean {
+  const first = candidates[0];
+  return first?.distanceM !== undefined && first.distanceM <= PLAUSIBLE_MAX_RMSE_M;
+}
 
 export function isConfident(candidates: VehicleCandidate[]): boolean {
   const [first, second] = candidates;
@@ -33,6 +46,6 @@ export function autoVehicleView(result: {
   offline: boolean;
   liveUnavailable?: boolean;
 }): AutoVehicleView {
-  if (result.offline || result.liveUnavailable || result.candidates.length === 0) return 'none';
+  if (result.offline || result.liveUnavailable || !isPlausible(result.candidates)) return 'none';
   return isConfident(result.candidates) ? 'bar' : 'sheet';
 }
