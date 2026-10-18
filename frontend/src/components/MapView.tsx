@@ -356,7 +356,7 @@ export default function MapView({
   const [overlayIds, toggleOverlay] = useOverlayIds();
   const overlayData = useMapOverlays(map, overlayIds);
   const colors = PALETTE[paletteMode];
-  const [look, toggleLook] = useMapLook();
+  const [look] = useMapLook();
   const stations = useRouteStations(route);
   const overlay = useMemo(() => (route && stations.size > 0 ? buildOverlay(route, stations) : null), [route, stations]);
   const glass = look === 'glass';
@@ -505,8 +505,6 @@ export default function MapView({
         onToggleMode={onToggleMode}
         view3d={false}
         onSwitchView={() => onOpen3d?.()}
-        look={look}
-        onToggleLook={toggleLook}
         overlayIds={overlayIds}
         onToggleOverlay={toggleOverlay}
         overlayZoomedOut={OVERLAYS.some((o) => overlayIds.includes(o.id) && overlayData.zoom < o.minZoom)}

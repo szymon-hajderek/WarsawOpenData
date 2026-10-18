@@ -4,14 +4,13 @@ import MyLocation from '@mui/icons-material/MyLocation';
 import DarkMode from '@mui/icons-material/DarkMode';
 import LightMode from '@mui/icons-material/LightMode';
 import DirectionsBus from '@mui/icons-material/DirectionsBus';
-import Layers from '@mui/icons-material/Layers';
 import Signpost from '@mui/icons-material/Signpost';
 import ThreeDRotation from '@mui/icons-material/ThreeDRotation';
 import ThreeSixty from '@mui/icons-material/ThreeSixty';
 import { PALETTE } from '../map/palette';
 import { OVERLAYS, type OverlayId } from '../map/overlays';
 import { glassStyle } from '../map/glass';
-import type { MapLook } from '../map/mapLook';
+import { useMapLook } from '../map/mapLook';
 import '../map/glass.css';
 
 interface Props {
@@ -20,8 +19,6 @@ interface Props {
   /** The map being shown: the button switches to the other one. */
   view3d: boolean;
   onSwitchView: () => void;
-  look: MapLook;
-  onToggleLook: () => void;
   overlayIds: OverlayId[];
   onToggleOverlay: (id: OverlayId) => void;
   /** A switched-on stop layer is hidden because the map is zoomed out too far. */
@@ -37,15 +34,14 @@ interface Props {
 
 /**
  * The round buttons on the right of both maps (2D and 3D): the same buttons in the same order, so nothing moves when the
- * map is switched. 2D / 3D switch, theme, look (flat / glass), stop layers, vehicle detection, my location.
+ * map is switched. 2D / 3D switch, theme, stop layers, vehicle detection, my location.
+ * The look of the map (flat / glass) is a setting in Preferences ("Widok"), not a button here.
  */
 export default function MapControls({
   paletteMode,
   onToggleMode,
   view3d,
   onSwitchView,
-  look,
-  onToggleLook,
   overlayIds,
   onToggleOverlay,
   overlayZoomedOut,
@@ -55,6 +51,7 @@ export default function MapControls({
   controlsOffset = 0,
 }: Props) {
   const colors = PALETTE[paletteMode];
+  const [look] = useMapLook();
   const glass = look === 'glass';
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
 
@@ -91,11 +88,6 @@ export default function MapControls({
       {fab(
         <IconButton aria-label={paletteMode === 'dark' ? 'Włącz jasny motyw' : 'Włącz ciemny motyw'} onClick={onToggleMode}>
           {paletteMode === 'dark' ? <LightMode /> : <DarkMode />}
-        </IconButton>,
-      )}
-      {fab(
-        <IconButton aria-label={glass ? 'Włącz płaską wersję mapy' : 'Włącz szklaną wersję mapy'} aria-pressed={glass} onClick={onToggleLook}>
-          <Layers />
         </IconButton>,
       )}
       {fab(

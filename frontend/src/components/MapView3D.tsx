@@ -65,7 +65,7 @@ export default function MapView3D({
   onClose3d,
 }: Props) {
   const colors = PALETTE[paletteMode];
-  const [look, toggleLook] = useMapLook();
+  const [look] = useMapLook();
   const [overlayIds, toggleOverlay] = useOverlayIds();
   const [rotateMode, setRotateMode] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -285,8 +285,6 @@ export default function MapView3D({
         onToggleMode={onToggleMode}
         view3d
         onSwitchView={onClose3d}
-        look={look}
-        onToggleLook={toggleLook}
         overlayIds={overlayIds}
         onToggleOverlay={toggleOverlay}
         overlayZoomedOut={OVERLAYS.some((o) => overlayIds.includes(o.id) && overlayData.zoom < o.minZoom)}
