@@ -37,30 +37,10 @@ function trackOrPosition(track: TrackPoint[], position: LatLng | null): TrackPoi
   return position ? [{ lat: position[0], lon: position[1], time_ms: Date.now() }] : [];
 }
 
-// ---------------------------------------------------------------- fallback (backend not running)
-
-const POOL: VehicleCandidate[] = [
-  { id: 'tram-17', mode: 'tram', line: '17', direction: 'Annopol' },
-  { id: 'bus-175', mode: 'bus', line: '175', direction: 'Lotnisko Chopina' },
-  { id: 'metro-m1', mode: 'metro', line: 'M1', direction: 'Kabaty' },
-  { id: 'rail-s1', mode: 'rail', line: 'S1', direction: 'Otwock' },
-  { id: 'bus-523', mode: 'bus', line: '523', direction: 'Dw. Wschodni' },
-  { id: 'tram-33', mode: 'tram', line: '33', direction: 'Okęcie' },
-  { id: 'metro-m2', mode: 'metro', line: 'M2', direction: 'Bemowo' },
-  { id: 'bus-186', mode: 'bus', line: '186', direction: 'Wilanów' },
-];
-
-function mockCandidates(position: LatLng | null): VehicleCandidate[] {
-  const start = position ? Math.abs(Math.round((position[0] + position[1]) * 1000)) % POOL.length : 0;
-  return [0, 3, 5, 7].map((step) => POOL[(start + step) % POOL.length]);
-}
-
 // ---------------------------------------------------------------- API
 
 export interface DetectionResult {
-  /** True when the candidates are made-up example data (only when the backend is switched off on purpose). */
-  mock: boolean;
-  /** The backend is switched on but could not be reached (or sent a bad answer): nothing was detected. */
+  /** The backend is switched off, could not be reached or sent a bad answer: nothing was detected. */
   offline: boolean;
   /** The most likely vehicle first, then up to 3 other possible ones. */
   candidates: VehicleCandidate[];
@@ -80,14 +60,10 @@ export async function detectVehicle(
 ): Promise<DetectionResult> {
   const points = trackOrPosition(track, position);
   let detail: BusPopupDetail;
-  let mock = false;
   if (!API_URL) {
-    // The backend is switched off on purpose: example data.
-    mock = true;
-    const candidates = mockCandidates(position);
-    detail = { candidates, lines: candidates.map((c) => c.line), points };
+    return { candidates: [], lines: [], offline: true }; // the backend is switched off on purpose
   } else if (points.length === 0) {
-    return { candidates: [], lines: [], mock: false, offline: false }; // no location, nothing to detect
+    return { candidates: [], lines: [], offline: false }; // no location, nothing to detect
   } else {
     try {
       const r = await fetch(apiUrl('/api/live/nearest-buses'), {
@@ -115,11 +91,11 @@ export async function detectVehicle(
     } catch (e) {
       if (signal?.aborted) throw e;
       console.warn('Bus detection unavailable:', e);
-      return { candidates: [], lines: [], mock: false, offline: true };
+      return { candidates: [], lines: [], offline: true };
     }
   }
   window.dispatchEvent(new CustomEvent<BusPopupDetail>(BUS_POPUP_EVENT, { detail }));
-  return { candidates: detail.candidates, lines: detail.lines, mock, offline: false };
+  return { candidates: detail.candidates, lines: detail.lines, offline: false };
 }
 
 /** Detect again with the last 1-3 positions and reopen the popup (wire a "choose my line" button to it). */

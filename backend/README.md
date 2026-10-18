@@ -36,7 +36,7 @@ above). `app/` is the engine and the models, not a second server to start (`app/
 
 - Body `{ "from": Place, "to": Place, "profile": "standard" }` -> `RouteOption[]`.
 - A missing GTFS zip returns `503`.
-- `ROUTE_ENGINE` picks the engine (`app/routing/factory.py`): `real` (default) or `stub` (the previous mock).
+- `ROUTE_ENGINE` picks the engine (`app/routing/factory.py`): `real` (default, the only one).
 - `requirements.txt` is the old slim app. It cannot import the timetable. Use uv.
 
 ### Config (environment variables, all optional)
@@ -66,7 +66,6 @@ app/
     real_engine.py     routes from GTFS, street paths and Veturilo; legs_from_router() = the router adapter
     geometry.py        leg shapes for drawing (router street path, GTFS shape, else a polyline)
     multi.py           trips with intermediate stops
-    stub_engine.py     old mock
     geo.py             geometry and time helpers
 ```
 

@@ -97,7 +97,7 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - `npm run build` type-checks and builds
    - `npm run lint` runs ESLint (react-hooks + jsx-a11y rules); `npm test` runs the Vitest tests (jsdom, no browser needed)
    - optional: `VITE_API_URL` in `frontend/.env` points the app at the routing API
-     (default `http://localhost:8000`; set `VITE_API_URL=""` to use the in-browser example data; with a backend URL that does not answer, the app says "Nie połączono z serwerem")
+     (default `http://localhost:8000`; `VITE_API_URL=""` switches the backend off; then, as with a backend URL that does not answer, the app says "Nie połączono z serwerem"; there is no example data)
 3. **Data** (`data/`). GTFS zips and the OSM extract are stored with Git LFS.
    - install Git LFS once (`brew install git-lfs` or your package manager), then `git lfs install` and `git lfs pull`
    - or download fresh copies: `cd backend && uv run python download.py` (the OSM step fetches Geofabrik
@@ -134,7 +134,7 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - ride demo: `./demo.sh [scenario]` from the repo root starts the backend in simulation mode and the frontend
      (needs `npm install` and `uv sync` once); open http://localhost:5173 and use the "Demo" tab (it exists only in
      simulation mode). `API_PORT` changes the backend port
-   - optional `ROUTE_ENGINE` picks the route engine: `real` (default) or `stub`
+   - optional `ROUTE_ENGINE` picks the route engine: `real` (default, the only one today)
    - opt-in journey statistics: no extra dependency or database server is needed. Startup creates
      `db/journey_stats.sqlite` (git-ignored; SQLite from the Python standard library). The backend needs write
      access to `db/`. Optional `JOURNEY_STATS_DB` changes the file path; its parent is created automatically.

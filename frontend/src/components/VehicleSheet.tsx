@@ -62,8 +62,6 @@ interface Props {
   /** The line picked by hand, if any. */
   manual: VehicleCandidate | null;
   loading: boolean;
-  /** The candidates are made-up example data. */
-  mock: boolean;
   /** The backend could not be reached, so nothing was detected. */
   offline?: boolean;
   snap: VehicleSnap;
@@ -90,7 +88,6 @@ export default function VehicleSheet({
   lines,
   manual,
   loading,
-  mock,
   offline = false,
   snap,
   selectedId,
@@ -205,7 +202,6 @@ export default function VehicleSheet({
                     {vehicleName(suggested)}
                   </Typography>
                   <Chip label="Sugerowana" size="small" color="secondary" variant="outlined" />
-                  {mock && <Chip label="Dane przykładowe" size="small" color="warning" />}
                 </Box>
                 {[directionText(suggested), distanceText(suggested)].filter(Boolean).length > 0 && (
                   <Typography variant="body2" color="text.secondary" noWrap>

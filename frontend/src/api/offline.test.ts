@@ -33,13 +33,12 @@ describe('backend not connected', () => {
     const legs = [{ mode: 'walk', durationMin: 5, distanceM: 300, path: [[52.2, 21.0], [52.21, 21.0]] }];
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify([{ id: 'x', legs, tags: [] }]))));
     const result = await fetchRouteOptions(query);
-    expect(result.mock).toBe(false);
     expect(result.options[0].id).toBe('x');
   });
 
   it('vehicle: nothing is detected and the result says offline', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))));
     const result = await detectVehicle([], [52.2, 21.0]);
-    expect(result).toMatchObject({ candidates: [], mock: false, offline: true });
+    expect(result).toMatchObject({ candidates: [], offline: true });
   });
 });

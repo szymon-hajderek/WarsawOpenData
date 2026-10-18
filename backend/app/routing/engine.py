@@ -2,7 +2,6 @@
 
 `RouteEngine` is the single boundary between the FastAPI backend and whatever
 actually computes routes. The running implementation is `RealRouteEngine`.
-`StubRouteEngine` is the old mock.
 
 ## Future: the C++ engine
 
