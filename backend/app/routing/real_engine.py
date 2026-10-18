@@ -27,6 +27,7 @@ from ..models import Place, Profile, RouteLeg, RouteOption, RouteSegment
 from . import geometry
 from .engine import RouteEngine
 from .geo import format_time, round_half_up
+from .merge import merge_street_legs
 
 OSM_SPEED = {"walk": 1.3, "bike": 4.2}
 PROFILE_SPEED = {
@@ -136,7 +137,8 @@ class RealRouteEngine(RouteEngine):
         """One /plan option -> RouteOption (None for an empty or too long street-only trip)."""
         if not raw.get("legs") or (not _counted(raw) and raw["seconds"] > 50 * 60):
             return None
-        legs = legs_from_router(raw, from_name=from_label, to_name=to_label, points=(origin, dest))
+        # A short transfer walk at a stop and the street walk after it are one walk for the person on the street.
+        legs = merge_street_legs(legs_from_router(raw, from_name=from_label, to_name=to_label, points=(origin, dest)))
         leave = datetime.strptime(date, "%Y%m%d") + timedelta(seconds=raw["dep_s"])
         option = _option(_plan_id(legs), _plan_title(legs), legs, leave, raw["seconds"])
         option.transfers = int(raw.get("transfers", option.transfers))
