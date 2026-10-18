@@ -30,6 +30,7 @@ import {
   clearFilter,
   DEFAULT_FILTERS,
   filterChips,
+  type FilterChip,
   routeSearchBody,
   summarize,
   type TripFilters,
@@ -50,6 +51,9 @@ interface ActiveTrip {
   /** False while waiting for a later departure: no GPS progress, no off-route check, no recording yet. */
   started: boolean;
 }
+
+/** Filter chips that only matter for public transport options. */
+const TRANSIT_ONLY_CHIPS: FilterChip['id'][] = ['sort', 'modes', 'walk', 'maxTransfers', 'excludedModes'];
 
 type Step = 'search' | 'options' | 'route';
 
@@ -81,7 +85,8 @@ export default function App() {
   }, []);
   const { effective, activeRule } = usePreferences();
   const { tracker } = useHistory();
-  // Filters apply to the current search only; they start from the saved preferences.
+  // Filters are sticky for the session (memory only): they stay across new searches and travel-mode switches until
+  // the user changes them or taps "Wyczyść filtry". They start from the saved preferences.
   const [filters, setFilters] = useState<TripFilters>(DEFAULT_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [pickedId, setPickedId] = useState<string | null>(null);
@@ -158,7 +163,7 @@ export default function App() {
   );
 
   const onboardVehicleId = origin?.id.startsWith(ONBOARD_PREFIX) ? origin.id.slice(ONBOARD_PREFIX.length) : null;
-  const { options, loading, error: searchError, offline: routesOffline, errorMessage, vehicleNotFound } = useRouteSearch({
+  const { options, loading, error: searchError, offline: routesOffline, errorMessage, vehicleNotFound, refresh: refreshRoutes } = useRouteSearch({
     origin,
     destination,
     via,
@@ -178,9 +183,8 @@ export default function App() {
     setOnboardNotice(true);
   }, [vehicleNotFound, origin, currentLocation]);
 
-  // A new search starts clean: no filters, no chosen route.
+  // A new search starts with no picked / chosen route; the filters stay as they are.
   useEffect(() => {
-    setFilters(DEFAULT_FILTERS);
     setPickedId(null);
     setChosenId(null);
   }, [origin, destination, via, stopOrder, travel, access, byBike, departure]);
@@ -211,7 +215,11 @@ export default function App() {
     () => (travel === 'transit' ? applyListFilters(options, trip, filters) : options),
     [options, trip, filters, travel],
   );
-  const chips = useMemo(() => filterChips(filters, trip), [filters, trip]);
+  // Filters that do not apply to a street trip (sorting, vehicles, transfers, max walk) are kept but not shown.
+  const chips = useMemo(
+    () => filterChips(filters, trip).filter((c) => travel === 'transit' || !TRANSIT_ONLY_CHIPS.includes(c.id)),
+    [filters, trip, travel],
+  );
 
   // The selection always points into the filtered list.
   const selectedId = visible.some((o) => o.id === pickedId) ? pickedId : visible[0]?.id ?? null;
@@ -445,6 +453,7 @@ export default function App() {
             onClearChip={(id) => setFilters((f) => clearFilter(f, id))}
             onClearAll={() => setFilters(DEFAULT_FILTERS)}
             onConfirm={confirmOption}
+            onRefresh={refreshRoutes}
           />
         )}
 

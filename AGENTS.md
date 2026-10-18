@@ -236,7 +236,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   the case as strict xfail with the issue number, and tell the user. Simulation mode does not touch the engine either:
   tests send the simulated time as `when`.
 - Engine bugs found so far: #63 (options leave hours after the query, night buses for 08:30), #64 (no option or no
-  transit option at all), #65 (direct bus / tram options dropped after PR #56), #66 (`lateness.py` shows 4 min as 3).
+  transit option at all), #65 (direct bus / tram options dropped after PR #56), #66 (`lateness.py` shows 4 min as 3), #118 (two options
+  with the same id: metro frequency trips share a trip id, both cards show as selected).
 - Walking-only route totals and arrival times come from the walking leg; never pass a zero-second total override
   to `_option`. Regression tests: `backend/tests/test_walk_duration.py` (including arrival after midnight; #72).
 - The router returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`, stored in the graph file and
@@ -398,7 +399,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   (`src/preferences/PreferencesProvider.tsx`). Preferences page: `src/components/PreferencesPage.tsx`; reusable fields
   (levels + custom km/h, wheelchair, priorities, excluded districts / own points): `src/components/preferences/`.
   Time rules (`RuleDialog.tsx`) override any section for given days and hours (may cross midnight); the latest started
-  active rule wins. `FilterSheet.tsx` = filters for the current search only (sorting, max transfers, vehicles, max walking
+  active rule wins. `FilterSheet.tsx` = filters of the session, sticky (memory only, not saved): a new search, a new origin / departure or a travel
+  mode switch keeps them, only the picked / chosen route resets; "Wyczyść filtry" resets them. Transit-only chips (sort, vehicles,
+  transfers, max walk) are hidden on street trips but kept. The route list header has "Odśwież trasy" (`useRouteSearch().refresh`:
+  the same query again; "Teraz" sends no `when`, so the backend uses a new now; the selected route stays if its id is still there) (sorting, max transfers, vehicles, max walking
   time, step-free, pace / wheelchair, excluded areas, and "Zaawansowane" = all preferences as overrides). Max walking
   time still filters the list in the browser (`applyListFilters`); vehicles do not any more.
   "Środki transportu" (`Preferences.excludedModes`: bus / tram / metro / rail / veturilo, `TransportModesSection`, time rules may

@@ -32,6 +32,8 @@ export function useRouteSearch({ origin, destination, via, order, search, travel
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   /** The backend did not know the vehicle sent as `onboard` (404): the caller plans from the GPS position. */
   const [vehicleNotFound, setVehicleNotFound] = useState(false);
+  // Bumped by `refresh()`: runs the same search again (a "now" search asks for a new now: `when` stays empty).
+  const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
     setError(false);
@@ -79,7 +81,9 @@ export function useRouteSearch({ origin, destination, via, order, search, travel
         setLoading(false);
       });
     return () => ac.abort();
-  }, [origin, destination, via, order, search, travel, access, transitAccess, onboardVehicleId, when]);
+  }, [origin, destination, via, order, search, travel, access, transitAccess, onboardVehicleId, when, nonce]);
 
-  return { options, loading, error, offline, errorMessage, vehicleNotFound };
+  const refresh = () => setNonce((n) => n + 1);
+
+  return { options, loading, error, offline, errorMessage, vehicleNotFound, refresh };
 }
