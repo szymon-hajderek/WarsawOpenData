@@ -140,13 +140,10 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Raw data: GTFS zips and `warsaw_ztm.osm.pbf` are in Git LFS (`.gitattributes`); run `git lfs install`
   once after cloning. `data/derived/` holds parsed caches (git-ignored, rebuilt on first use, ~25 s
   for GTFS, ~17 s for OSM; delete `osm_graph.npz` after a new OSM file or a parser change).
-- GTFS caches use `mkuran.CACHE_VERSION` in the final `gtfs_stop_times.npz` (version 2: metre distances
-  and current platform/boarding fields). Bump it when cached semantics change. Mixed-feed maxima cannot
-  detect old truncated ZTM kilometres. Older caches rebuild from local ZIPs at backend startup.
-- GTFS geometry uses `shape_pt_sequence` order, including feeds without shape distances. `_ride_path`
-  first slices by feed distances, then `mkuran.shape_by_stops` projects ordered calls onto the actual
-  shape (`algorithms/shape_geometry.py`, e.g. WKD). Missing geometry keeps the existing fallback/route
-  availability; never discard a route merely to hide a drawing problem.
+- GTFS geometry data: `mkuran.CACHE_VERSION` (version 2) marks metre distances and current boarding/platform
+  fields. Old caches rebuild from existing ZIPs; mixed-feed maxima cannot detect truncated ZTM kilometres.
+  Shapes follow `shape_pt_sequence`; `shape_slice` rejects unusable measures and `shape_by_stops` projects
+  ordered calls onto source shape coordinates (e.g. WKD, which has no stop-to-shape distances).
 - Dedup: stops only from GTFS. ZTM (bus, tram, metro, SKM) from `warsaw.zip`, WKD from `wkd.zip`,
   other trains from `polish_trains.zip` without SKM and only inside the ZTM bbox. Rail stations merge
   across feeds only rail-to-rail (same name, < 150 m, field `same_as`); never with bus / tram stops.
@@ -184,9 +181,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   points (~5 s) unless a poll failed in between or the gap is > 25 s. The vehicle is projected on the GTFS shape of the trip with
   the same line + brigade (running now +- 15 min, < 100 m, timetable at that point closest to now; loops: the stretch nearest the last projection); last stop passed = K-1.
   Delay = time closest to K-1 within `DELAY_RADIUS_M` (default 30 m) - scheduled departure at K-1, shown at stop K; may be negative.
-  Not found -> `available: false`. `shape_dist_traveled` in `warsaw.zip` is in km; `mkuran._shape_dist` converts it
-  to metres. The cache version check rebuilds legacy truncated-kilometre data. `mkuran._trip_static` computes
-  metres from coordinates independently. Tuning: `algorithms/simulation/tune_delay_radius.py`, results in `DELAY_RESULTS.md`.
+  Not found -> `available: false`. `shape_dist_traveled` in `warsaw.zip` is in km; `mkuran._shape_dist` converts
+  it to metres. The cache version check rebuilds legacy truncated-kilometre data; `mkuran._trip_static`
+  computes metres from coordinates independently. Tuning: `algorithms/simulation/tune_delay_radius.py`, results in `DELAY_RESULTS.md`.
   Delay simulation: `record_delay_sample.py` records all live vehicles + `/api/live/delay` answers from a local server into
   `data/live/delay_sample.json.gz` (t = seconds since local midnight of `date`); `simulate_delay.py` (`evaluate(sample, radius_m,
   drop, noise_m)`, for future R searches) compares the replayed estimate with the full-track reference (stop crossing on the shape);
@@ -378,14 +375,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   Filters and sorting do not apply to a street trip.
 - Stop overlay: `RouteLeg.fromId` / `toId` (ids of `GET /api/stations`, `null` for a place that is not a stop; both optional until the backend sends them, see backend issue #79).
   `src/api/stations.ts` (`fetchStation`, `fetchStations(bbox)`), `src/hooks/useRouteStations.ts` loads the stops a route names (by id, cached), `src/utils/overlay.ts` (`buildOverlay`)
-  returns the markers, leg `networkPath` when available (otherwise `path`) and the metro entrances. Stop marker offsets must not append guessed
-  straight connectors to actual street/GTFS paths. The map draws small stop markers and metro rides
+  returns the markers, the leg paths with their ends moved onto the stops and the metro entrances. The map draws small stop markers, joins the legs at them, draws metro rides
   dashed and muted, shows the entrance where a walk goes down, and elevator / steps icons on street trips. Without answers the overlay is empty (nothing is made up).
-- Street drawing: `street_router.route` exposes `network_geometry` (C++ graph vertices only, `[lat, lon]`),
-  passed as optional `RouteLeg.networkPath` by the real engine and street-only frontend adapter. The map
-  uses it without drawing the two direct coordinate-to-graph access links. Full `path`, selected place/GPS
-  coordinates, costs, distances, directions and route availability remain intact. Geocoding never fetches
-  or selects building entrances. This is a map geometry distinction, not obstacle-aware access routing.
 - Backend calls: every call builds its URL with `apiUrl(path)` from `src/config.ts` (routes, geocode, history, vehicle). An empty
   `API_URL` turns all of them to the in-browser mock. Answers are checked in `src/api/validate.ts`; a wrong shape counts as "backend down".
 - **A missing backend is said out loud.** With `API_URL` set, a network error, a 5xx or a wrong shape means "not connected": a red snackbar "Nie połączono z serwerem. Sprawdź, czy backend działa."

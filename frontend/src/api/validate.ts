@@ -28,7 +28,6 @@ export function isRouteOptions(value: unknown): value is RouteOption[] {
             Array.isArray(l.path) &&
             l.path.length > 0 &&
             l.path.every(isPoint) &&
-            (l.networkPath == null || (Array.isArray(l.networkPath) && l.networkPath.every(isPoint))) &&
             isOptionalId(l.fromId) &&
             isOptionalId(l.toId) &&
             isOptionalPoint(l.start) &&

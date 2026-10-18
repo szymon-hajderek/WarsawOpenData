@@ -36,7 +36,6 @@ interface StreetAnswer {
   bike_m: number;
   length_m: number;
   geometry: LatLng[];
-  network_geometry?: LatLng[];
   path?: LonLat[];
   elevators?: LonLat[];
   steps?: LonLat[];
@@ -55,7 +54,6 @@ export function isStreetAnswer(v: unknown): v is StreetAnswer {
     Array.isArray(a.geometry) &&
     a.geometry.length > 0 &&
     a.geometry.every(isPoint) &&
-    isPoints(a.network_geometry) &&
     isPoints(a.path) &&
     isPoints(a.elevators) &&
     isPoints(a.steps)
@@ -88,7 +86,6 @@ export function streetOption(answer: StreetAnswer, from: Place, to: Place, mode:
         fromId: null,
         toId: null,
         path,
-        networkPath: answer.network_geometry,
         elevators,
         steps,
       },

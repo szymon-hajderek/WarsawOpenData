@@ -57,16 +57,6 @@ describe('fetchStreetRoute', () => {
     expect(o).toMatchObject({ bikeDistance: 1612.8, walkDistance: 122.9, durationMin: 9, title: 'Własny rower' });
   });
 
-  it('keeps access costs and endpoints while supplying graph geometry for the map', async () => {
-    const network = GEOMETRY.slice(1, -1);
-    vi.stubGlobal('fetch', reply({ ...answers.walk, network_geometry: network }));
-    const o = await fetchStreetRoute(from, to, 'walk');
-    expect(o.legs[0].networkPath).toEqual(network);
-    expect(o.legs[0].path).toEqual(GEOMETRY);
-    expect(o.legs[0].start).toEqual([20.9906, 52.2386]);
-    expect(o).toMatchObject({ distanceM: 1657.3, durationMin: 22 });
-  });
-
   it('wheelchair: no steps tag and the elevators are counted', async () => {
     vi.stubGlobal('fetch', reply(answers.accessible));
     const o = await fetchStreetRoute(from, to, 'wheelchair');

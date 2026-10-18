@@ -542,11 +542,6 @@ of one kind covering the path, `{"kind", "path", "length_m"}`, kind `ride` / `pu
 `steps` / `elevator` / `metro_access`; ridden metres add up to `bike_m`, the rest to `walk_m`), `elevators` (`[lon, lat]` where the path boards
 an elevator), `steps` (`[lon, lat]` where a flight of steps starts; in `accessible` / `stroller` only steps with a ramp the mode
 may use, in `bike` none).
-`network_geometry` is the street-graph portion of `geometry` as `[lat, lon]`: it excludes the first and
-last direct coordinate-to-graph access links. The map uses this for the street line, keeping the selected
-place/GPS markers at their original coordinates. `path`, `geometry`, leg segments, distances and times
-still include those access links. No building entrances are selected or fetched. A zero-edge route can
-have a single graph point.
 
 ```json
 {"seconds": 1268.5, "walk_m": 88.7, "bike_m": 3988.8, "wait_s": 250.6, "length_m": 4077.5, "snap_m": [4.0, 7.9],
@@ -588,9 +583,6 @@ Types:
 | `RouteOption` | `id`, `title`, `legs`, `departure`, `arrival` (`HH:MM`), `durationMin`, `distanceM`, `walkDistance`, `bikeDistance`, `transfers`, `tags`, `waypoints` (optional, trips with stops) |
 
 `walkDistance` is the sum of the `walk` legs and `bikeDistance` the sum of the `bike` and `veturilo` legs, in metres; `distanceM` is the whole trip.
-Street `RouteLeg`s may also include `networkPath` (`LatLng[]` or `null`), the graph portion used for map
-drawing without direct access links. `path`, `start` / `end`, distances and duration retain their existing
-meaning. Transit legs use their GTFS `path`; older responses without `networkPath` remain supported.
 There are no `costPln` and `calories` any more: calories are worked out from the legs (`mode`, `distanceM`, `durationMin`; see `algorithms/calories.py`).
 
 ### `POST /api/routes`
@@ -621,9 +613,6 @@ previous arrival plus 2 minutes at the stop. `order` `optimal` minimises a time 
 Answer: list of `RouteOption`. Public-transport geometry follows the GTFS shape between the stops
 boarded and alighted. Walk and bike geometry follows the OSM graph (a straight line only when the
 graph has no path).
-When a feed supplies a shape but omits usable stop-to-shape distances, the backend projects the ordered
-stops onto that shape and returns its intervening vertices. Existing route availability and missing-data
-fallbacks remain unchanged; an unavailable shape does not discard a route option.
 
 ```json
 [{"id": "pt-ztm:trip", "title": "175",

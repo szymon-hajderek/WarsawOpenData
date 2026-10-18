@@ -82,3 +82,12 @@ def test_shapes_follow_sequence_when_feed_distances_are_missing(monkeypatch):
     monkeypatch.setattr(mkuran, "_rows", lambda *a: iter(rows))
     shapes = mkuran._shapes.__wrapped__()
     assert shapes["wkd:1"][1].tolist() == pytest.approx([52.2, 52.201, 52.202])
+
+
+@pytest.mark.parametrize("distances", [[-1, -1, -1], [0, 200, 100]])
+def test_unusable_shape_measures_use_coordinate_projection(monkeypatch, distances):
+    shape = (np.array(distances), np.array([52.2, 52.2, 52.202]), np.array([21, 21.002, 21.002]))
+    monkeypatch.setattr(mkuran, "_shapes", lambda: {"wkd:1": shape})
+    assert mkuran.shape_slice("wkd:1", 0, 200) == []
+    calls = [{"lat": 52.2, "lon": 21.001}, {"lat": 52.201, "lon": 21.002}]
+    assert mkuran.shape_by_stops("wkd:1", calls) == [[52.2, 21.001], [52.2, 21.002], [52.201, 21.002]]

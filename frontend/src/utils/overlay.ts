@@ -3,10 +3,12 @@ import type { Station } from '../api/stations';
 import { haversine } from './geo';
 
 /**
- * The stop overlay of one route: markers alongside the route's original geometry.
+ * The stop overlay of one route: where the stops are drawn and how the legs meet them.
  * Pure functions (the map only draws what they return).
  */
 
+/** Closer than this (m) the end of a leg already is the stop; no connector is needed. */
+const MEET_M = 2;
 /** An entrance farther than this (m) from the walk that goes down is not "the" entrance of that walk. */
 const ENTRANCE_M = 150;
 
@@ -18,13 +20,20 @@ export interface StopMarker {
 
 export interface Overlay {
   markers: StopMarker[];
-  /** The original path of every leg. Marker coordinates must not introduce guessed route segments. */
+  /** The path of every leg, with its ends moved onto the stop markers. */
   paths: LatLng[][];
   /** Metro: where the walk goes down (one entrance per metro platform, the one nearest to the walk). */
   entrances: LatLng[];
 }
 
 const isMetro = (s: Station) => s.kind === 'metro_platform';
+
+function joinTo(path: LatLng[], at: LatLng | undefined, end: 'start' | 'end'): LatLng[] {
+  if (!at || path.length === 0) return path;
+  const edge = end === 'start' ? path[0] : path[path.length - 1];
+  if (haversine(edge, at) <= MEET_M) return path;
+  return end === 'start' ? [at, ...path] : [...path, at];
+}
 
 /** The ids a route names (`fromId` / `toId` of its legs), without repeats. */
 export function stationIds(route: RouteOption | null): string[] {
@@ -52,7 +61,7 @@ function nearestEntrance(station: Station, to: LatLng | undefined): LatLng | und
   return best && best.d <= ENTRANCE_M ? best.p : undefined;
 }
 
-/** Markers, unchanged paths and metro entrances for a route and the stations the server knows. */
+/** Markers, joined paths and metro entrances for a route and the stations the server knows. */
 export function buildOverlay(route: RouteOption, stations: ReadonlyMap<string, Station>): Overlay {
   const markers = new Map<string, StopMarker>();
   const entrances: LatLng[] = [];
@@ -76,7 +85,7 @@ export function buildOverlay(route: RouteOption, stations: ReadonlyMap<string, S
         entrances.push(e);
       }
     }
-    return leg.networkPath ?? leg.path;
+    return joinTo(joinTo(leg.path, from?.position, 'start'), to?.position, 'end');
   });
 
   return { markers: [...markers.values()], paths, entrances };

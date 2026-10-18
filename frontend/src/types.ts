@@ -29,8 +29,6 @@ export interface RouteLeg {
   start?: LonLat;
   end?: LonLat;
   path: LatLng[];
-  /** Actual street graph vertices for map drawing; `path` retains the full access geometry. */
-  networkPath?: LatLng[] | null;
   /** 1-based number of the intermediate stop this leg ends at (trips with stops). */
   stop?: number;
   /** `GET /api/stations` id of the stop / station at each end (`ztm:435102`, `vet:14083304`), `null` for a place that is not one. */

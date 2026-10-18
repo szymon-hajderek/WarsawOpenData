@@ -65,9 +65,6 @@ def route(a, b, mode: str = "walk", **options) -> dict:
     data = _post("/route", body)
     data["length_m"] = round(data["walk_m"] + data["bike_m"], 1)
     data["geometry"] = [[lat, lon] for lon, lat in data["path"]]
-    # The C++ path is [requested start, graph nodes..., requested end]. Keep access costs/full
-    # geometry intact, but expose the graph portion for drawing the actual street line.
-    data["network_geometry"] = data["geometry"][1:-1]
     return data
 
 

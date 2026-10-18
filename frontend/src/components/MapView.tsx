@@ -232,7 +232,7 @@ function RouteLayer({
       {route.legs.map((leg, i) => {
         const walk = leg.mode === 'walk';
         const color = walk ? colors.accent : modeColor(leg.mode, palette);
-        const positions = overlay?.paths[i] ?? leg.networkPath ?? leg.path;
+        const positions = overlay?.paths[i] ?? leg.path;
         const buried = underground && leg.mode === 'metro';
         return (
           <Fragment key={`${i}-${leg.mode}`}>
