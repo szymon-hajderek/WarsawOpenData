@@ -6,3 +6,4 @@
   0.0.0.0:8080 proxying `/api`; `stop`; logs in `logs/`.
 - Frontend: the API base defaults to the page origin in production builds too (was `http://localhost:8000`);
   `vite preview` gets the `/api` proxy and allows any host (RunPod proxy).
+- `deploy/nginx.sh <domain> [email]`: nginx reverse proxy to port 8080 + Let's Encrypt HTTPS (certbot) once the domain resolves.
