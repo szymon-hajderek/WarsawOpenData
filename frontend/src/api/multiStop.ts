@@ -64,6 +64,7 @@ function combine(index: number, segments: RouteOption[], waypoints: Place[]): Ro
     transfers: segments.reduce((s, o) => s + o.transfers, 0),
     tags: [],
     waypoints,
+    waitS: segments.reduce((s, o) => s + (o.waitS ?? 0), 0),
   };
 }
 

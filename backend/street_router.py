@@ -61,14 +61,11 @@ def _post(path: str, body: dict) -> dict:
 
 def route(a, b, mode: str = "walk", **options) -> dict:
     """Path from a to b ((lat, lon) each, or a location id of stations.json).  Extra options are relayed as they
-    are; the router answers 501 (NotImplementedError here) for the ones it does not support yet. The answer has
-    seconds, walk_m, bike_m, wait_s, snap_m, path ([lon, lat]), elevators and steps, plus length_m and geometry
-    ([lat, lon]) for the callers."""
+    are; the router answers 501 (NotImplementedError here) for the ones it does not support yet. The answer is
+    returned unchanged: `legs` (always), and in the older format also top-level totals. Read the legs
+    (app/routing/real_engine.legs_from_router)."""
     body = {"from": _place(a), "to": _place(b), "mode": mode, **options}
-    data = _post("/route", body)
-    data["length_m"] = round(data["walk_m"] + data["bike_m"], 1)
-    data["geometry"] = [[lat, lon] for lon, lat in data["path"]]
-    return data
+    return _post("/route", body)
 
 
 def access(point, mode: str = "walk", direction: str = "from", limit_s: float = 900, **options) -> list[dict]:

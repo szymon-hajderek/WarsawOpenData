@@ -1,6 +1,6 @@
 /**
  * How the user wants to get there. `transit` is the normal search (public transport + Veturilo through
- * `POST /api/routes`); the others are street-only trips answered by the street router (`GET /api/osm/route`).
+ * `POST /api/routes`); the others are street-only trips: the same endpoint with `travel` (see `ROUTER_MODE`), answered by the street router.
  */
 export type TravelMode = 'transit' | 'walk' | 'wheelchair' | 'stroller' | 'bike';
 export type StreetMode = Exclude<TravelMode, 'transit'>;
@@ -15,7 +15,7 @@ export const TRAVEL_LABELS: Record<TravelMode, string> = {
   bike: 'Własny rower',
 };
 
-/** `mode` of `GET /api/osm/route`. */
+/** `travel` of `POST /api/routes` for a street-only trip. */
 export const ROUTER_MODE: Record<StreetMode, 'walk' | 'accessible' | 'stroller' | 'bike'> = {
   walk: 'walk',
   wheelchair: 'accessible',

@@ -175,7 +175,6 @@ def test_gtfs_cache_without_the_marker_file_is_rebuilt(tmp_path, monkeypatch):
     "/api/gtfs/stops/ztm:700901/departures?date=tomorrow",
     "/api/gtfs/stops/ztm:700901/departures?limit=0",
     "/api/osm/nearest?lat=999&lon=21",
-    "/api/osm/route?from_lat=52&from_lon=21&to_lat=52&to_lon=400",
     "/api/live/vehicles?type=bus&max_age_s=0",
 ])
 def test_bad_parameters_give_422(url):

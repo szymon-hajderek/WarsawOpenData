@@ -90,3 +90,18 @@ export function buildOverlay(route: RouteOption, stations: ReadonlyMap<string, S
 
   return { markers: [...markers.values()], paths, entrances };
 }
+
+export interface AccessPoint {
+  key: string;
+  kind: 'elevator' | 'steps';
+  /** `[lat, lon]`, as the backend sends it. */
+  position: LatLng;
+}
+
+/** Where the street legs of a route board an elevator or start a flight of steps (map markers). */
+export function accessPoints(route: RouteOption): AccessPoint[] {
+  return route.legs.flatMap((leg, i) => [
+    ...(leg.elevators ?? []).map((position, k) => ({ key: `lift-${i}-${k}`, kind: 'elevator' as const, position })),
+    ...(leg.steps ?? []).map((position, k) => ({ key: `steps-${i}-${k}`, kind: 'steps' as const, position })),
+  ]);
+}

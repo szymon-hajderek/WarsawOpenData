@@ -15,13 +15,14 @@ from datetime import datetime
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from config import REPO
 from sim import clock, scenario
 
 sys.path.insert(0, str(REPO / "algorithms"))
 from bus_delay import WINDOW_S, add_point, estimate  # noqa: E402
+from route_delays import leg_vehicles, trip_ids_from_option  # noqa: E402
 from nearest_buses import rank_buses  # noqa: E402
 
 # When LIVE_BUSES_URL is set, only that feed is polled over HTTP (mode taken from type=).
@@ -221,12 +222,20 @@ def _clock(epoch: float | None) -> str | None:
 def api_delay(vehicle: str = Query(..., description="vehicle id as in nearest-buses, e.g. bus-5914")):
     """Estimated delay of one vehicle at its previous stop, shown as the expected delay at the next stop."""
     _need_data()
+    answer = _delay_for(vehicle)
+    if answer is None:
+        raise HTTPException(404, "unknown vehicle")
+    return answer
+
+
+def _delay_for(vehicle: str) -> dict | None:
+    """The /delay answer for one live vehicle, None when the vehicle is unknown."""
     with _lock:
         info = _info.get(vehicle)
         buffer = list(_buffers.get(vehicle, ()))
         prev = _last_proj.get(vehicle)
     if info is None:
-        raise HTTPException(404, "unknown vehicle")
+        return None
     from sources import mkuran
     when = clock.warsaw_time(buffer[-1]["t"]) if buffer else clock.warsaw_now()
     r = estimate(buffer, mkuran.brigade_trips(info["line"], info["brigade"], when, WINDOW_S), DELAY_RADIUS_M, prev)
@@ -247,3 +256,46 @@ def api_delay(vehicle: str = Query(..., description="vehicle id as in nearest-bu
             "headsign": trip["headsign"] if trip else None, "available": r["available"], "reason": r["reason"],
             "delaySec": r["delay_s"], "prevStop": prev_stop, "nextStop": next_stop,
             "radiusM": DELAY_RADIUS_M, "updatedAt": _updated_at}
+
+
+class RouteDelayOption(BaseModel):
+    id: str
+    lines: list[str]
+
+
+class RouteDelaysRequest(BaseModel):
+    options: list[RouteDelayOption] = Field(max_length=20)
+
+
+def _gtfs_trip(trip_id: str) -> dict | None:
+    """Line, brigade and mode of a GTFS trip, None when GTFS does not know it."""
+    from sources import mkuran
+    ti = mkuran._trip_ids().get(trip_id)
+    if ti is None:
+        return None
+    trip = mkuran.trips()[ti]
+    route = mkuran.routes().get(trip[1], {})
+    return {"line": route.get("short_name", ""), "brigade": str(trip[3]), "mode": route.get("mode", "")}
+
+
+@router.post("/route-delays")
+def api_route_delays(req: RouteDelaysRequest):
+    """Live delay of the buses and trams in suggested routes, before the user boards them (data/API.md)."""
+    _need_data()
+    with _lock:
+        vehicles = {(i["line"], str(i["brigade"])): vid for vid, i in _info.items()}
+    out = {}
+    for option in req.options:
+        trip_ids = trip_ids_from_option(option.id)
+        trips = {t: g for t in trip_ids if (g := _gtfs_trip(t)) is not None}
+        rows = []
+        for row in leg_vehicles(trip_ids, option.lines, trips, vehicles):
+            item = {"transitIndex": row["transitIndex"], "line": row["line"], "vehicleId": row["vehicle_id"],
+                    "available": False, "delaySec": None, "sameTrip": False, "reason": row["reason"]}
+            answer = _delay_for(row["vehicle_id"]) if row["vehicle_id"] else None
+            if answer is not None:
+                item.update(available=answer["available"], delaySec=answer["delaySec"], reason=answer["reason"],
+                            sameTrip=answer["tripId"] == row["trip_id"])
+            rows.append(item)
+        out[option.id] = rows
+    return out

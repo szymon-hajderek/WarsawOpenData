@@ -198,6 +198,12 @@ Everything in this repo (files, commits, PRs) is written in English.
   `export_delay_viz.py` builds `artifacts/delay-simulation.html`. `search_delay_radius.py`: R 20..200 m every 10 m, then every 1 m
   between the two best neighbours; score = share of passes shown within 30 s. On the 2026-10-17 recording: 30 m 95.0%, best 80 m 96.5%
   (flat from 80 m); default still 30 m.
+- Delays of suggested routes (`POST /api/live/route-delays`, `algorithms/route_delays.py`): a transit option id is
+  `pt-<trip id>-<trip id>...` (built in `real_engine.py`; the endpoint depends on that format, the engine is not changed).
+  Trip -> GTFS line + brigade -> live vehicle with the same Lines + Brigade -> the `/delay` estimate (`_delay_for`).
+  Vehicle still on an earlier trip of its brigade: its current delay with `sameTrip: false`. `multi-N` options get nothing.
+  Frontend: `useRouteDelays` (in `RouteOptionsSheet`, refresh 30 s) -> `LegChain` shows "· +3 min" / "punktualnie" /
+  "2 min wcześniej" ("ok." when `sameTrip` is false) after the line; the engine's own "opóźnienie N min" tag is hidden then.
 - Veturilo siting (`backend/sources/siting.py`, `algorithms/station_siting.py`, `GET /api/veturilo/siting`): Warsaw boundary
   (`data/geojson/warsaw.geojson`, Nominatim relation R336075) split into pointy-top axial hexes, radius 175 m (6476 hexes). Cost
   `J = -a*T*(1 + d*E) + b*P(d_net) + g*S`, `P = (1 - d/R)^2` below R; defaults a=1, b=1, g=0.5, d=0.5, R=1000 m (`DEFAULTS`).
@@ -231,7 +237,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   transit option at all), #65 (direct bus / tram options dropped after PR #56), #66 (`lateness.py` shows 4 min as 3).
 - Walking-only route totals and arrival times come from the walking leg; never pass a zero-second total override
   to `_option`. Regression tests: `backend/tests/test_walk_duration.py` (including arrival after midnight; #72).
-- `/api/osm/route` returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`, stored in the graph file and
+- The router returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`, stored in the graph file and
   checked by the C++ router) from the graph; `osm.nearest()` in Python has no limit.
 - Street cost = length / speed + expected wait at crossings (HCM `(C-g)^2/2C`, constants `SPEED`,
   `WAIT` in `osm.py`). OSM has no signal timing tags in Warsaw. The wait is per edge (`osm.edges()`):
@@ -280,7 +286,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   Target architecture (user): OSM layer for own bike / walk / accessible + a simple station network for RAPTOR with
   precomputed foot / bike paths; query = access Dijkstra → RAPTOR → egress Dijkstra.
   `street_router matrix` builds the stop-to-stop matrices (float32 (3, N, N): walk_m, bike_m, wait_s).
-  `osm.route()` is gone; `/api/osm/route` and `real_engine._street()` call the router. Full docs:
+  `osm.route()` and `GET /api/osm/route` are gone; `real_engine._street()` calls the router. Full docs:
   `algorithms/router/README.md` (keep it current).
 - RAPTOR in the router (`POST /plan`, design `docs/raptor-graph.md`, user's spec): `preprocess_transit.py` writes
   `data/derived/street/timetable.bin` (TTB1, `algorithms/timetable_file.py`; trips as calls at stations.json indexes,
@@ -399,11 +405,14 @@ Everything in this repo (files, commits, PRs) is written in English.
   "Twoja średnia z historii" with "Użyj X km/h" (when it differs by 10% or more) and the switch "Zawsze używaj średniej z historii" (`autoSpeed`; when on and
   enough trips, `applyHistory` in `src/preferences/model.ts` replaces the level / typed speed and the selector is locked). History can be cleared on the Preferences page.
 - Travel modes (`src/travel.ts`): chips in the search card (Komunikacja | Pieszo | Wózek inwalidzki | Wózek dziecięcy | Własny rower, not saved). `Komunikacja` is the
-  normal `POST /api/routes` search. The other four are street-only trips: `src/api/streetRoute.ts` (`fetchStreetRoute`, `fetchStreetTrip` for trips with stops) calls
-  `GET /api/osm/route` (modes `walk`, `accessible`, `stroller`, `bike`) and builds a one-leg `RouteOption` (`start` / `end` from the path as `[lon, lat]`, `elevators` / `steps` on
-  the leg, tags "bez schodów" and "windy: N"). Errors are said in Polish: 422 "Punkt poza zasięgiem mapy", 404 "Brak trasy", 503 "Serwer tras nie działa", 400 "Ten tryb nie jest
-  jeszcze dostępny na serwerze". **No mock and no straight line** for street trips: a wheelchair user must know the path was really checked.
-  Filters and sorting do not apply to a street trip.
+  normal `POST /api/routes` search. The other four are street-only trips: `src/api/streetRoute.ts` (`fetchStreetTrip`, also with `via` / `order`; `fetchStreetRoute` = no stops)
+  posts to the same `POST /api/routes` with `travel` (`ROUTER_MODE`: `walk`, `accessible`, `stroller`, `bike`) and shows the one `RouteOption` of the answer as it is
+  (checked by `isRouteOptions`; `GET /api/osm/route` is gone, the frontend no longer parses raw router answers). Errors are said in Polish: 422 "Punkt poza zasięgiem mapy",
+  404 (or an empty list) "Brak trasy", 503 "Serwer tras nie działa", 400 "Ten tryb nie jest jeszcze dostępny na serwerze". **No mock and no straight line** for street trips:
+  a wheelchair user must know the path was really checked. Filters and sorting do not apply to a street trip.
+- Route representation extras (all optional): `RouteLeg.elevators` / `steps` (`[lat, lon]`, drawn as icons via `accessPoints` in `src/utils/overlay.ts`),
+  `RouteLeg.waitS` (transit: seconds at the boarding stop), `RouteLeg.tripId` (GTFS, no UI), `RouteOption.waitS` (all standing time). Texts from `src/utils/format.ts`:
+  `formatWait` "czekasz N min" in the route steps, `formatTotalWait` "w tym czekanie N min" next to the duration (list + details); nothing below 60 s. The mock fills them too.
 - Stop overlay: `RouteLeg.fromId` / `toId` (ids of `GET /api/stations`, `null` for a place that is not a stop; both optional until the backend sends them, see backend issue #79).
   `src/api/stations.ts` (`fetchStation`, `fetchStations(bbox)`), `src/hooks/useRouteStations.ts` loads the stops a route names (by id, cached), `src/utils/overlay.ts` (`buildOverlay`)
   returns the markers, the leg paths with their ends moved onto the stops and the metro entrances. The map draws small stop markers, joins the legs at them, draws metro rides
@@ -448,6 +457,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   interrupted and GPS-less recordings do not count; statistics failures do not block local speed history.
   Geocoded places use `osm:<node|way|relation>:<osm_id>` instead of Nominatim's temporary `place_id`.
 
+- `app/routing/geometry.py` builds leg shapes for rendering: street path from the router, transit GTFS shape, else a
+  polyline through the named points (`approximatePath`). The router answers ids only (null = query point);
+  `legs_from_router()` accepts the old and the new router format. Legs carry `elevators` / `steps` (street),
+  `waitS` + `tripId` (transit); `RouteOption.waitS` = all standing (transit waits + street waits).
 - Separate package `backend/app/` holds the route models and `RealRouteEngine`. `backend/main.py`
   mounts it, so one uv process serves data, geocode and `POST /api/routes`.
 - Models (`app/models.py`) mirror `frontend/src/types.ts` exactly (camelCase JSON keys; `from`

@@ -78,7 +78,7 @@ instead of going out and in. Rail platforms and stations are only joined at thei
 
 | File | Role |
 |---|---|
-| `backend/sources/osm.py` | Data side: download + clip OSM, parse into `osm_graph.npz` (rebuilt when the `.pbf` is newer), the edges of each mode (rules, waits, bike pushing, elevators), the main component, and `points_graph()` = a mode's graph as a `StreetGraph`. `/api/osm/route` relays to the router. |
+| `backend/sources/osm.py` | Data side: download + clip OSM, parse into `osm_graph.npz` (rebuilt when the `.pbf` is newer), the edges of each mode (rules, waits, bike pushing, elevators), the main component, and `points_graph()` = a mode's graph as a `StreetGraph`. |
 | `algorithms/street_model.py` | Pure cost-model functions used by `osm.py`: signal junctions, waits, joining points (`access_edges`). |
 | `algorithms/street_graph.py` | `StreetGraph` and its file format (`save()`). |
 | `backend/stations.py` | Builds `stations.json` + `stations_report.json` from mkuran, nextbike and `osm.transport_objects()`. |
