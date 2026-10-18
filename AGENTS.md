@@ -252,6 +252,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   Known gap: a pedestrian crosses a road only where OSM connects the two sidewalks (e.g. Wolica 01 / 02: 59 m apart, 695 m walk).
 - ZTM posts in OSM: `public_transport=platform` nodes with `ref` = ZTM stop_id (`Grójecka 02` = `ref=435102`);
   90% of posts match, median 7 m from the GTFS point.
+- **One walk is one leg:** the router splits a trip at every station it passes, so a ride ending at one post of a stop, the short transfer walk to the next post and the street walk to the destination
+  came as two or three neighbouring walk legs. `backend/app/routing/merge.py` (`merge_street_legs`, used for the plan options in `RealRouteEngine._plan_option`) joins neighbouring `walk` legs and
+  neighbouring own-bike `bike` legs into one: same points (the shared point once), minutes and metres are the sums, ids / names / segments / elevators / steps / street totals carried over; a leg that
+  ends at an intermediate stop, a ride, a different mode and a rented `veturilo` leg are never joined. `legs_from_router` itself is unchanged.
 - Street modes (`osm.SPEED`): `walk`, `bike` (riding + pushing along the stroller graph where riding is not
   allowed), `accessible` (wheelchair: walk without steps, with `highway=elevator` ways; steps with
   `ramp:wheelchair=yes` count as step-free, plain `ramp=yes` does not), `stroller` (as accessible, plus steps with
