@@ -63,7 +63,8 @@ app/
   routing/
     engine.py          RouteEngine interface (seam for the C++ service)
     factory.py         picks the engine from ROUTE_ENGINE
-    real_engine.py     routes from GTFS, street paths and Veturilo
+    real_engine.py     routes from GTFS, street paths and Veturilo; legs_from_router() = the router adapter
+    geometry.py        leg shapes for drawing (router street path, GTFS shape, else a polyline)
     multi.py           trips with intermediate stops
     stub_engine.py     old mock
     geo.py             geometry and time helpers

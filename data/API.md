@@ -546,50 +546,8 @@ Nearest graph node to a point.
 
 A `mode` other than `walk`, `bike`, `accessible` or `stroller` returns `400 {"detail": "mode must be walk, bike, accessible or stroller"}`.
 
-### `GET /api/osm/route`
-
-Street path between two points.
-
-| Query | Type | Default | Meaning |
-|---|---|---|---|
-| `from_lat`, `from_lon`, `to_lat`, `to_lon` | number | required | start and end (same ranges as above) |
-| `mode` | string | `walk` | `walk`, `bike`, `accessible` or `stroller` |
-
-Answered by the C++ street router (`algorithms/router/README.md`, `POST /route`). The start and the end join the
-street graph through up to 6 nearest nodes (at most 30 m farther than the nearest one); these short access segments
-are walked.
-
-Answer: `seconds` (total time with the mode's default speeds), `walk_m` (metres walked, also a pushed bike),
-`bike_m` (metres ridden), `wait_s` (expected waits that do not depend on speed: crossings and signals, where signal
-nodes closer than 30 m by path form one junction paid once, and 60 s per elevator), `length_m` (= `walk_m` +
-`bike_m`), `snap_m` (distance from start and end to the nearest usable graph node, in metres), `path` (list of
-`[lon, lat]`, 5 decimals), `geometry` (the same as `[lat, lon]`), `legs` (one leg: `mode` `walk` / `bike`, `from` /
-`to` as `{"id": null, "lonlat": [lon, lat]}`, `seconds`, `walk_m`, `bike_m`, `wait_s`, `path`, and `segments`: parts
-of one kind covering the path, `{"kind", "path", "length_m"}`, kind `ride` / `push` (bike ridden / pushed) / `walk` /
-`steps` / `elevator` / `metro_access`; ridden metres add up to `bike_m`, the rest to `walk_m`), `elevators` (`[lon, lat]` where the path boards
-an elevator), `steps` (`[lon, lat]` where a flight of steps starts; in `accessible` / `stroller` only steps with a ramp the mode
-may use, in `bike` none).
-
-```json
-{"seconds": 1268.5, "walk_m": 88.7, "bike_m": 3988.8, "wait_s": 250.6, "length_m": 4077.5, "snap_m": [4.0, 7.9],
- "path": [[21.0122, 52.2297], [21.01226, 52.22969], "..."], "geometry": [[52.2297, 21.0122], [52.22969, 21.01226], "..."],
- "elevators": [], "steps": [],
- "legs": [{"mode": "bike", "from": {"id": null, "lonlat": [21.0122, 52.2297]}, "to": {"id": null, "lonlat": [20.9652, 52.2196]},
-           "seconds": 1268.5, "walk_m": 88.7, "bike_m": 3988.8, "wait_s": 250.6, "path": ["..."],
-           "segments": [{"kind": "push", "length_m": 4.0, "path": [[21.0122, 52.2297], [21.01226, 52.22969]]},
-                        {"kind": "ride", "length_m": 2867.1, "path": [[21.01226, 52.22969], "..."]},
-                        {"kind": "push", "length_m": 10.1, "path": ["..."]},
-                        {"kind": "ride", "length_m": 1121.7, "path": ["..."]},
-                        {"kind": "push", "length_m": 74.6, "path": ["...", [20.9652, 52.2196]]}]}]}
-```
-
-Errors:
-- `400 {"detail": "mode must be walk, bike, accessible or stroller"}` for a `mode` other than `walk`, `bike`, `accessible` or `stroller`.
-- `422` when the start or the end is more than 1000 m from the street graph (e.g. outside Warsaw):
-  `{"detail": "start is more than 1000 m from the street graph"}` (the first of `start`, `end` that is too far).
-- `404` with a message when no path exists.
-- `503` when the street router is not running (`{"detail": "street router not reachable at ..."}`), and while the
-  server is still starting.
+Street-only trips (walk, wheelchair, stroller, own bike) are `POST /api/routes` with `travel` (see Routing).
+The old `GET /api/osm/route` relay is removed.
 
 ---
 
@@ -606,8 +564,8 @@ Types:
 | `LatLng` | `[lat, lon]` (used in `path` and `Place.position`) |
 | `LonLat` | `[lon, lat]` (GPS / GeoJSON order, used in a leg's `start` and `end`) |
 | `Place` | `id`, `label`, `sublabel` (optional), `position` (`LatLng`), `isCurrentLocation` (optional bool) |
-| `RouteLeg` | `mode` (`walk`, `bike` = own bike, `veturilo` = rented Veturilo bike, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names), `fromId`, `toId` (StationLocations IDs or `null` for non-station places), `line` (or `null`), `durationMin`, `distanceM`, `start`, `end` (`LonLat`, mapped stop positions or the router's place endpoints), `path` (list of `LatLng`), `segments` (optional list; empty when unavailable), `stop` (optional, 1-based number of the intermediate stop the leg ends at), `approximatePath` (bool, optional, default `false`: `true` when GTFS has no shape for the trip and `path` only joins the stops in order; street legs never set it) |
-| `RouteOption` | `id`, `title`, `legs`, `departure`, `arrival` (`HH:MM`), `durationMin`, `distanceM`, `walkDistance`, `bikeDistance`, `transfers`, `tags`, `waypoints` (optional, trips with stops) |
+| `RouteLeg` | `mode` (`walk`, `bike` = own bike, `veturilo` = rented Veturilo bike, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names), `fromId`, `toId` (StationLocations IDs or `null` for non-station places), `line` (or `null`), `durationMin`, `distanceM`, `start`, `end` (`LonLat`, mapped stop positions or the router's place endpoints), `path` (list of `LatLng`), `segments` (optional list; empty when unavailable), `stop` (optional, 1-based number of the intermediate stop the leg ends at), `approximatePath` (bool, optional, default `false`: `true` when there is no real shape (no GTFS shape for the trip, or no street path) and `path` only joins the leg's start, its stops and its end in order), `elevators`, `steps` (street legs: list of `LatLng` where the path boards an elevator / where a flight of steps starts, empty when none; `null` on transit legs), `waitS` (number or `null`: on transit legs the seconds spent standing at the boarding stop `fromId` before the vehicle departs; `null` on street legs), `tripId` (string or `null`: on transit legs the GTFS trip id of the ride, e.g. `ztm:M1:PcM:MLO`; `null` on street legs) |
+| `RouteOption` | `id`, `title`, `legs`, `departure`, `arrival` (`HH:MM`), `durationMin`, `distanceM`, `walkDistance`, `bikeDistance`, `transfers`, `tags`, `waitS` (seconds standing in all: the transit legs' `waitS` plus the expected street waits at signals, crossings and elevators), `waypoints` (optional, trips with stops) |
 
 `segments` contains `{kind, path, lengthM}`: kind is `ride`, `push`, `walk`, `steps`, `elevator` or `metro_access`;
 path is `[lat, lon]` and lengthM is metres. Segments preserve the router's consecutive parts within a leg.
@@ -658,38 +616,77 @@ is still offered: its `path` joins every stop of the ride in order and the leg h
 at stop and Veturilo endpoints (metro access includes the entrances). A missing street path drops the mixed
 candidate. The result may be empty. No straight lines replace missing street paths.
 
-Verified through a running local API and C++ router, with the repository's GTFS/OSM data:
+Shapes are for drawing only (`backend/app/routing/geometry.py`): a street leg takes the router's path, a transit leg
+the GTFS shape between its stops, else a polyline through the named points (`approximatePath: true`). The router
+answers station IDs only (`null` = the query's own start / end); `start` / `end` come from `GET /api/stations`
+positions or the query points. The backend reads both the current router format and the agreed `/plan` legs
+(see `algorithms/router/README.md`), so the answer here does not change when the router switches.
+
+Verified with the repository's GTFS / OSM data and the local C++ router (paths cut to their ends):
 
 ```json
 {"from": {"id": "centrum", "label": "Centrum", "position": [52.2297, 21.0122]},
  "to": {"id": "gdanski", "label": "Dworzec Gdański", "position": [52.2574, 20.9933]},
- "when": "2026-10-18T08:00", "profile": "accessible", "bikeKmh": 0, "maxTransfers": 0}
+ "when": "2026-10-19T08:00", "bikeKmh": 0, "maxTransfers": 1}
 ```
 
-Abbreviated answer (paths shortened; optional segments omitted here):
+One option of the answer:
 
 ```json
-[{"id": "pt-ztm:M1:NdM:MLO", "title": "M1",
-  "legs": [{"mode": "walk", "from": "Centrum", "to": "Centrum", "line": null,
-            "fromId": null, "toId": "ztm:7013M:P1", "durationMin": 6, "distanceM": 327.1,
-            "start": [21.0122, 52.2297], "end": [21.010385558, 52.231009364],
-            "path": [[52.2297, 21.0122], "...", [52.23101, 21.01039]]},
-           {"mode": "metro", "from": "Centrum", "to": "Dworzec Gdański", "line": "M1",
-            "fromId": "ztm:7013M:P1", "toId": "ztm:7019M:P1", "durationMin": 6, "distanceM": 3190.8,
-            "start": [21.010385558, 52.231009364], "end": [20.994182473076926, 52.25808857692308],
-            "path": [[52.23106, 21.010189], "...", [52.257832, 20.994385]]},
-           {"mode": "walk", "from": "Dworzec Gdański", "to": "Dworzec Gdański", "line": null,
-            "fromId": "ztm:7019M:P1", "toId": null, "durationMin": 5, "distanceM": 227.2,
-            "start": [20.994182473076926, 52.25808857692308], "end": [20.9933, 52.2574],
-            "path": [[52.25809, 20.99418], "...", [52.2574, 20.9933]]}],
-  "departure": "08:02", "arrival": "08:19", "durationMin": 17, "distanceM": 3745.1,
-  "walkDistance": 554.3, "bikeDistance": 0, "transfers": 0, "tags": ["Najszybsza"]}]
+{"id": "pt-ztm:2026-10-19:16:PcS:24:0732-ztm:M1:PcM:MLO", "title": "16 + M1",
+ "legs": [{"mode": "walk", "from": "Centrum", "to": "Centrum", "line": null, "durationMin": 1, "distanceM": 43.9,
+           "path": [[52.2297, 21.0122], "...", [52.22946, 21.01198]],
+           "start": [21.0122, 52.2297], "end": [21.011977, 52.2294593], "fromId": null, "toId": "ztm:701308",
+           "segments": [{"kind": "walk", "path": [[52.2297, 21.0122], "...", [52.22946, 21.01198]], "lengthM": 43.9}],
+           "stop": null, "approximatePath": false, "elevators": [], "steps": [], "waitS": null, "tripId": null},
+          {"mode": "tram", "from": "Centrum", "to": "Metro Ratusz Arsenał", "line": "16", "durationMin": 7, "distanceM": 1921.0,
+           "path": [[52.229382, 21.012005], "...", [52.24498, 21.000723]],
+           "start": [21.011977, 52.2294593], "end": [21.0007477, 52.244999], "fromId": "ztm:701308", "toId": "ztm:709904",
+           "segments": [], "stop": null, "approximatePath": false, "elevators": null, "steps": null,
+           "waitS": 0.0, "tripId": "ztm:2026-10-19:16:PcS:24:0732"},
+          {"mode": "walk", "from": "Metro Ratusz Arsenał", "to": "Ratusz Arsenał", "line": null, "durationMin": 2, "distanceM": 169.3,
+           "path": [[52.245, 21.00075], "...", [52.245, 21.00103]],
+           "start": [21.0007477, 52.244999], "end": [21.001032314285712, 52.24500417142857],
+           "fromId": "ztm:709904", "toId": "ztm:7099M:P1",
+           "segments": [{"kind": "walk", "path": [[52.245, 21.00075], "...", [52.24517, 21.0007]], "lengthM": 19.3},
+                        {"kind": "metro_access", "path": [[52.24517, 21.0007], [52.245, 21.00103]], "lengthM": 150.0}],
+           "stop": null, "approximatePath": false, "elevators": [], "steps": [], "waitS": null, "tripId": null},
+          {"mode": "metro", "from": "Ratusz Arsenał", "to": "Dworzec Gdański", "line": "M1", "durationMin": 3, "distanceM": 1549.7,
+           "path": [[52.244759, 21.001369], "...", [52.257832, 20.994385]],
+           "start": [21.001032314285712, 52.24500417142857], "end": [20.994182473076926, 52.25808857692308],
+           "fromId": "ztm:7099M:P1", "toId": "ztm:7019M:P1", "segments": [], "stop": null, "approximatePath": false,
+           "elevators": null, "steps": null, "waitS": 109.8, "tripId": "ztm:M1:PcM:MLO"},
+          {"mode": "walk", "from": "Dworzec Gdański", "to": "Dworzec Gdański", "line": null, "durationMin": 3, "distanceM": 227.2,
+           "path": [[52.25809, 20.99418], "...", [52.2574, 20.9933]],
+           "start": [20.994182473076926, 52.25808857692308], "end": [20.9933, 52.2574], "fromId": "ztm:7019M:P1", "toId": null,
+           "segments": [{"kind": "metro_access", "path": [[52.25809, 20.99418], [52.25749, 20.99408]], "lengthM": 150.0},
+                        {"kind": "walk", "path": [[52.25749, 20.99408], "...", [52.2574, 20.9933]], "lengthM": 77.2}],
+           "stop": null, "approximatePath": false, "elevators": [], "steps": [], "waitS": null, "tripId": null}],
+ "departure": "08:00", "arrival": "08:18", "durationMin": 18, "distanceM": 3911.1,
+ "walkDistance": 440.4, "bikeDistance": 0.0, "transfers": 1, "tags": [], "waitS": 111.8, "waypoints": []}
+```
+
+The first ride's `waitS` is `0` because the trip starts just in time for it; `109.8` is the wait for M1 after the
+transfer walk. The option's `waitS` (111.8) adds 2 s of street waits.
+
+`travel: "bike"`, Centrum [52.2297, 21.0122] → Ochota [52.2196, 20.9652]:
+
+```json
+[{"id": "street-bike", "title": "Własny rower",
+  "legs": [{"mode": "bike", "from": "Centrum", "to": "Ochota", "line": null, "durationMin": 21, "distanceM": 4077.5,
+            "path": [[52.2297, 21.0122], "...", [52.2196, 20.9652]], "start": [21.0122, 52.2297], "end": [20.9652, 52.2196],
+            "fromId": null, "toId": null,
+            "segments": [{"kind": "push", "path": [[52.2297, 21.0122], [52.22969, 21.01226]], "lengthM": 4.0},
+                         {"kind": "ride", "path": [[52.22969, 21.01226], "...", [52.22195, 20.97776]], "lengthM": 2867.1},
+                         {"kind": "push", "path": [[52.22195, 20.97776], [52.22187, 20.97782]], "lengthM": 10.1},
+                         {"kind": "ride", "path": [[52.22187, 20.97782], "...", [52.21971, 20.96603]], "lengthM": 1121.7},
+                         {"kind": "push", "path": [[52.21971, 20.96603], "...", [52.2196, 20.9652]], "lengthM": 74.6}],
+            "stop": null, "approximatePath": false, "elevators": [], "steps": [], "waitS": null, "tripId": null}],
+  "departure": "03:35", "arrival": "03:56", "durationMin": 21, "distanceM": 4077.5,
+  "walkDistance": 88.7, "bikeDistance": 3988.8, "transfers": 0, "tags": [], "waitS": 250.6, "waypoints": []}]
 ```
 
 The router rounds street paths to five decimals; stop endpoint metadata retains exact catalog positions.
-The GTFS shape remains unchanged. In this example the access/egress segments also include `metro_access`.
-For the same local dataset, Centrum [52.2297, 21.0122] → Ochota [52.2196, 20.9652] with
-`travel: "bike"` returned 21 min, walkDistance 88.7 m (pushed) and bikeDistance 3988.8 m (ridden).
 
 Errors: `422` when the body is not valid, when `when` is not `HH:MM` or an ISO datetime,
 or an explicit street-only endpoint is outside the street graph. `404` when an explicit street-only request has no path.
