@@ -354,6 +354,16 @@ export default function App() {
         right: 70,
       };
 
+  // The vehicle window ("W jakim pojeździe jesteś?"): in the search step it sits at the bottom; after a route is
+  // found the bus button of the map still opens it, in place of the route sheet until it is closed.
+  const vehicleWindow = !activeTrip && vehicle.open && picking === null;
+  const vehicleOverStep = vehicleWindow && step !== 'search';
+  // The window found by itself at the start must not hide the route sheet that comes next.
+  const hideVehicle = vehicle.hide;
+  useEffect(() => {
+    if (step !== 'search') hideVehicle();
+  }, [step, hideVehicle]);
+
   // Where the round map buttons start: below the search card, whatever its height is.
   const searchCollapsed = !desktop && !searchOpen && !replanning; // a new search during a trip keeps "Wróć do przejazdu" in view
   const mapControlsOffset =
@@ -385,8 +395,9 @@ export default function App() {
               padding={padding}
               stops={inTrip ? [] : via}
               controlsOffset={mapControlsOffset}
-              onDetectVehicle={!activeTrip && step === 'search' ? vehicle.toggle : undefined}
+              onDetectVehicle={!activeTrip && picking === null ? vehicle.toggle : undefined}
               vehicleOpen={vehicle.open}
+              vehicleConfirmed={vehicle.confirmed !== null}
               onClose3d={() => setMap3d(false)}
             />
           </Suspense>
@@ -403,8 +414,9 @@ export default function App() {
           padding={padding}
           stops={inTrip ? [] : via}
           controlsOffset={mapControlsOffset}
-          onDetectVehicle={!activeTrip && step === 'search' ? vehicle.toggle : undefined}
+          onDetectVehicle={!activeTrip && picking === null ? vehicle.toggle : undefined}
               vehicleOpen={vehicle.open}
+              vehicleConfirmed={vehicle.confirmed !== null}
           follow={inTrip}
           onMapPick={picking !== null && !pickBusy ? (p) => void pickAt(picking, p) : undefined}
           onContextPick={!inTrip && picking === null ? (target, p) => void pickAt(target, p) : undefined}
@@ -446,7 +458,7 @@ export default function App() {
           />
         )}
 
-        {!activeTrip && step === 'search' && vehicle.open && picking === null && (
+        {vehicleWindow && (
           <VehicleSheet
             candidates={vehicle.vehicles}
             lines={vehicle.lines}
@@ -462,7 +474,10 @@ export default function App() {
             onManualLine={vehicle.selectManualLine}
             onClearManual={vehicle.clearManual}
             onRedetect={vehicle.redetect}
-            onConfirm={vehicle.confirm}
+            onConfirm={() => {
+              vehicle.confirm();
+              if (step !== 'search') vehicle.hide(); // after a route is found the window must not cover its sheet
+            }}
             onDismiss={vehicle.dismiss}
           />
         )}
@@ -515,7 +530,7 @@ export default function App() {
           />
         )}
 
-        {!inTrip && step === 'options' && picking === null && (
+        {!inTrip && step === 'options' && picking === null && !vehicleOverStep && (
           <RouteOptionsSheet
             options={visible}
             departure={departureSummary(departure)}
@@ -539,7 +554,7 @@ export default function App() {
           />
         )}
 
-        {!activeTrip && step === 'route' && chosen && origin && destination && (
+        {!activeTrip && step === 'route' && chosen && origin && destination && !vehicleOverStep && (
           <RouteDetailsSheet
             route={chosen}
             origin={origin}

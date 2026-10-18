@@ -498,6 +498,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   move with the card (`mapControlsOffset` in `App`). Tests that need the start field call `openSearchCard()` (`src/test/searchCard.ts`) first.
 - **Bus button of the map** (`vehicle.toggle` in `useVehicleDetection`, `aria-pressed` = window shown): the first click detects and shows the vehicle window, the next click hides it (the confirmed
   vehicle stays), the next one brings it back without detecting again; with nothing to bring back it detects.
+  The bus button and the vehicle window exist in every step (search, route list, route details), not only in the search step: after a route is found the window replaces the route sheet while it is
+  open (the sheet comes back when it is closed or a vehicle is confirmed, `vehicle.hide()` keeps the confirmed vehicle), and the window that was found by itself at the start is closed when a route list
+  appears. A confirmed vehicle shows as a dot on the bus button; it is the vehicle the trip starts with. Not available in an active trip (it has its own detection) and while picking a point on the map.
 - Travel modes (`src/travel.ts`, not saved): three main chips in the search card (Komunikacja | Pieszo | Rower) and, for Komunikacja and Pieszo only,
   a small toggle row "Dostępność": Pieszo | Na wózku | Z wózkiem dziecięcym (`Access`, per search; a wheelchair in the preferences preselects
   "Wózek inwalidzki"). Komunikacja = the normal search with `profile` (`TRANSIT_PROFILE`: standard / accessible / stroller); a picked accessibility
