@@ -13,10 +13,12 @@ interface Query {
   search?: RouteSearchBody;
   /** `transit` = the normal search; the other modes are street-only trips. */
   travel?: TravelMode;
+  /** Warsaw local departure `YYYY-MM-DDTHH:MM`; empty = now. Sent to every kind of search. */
+  when?: string;
 }
 
 /** Fetches the connections as soon as both points are set; a new query cancels the old one. */
-export function useRouteSearch({ origin, destination, via, order, search, travel = 'transit' }: Query) {
+export function useRouteSearch({ origin, destination, via, order, search, travel = 'transit', when }: Query) {
   const [options, setOptions] = useState<RouteOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -35,8 +37,8 @@ export function useRouteSearch({ origin, destination, via, order, search, travel
     const ac = new AbortController();
     setLoading(true);
     const request = isStreetMode(travel)
-      ? fetchStreetTrip({ from: origin, to: destination, via, order }, travel, ac.signal).then((found) => ({ options: found }))
-      : fetchRouteOptions({ from: origin, to: destination, profile: 'standard', via, order, search }, ac.signal);
+      ? fetchStreetTrip({ from: origin, to: destination, via, order, when }, travel, ac.signal).then((found) => ({ options: found }))
+      : fetchRouteOptions({ from: origin, to: destination, profile: 'standard', via, order, search, when }, ac.signal);
     request
       .then((result) => {
         setOptions(result.options);
@@ -52,7 +54,7 @@ export function useRouteSearch({ origin, destination, via, order, search, travel
         setLoading(false);
       });
     return () => ac.abort();
-  }, [origin, destination, via, order, search, travel]);
+  }, [origin, destination, via, order, search, travel, when]);
 
   return { options, loading, error, offline, errorMessage };
 }
