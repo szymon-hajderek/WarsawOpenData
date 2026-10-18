@@ -17,6 +17,7 @@ stop() {
   done
   pkill -f "^$REPO_DIR/backend/.venv/bin/python $REPO_DIR/backend/.venv/bin/uvicorn main:app" 2>/dev/null || true
   pkill -f "^$REPO_DIR/algorithms/router/build/street_router serve" 2>/dev/null || true
+  pkill -f "^node $REPO_DIR/frontend/node_modules/.bin/vite preview" 2>/dev/null || true
   sleep 1
 }
 stop
