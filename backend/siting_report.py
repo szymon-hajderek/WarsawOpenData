@@ -5,7 +5,7 @@ Usage (from backend/):
     uv run python siting_report.py --rebuild  # recompute the hex grid first
     uv run python siting_report.py --mocks    # regenerate the mock measurements (fixed seed), then rebuild
 
-Writes data/SITING_REPORT.md, data/siting_report.json and artifacts/veturilo-siting.html.
+Writes data/SITING_REPORT.md, data/siting_report.json and artifacts/veturilo-siting/veturilo-siting.html.
 """
 import argparse
 import json
@@ -18,8 +18,8 @@ from sources import nextbike, siting
 from station_siting import DEFAULTS, HEX_SIZE_M
 
 N = 10
-TEMPLATE = REPO / "artifacts" / "templates" / "veturilo-siting.html"
-OUT = REPO / "artifacts" / "veturilo-siting.html"
+TEMPLATE = REPO / "artifacts" / "veturilo-siting" / "templates" / "veturilo-siting.html"
+OUT = REPO / "artifacts" / "veturilo-siting" / "veturilo-siting.html"
 
 
 def pct(a) -> dict:
@@ -103,7 +103,7 @@ def write_markdown(p, summary, stats, options) -> None:
         lines.append(f"| {o['rank']} | {o['hex']} | {o['lat']:.5f}, {o['lon']:.5f} | {o['j']:.3f} | {o['t']:.2f} | "
                      f"{o['e']:.2f} | {d} | {o['p']:.3f} | {o['s']:.2f} |")
     lines += ["", "d_net is the distance at the moment of the pick (after the earlier picks).",
-              "Interactive map: `artifacts/veturilo-siting.html`. API: `GET /api/veturilo/siting` (`data/API.md`).", ""]
+              "Interactive map: `artifacts/veturilo-siting/veturilo-siting.html`. API: `GET /api/veturilo/siting` (`data/API.md`).", ""]
     (DATA / "SITING_REPORT.md").write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
 
