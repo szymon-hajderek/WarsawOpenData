@@ -80,6 +80,21 @@ cd backend && uv sync && uv run uvicorn main:app --reload   # http://localhost:8
 
 Details, ID links and graph sizes: `data/REPORT.md`.
 
+## Deploy on a server (reproducible)
+
+On a fresh Ubuntu 24.04 machine (tested on a RunPod CPU pod), as root, with git access to this repo:
+
+```sh
+git clone git@github.com:szymon-hajderek/WarsawOpenData.git /root/WarsawOpenData
+cp <your .env with PORTAL_KEY etc.> /root/WarsawOpenData/.env     # optional: live vehicles / delays
+bash /root/WarsawOpenData/deploy/setup.sh      # toolchain (g++-14, node 20, git-lfs, uv), builds, all data (~20 min)
+bash /root/WarsawOpenData/deploy/run.sh        # backend + router on 127.0.0.1:8000, the app on 0.0.0.0:8080
+```
+
+Expose port 8080 as an HTTP port of the pod; the app is then at `https://<pod-id>-8080.proxy.runpod.net` (HTTPS, so
+geolocation works). `deploy/run.sh stop` stops it; logs in `logs/`. Run `setup.sh` again after pulling new code.
+Keep the repo on the local disk (data and matrices need ~5 GB; a network volume is slow for the memory-mapped matrices).
+
 ## Environment setup (for agents)
 
 Follow these steps to get a working environment. Run them from the repo root.

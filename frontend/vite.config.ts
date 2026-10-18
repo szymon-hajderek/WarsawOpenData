@@ -9,4 +9,6 @@ export default defineConfig(({ mode }) => ({
   // /api goes to the FastAPI backend (no CORS needed).
   test: { environment: 'jsdom', setupFiles: ['./src/test/setup.ts'], css: false },
   server: { host: true, port: 5173, proxy: { '/api': 'http://localhost:8000' } },
+  // `vite preview` serves the production build (deploy/run.sh); any host name (e.g. *.proxy.runpod.net) is allowed.
+  preview: { host: true, port: 8080, proxy: { '/api': 'http://localhost:8000' }, allowedHosts: true },
 }));
