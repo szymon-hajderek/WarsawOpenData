@@ -62,7 +62,7 @@ export default function ActiveTripSheet({
       onSnapChange={onSnapChange}
       middleHeight={300}
       ariaLabel="Aktywny przejazd"
-      header={({ barLike, full }) => (
+      header={({ barLike, full, docked }) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="caption" color="text.secondary" noWrap component="div">
@@ -72,7 +72,7 @@ export default function ActiveTripSheet({
               {nextStep}
             </Typography>
           </Box>
-          {barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />}
+          {!docked && (barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />)}
         </Box>
       )}
       footer={

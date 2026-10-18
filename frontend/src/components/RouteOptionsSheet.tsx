@@ -93,7 +93,7 @@ export default function RouteOptionsSheet({
       middleHeight={352}
       ariaLabel="Lista tras"
       contentRef={content}
-      header={({ barLike, full }) => (
+      header={({ barLike, full, docked }) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.25 }}>
@@ -108,7 +108,7 @@ export default function RouteOptionsSheet({
                   : `${options.length} ${options.length === 1 ? 'trasa' : 'tras'}${fastest !== null ? ` · najszybsza ${formatDuration(fastest)}` : ''}`}
             </Typography>
           </Box>
-          {barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />}
+          {!docked && (barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />)}
         </Box>
       )}
       toolbar={

@@ -1,4 +1,6 @@
 import {
+  createContext,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -7,7 +9,7 @@ import {
   type ReactNode,
   type Ref,
 } from 'react';
-import { Box, Paper } from '@mui/material';
+import { Box, ButtonBase, Paper } from '@mui/material';
 import { PANEL_BOTTOM, RADIUS } from '../layout';
 
 /** Heights a sheet settles on: a bar, the middle (the essentials + the action) and the full sheet. */
@@ -120,7 +122,16 @@ export interface SheetState {
   barLike: boolean;
   /** Fully open: the content scrolls. */
   full: boolean;
+  /** Docked in the desktop side panel: no drag, no heights (headers hide their expand arrows). */
+  docked?: boolean;
 }
+
+/**
+ * True inside the desktop side panel (`App.tsx`): sheets and the search card render as plain stacked cards in the
+ * panel's scrolling column instead of floating, draggable panels.
+ */
+export const SheetDock = createContext(false);
+export const useSheetDock = () => useContext(SheetDock);
 
 interface Props {
   snap: SheetSnap;
@@ -155,8 +166,56 @@ export default function SnapSheet({
   footer,
   contentRef,
 }: Props) {
+  const docked = useSheetDock();
   const heights = useSnapHeights(middleHeight);
   const { handlers, height, dragging } = useSnapDrag(snap, heights, onSnapChange);
+
+  if (docked) {
+    // Desktop side panel: the whole content in the page flow (the panel scrolls). Only a sheet put on its bar on
+    // purpose (e.g. the detected vehicle) stays a one-line bar, which opens on a click.
+    if (snap === 'bar') {
+      return (
+        <Paper variant="outlined" sx={{ flexShrink: 0, borderRadius: RADIUS.card, overflow: 'hidden' }}>
+          <ButtonBase
+            onClick={() => onSnapChange('middle')}
+            aria-label={`${ariaLabel}: rozwiń`}
+            aria-expanded={false}
+            sx={{ display: 'block', width: '100%', textAlign: 'left', px: 2, py: 1.5 }}
+          >
+            {header({ barLike: true, full: false, docked: true })}
+          </ButtonBase>
+        </Paper>
+      );
+    }
+    const state: SheetState = { barLike: false, full: true, docked: true };
+    return (
+      <Paper variant="outlined" aria-label={ariaLabel} sx={{ flexShrink: 0, borderRadius: RADIUS.card }}>
+        <Box sx={{ px: 2.5, pt: 2, pb: 1 }}>{header(state)}</Box>
+        {toolbar && <Box sx={{ px: 2, pb: 0.5 }}>{toolbar}</Box>}
+        <Box ref={contentRef} sx={{ px: 2, pb: footer ? 1 : 2 }}>
+          {typeof children === 'function' ? children(state) : children}
+        </Box>
+        {footer && (
+          // stays in view at the bottom of the panel while the list scrolls
+          <Box
+            sx={{
+              position: 'sticky',
+              bottom: 0,
+              px: 2,
+              pb: 2,
+              pt: 1,
+              bgcolor: 'background.paper',
+              borderBottomLeftRadius: RADIUS.card,
+              borderBottomRightRadius: RADIUS.card,
+            }}
+          >
+            {footer}
+          </Box>
+        )}
+      </Paper>
+    );
+  }
+
   const barLike = height < (heights.bar + heights.middle) / 2;
   const full = height >= heights.full - 4;
   const state: SheetState = { barLike, full };

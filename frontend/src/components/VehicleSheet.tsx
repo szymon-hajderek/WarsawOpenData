@@ -125,7 +125,7 @@ export default function VehicleSheet({
       onSnapChange={onSnapChange}
       middleHeight={258}
       ariaLabel="Okienko pojazdu"
-      header={({ barLike, full }) => (
+      header={({ barLike, full, docked }) => (
         <>
         {!barLike ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -137,7 +137,7 @@ export default function VehicleSheet({
                 Sugerujemy na podstawie lokalizacji.
               </Typography>
             </Box>
-            {full ? <ExpandMore color="action" /> : <ExpandLess color="action" />}
+            {!docked && (full ? <ExpandMore color="action" /> : <ExpandLess color="action" />)}
           </Box>
         ) : (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>

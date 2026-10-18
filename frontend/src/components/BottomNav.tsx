@@ -2,7 +2,7 @@ import { BottomNavigation, BottomNavigationAction, Paper } from '@mui/material';
 import MapOutlined from '@mui/icons-material/MapOutlined';
 import Tune from '@mui/icons-material/Tune';
 import Science from '@mui/icons-material/Science';
-import { BOTTOM_NAV_HEIGHT, RADIUS } from '../layout';
+import { BOTTOM_NAV_HEIGHT, PANEL_WIDTH, RADIUS } from '../layout';
 
 export type Tab = 'map' | 'preferences' | 'demo';
 
@@ -16,7 +16,9 @@ export default function BottomNav({ tab, onChange, demo = false }: { tab: Tab; o
       sx={{
         position: 'fixed',
         left: 0,
-        right: 0,
+        // a wide screen: under the side panel only, the map goes down to the bottom edge
+        right: { xs: 0, sm: 'auto' },
+        width: { sm: PANEL_WIDTH.sm, md: PANEL_WIDTH.md },
         bottom: 0,
         zIndex: 1200,
         pb: 'env(safe-area-inset-bottom)',

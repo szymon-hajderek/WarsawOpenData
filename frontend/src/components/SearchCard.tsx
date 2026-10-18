@@ -15,6 +15,7 @@ import Close from '@mui/icons-material/Close';
 import DragIndicator from '@mui/icons-material/DragIndicator';
 import PlaceField from './PlaceField';
 import DepartureControl from './DepartureControl';
+import { useSheetDock } from './SnapSheet';
 import type { Departure } from '../utils/departure';
 import { MAX_STOPS } from '../api/routes';
 import type { Place, StopOrder } from '../types';
@@ -255,9 +256,13 @@ export default function SearchCard({
     </Box>
   );
 
+  // In the desktop side panel the card is the first block of the panel's column, not a floating card.
+  const docked = useSheetDock();
+
   return (
     <Paper
-      elevation={4}
+      elevation={docked ? 0 : 4}
+      variant={docked ? 'outlined' : 'elevation'}
       sx={{
         position: 'absolute',
         zIndex: 1000,
@@ -272,6 +277,7 @@ export default function SearchCard({
         display: 'flex',
         alignItems: 'stretch',
         gap: 1,
+        ...(docked && { position: 'static', width: 'auto', maxHeight: 'none', flexShrink: 0, borderRadius: RADIUS.card }),
       }}
     >
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
