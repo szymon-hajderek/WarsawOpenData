@@ -42,4 +42,21 @@ describe('the bus button (toggle)', () => {
     expect(asked).toHaveBeenCalledTimes(1);
     window.removeEventListener(BUS_POPUP_REQUEST_EVENT, asked);
   });
+
+  it('hide() closes the window but keeps the confirmed vehicle (dismiss() forgets it)', () => {
+    const { result } = renderHook(() => useVehicleDetection(input));
+    act(() => result.current.toggle());
+    act(() => {
+      result.current.selectManualLine('175');
+    });
+    act(() => result.current.confirm());
+    act(() => result.current.hide());
+    expect(result.current.open).toBe(false);
+    expect(result.current.confirmed?.line).toBe('175');
+
+    act(() => result.current.toggle()); // back
+    act(() => result.current.dismiss());
+    expect(result.current.open).toBe(false);
+    expect(result.current.confirmed).toBeNull();
+  });
 });

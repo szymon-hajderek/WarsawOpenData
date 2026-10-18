@@ -33,6 +33,8 @@ interface Props {
   onDetectVehicle?: () => void;
   /** The vehicle window is shown: the bus button is pressed and a second click hides it. */
   vehicleOpen?: boolean;
+  /** A vehicle is confirmed: a dot on the bus button. */
+  vehicleConfirmed?: boolean;
   /** Back to the flat 2D map. */
   onClose3d: () => void;
 }
@@ -65,6 +67,7 @@ export default function MapView3D({
   controlsOffset = 0,
   onDetectVehicle,
   vehicleOpen = false,
+  vehicleConfirmed = false,
   onClose3d,
 }: Props) {
   const colors = PALETTE[paletteMode];
@@ -294,6 +297,7 @@ export default function MapView3D({
         onLocate={onLocate}
         onDetectVehicle={onDetectVehicle}
         vehicleOpen={vehicleOpen}
+        vehicleConfirmed={vehicleConfirmed}
         rotate={{ on: rotateMode, onToggle: () => setRotateMode((on) => !on) }}
         controlsOffset={controlsOffset}
       />

@@ -58,6 +58,8 @@ interface Props {
   onDetectVehicle?: () => void;
   /** The vehicle window is shown: the bus button is pressed and a second click hides it. */
   vehicleOpen?: boolean;
+  /** A vehicle is confirmed: a dot on the bus button. */
+  vehicleConfirmed?: boolean;
   /** What the phone reports in the demo (with GPS error), drawn as a small dot next to the real position. */
   gpsPosition?: LatLng | null;
   /** Active trip: the map keeps the user's position in view. */
@@ -348,6 +350,7 @@ export default function MapView({
   controlsOffset = 0,
   onDetectVehicle,
   vehicleOpen = false,
+  vehicleConfirmed = false,
   gpsPosition = null,
   follow = false,
   onMapPick,
@@ -514,6 +517,7 @@ export default function MapView({
         onLocate={onLocate}
         onDetectVehicle={onDetectVehicle}
         vehicleOpen={vehicleOpen}
+        vehicleConfirmed={vehicleConfirmed}
         controlsOffset={controlsOffset}
       />
     </>

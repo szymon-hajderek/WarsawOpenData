@@ -90,6 +90,8 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
 
   useEffect(() => (delayVehicleId ? watchDelay(delayVehicleId) : undefined), [delayVehicleId]);
 
+  const hide = useCallback(() => setOpen(false), []);
+
   const selectManualLine = useCallback((line: string) => {
     const v = manualCandidate(line);
     setManual(v);
@@ -137,6 +139,8 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
         setSnap('bar');
       } else requestLinePopup();
     },
+    /** Hides the window; the confirmed vehicle stays (unlike `dismiss`). */
+    hide,
     dismiss: () => {
       setOpen(false);
       setConfirmed(null); // "Nie jadę komunikacją": no vehicle to plan from
