@@ -556,7 +556,9 @@ How the overlay was matched: `hash`, `built`, `seconds` (build time), `total`, `
 
 The street router's status (relayed): `modes`, `stations` (`{count, hash}`), `matrices` (`{status: ok | stale |
 missing, stations_hash, matrices_stations_hash, built}`): whether the stop-to-stop matrices belong to the loaded
-overlay and graphs. `503` when the router is not running.
+overlay and graphs, `timetable` (`{status: ok | stale | missing, trips, routes, first_date, last_date}`: the RAPTOR
+timetable) and `plan` (`{<mode>: "ok" | reason}`: whether the router's RAPTOR `POST /plan` works in that mode;
+`algorithms/router/README.md`). `503` when the router is not running.
 
 ## OSM street graph
 

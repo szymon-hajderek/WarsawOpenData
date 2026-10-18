@@ -98,8 +98,8 @@ Everything in this repo (files, commits, PRs) is written in English.
 - **Status:** the frontend UI exists. `uv run uvicorn main:app` serves the data and
   `POST /api/routes`. The route engine (`backend/app/routing/real_engine.py`, Python) builds options from
   GTFS departures, street paths and live Veturilo docks. Street paths (walk, bike, accessible, stroller) come from
-  the C++ street router (`algorithms/router/`), which the backend starts. Transit routing (RAPTOR) in C++ is
-  the next step; `StubRouteEngine` remains only as the old mock.
+  the C++ street router (`algorithms/router/`), which the backend starts. The router also plans transit trips with
+  RAPTOR (`POST /plan`); the route engine does not call it yet. `StubRouteEngine` remains only as the old mock.
 
 ### Tech stack
 
@@ -111,9 +111,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   PostgreSQL + PostGIS for source datasets later if needed.
 - Routing: a long-running **C++ engine** loads its graph at startup and keeps it in memory.
   Today the street router runs (`algorithms/router/`, binary `street_router`, see Backend notes): street paths
-  and station access. Transit routing runs in Python today (`backend/app/routing/real_engine.py`); RAPTOR in C++
-  is planned. Then Python pushes only live data and values derived from it (vehicle positions, Veturilo
-  availability, alerts, delays), then asks the engine for routes. Python does not send the graph.
+  and station access, and RAPTOR transit trips (`POST /plan`). The route engine still plans transit in Python
+  (`backend/app/routing/real_engine.py`) until it calls `/plan`. `/plan` uses the GTFS timetable only: live
+  delays are **not** a router input (router owner's decision; they are a UI-only display, `POST /api/live/route-delays`).
+  "From the vehicle": `/plan` from the next stops of its GTFS trip at the scheduled arrival. Python does not send the graph.
   (OpenTripPlanner was the earlier idea; the team chose a custom C++ engine instead.)
 - Deployment: Docker (planned, not set up yet)
 
@@ -277,8 +278,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   `street_router serve` (started by `main.py` via `backend/street_router.py`, port 8090, `ROUTER_URL` for an
   external one) answers `POST /route` {from, to, mode, speeds} between any coordinates (~1 ms nearby, ~0.4 s across
   the city); `from` / `to` may be station ids; `POST /access` = one Dijkstra from a point to every station within a
-  time limit (or to the point: direction "to", reversed graph), the RAPTOR glue; other keys get 501 "not
-  implemented" (Veturilo, preferences come later). Router down = 503.
+  time limit (or to the point: direction "to", reversed graph), the RAPTOR glue; `POST /plan` = RAPTOR (below);
+  other keys get 501 "not implemented" (preferences come later). Router down = 503.
   The router returns **raw segment values only**: seconds, walk_m / bike_m / wait_s, path, elevators, steps, ids, and
   `legs` (one street leg; later whole trips in the same shape) with `segments` (ride / push / walk / steps /
   elevator / metro_access).
@@ -289,6 +290,19 @@ Everything in this repo (files, commits, PRs) is written in English.
   `street_router matrix` builds the stop-to-stop matrices (float32 (3, N, N): walk_m, bike_m, wait_s).
   `osm.route()` and `GET /api/osm/route` are gone; `real_engine._street()` calls the router. Full docs:
   `algorithms/router/README.md` (keep it current).
+- RAPTOR in the router (`POST /plan`, design `docs/raptor-graph.md`, user's spec): `preprocess_transit.py` writes
+  `data/derived/street/timetable.bin` (TTB1, `algorithms/timetable_file.py`; trips as calls at stations.json indexes,
+  metro frequency runs expanded, rebuilt by `street_router.start()` when stale, ~10 s); C++ builds route patterns
+  per service day (route + exact stop sequence, FIFO split, D−1 trips after midnight at −24 h; `transit.hpp`),
+  footpaths = **dense matrix rows of the query's mode, no cut** (user decision; mmap, `matrix.hpp`), Veturilo = dock to
+  dock from `bike.bin`, +1 leg, walk mode only, pickup 30 s / return 15 s, always available. Every limit unlimited by
+  default (`max_legs`, `access_s`, `egress_s`, `footpath_s`, `veturilo_s`); `exclude_modes` skips transit modes / Veturilo.
+  From the vehicle: `from` = next stop id, `time` = arrival there (same trip, `wait_s` 0). Backend relies on `/health`
+  `timetable.status` and `plan.<mode>`: keep them stable. Answer = ids only (no positions, shapes,
+  names): options `{seconds, dep_s, arr_s, transfers, walk_m, bike_m, wait_s, legs}`, transit legs with `trip_id`,
+  `stops`, `wait_s`; format agreed with the router owner. A matrix is valid by size 3·N²·4 + `meta.json`
+  `stations_hash` + `points.csv` ids (the per-mode `points` in `meta.json` can be stale: never read it).
+  `real_engine` does not call `/plan` yet. Tests: `algorithms/test_raptor.py` (brute force on toy timetables).
 - Rail platforms: `polish_trains.zip` has stations with children per platform + track (`33506_RAIL_2_20` =
   "2 t. 20"), also for SKM. They fold into one location per platform (`pkp:33506_P2`, see "Rail in mkuran");
   `GET /api/gtfs/stops` shows the children in `members`. Platform coordinates in GTFS look synthetic (evenly spaced);

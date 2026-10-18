@@ -1,4 +1,5 @@
-"""Client of the C++ street router (algorithms/router/): point-to-point paths for walk, bike, accessible and stroller.
+"""Client of the C++ street router (algorithms/router/): point-to-point paths for walk, bike, accessible and stroller,
+and transit trips planned by RAPTOR (plan()).
 
 The backend starts the router at startup (start(), from main.py) and stops it at shutdown. Set ROUTER_URL to use
 a router that runs elsewhere; then nothing is started. API and file formats: algorithms/router/README.md.
@@ -7,6 +8,8 @@ import logging
 import os
 import subprocess
 import time
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -73,6 +76,28 @@ def access(point, mode: str = "walk", direction: str = "from", limit_s: float = 
     return _post("/access", body)["stations"]
 
 
+SERVICE_DAY_CUTOFF_H = 4  # before 04:00 a trip is planned on the previous GTFS service day (times past 24:00)
+
+
+def service_time(when: datetime) -> tuple[str, int]:
+    """A moment -> (service day YYYYMMDD, seconds after its midnight), Europe/Warsaw."""
+    local = when.astimezone(ZoneInfo("Europe/Warsaw")) if when.tzinfo else when
+    day = local.date() - timedelta(days=1) if local.hour < SERVICE_DAY_CUTOFF_H else local.date()
+    seconds = int((local.replace(tzinfo=None) - datetime(day.year, day.month, day.day)).total_seconds())
+    return day.strftime("%Y%m%d"), seconds
+
+
+def plan(a, b, mode: str = "walk", when: datetime | None = None, **options) -> list[dict]:
+    """Transit trips from a to b ((lat, lon) or a location id) leaving at `when` (naive = Warsaw local time; default
+    now), planned by RAPTOR in the router. Options are relayed (speeds, max_legs, access_s, egress_s, footpath_s,
+    veturilo_s, veturilo_pickup_s, veturilo_return_s; date / time instead of `when`). Returns the options:
+    [{seconds, dep_s, arr_s, transfers, walk_m, bike_m, wait_s, legs}], times in seconds after midnight of the
+    service day. Format: algorithms/router/README.md ("POST /plan")."""
+    if "date" not in options:
+        options["date"], options["time"] = service_time(when or datetime.now(ZoneInfo("Europe/Warsaw")))
+    return _post("/plan", {"from": _place(a), "to": _place(b), "mode": mode, **options})["options"]
+
+
 def health() -> dict:
     try:
         return _http.get(f"{base_url()}/health", timeout=5).json()
@@ -88,12 +113,14 @@ def healthy() -> bool:
 
 
 def start(timeout_s: float = 120) -> None:
-    """Write the graph files if they are missing or stale, start `street_router serve` and wait until it answers."""
+    """Write the graph files and the timetable if they are missing or stale, start `street_router serve` and wait
+    until it answers."""
     global _proc
     if URL:
         log.info("street router: using %s", URL)
         return
     import preprocess_street  # imported here: it loads GTFS and OSM
+    import preprocess_transit
     import stations
 
     if stations.stale():
@@ -102,6 +129,9 @@ def start(timeout_s: float = 120) -> None:
     if preprocess_street.graphs_stale():
         log.info("street router: writing graph files")
         preprocess_street.write_graphs()
+    if preprocess_transit.stale():
+        log.info("street router: writing the RAPTOR timetable")
+        log.info("street router: timetable %s", preprocess_transit.build())
     if not BINARY.exists():
         raise RouterUnavailable(f"{BINARY} not built, see algorithms/router/README.md")
     if healthy():
