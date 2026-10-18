@@ -35,6 +35,8 @@ export interface Tracker {
   retry: () => Promise<void>;
   /** Hides the result message. */
   dismiss: () => void;
+  /** The GPS points of the ride being recorded (memory only, one every 4 s); empty when not recording. */
+  track: () => TrackPoint[];
 }
 
 interface HistoryValue {
@@ -57,7 +59,7 @@ const noop = async () => {};
 const HistoryContext = createContext<HistoryValue>({
   records: [],
   summary: localSummary([]),
-  tracker: { status: 'idle', elapsedS: 0, message: null, start: () => {}, stop: noop, retry: noop, dismiss: () => {} },
+  tracker: { status: 'idle', elapsedS: 0, message: null, start: () => {}, stop: noop, retry: noop, dismiss: () => {}, track: () => [] },
   clear: () => {},
   shareJourneys: false,
   setShareJourneys: () => {},
@@ -237,10 +239,11 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clear = useCallback(() => setRecords([]), []);
+  const track = useCallback(() => [...points.current], []);
 
   const tracker = useMemo<Tracker>(
-    () => ({ status, elapsedS, message, start, stop, retry: save, dismiss }),
-    [status, elapsedS, message, start, stop, save, dismiss],
+    () => ({ status, elapsedS, message, start, stop, retry: save, dismiss, track }),
+    [status, elapsedS, message, start, stop, save, dismiss, track],
   );
   const value = useMemo(
     () => ({ records, summary, tracker, clear, shareJourneys, setShareJourneys }),

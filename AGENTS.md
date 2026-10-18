@@ -319,7 +319,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   `npm test` needs `NODE_OPTIONS=--no-experimental-webstorage`, else jsdom's `localStorage` is undefined.
 - Screens, one flow: map with the user's location and start / destination fields on top ->
   list of connection options (with preview on the map) -> chosen route (clean route on the map,
-  summary, steps). State lives in `src/App.tsx` (`step`: search / options / route).
+  summary, steps). State lives in `src/App.tsx` (`step`: search / options / route, plus the active trip mode).
 - **Routing seam.** `src/api/routes.ts` (`fetchRouteOptions`) calls the backend (`POST /api/routes`).
   If the backend is switched off (`VITE_API_URL=""`), unreachable or answers badly, the call throws `BackendOfflineError` and the app says "Nie połączono z serwerem".
   There is no in-browser mock (removed in `feature/no-mocks`): the app never shows made-up routes or vehicles. Types in `src/types.ts`.
@@ -406,6 +406,18 @@ Everything in this repo (files, commits, PRs) is written in English.
   in walkDistance and ridden metres in bikeDistance, including multi-stop trips.
 - The C++ router never returns transit shapes. Transit geometry comes from GTFS in `real_engine` (`_ride_path`: `shape_slice`,
   then `shape_by_stops`); without any shape, a polyline through the stops with `approximatePath: true`.
+- **Active trip** (`activeTrip` + `replanning` in `App.tsx`, `ActiveTripSheet.tsx`): "Rozpocznij przejazd" starts the recorder
+  and enters the mode; "Zakończ" leaves it and saves the pace recording (recorder unchanged). The map follows the user
+  (`MapView` `follow`). Progress = `src/utils/progress.ts` (`routeProgress`: projection on the leg paths, forward only;
+  `nextStepText`: "Wysiadasz na: X", "Przesiadka: 175 z X", "Idź do: X"; > 150 m = "Zboczyłeś z trasy" + "Zmień trasę"),
+  kept per route by `useTripProgress`. "W jakim pojeździe jestem?" opens `VehicleSheet` with the trip's own track
+  (`tracker.track()` -> `detectionPoints`: last 3 recorder points >= 8 s apart). The confirmed vehicle lives in
+  `useVehicleDetection` (independent of the destination; "Nie jadę komunikacją" clears it). "Zmień cel" / "Zmień trasę"
+  open the full `SearchCard` ("← Wróć do przejazdu"); with a confirmed (not hand-picked) vehicle the start is
+  `onboard:<vehicleId>` "Z pojazdu: 119 (następne przystanki)" and `POST /api/routes` gets `onboard: {vehicleId}`
+  (timetable times only, no live delays in planning); 404 (`VehicleNotFoundError`) -> start = GPS position + a note.
+  Choosing an option replaces the trip's route. Tests: `src/activeTrip.test.tsx` (whole App, MapView mocked, recorded
+  bus-1002 track from `data/live/bus_track_sample.json` in `src/test/busTrack.ts`, answers per data/API.md).
 - Speed history (device-side, privacy first): in the route view "Rozpocznij przejazd" / "Zakończ" records GPS points (memory only, one every 4 s,
   Screen Wake Lock while recording) and sends the track once to `POST /api/history/records` (`backend/app/api/history.py`,
   `algorithms/speed_history.py::split_track`: shares the moving distance between the route's legs by planned distance, ignores standing

@@ -111,6 +111,7 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
     confirm,
     dismiss: () => {
       setDismissed(true);
+      setConfirmed(null); // "Nie jadę komunikacją": no vehicle to plan from
       setDelayVehicleId(null);
     },
     redetect: requestLinePopup,

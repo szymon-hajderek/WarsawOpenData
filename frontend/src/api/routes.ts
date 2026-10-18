@@ -25,6 +25,11 @@ export interface RouteQuery {
   search?: RouteSearchBody;
   /** Warsaw local departure, ISO datetime or `HH:MM`. Empty = now (the demo sends the simulated time). */
   when?: string;
+  /**
+   * Plan from the vehicle the user is riding (`POST /api/routes` `onboard`): every option starts with the ride on it,
+   * times from the timetable. A 404 means the backend does not know the vehicle (`VehicleNotFoundError`).
+   */
+  onboard?: { vehicleId: string } | null;
 }
 
 export interface RouteResult {
@@ -35,6 +40,13 @@ export interface RouteResult {
 export class BackendOfflineError extends Error {
   constructor() {
     super('Backend unavailable');
+  }
+}
+
+/** `onboard` was sent and the backend answered 404 "vehicle not found": plan from the GPS position instead. */
+export class VehicleNotFoundError extends Error {
+  constructor() {
+    super('Vehicle not found');
   }
 }
 
@@ -55,14 +67,15 @@ export async function fetchRouteOptions(query: RouteQuery, signal?: AbortSignal)
       signal,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to, profile, ...(via.length ? { via, order } : {}), ...(query.when ? { when: query.when } : {}), ...query.search }),
+      body: JSON.stringify({ from, to, profile, ...(via.length ? { via, order } : {}), ...(query.when ? { when: query.when } : {}), ...query.search, ...(query.onboard ? { onboard: query.onboard } : {}) }),
     });
+    if (res.status === 404 && query.onboard) throw new VehicleNotFoundError();
     if (!res.ok) throw new HttpError(res.status);
     const data: unknown = await res.json();
     if (!isRouteOptions(data)) throw new Error('Routing answer has an unexpected shape');
     return { options: data };
   } catch (err) {
-    if (signal?.aborted) throw err;
+    if (signal?.aborted || err instanceof VehicleNotFoundError) throw err;
     if (err instanceof HttpError && err.status < 500) throw err;
     console.warn('Backend unavailable.', err);
     throw new BackendOfflineError();

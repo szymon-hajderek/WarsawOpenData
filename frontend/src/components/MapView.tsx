@@ -60,6 +60,8 @@ interface Props {
   onDetectVehicle?: () => void;
   /** What the phone reports in the demo (with GPS error), drawn as a small dot next to the real position. */
   gpsPosition?: LatLng | null;
+  /** Active trip: the map keeps the user's position in view. */
+  follow?: boolean;
 }
 
 /** Fits the view to what is visible (route / points) and handles the first geolocation fix. */
@@ -69,7 +71,8 @@ function MapController({
   route,
   userPosition,
   padding,
-}: Pick<Props, 'origin' | 'destination' | 'route' | 'userPosition' | 'padding'>) {
+  follow = false,
+}: Pick<Props, 'origin' | 'destination' | 'route' | 'userPosition' | 'padding' | 'follow'>) {
   const map = useMap();
   const centeredOnUser = useRef(false);
 
@@ -97,6 +100,10 @@ function MapController({
       map.flyTo(userPosition, 15, { duration: 0.8 });
     }
   }, [map, userPosition, origin, destination]);
+
+  useEffect(() => {
+    if (follow && userPosition) map.panTo(userPosition, { animate: true, duration: 0.5 });
+  }, [map, follow, userPosition]);
 
   return null;
 }
@@ -305,6 +312,7 @@ export default function MapView({
   controlsOffset = 0,
   onDetectVehicle,
   gpsPosition = null,
+  follow = false,
 }: Props) {
   const [map, setMap] = useState<L.Map | null>(null);
   const colors = PALETTE[paletteMode];
@@ -412,6 +420,7 @@ export default function MapView({
             route={route}
             userPosition={userPosition}
             padding={padding}
+            follow={follow}
           />
           {route && <RouteLayer route={route} palette={paletteMode} detailed={detailed} look={look} overlay={overlay} />}
           {gpsPosition && (

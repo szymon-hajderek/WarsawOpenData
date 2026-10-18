@@ -31,6 +31,22 @@ export interface BusPopupDetail {
 export const BUS_POPUP_EVENT = 'bus-popup';
 export const BUS_POPUP_REQUEST_EVENT = 'bus-popup-request';
 
+/** Spacing of the detection points, ms (the live feed changes about every 10 s). */
+const DETECTION_SPACING_MS = 8_000;
+
+/**
+ * The last 1-3 points of a trip recording (`{lat, lon, t}` with `t` in seconds, one every 4 s), at least 8 s apart,
+ * oldest first: the input `detectVehicle` expects.
+ */
+export function detectionPoints(track: { lat: number; lon: number; t: number }[]): TrackPoint[] {
+  const out: TrackPoint[] = [];
+  for (let i = track.length - 1; i >= 0 && out.length < 3; i--) {
+    const p = { lat: track[i].lat, lon: track[i].lon, time_ms: Math.round(track[i].t * 1000) };
+    if (out.length === 0 || out[0].time_ms - p.time_ms >= DETECTION_SPACING_MS) out.unshift(p);
+  }
+  return out;
+}
+
 /** The user's track: the last 1-3 positions, or just the current one when there is no track yet. */
 function trackOrPosition(track: TrackPoint[], position: LatLng | null): TrackPoint[] {
   if (track.length > 0) return track;
