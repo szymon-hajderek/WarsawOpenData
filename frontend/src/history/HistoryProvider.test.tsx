@@ -13,7 +13,7 @@ let fail: PositionErrorCallback;
 const legs = [{ mode: 'bus' as const, distanceM: 1000 }];
 const selection = (): JourneySelection => ({
   from: { id: 'current-location', label: 'Private start', isCurrentLocation: true, position: [52.2, 21] },
-  to: { id: 'osm:node:123', label: 'Destination', position: [52.3, 21.1] }, mock: false,
+  to: { id: 'osm:node:123', label: 'Destination', position: [52.3, 21.1] },
 });
 
 function samples() {
@@ -82,10 +82,10 @@ describe('completed journey sharing', () => {
     expect(logJourney).not.toHaveBeenCalled();
   });
 
-  it.each(['mock', 'no GPS', 'interrupted', 'enabled mid-ride'])('does not share %s recordings', async (kind) => {
+  it.each(['no GPS', 'interrupted', 'enabled mid-ride'])('does not share %s recordings', async (kind) => {
     const { result } = renderHook(useHistory, { wrapper: HistoryProvider });
     if (kind !== 'enabled mid-ride') act(() => result.current.setShareJourneys(true));
-    act(() => result.current.tracker.start(legs, 'walking', { ...selection(), mock: kind === 'mock' }));
+    act(() => result.current.tracker.start(legs, 'walking', selection()));
     if (kind !== 'no GPS') act(samples);
     if (kind === 'enabled mid-ride') act(() => result.current.setShareJourneys(true));
     if (kind === 'interrupted') {

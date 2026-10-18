@@ -130,11 +130,7 @@ export default function DemoPage({
       .then((r) => {
         setOptions(r.options);
         setSearching(false);
-        if (r.mock)
-          setError(
-            "Serwer nie odpowiedział. To są dane przykładowe, nie da się ich symulować.",
-          );
-        else if (r.options.length === 0)
+        if (r.options.length === 0)
           setError("Brak opcji dla tej trasy i godziny.");
       })
       .catch(() => {
@@ -414,7 +410,6 @@ export default function DemoPage({
           lines={[]}
           manual={null}
           loading={false}
-          mock={false}
           snap={vehicleSnap}
           selectedId={candidates[0].id}
           confirmed={null}

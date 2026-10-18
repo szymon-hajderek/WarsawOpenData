@@ -9,7 +9,7 @@ from ..routing.multi import query_multi
 
 router = APIRouter(prefix="/api", tags=["routes"])
 
-# ROUTE_ENGINE picks it (default: real timetable + street graph). The stub is the old mock.
+# ROUTE_ENGINE picks it (default: real timetable + street graph).
 engine: RouteEngine = make_engine()
 
 

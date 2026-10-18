@@ -22,7 +22,6 @@ const props = {
   foundCount: 2,
   loading: false,
   error: false,
-  mock: false,
   selectedId: 'a',
   summary: [],
   activeRule: null,
@@ -44,11 +43,6 @@ describe('RouteOptionsSheet', () => {
     expect(props.onSelect).toHaveBeenCalledWith('b');
     const notPrevented = fireEvent.keyDown(card, { key: ' ' });
     expect(notPrevented).toBe(false);
-  });
-
-  it('marks example data with a chip', () => {
-    render(<RouteOptionsSheet {...props} mock />);
-    expect(screen.getByText('Dane przykładowe')).toBeInTheDocument();
   });
 
   it('says so when the search failed', () => {

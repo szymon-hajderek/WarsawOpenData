@@ -89,7 +89,7 @@ export default function App() {
   const trip = useMemo(() => applyOverrides(effective, filters.overrides), [effective, filters.overrides]);
   const search = useMemo(() => routeSearchBody(trip), [trip]);
 
-  const { options, loading, error: searchError, offline: routesOffline, errorMessage, mock: routesMock } = useRouteSearch({
+  const { options, loading, error: searchError, offline: routesOffline, errorMessage } = useRouteSearch({
     origin,
     destination,
     via,
@@ -105,18 +105,7 @@ export default function App() {
     setChosenId(null);
   }, [origin, destination, via, stopOrder, travel]);
 
-  // Example data is announced once, with a snackbar; a chip stays on the panel that shows it.
-  const mockShown = routesMock || vehicle.mock;
-  const [mockNoticeOpen, setMockNoticeOpen] = useState(false);
-  const [mockNoticeDone, setMockNoticeDone] = useState(false);
-  useEffect(() => {
-    if (mockShown && !mockNoticeDone) {
-      setMockNoticeOpen(true);
-      setMockNoticeDone(true);
-    }
-  }, [mockShown, mockNoticeDone]);
-
-  // The backend is switched on but could not be reached: say so each time it happens (no made-up data is shown).
+  // The backend is switched off or could not be reached: say so each time it happens (no made-up data is shown).
   const offlineShown = routesOffline || vehicle.offline;
   const [offlineNoticeOpen, setOfflineNoticeOpen] = useState(false);
   useEffect(() => {
@@ -214,7 +203,6 @@ export default function App() {
             lines={vehicle.lines}
             manual={vehicle.manual}
             loading={vehicle.loading}
-            mock={vehicle.mock}
             offline={vehicle.offline}
             snap={vehicle.snap}
             selectedId={vehicle.selectedId}
@@ -237,7 +225,6 @@ export default function App() {
             error={searchError}
             errorMessage={errorMessage}
             offline={routesOffline}
-            mock={routesMock}
             selectedId={selectedId}
             summary={summarize(trip)}
             activeRule={activeRule}
@@ -255,7 +242,6 @@ export default function App() {
         {step === 'route' && chosen && origin && destination && (
           <RouteDetailsSheet
             route={chosen}
-            mock={routesMock}
             origin={origin}
             destination={destination}
             snap={detailsSnap}
@@ -330,18 +316,6 @@ export default function App() {
       >
         <Alert severity="error" variant="filled" onClose={() => setOfflineNoticeOpen(false)}>
           Nie połączono z serwerem. Sprawdź, czy backend działa.
-        </Alert>
-      </Snackbar>
-
-      <Snackbar
-        open={mockNoticeOpen}
-        autoHideDuration={8000}
-        onClose={() => setMockNoticeOpen(false)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        sx={{ top: { xs: 150 } }}
-      >
-        <Alert severity="warning" variant="filled" onClose={() => setMockNoticeOpen(false)}>
-          Serwer jest wyłączony. Pokazuję dane przykładowe.
         </Alert>
       </Snackbar>
     </Box>
