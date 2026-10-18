@@ -18,12 +18,13 @@ import type { VehicleCandidate } from '../types';
 export const CONFIDENT_MAX_RMSE_M = 60;
 export const CONFIDENT_MIN_RATIO = 2.5;
 /**
- * Above this top-1 RMSE nothing plausible was matched, so an automatic detection shows nothing (the bus button
- * still opens the sheet). The backend always returns the 4 nearest vehicles with no distance cut-off, so without
- * this the sheet opened for vehicles hundreds of metres away. A rider's own vehicle is ~40-50 m with a good fix and
- * ~80 m with 100 m GPS error (same replay as above), so 120 m keeps real riders and drops absurd matches.
+ * Above this top-1 RMSE nothing plausible was matched, so an automatic detection shows nothing (the bus button still
+ * opens the sheet). The backend always returns the 4 nearest vehicles with no distance cut-off. The error of a real
+ * match comes mostly from the feed's lag (vehicle positions change every ~10-20 s), not from the user's GPS density:
+ * the own vehicle is ~40-50 m with a good fix (recorded-bus replay), so 60 m (the same as the confident limit) keeps
+ * real riders; vaguer matches stay behind the bus button.
  */
-export const PLAUSIBLE_MAX_RMSE_M = 120;
+export const PLAUSIBLE_MAX_RMSE_M = 60;
 
 /** Is the best match close enough to be a vehicle the user may be in? */
 export function isPlausible(candidates: VehicleCandidate[]): boolean {
@@ -38,8 +39,14 @@ export function isConfident(candidates: VehicleCandidate[]): boolean {
   return second.distanceM >= CONFIDENT_MIN_RATIO * first.distanceM;
 }
 
-/** What an automatic detection (not asked by the user) shows: nothing, the collapsed bar, or the sheet. */
-export type AutoVehicleView = 'none' | 'bar' | 'sheet';
+/**
+ * What an automatic detection (not asked by the user) shows. Never the big sheet: always a small collapsed bar the
+ * user can expand. 'bar' = one confident vehicle ("Wykryliśmy, że jedziesz linią 131"), 'ask' = a plausible vehicle
+ * without certainty ("Czy jedziesz tym pojazdem? Tramwaj 26"), 'none' = nothing plausible (no candidates, best RMSE
+ * over PLAUSIBLE_MAX_RMSE_M, no location, no live data, offline). Speed is not used: a bus standing in a jam at the
+ * user's position (RMSE ~0) is the best possible match.
+ */
+export type AutoVehicleView = 'none' | 'bar' | 'ask';
 
 export function autoVehicleView(result: {
   candidates: VehicleCandidate[];
@@ -47,5 +54,5 @@ export function autoVehicleView(result: {
   liveUnavailable?: boolean;
 }): AutoVehicleView {
   if (result.offline || result.liveUnavailable || !isPlausible(result.candidates)) return 'none';
-  return isConfident(result.candidates) ? 'bar' : 'sheet';
+  return isConfident(result.candidates) ? 'bar' : 'ask';
 }

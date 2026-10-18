@@ -1,3 +1,4 @@
+import { isConfident } from '../utils/vehicleConfidence';
 import {
   alpha,
   Autocomplete,
@@ -28,8 +29,14 @@ const directionText = (v: VehicleCandidate) => (v.direction ? `kier. ${v.directi
 /** Distance of the vehicle from the user, when the backend sent it. */
 const distanceText = (v: VehicleCandidate) =>
   v.distanceM !== undefined ? `ok. ${formatDistance(v.distanceM)} od Ciebie` : '';
-/** The collapsed bar of a detected (not yet confirmed) vehicle: "Wykryto linię 131 → Sadyba". */
-const detectedText = (v: VehicleCandidate) => `Wykryto linię ${v.line}${v.direction ? ` → ${v.direction}` : ''}`;
+/**
+ * The collapsed bar of a detected (not yet confirmed) vehicle: sure of one vehicle = "Wykryliśmy, że jedziesz linią
+ * 131 → Sadyba"; not sure = a question "Czy jedziesz tym pojazdem? Autobus 131".
+ */
+const detectedText = (v: VehicleCandidate, sure: boolean) =>
+  sure
+    ? `Wykryliśmy, że jedziesz linią ${v.line}${v.direction ? ` → ${v.direction}` : ''}`
+    : `Czy jedziesz tym pojazdem? ${vehicleName(v)}`;
 
 /** Heights the popup settles on: a bar, the middle (suggested vehicle + confirm) and the full popup. */
 export type VehicleSnap = SheetSnap;
@@ -172,9 +179,23 @@ export default function VehicleSheet({
                     </Typography>
                   </>
                 ) : (
-                  <Typography noWrap sx={{ flex: 1, minWidth: 0, fontWeight: 700 }}>
-                    {detectedText(shown)}
-                  </Typography>
+                  <>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" color="text.secondary" noWrap>
+                        {isConfident(candidates) ? 'Wykryliśmy, że jedziesz linią' : 'Czy jedziesz tym pojazdem?'}
+                      </Typography>
+                      <Typography noWrap sx={{ fontWeight: 700 }} aria-label={detectedText(shown, isConfident(candidates))}>
+                        {isConfident(candidates)
+                          ? `${shown.line}${shown.direction ? ` → ${shown.direction}` : ''}`
+                          : `${vehicleName(shown)}${shown.direction ? ` → ${shown.direction}` : ''}`}
+                      </Typography>
+                    </Box>
+                    {isConfident(candidates) && (
+                      <Typography variant="body2" color="primary" sx={{ fontWeight: 700 }}>
+                        Zmień
+                      </Typography>
+                    )}
+                  </>
                 )}
                 <ExpandLess color="primary" />
               </>

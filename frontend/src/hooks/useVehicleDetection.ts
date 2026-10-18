@@ -76,7 +76,7 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
         if (!requested.current) {
           const view = autoVehicleView(found);
           setOpen(view !== 'none');
-          setSnap(view === 'bar' ? 'bar' : 'middle');
+          setSnap('bar'); // always the small collapsed bar; the user expands it
         }
       })
       .catch((err) => {
