@@ -91,7 +91,10 @@ bash /root/WarsawOpenData/deploy/setup.sh      # toolchain (g++-14, node 20, git
 bash /root/WarsawOpenData/deploy/run.sh        # backend + router on 127.0.0.1:8000, the app on 0.0.0.0:8080
 ```
 
-With a domain (an A record to the server, ports 80 + 443 open): `bash deploy/nginx.sh app.example.pl` puts nginx in
+On a RunPod pod (only mapped ports reach it, and editing the pod's ports wipes the container disk) the simplest public
+HTTPS link is a Cloudflare tunnel, which needs no open port: `cloudflared tunnel --url http://localhost:8080`
+prints a `https://<words>.trycloudflare.com` address (changes on every start). For your own domain use a named tunnel
+on a Cloudflare-managed zone. On a normal server with a domain (an A record to the server, ports 80 + 443 open): `bash deploy/nginx.sh app.example.pl` puts nginx in
 front of port 8080 and gets an HTTPS certificate from Let's Encrypt (re-run it once DNS works). Without a domain:
 expose port 8080 as an HTTP port of the pod; the app is then at `https://<pod-id>-8080.proxy.runpod.net` (HTTPS, so
 geolocation works). `deploy/run.sh stop` stops it; logs in `logs/`. Run `setup.sh` again after pulling new code.

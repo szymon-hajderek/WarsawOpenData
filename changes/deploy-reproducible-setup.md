@@ -7,3 +7,4 @@
 - Frontend: the API base defaults to the page origin in production builds too (was `http://localhost:8000`);
   `vite preview` gets the `/api` proxy and allows any host (RunPod proxy).
 - `deploy/nginx.sh <domain> [email]`: nginx reverse proxy to port 8080 + Let's Encrypt HTTPS (certbot) once the domain resolves.
+- RunPod: public HTTPS through a Cloudflare quick tunnel (`cloudflared tunnel --url http://localhost:8080`), documented in README.
