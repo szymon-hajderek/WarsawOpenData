@@ -336,6 +336,7 @@ export default function App() {
             manual={vehicle.manual}
             loading={vehicle.loading}
             offline={vehicle.offline}
+            liveUnavailable={vehicle.liveUnavailable}
             snap={vehicle.snap}
             selectedId={vehicle.selectedId}
             confirmed={vehicle.confirmed}
@@ -377,6 +378,7 @@ export default function App() {
             manual={vehicle.manual}
             loading={vehicle.loading}
             offline={vehicle.offline}
+            liveUnavailable={vehicle.liveUnavailable}
             snap={vehicle.snap}
             selectedId={vehicle.selectedId}
             confirmed={vehicle.confirmed}

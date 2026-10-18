@@ -28,6 +28,7 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
   const [manual, setManual] = useState<VehicleCandidate | null>(null);
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
+  const [liveUnavailable, setLiveUnavailable] = useState(false);
   const [snap, setSnap] = useState<VehicleSnap>('middle');
   const [dismissed, setDismissed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -60,6 +61,7 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
         setVehicles(found.candidates);
         setLines(found.lines);
         setOffline(found.offline);
+        setLiveUnavailable(Boolean(found.liveUnavailable));
         setManual(null);
         setSelectedId((prev) => (found.candidates.some((v) => v.id === prev) ? prev : found.candidates[0]?.id ?? null));
         setLoading(false);
@@ -100,6 +102,7 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
     manual,
     loading,
     offline,
+    liveUnavailable,
     snap,
     dismissed,
     selectedId,
