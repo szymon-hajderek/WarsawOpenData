@@ -394,7 +394,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   (`src/preferences/PreferencesProvider.tsx`). Preferences page: `src/components/PreferencesPage.tsx`; reusable fields
   (levels + custom km/h, wheelchair, priorities, excluded districts / own points): `src/components/preferences/`.
   Time rules (`RuleDialog.tsx`) override any section for given days and hours (may cross midnight); the latest started
-  active rule wins. `FilterSheet.tsx` = filters for the current search only (sorting, max transfers, vehicles, max walking
+  active rule wins. `FilterSheet.tsx` = filters of the session, sticky (memory only, not saved): a new search, a new origin / departure or a travel
+  mode switch keeps them, only the picked / chosen route resets; "Wyczyść filtry" resets them. Transit-only chips (sort, vehicles,
+  transfers, max walk) are hidden on street trips but kept (sorting, max transfers, vehicles, max walking
   time, step-free, pace / wheelchair, excluded areas, and "Zaawansowane" = all preferences as overrides). Max walking
   time still filters the list in the browser (`applyListFilters`); vehicles do not any more.
   "Środki transportu" (`Preferences.excludedModes`: bus / tram / metro / rail / veturilo, `TransportModesSection`, time rules may
