@@ -492,6 +492,12 @@ Everything in this repo (files, commits, PRs) is written in English.
   Dziś / Jutro / a date + a time, or "Teraz". State `departure` in `App.tsx` (`null` = now, not saved). A chosen time is sent as
   `when` = `YYYY-MM-DDTHH:MM` with every search (transit, `via`, street-only); now sends no `when`. A past time is allowed (chip muted).
   The route list header shows "Wyjazd 14:30" when not now.
+- **Collapsible search card (phone):** by default `SearchCard` shows only "Dokąd jedziesz?" and a chevron (`collapsed` / `onToggleCollapsed`, state `searchOpen` in `App`); the chevron opens the
+  whole card (start, stops, travel modes, ...), and a chevron inside folds it again. If a destination is set but there is no start, the collapsed card offers "Ustaw start" (opens the card).
+  On a wide screen (side panel), in the ride demo (no `onToggleCollapsed`) and during a new search in an active trip (it holds "Wróć do przejazdu") the card is always open. The map buttons
+  move with the card (`mapControlsOffset` in `App`). Tests that need the start field call `openSearchCard()` (`src/test/searchCard.ts`) first.
+- **Bus button of the map** (`vehicle.toggle` in `useVehicleDetection`, `aria-pressed` = window shown): the first click detects and shows the vehicle window, the next click hides it (the confirmed
+  vehicle stays), the next one brings it back without detecting again; with nothing to bring back it detects.
 - Travel modes (`src/travel.ts`, not saved): three main chips in the search card (Komunikacja | Pieszo | Rower) and, for Komunikacja and Pieszo only,
   a small toggle row "Dostępność": Pieszo | Na wózku | Z wózkiem dziecięcym (`Access`, per search; a wheelchair in the preferences preselects
   "Wózek inwalidzki"). Komunikacja = the normal search with `profile` (`TRANSIT_PROFILE`: standard / accessible / stroller); a picked accessibility
