@@ -35,6 +35,18 @@ describe('isRouteOptions', () => {
     expect(isRouteOptions({ detail: 'error' })).toBe(false);
     expect(isRouteOptions(null)).toBe(false);
   });
+
+  it('accepts optional segments and rejects malformed segment coordinates or kinds', () => {
+    const segments = [{ kind: 'push', path: leg.path, lengthM: 12 }];
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, segments }] }])).toBe(true);
+    for (const broken of [
+      [{ ...segments[0], kind: 'teleport' }],
+      [{ ...segments[0], path: [[52.2]] }],
+      [{ ...segments[0], lengthM: -1 }],
+    ]) {
+      expect(isRouteOptions([{ ...option, legs: [{ ...leg, segments: broken }] }])).toBe(false);
+    }
+  });
 });
 
 describe('isNearestBuses', () => {

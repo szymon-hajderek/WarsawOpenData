@@ -1,5 +1,6 @@
 """Routing endpoint — the backend side of the frontend's `fetchRouteOptions`."""
 from fastapi import APIRouter, HTTPException
+from street_router import RouteError, RouterUnavailable
 
 from ..models import RouteOption, RouteRequest
 from ..routing.engine import RouteEngine
@@ -18,6 +19,10 @@ def get_routes(req: RouteRequest) -> list[RouteOption]:
         if req.via:
             return query_multi(engine, req.from_, req.to, req.via, req.order, req.profile, when=req.when, search=req)
         return engine.query_routes(req.from_, req.to, req.profile, when=req.when, search=req)
+    except RouterUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except RouteError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
     except FileNotFoundError as exc:
         raise HTTPException(503, f"timetable data is missing: {exc}")
     except ValueError as exc:

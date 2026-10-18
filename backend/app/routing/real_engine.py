@@ -7,6 +7,7 @@ Street geometry comes from OSM for the options that are returned.
 from __future__ import annotations
 
 import contextvars
+import functools
 import logging
 import sys
 from datetime import datetime, timedelta, timezone
@@ -25,9 +26,10 @@ from plan_trip import (  # noqa: E402
 log = logging.getLogger("uvicorn.error")
 
 import street_router
+import stations
 from sources import alerts, mkuran, nextbike, osm
 
-from ..models import Place, Profile, RouteLeg, RouteOption
+from ..models import Place, Profile, RouteLeg, RouteOption, RouteSegment
 from .engine import RouteEngine
 from .geo import format_time, round_half_up
 
@@ -36,11 +38,34 @@ PROFILE_SPEED = {
     "standard": {"walk": 1.3, "bike": 4.2},
     "slow": {"walk": 0.9, "bike": 3.0},
     "accessible": {"walk": 1.0, "bike": 0.0},
+    "stroller": {"walk": 1.0, "bike": 0.0},
 }
-WALK_M = {"standard": 900, "slow": 700, "accessible": 600}
+WALK_M = {"standard": 900, "slow": 700, "accessible": 600, "stroller": 600}
 CATCH_SLACK_S = 20
 _SPEED = contextvars.ContextVar("route_speed", default=None)
 _BLOCK = contextvars.ContextVar("route_block", default=None)
+_WALK_MODE = contextvars.ContextVar("route_walk_mode", default=None)
+
+
+@functools.lru_cache(maxsize=1)
+def _overlay() -> dict[str, dict]:
+    return {location["id"]: location for location in stations.locations()}
+
+
+def _loc(stop_id):
+    return _overlay().get(stop_id)
+
+
+def _pos(stop_id, fallback):
+    location = _loc(stop_id)
+    if location:
+        return location["position"]["lat"], location["position"]["lon"]
+    return fallback
+
+
+def _mapped(record, id_key="id"):
+    lat, lon = _pos(record[id_key], (record["lat"], record["lon"]))
+    return {**record, "lat": lat, "lon": lon}
 
 
 def _distance(a, b) -> float:
@@ -60,30 +85,39 @@ class RealRouteEngine(RouteEngine):
     def query_routes(self, frm: Place, to: Place, profile: Profile, when: str | None = None, search=None) -> list[RouteOption]:
         now = _clock(when)
         date, now_sec = service_moment(now)
-        self._vehicles = _live_vehicles()
-        self._trip_delays = _trip_delays()
-        self._station_delays = _station_delays()
+        travel = getattr(search, "travel", "transit")
+        if travel in ("accessible", "stroller"):
+            profile = travel
         speed, accessible, max_transfers, block = _limits(profile, search)
         origin = tuple(frm.position)
         dest = tuple(to.position)
-        tokens = (_SPEED.set(speed), _BLOCK.set(block))
+        graph = "accessible" if accessible else "stroller" if profile == "stroller" else "walk"
+        tokens = (_SPEED.set(speed), _BLOCK.set(block), _WALK_MODE.set(graph))
         try:
+            if travel != "transit":
+                option = self._street_option(frm, to, origin, dest, profile, now, travel)
+                return [option] if _option_clear(option) else []
+            self._vehicles = _live_vehicles()
+            self._trip_delays = _trip_delays()
+            self._station_delays = _station_delays()
             return self._query(frm, to, profile, now, now_sec, date, origin, dest, speed, accessible, max_transfers)
         finally:
             _SPEED.reset(tokens[0])
             _BLOCK.reset(tokens[1])
+            _WALK_MODE.reset(tokens[2])
 
     def _query(self, frm, to, profile, now, now_sec, date, origin, dest, speed, accessible, max_transfers):
-        stops = [s for s in mkuran.vertices() if not _inside(s["lat"], s["lon"])]
+        stops = [_mapped(s) for s in mkuran.vertices()]
+        stops = [s for s in stops if not _inside(s["lat"], s["lon"])]
         boards = spread_groups(_by_street(origin, nearby(origin, stops, WALK_M[profile], 40, _distance, accessible), profile), 8)
-        alights = spread_groups(_by_street(dest, nearby(dest, stops, WALK_M[profile], 40, _distance, accessible), profile), 8)
+        alights = spread_groups(_by_street(dest, nearby(dest, stops, WALK_M[profile], 40, _distance, accessible), profile, "to"), 8)
         dest_ids = {s["id"] for s in alights}
 
         def departures(stop_id, after):
             return mkuran.departures(stop_id, date, now_sec if after is None else int(after), limit=12)
 
         def onward(trip_id, stop_id, sec):
-            return mkuran.trip_onward(trip_id, stop_id, sec)
+            return [_mapped(call, "stop_id") for call in mkuran.trip_onward(trip_id, stop_id, sec)]
 
         options: list[RouteOption] = []
         walk = self._walk_option(frm, to, origin, dest, profile, now)
@@ -156,8 +190,18 @@ class RealRouteEngine(RouteEngine):
         street = _street(origin, dest, "walk", profile)
         if street is None or street["seconds"] > 50 * 60:
             return None
-        leg = _leg("walk", frm.label, to.label, None, street)
-        return _option("walk", "Pieszo", [leg], now)
+        legs = legs_from_router(street, from_name=frm.label, to_name=to.label)
+        return _street_tags(_option("walk", "Pieszo", legs, now, street["seconds"]), street, profile)
+
+    def _street_option(self, frm, to, origin, dest, profile, now, travel):
+        mode = "bike" if travel == "bike" else "walk"
+        street = _street(origin, dest, mode, profile, strict=True)
+        if street is None:
+            raise ValueError("cycling is disabled by the selected profile or speed")
+        legs = legs_from_router(street, from_name=frm.label, to_name=to.label)
+        title = {"walk": "Pieszo", "accessible": "Wózek inwalidzki",
+                 "stroller": "Wózek dziecięcy", "bike": "Własny rower"}[travel]
+        return _street_tags(_option("street-" + travel, title, legs, now, street["seconds"]), street, profile)
 
     def _bike_option(self, frm, to, origin, dest, profile, now) -> Optional[RouteOption]:
         stations = _stations()
@@ -165,17 +209,13 @@ class RealRouteEngine(RouteEngine):
         if pair is None:
             return None
         pickup, dropoff = pair
-        walk_to = _street(origin, (pickup["lat"], pickup["lon"]), "walk", profile)
-        ride = _street((pickup["lat"], pickup["lon"]), (dropoff["lat"], dropoff["lon"]), "bike", profile)
-        walk_from = _street((dropoff["lat"], dropoff["lon"]), dest, "walk", profile)
-        if not walk_to or not ride or not walk_from or ride["seconds"] > 45 * 60:
+        bridge = _bike_bridge(origin, frm.label, pickup, dropoff, dest, to.label, profile)
+        if bridge is None:
             return None
-        legs = [
-            _leg("walk", frm.label, pickup["name"], None, walk_to),
-            _leg("veturilo", pickup["name"], dropoff["name"], None, ride),
-            _leg("walk", dropoff["name"], to.label, None, walk_from),
-        ]
-        return _option("bike", "Veturilo", legs, now)
+        legs, seconds, ride_seconds = bridge
+        if ride_seconds > 45 * 60:
+            return None
+        return _option("bike", "Veturilo", legs, now, seconds)
 
     def _bike_with_transit(self, frm, to, origin, dest, profile, now, now_sec, stops, dest_ids, directs,
                            departures, onward, accessible):
@@ -192,7 +232,7 @@ class RealRouteEngine(RouteEngine):
             board = ride["calls"][0]
             bridge = _bike_bridge(
                 origin, frm.label, pair["pickup"], pair["dropoff"],
-                (board["lat"], board["lon"]), board["name"], profile)
+                board["stop_id"], board["name"], profile)
             if bridge is None:
                 continue
             legs, seconds, _ = bridge
@@ -214,7 +254,7 @@ class RealRouteEngine(RouteEngine):
             pair = best_bike_pair((last["lat"], last["lon"]), dest, stations, _distance, max_m=800)
             if pair is not None:
                 bridge = _bike_bridge(
-                    (last["lat"], last["lon"]), last["name"], pair[0], pair[1], dest, to.label, profile)
+                    last["stop_id"], last["name"], pair[0], pair[1], dest, to.label, profile)
                 if bridge is not None:
                     legs, seconds, _ = bridge
                     option = self._transit_option(
@@ -234,8 +274,8 @@ class RealRouteEngine(RouteEngine):
         alight = found["first"]["calls"][-1]
         board = found["second"]["calls"][0]
         bridge = _bike_bridge(
-            (alight["lat"], alight["lon"]), alight["name"], found["pickup"], found["dropoff"],
-            (board["lat"], board["lon"]), board["name"], profile)
+            alight["stop_id"], alight["name"], found["pickup"], found["dropoff"],
+            board["stop_id"], board["name"], profile)
         if bridge is None:
             return None
         legs, seconds, _ = bridge
@@ -255,26 +295,26 @@ class RealRouteEngine(RouteEngine):
         lead_legs, lead_s = lead if lead else ([], 0.0)
         if skip_access:
             access_s = 0.0
-            access_leg = None
+            access_legs = []
         else:
-            access = _street(origin, (first["lat"], first["lon"]), "walk", profile)
+            access = _street(origin, first["stop_id"], "walk", profile)
             if access is None:
                 return None
             access_s = access["seconds"]
-            access_leg = _leg("walk", frm.label, first["name"], None, access)
+            access_legs = legs_from_router(access, from_name=frm.label, to_name=first["name"])
         if egress is None:
-            street = _street((last["lat"], last["lon"]), dest, "walk", profile)
+            street = _street(last["stop_id"], dest, "walk", profile)
             if street is None:
                 return None
-            egress_legs, egress_s = [_leg("walk", last["name"], to.label, None, street)], street["seconds"]
+            egress_legs = legs_from_router(street, from_name=last["name"], to_name=to.label)
+            egress_s = street["seconds"]
         else:
             egress_legs, egress_s = egress
         if lead_s + access_s + CATCH_SLACK_S > rides[0]["dep"]["sec"] - now_sec:
             return None
         leave = now + timedelta(seconds=max(0, rides[0]["dep"]["sec"] - now_sec - lead_s - access_s))
         legs = list(lead_legs)
-        if access_leg is not None:
-            legs.append(access_leg)
+        legs.extend(access_legs)
         for index, ride in enumerate(rides):
             calls = ride["calls"]
             if index == 1 and between is not None:
@@ -285,21 +325,26 @@ class RealRouteEngine(RouteEngine):
             elif index > 0:
                 prev = rides[index - 1]["calls"][-1]
                 if prev.get("stop_id") != calls[0].get("stop_id"):
-                    mid = _street((prev["lat"], prev["lon"]), (calls[0]["lat"], calls[0]["lon"]), "walk", profile)
+                    mid = _street(prev["stop_id"], calls[0]["stop_id"], "walk", profile)
                     if mid is None:
                         return None
                     if ride["dep"]["sec"] < prev["arr"] + mid["seconds"] - CATCH_SLACK_S:
                         return None
-                    legs.append(_leg("walk", prev["name"], calls[0]["name"], None, mid))
+                    legs.extend(legs_from_router(mid, from_name=prev["name"], to_name=calls[0]["name"]))
                 elif ride["dep"]["sec"] < prev["arr"] - CATCH_SLACK_S:
                     return None
             path = _ride_path(ride["dep"]["trip_id"], calls)
+            if len(path) < 2:
+                return None
             meters = sum(_distance(path[i], path[i + 1]) for i in range(len(path) - 1))
             seconds = max(0, calls[-1]["arr"] - calls[0]["dep"])
             dep = ride["dep"]
             legs.append(RouteLeg(
                 mode=dep["mode"], from_=calls[0]["name"], to=calls[-1]["name"], line=dep["line"],
                 durationMin=_minutes(seconds), distanceM=round(meters, 1), path=path,
+                fromId=calls[0]["stop_id"], toId=calls[-1]["stop_id"],
+                start=tuple(reversed(_pos(calls[0]["stop_id"], (calls[0]["lat"], calls[0]["lon"])))),
+                end=tuple(reversed(_pos(calls[-1]["stop_id"], (calls[-1]["lat"], calls[-1]["lon"])))),
             ))
         legs.extend(egress_legs)
         title = " + ".join(ride["dep"]["line"] for ride in rides)
@@ -364,6 +409,8 @@ def _limits(profile: Profile, search):
         districts = list(getattr(search, "excludedDistricts", []) or [])
         points = [(p.position[0], p.position[1], p.radiusM) for p in (getattr(search, "excludedPoints", None) or [])]
     block = (districts, points) if districts or points else None
+    if profile in ("accessible", "stroller"):
+        speed["bike"] = 0.0
     return speed, accessible, max_transfers, block
 
 
@@ -374,16 +421,19 @@ def _inside(lat, lon) -> bool:
     return blocked(float(lat), float(lon), spec[0], spec[1], _distance)
 
 
-def _by_street(origin, candidates, profile):
-    """Re-rank the nearest stops by OSM walk time. The straight-line list is only the candidate pool."""
-    ranked = []
-    for stop in candidates[:12]:
-        street = _street(origin, (stop["lat"], stop["lon"]), "walk", profile)
-        if street is None or street["seconds"] > 18 * 60:
-            continue
-        ranked.append((street["seconds"], stop))
-    ranked.sort(key=lambda item: item[0])
-    return [stop for _, stop in ranked] or list(candidates[:8])
+def _by_street(origin, candidates, profile, direction="from"):
+    """Rank candidates with one search; egress follows the streets towards the destination."""
+    if not candidates:
+        return []
+    try:
+        reachable = street_router.access(origin, _router_mode("walk", profile), direction, 18 * 60,
+                                         speeds=_router_speeds(profile))
+    except street_router.RouteError as exc:
+        if exc.status not in (404, 422):
+            raise
+        return []
+    times = {stop["id"]: stop["seconds"] for stop in reachable if stop["seconds"] <= 18 * 60}
+    return sorted((stop for stop in candidates if stop["id"] in times), key=lambda stop: times[stop["id"]])
 
 
 def _ride_clear(ride) -> bool:
@@ -472,11 +522,21 @@ def _footpaths(stops: list[dict], max_m: float, step_free: bool = False) -> dict
                     near.append((b["id"], meters, 60))
             near.sort(key=lambda item: item[1])
             out.setdefault(a["id"], []).extend(near[:3])
+    valid_ids = {stop["id"] for stop in stops}
+
+    def add_link(a, b, meters, seconds):
+        try:
+            a, b = mkuran.canonical(a), mkuran.canonical(b)
+        except KeyError:
+            return  # feeds can reference a child stop outside the imported area
+        if a in valid_ids and b in valid_ids:
+            out.setdefault(a, []).append((b, meters, seconds))
+
     try:
         for a, b, sec in mkuran.transfer_links():
-            out.setdefault(a, []).append((b, 80.0, sec))
+            add_link(a, b, 80.0, sec)
         for a, b, meters, sec in mkuran.pathway_links(step_free):
-            out.setdefault(a, []).append((b, meters or 40.0, sec))
+            add_link(a, b, meters or 40.0, sec)
     except (OSError, KeyError) as exc:
         log.warning("transfer links skipped: %s", exc)
     for stop_id in out:
@@ -504,33 +564,41 @@ def _clock(when: str | None) -> datetime:
 
 def _bike_bridge(a_point, a_label, pickup, dropoff, b_point, b_label, profile):
     """Walk to a bike, ride, walk on. ``(legs, seconds, ride_seconds)`` or None."""
-    walk_to = _street(a_point, (pickup["lat"], pickup["lon"]), "walk", profile)
-    ride = _street((pickup["lat"], pickup["lon"]), (dropoff["lat"], dropoff["lon"]), "bike", profile)
-    walk_from = _street((dropoff["lat"], dropoff["lon"]), b_point, "walk", profile)
+    walk_to = _street(a_point, pickup["id"], "walk", profile)
+    ride = _street(pickup["id"], dropoff["id"], "bike", profile)
+    walk_from = _street(dropoff["id"], b_point, "walk", profile)
     if not walk_to or not ride or not walk_from:
         return None
     legs = [
-        _leg("walk", a_label, pickup["name"], None, walk_to),
-        _leg("veturilo", pickup["name"], dropoff["name"], None, ride),
-        _leg("walk", dropoff["name"], b_label, None, walk_from),
+        *legs_from_router(walk_to, from_name=a_label, to_name=pickup["name"]),
+        *legs_from_router(ride, from_name=pickup["name"], to_name=dropoff["name"], rented=True),
+        *legs_from_router(walk_from, from_name=dropoff["name"], to_name=b_label),
     ]
     return legs, walk_to["seconds"] + ride["seconds"] + walk_from["seconds"], ride["seconds"]
 
 
-def _street(a, b, mode: str, profile: Profile):
+def _router_mode(mode, profile):
+    if mode == "walk":
+        return _WALK_MODE.get() or (profile if profile in ("accessible", "stroller") else "walk")
+    return mode
+
+
+def _router_speeds(profile):
+    table = _SPEED.get() or PROFILE_SPEED[profile]
+    return {"walk": table["walk"], "bike": table["bike"] or OSM_SPEED["bike"]}
+
+
+def _street(a, b, mode: str, profile: Profile, *, strict=False):
     table = _SPEED.get() or PROFILE_SPEED[profile]
     speed = table[mode]
     if speed <= 0:
         return None
-    # the C++ router finds the best path for the profile's speeds; walking with the accessible profile avoids steps
-    graph = "accessible" if profile == "accessible" and mode == "walk" else mode
-    speeds = {"walk": PROFILE_SPEED[profile]["walk"], "bike": PROFILE_SPEED[profile]["bike"] or OSM_SPEED["bike"]}
     try:
-        raw = street_router.route(a, b, graph, speeds=speeds)
-        return {"seconds": raw["seconds"], "length_m": raw["length_m"], "geometry": raw["geometry"]}
-    except (ValueError, OSError, FileNotFoundError):
-        meters = _distance(a, b) * 1.25
-        return {"seconds": meters / speed, "length_m": meters, "geometry": [list(a), list(b)]}
+        return street_router.route(a, b, _router_mode(mode, profile), speeds=_router_speeds(profile))
+    except street_router.RouteError as exc:
+        if strict or exc.status not in (404, 422):
+            raise
+        return None
 
 
 def _stations() -> list[dict]:
@@ -552,11 +620,13 @@ def _stations() -> list[dict]:
                 docks = 1 if station.get("virtual") else 0
             if station.get("virtual") and row.get("returning", True):
                 docks = max(int(docks or 0), 1)
+            station_id = station["id"]
+            lat, lon = _pos(station_id, (station["lat"], station["lon"]))
             out.append({
-                "id": station["station_id"],
+                "id": station_id,
                 "name": station["name"],
-                "lat": station["lat"],
-                "lon": station["lon"],
+                "lat": lat,
+                "lon": lon,
                 "bikes": row.get("bikes") or 0,
                 "docks": docks,
                 "electric": electric_n > 0 and human == 0,
@@ -576,12 +646,60 @@ def _ride_path(trip_id: str, calls: list[dict]) -> list[list[float]]:
         shape = []
     if len(shape) >= 2:
         return shape
-    return [[c["lat"], c["lon"]] for c in calls]
+    return []
 
 
-def _leg(mode, frm, to, line, street) -> RouteLeg:
-    return RouteLeg(mode=mode, from_=frm, to=to, line=line, durationMin=_minutes(street["seconds"]),
-                    distanceM=round(street["length_m"], 1), path=street["geometry"])
+def legs_from_router(answer: dict, names: dict[str, str] | None = None, *,
+                     from_name="", to_name="", rented=False) -> list[RouteLeg]:
+    """Convert router legs in one place; null-ID endpoints have independent display names."""
+    names = names or {}
+    out = []
+    raw_legs = answer["legs"]
+    for index, raw in enumerate(raw_legs):
+        start, end = raw["from"], raw["to"]
+
+        def label(endpoint, fallback):
+            station_id = endpoint["id"]
+            if station_id in names:
+                return names[station_id]
+            if fallback:
+                return fallback
+            location = _loc(station_id) if station_id else None
+            return location["name"] if location else ""
+
+        def position(endpoint):
+            # Router geometry is rounded to 5 decimals. Marker metadata retains the exact catalog position.
+            lon, lat = endpoint["lonlat"]
+            if endpoint["id"]:
+                lat, lon = _pos(endpoint["id"], (lat, lon))
+            return lon, lat
+
+        path = [(lat, lon) for lon, lat in raw["path"]]
+        mode = "veturilo" if rented and raw["mode"] == "bike" else raw["mode"]
+        street = mode in ("walk", "bike", "veturilo")
+        meters = raw["walk_m"] + raw["bike_m"] if street else sum(
+            _distance(a, b) for a, b in zip(path, path[1:]))
+        leg = RouteLeg(
+            mode=mode, from_=label(start, from_name if index == 0 else ""),
+            to=label(end, to_name if index == len(raw_legs) - 1 else ""),
+            line=raw.get("line"), durationMin=_minutes(raw["seconds"]), distanceM=round(meters, 1),
+            path=path, start=position(start), end=position(end),
+            fromId=start["id"], toId=end["id"],
+            segments=[RouteSegment(kind=s["kind"], path=[(lat, lon) for lon, lat in s["path"]],
+                                   lengthM=s["length_m"]) for s in raw.get("segments", [])],
+        )
+        if street:
+            leg._street_distances = (raw["walk_m"], raw["bike_m"])
+        out.append(leg)
+    return out
+
+
+def _street_tags(option, answer, profile):
+    if all(leg.mode == "walk" for leg in option.legs) and _router_mode("walk", profile) in ("accessible", "stroller"):
+        option.tags.append("bez schodów")
+    if answer.get("elevators"):
+        option.tags.append(f"windy: {len(answer['elevators'])}")
+    return option
 
 
 def _option(option_id, title, legs, leave, door_s: float | None = None) -> RouteOption:
