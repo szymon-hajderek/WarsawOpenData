@@ -2,7 +2,7 @@
 // README.md has the API and the file formats.
 //   street_router matrix <graph.bin> <out.bin> [--threads N]     every pair of the graph's fixed points
 //   street_router route <graph.bin> LAT,LON LAT,LON              one path, JSON on stdout
-//   street_router serve <dir> [--port 8090] [--threads 4]        HTTP: POST /route, /access, /plan, GET /health
+//   street_router serve <dir> [--port 8090] [--threads 4]        HTTP: POST /route, /access, /plan, /state, GET /health
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -14,6 +14,7 @@
 #include <fstream>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <print>
 #include <set>
@@ -235,6 +236,31 @@ Search& search_for(const Graph& g) {
     return *s;
 }
 
+// Live Veturilo availability, replaced as a whole by POST /state. A query copies the pointer once at its start, so
+// one search sees one frozen state (RAPTOR needs it: availability must not depend on the arrival time, else being
+// somewhere earlier would not always be better).
+struct VeturiloState {
+    std::vector<int> bikes;  // per location index: bikes available; -1 = no data (counts as 0 when min_bikes > 0)
+    std::size_t docks = 0;   // docks with data
+    std::chrono::system_clock::time_point updated;
+};
+
+class VeturiloStore {
+public:
+    [[nodiscard]] std::shared_ptr<const VeturiloState> get() const {
+        std::scoped_lock lock(mutex_);
+        return state_;
+    }
+    void set(std::shared_ptr<const VeturiloState> state) {
+        std::scoped_lock lock(mutex_);
+        state_ = std::move(state);
+    }
+
+private:
+    mutable std::mutex mutex_;
+    std::shared_ptr<const VeturiloState> state_;  // nullptr: no state received yet
+};
+
 // What POST /plan needs besides the street graphs: the timetable, its day views and the mapped matrices.
 struct Transit {
     std::optional<Timetable> timetable;
@@ -242,6 +268,7 @@ struct Transit {
     std::unique_ptr<DayCache> days;
     std::map<std::string, std::unique_ptr<Matrix>, std::less<>> matrices;
     std::vector<std::uint32_t> docks;  // Veturilo stations
+    VeturiloStore veturilo;
 
     // "ok", or why the mode cannot plan.
     [[nodiscard]] std::string status(const std::string& mode) const {
@@ -250,6 +277,34 @@ struct Transit {
         return m == matrices.end() ? "no stations.json" : m->second->ok() ? "ok" : m->second->error;
     }
 };
+
+// POST /state {"veturilo": {"vet:<id>": bikes, ...}}: the new availability of every dock (docks left out: no data).
+std::expected<json, Error> set_state(const Stations& st, Transit& tr, const json& body) {
+    const auto v = body.find("veturilo");
+    if (v == body.end() || !v->is_object()) return std::unexpected(Error{400, "veturilo must be an object {id: bikes}"});
+    auto state = std::make_shared<VeturiloState>();
+    state->bikes.assign(st.list.size(), -1);
+    json unknown = json::array();
+    for (const auto& [id, bikes] : v->items()) {
+        if (!bikes.is_number_integer() || bikes.get<long long>() < 0)
+            return std::unexpected(Error{400, std::format("bikes of {} must be an integer >= 0", id)});
+        const auto it = st.index.find(id);
+        if (it == st.index.end() || st.list[it->second].kind != "veturilo") { unknown.push_back(id); continue; }
+        state->bikes[it->second] = static_cast<int>(std::min<long long>(bikes.get<long long>(), 1 << 30));
+        ++state->docks;
+    }
+    state->updated = std::chrono::system_clock::now();
+    const auto docks = state->docks;
+    tr.veturilo.set(std::move(state));
+    return json{{"veturilo", {{"docks", docks}, {"unknown", unknown}}}};
+}
+
+json state_health(const Transit& tr) {
+    const auto s = tr.veturilo.get();
+    if (!s) return {{"veturilo", nullptr}};
+    const std::chrono::duration<double> age = std::chrono::system_clock::now() - s->updated;
+    return {{"veturilo", {{"docks", s->docks}, {"age_s", round_to(age.count(), 1)}}}};
+}
 
 // POST /plan: RAPTOR between two places on one service day. Answer: {"options": [{seconds, dep_s, arr_s, transfers,
 // walk_m, bike_m, wait_s, legs}]}: the street-only trip and the Pareto set (counted legs, arrival). Legs name
@@ -274,6 +329,10 @@ std::expected<json, Error> plan(const Modes& modes, const Mode& mode, const Stat
     }
     const auto max_legs = body.value("max_legs", json(std::numeric_limits<int>::max()));
     if (!max_legs.is_number_integer() || max_legs.get<long long>() < 0) return std::unexpected(Error{400, "max_legs must be an integer >= 0"});
+    // min_bikes: rent only at docks with at least this many bikes in the state frozen at the start of this query
+    const auto min_bikes = body.value("min_bikes", json(0));
+    if (!min_bikes.is_number_integer() || min_bikes.get<long long>() < 0) return std::unexpected(Error{400, "min_bikes must be an integer >= 0"});
+    const auto frozen = tr.veturilo.get();
     // exclude_modes: transit modes the search must not use ("bus" covers trolleybuses), and "veturilo"
     std::set<std::string, std::less<>> excluded;
     if (const auto ex = body.find("exclude_modes"); ex != body.end()) {
@@ -334,6 +393,8 @@ std::expected<json, Error> plan(const Modes& modes, const Mode& mode, const Stat
             const auto s = body.find("speeds");
             bike_speeds = {speeds.walk, s != body.end() && s->contains("bike") ? speeds.bike : bike_mode->graph.bike_speed};
             q.bike = tr.matrices.at("bike").get(), q.bike_speeds = bike_speeds, q.docks = tr.docks;
+            for (const auto d : tr.docks)
+                if (min_bikes.get<long long>() == 0 || (frozen && frozen->bikes[d] >= min_bikes.get<long long>())) q.pickup.push_back(d);
         }
     }
     Raptor raptor;
@@ -399,6 +460,7 @@ std::expected<json, Error> plan(const Modes& modes, const Mode& mode, const Stat
                 leg["seconds"] = round_to(leg["seconds"].get<double>() + extra, 1);
                 leg["wait_s"] = round_to(leg["wait_s"].get<double>() + extra, 1);
                 leg["pickup_s"] = q.pickup_s, leg["return_s"] = q.return_s;
+                leg["bikes"] = frozen && frozen->bikes[step.from] >= 0 ? json(frozen->bikes[step.from]) : json();
                 items.push_back({std::move(leg)});
                 break;
             }
@@ -517,7 +579,7 @@ json matrices_status(const std::filesystem::path& dir, const Modes& modes, const
 }
 
 // POST /route {from, to, mode, speeds?}; POST /access {point, mode, direction, limit_s?, speeds?};
-// POST /plan {from, to, mode, date, time, speeds?, limits?}; GET /health.
+// POST /plan {from, to, mode, date, time, speeds?, limits?, min_bikes?}; POST /state {veturilo}; GET /health.
 // from / to / point: [lat, lon] or a location id. Keys the router does not support yet are answered with 501.
 void serve(const std::filesystem::path& dir, int port, unsigned threads) {
     Modes modes;
@@ -596,6 +658,7 @@ void serve(const std::filesystem::path& dir, int port, unsigned threads) {
 
     server.Get("/health", [&](const httplib::Request&, httplib::Response& res) {
         health["matrices"] = matrices_status(dir, modes, st);
+        health["state"] = state_health(transit);
         reply(res, 200, health);
     });
     server.Post("/route", [&](const httplib::Request& req, httplib::Response& res) {
@@ -626,11 +689,22 @@ void serve(const std::filesystem::path& dir, int port, unsigned threads) {
     server.Post("/plan", [&](const httplib::Request& req, httplib::Response& res) {
         const auto parsed = parse(req, res, {"from", "to", "mode", "speeds", "date", "time", "max_legs", "access_s",
                                              "egress_s", "footpath_s", "veturilo_s", "veturilo_pickup_s",
-                                             "veturilo_return_s", "exclude_modes"});
+                                             "veturilo_return_s", "exclude_modes", "min_bikes"});
         if (!parsed) return;
         const auto& [body, mode, speeds] = *parsed;
         if (!st) return reply(res, 503, {{"error", "no stations.json loaded"}});
         const auto out = plan(modes, *mode, *st, transit, body, speeds);
+        out ? reply(res, 200, *out) : reply(res, out.error().status, {{"error", out.error().message}});
+    });
+    server.Post("/state", [&](const httplib::Request& req, httplib::Response& res) {
+        const auto body = json::parse(req.body, nullptr, false);
+        if (!body.is_object()) return reply(res, 400, {{"error", "the body must be a JSON object"}});
+        json unimplemented = json::array();
+        for (const auto& [key, value] : body.items())
+            if (key != "veturilo") unimplemented.push_back(key);
+        if (!unimplemented.empty()) return reply(res, 501, {{"error", "not implemented"}, {"unimplemented", unimplemented}});
+        if (!st) return reply(res, 503, {{"error", "no stations.json loaded"}});
+        const auto out = set_state(*st, transit, body);
         out ? reply(res, 200, *out) : reply(res, out.error().status, {{"error", out.error().message}});
     });
     std::println(stderr, "serving {} with {} stations on http://127.0.0.1:{} with {} threads", health["modes"].dump(),

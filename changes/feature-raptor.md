@@ -19,6 +19,10 @@ RAPTOR transit routing in the C++ router: `POST /plan`.
 - Tests: `algorithms/test_raptor.py` (brute force on 100 random toy timetables + named cases),
   `backend/tests/test_street_router_plan.py`.
 
+- Veturilo availability (part of #95): `POST /state {"veturilo": {id: bikes}}` replaces the router's live state;
+  `/plan` `min_bikes` rents only at docks with enough bikes in the state frozen at the query start; Veturilo legs
+  carry `bikes`; `/health` `state`. The backend pushes `nextbike.status()` every 30 s (`street_router.push_state()`).
+
 Assumptions (decided during the work):
 - Every limit is unlimited by default; footpaths read the whole dense matrix row (user's choice over a sparse cut).
 - A journey with more legs is kept only when it arrives at least 1 s earlier (float ties are not options).
