@@ -363,7 +363,11 @@ Everything in this repo (files, commits, PRs) is written in English.
   the middle, Enter / arrow keys work too). Props: `header` (drag zone), `toolbar` and `footer` (pinned), scrolling `children`, per-sheet `middleHeight`; `useSnapHeights`
   gives the heights so `App.tsx` can keep the map visible above the sheet. Used by the vehicle popup (middle 258 px), the route list (352 px: header, filters, the selected
   route, pinned "Wybierz tę trasę") and the route details (292 px: start / destination, leg bar, time and distance; full = tiles, trip recorder, steps).
-- "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): shown on the start screen, starts in the middle (suggested vehicle + confirm), about 1/3 of the screen.
+- "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): the automatic detection at start opens it only when it found
+  something (`src/utils/vehicleConfidence.ts`, `autoVehicleView`): nothing / no location / 503 / offline = no window; one confident vehicle
+  (top-1 RMSE <= 60 m and the 2nd >= 2.5x worse, tuned on the recorded buses: right in 97.5%) = a collapsed bar "Wykryto linię 131 → Sadyba"
+  that a tap opens to the full sheet; several = the sheet in the middle (suggested vehicle + confirm), about 1/3 of the screen.
+  A detection the user asked for (bus button) always opens the sheet, with an explanation when nothing was found.
   Content below the visible height is `inert`. Shows the suggested vehicle (mode + line, direction and distance when known)
   and 3 others; "Inna linia" (autocomplete over all live lines) adds a hand-picked card; "Wykryj ponownie" (in the window)
   and the bus button on the map (start screen only, also brings the window back after "Nie jadę komunikacją") detect again;

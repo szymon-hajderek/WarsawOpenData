@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BUS_POPUP_REQUEST_EVENT,
   detectVehicle,
@@ -9,6 +9,7 @@ import {
 import { watchDelay } from '../api/delay';
 import type { VehicleSnap } from '../components/VehicleSheet';
 import type { LatLng, VehicleCandidate } from '../types';
+import { autoVehicleView } from '../utils/vehicleConfidence';
 
 interface Input {
   position: LatLng | null;
@@ -19,6 +20,9 @@ interface Input {
 /**
  * State of the "which vehicle am I in?" window. Detects once after start (first location, or none
  * after a geolocation error), then only when asked through `requestLinePopup()`.
+ * The automatic detection opens the window only when it found something (`autoVehicleView`): one confident
+ * vehicle = the collapsed bar, several plausible ones = the sheet in the middle; nothing / no location / no live
+ * data / offline = no window. A detection the user asked for always opens the sheet (with the explanation).
  * After "Jadę tą linią" it polls the delay of that vehicle (`bus-delay` events, `api/delay.ts`) until a new
  * detection or "Nie jadę komunikacją".
  */
@@ -30,7 +34,10 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
   const [offline, setOffline] = useState(false);
   const [liveUnavailable, setLiveUnavailable] = useState(false);
   const [snap, setSnap] = useState<VehicleSnap>('middle');
-  const [dismissed, setDismissed] = useState(false);
+  // The window is on screen. Closed until a detection finds something or the user asks for it.
+  const [open, setOpen] = useState(false);
+  // The running detection was asked for by the user (not the automatic one at start).
+  const requested = useRef(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<VehicleCandidate | null>(null);
   const [run, setRun] = useState(0);
@@ -43,8 +50,9 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
   useEffect(() => {
     const onRequest = () => {
       setRun((n) => n + 1);
+      requested.current = true;
       setDelayVehicleId(null);
-      setDismissed(false);
+      setOpen(true);
       setSnap('middle');
     };
     window.addEventListener(BUS_POPUP_REQUEST_EVENT, onRequest);
@@ -65,6 +73,11 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
         setManual(null);
         setSelectedId((prev) => (found.candidates.some((v) => v.id === prev) ? prev : found.candidates[0]?.id ?? null));
         setLoading(false);
+        if (!requested.current) {
+          const view = autoVehicleView(found);
+          setOpen(view !== 'none');
+          setSnap(view === 'bar' ? 'bar' : 'middle');
+        }
       })
       .catch((err) => {
         if (ac.signal.aborted) return;
@@ -104,7 +117,8 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
     offline,
     liveUnavailable,
     snap,
-    dismissed,
+    /** The window is shown (false after "Nie jadę komunikacją" and while nothing was detected automatically). */
+    open,
     selectedId,
     confirmed,
     setSnap,
@@ -113,7 +127,7 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
     clearManual,
     confirm,
     dismiss: () => {
-      setDismissed(true);
+      setOpen(false);
       setConfirmed(null); // "Nie jadę komunikacją": no vehicle to plan from
       setDelayVehicleId(null);
     },
