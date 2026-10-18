@@ -80,6 +80,26 @@ cd backend && uv sync && uv run uvicorn main:app --reload   # http://localhost:8
 
 Details, ID links and graph sizes: `data/REPORT.md`.
 
+## Deploy on a server (reproducible)
+
+On a fresh Ubuntu 24.04 machine (tested on a RunPod CPU pod), as root, with git access to this repo:
+
+```sh
+git clone git@github.com:szymon-hajderek/WarsawOpenData.git /root/WarsawOpenData
+cp <your .env with PORTAL_KEY etc.> /root/WarsawOpenData/.env     # optional: live vehicles / delays
+bash /root/WarsawOpenData/deploy/setup.sh      # toolchain (g++-14, node 20, git-lfs, uv), builds, all data (~20 min)
+bash /root/WarsawOpenData/deploy/run.sh        # backend + router on 127.0.0.1:8000, the app on 0.0.0.0:8080
+```
+
+On a RunPod pod (only mapped ports reach it, and editing the pod's ports wipes the container disk) the simplest public
+HTTPS link is a Cloudflare tunnel, which needs no open port: `cloudflared tunnel --url http://localhost:8080`
+prints a `https://<words>.trycloudflare.com` address (changes on every start). For your own domain use a named tunnel
+on a Cloudflare-managed zone. On a normal server with a domain (an A record to the server, ports 80 + 443 open): `bash deploy/nginx.sh app.example.pl` puts nginx in
+front of port 8080 and gets an HTTPS certificate from Let's Encrypt (re-run it once DNS works). Without a domain:
+expose port 8080 as an HTTP port of the pod; the app is then at `https://<pod-id>-8080.proxy.runpod.net` (HTTPS, so
+geolocation works). `deploy/run.sh stop` stops it; logs in `logs/`. Run `setup.sh` again after pulling new code.
+Keep the repo on the local disk (data and matrices need ~5 GB; a network volume is slow for the memory-mapped matrices).
+
 ## Environment setup (for agents)
 
 Follow these steps to get a working environment. Run them from the repo root.
