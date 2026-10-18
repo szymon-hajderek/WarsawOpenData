@@ -90,14 +90,14 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    `NODE_OPTIONS=--no-experimental-webstorage npm test` (otherwise jsdom's `localStorage` is undefined).
    - `cd frontend && npm install` (if `~/.npm` is root-owned: `npm install --cache <some dir>`)
    - `npm run dev` starts the app at http://localhost:5173
-   - On a phone (same Wi-Fi) the location button needs HTTPS: stop the other dev server and run
-     `VITE_API_URL=https://<laptop-ip>:5173 npm run dev:https`, then open `https://<laptop-ip>:5173` and accept the
-     self-signed certificate warning once. Vite proxies `/api` to the backend on port 8000; `VITE_API_URL` must be the
-     page's own origin, because the default `http://localhost:8000` points at the phone itself.
+   - On a phone (same Wi-Fi) the location button needs HTTPS: stop the other dev server and run `npm run dev:https`,
+     then open `https://<laptop-ip>:5173` and accept the self-signed certificate warning once. In the dev server the app
+     calls the API on the page's own origin and Vite proxies `/api` to the backend on port 8000, so it works from
+     localhost, the laptop's IP and the phone alike (no `VITE_API_URL` needed).
    - `npm run build` type-checks and builds
    - `npm run lint` runs ESLint (react-hooks + jsx-a11y rules); `npm test` runs the Vitest tests (jsdom, no browser needed)
    - optional: `VITE_API_URL` in `frontend/.env` points the app at the routing API
-     (default `http://localhost:8000`; `VITE_API_URL=""` switches the backend off; then, as with a backend URL that does not answer, the app says "Nie połączono z serwerem"; there is no example data)
+     (default: the page's own origin in the dev server, `http://localhost:8000` in a build; `VITE_API_URL=""` switches the backend off; then, as with a backend URL that does not answer, the app says "Nie połączono z serwerem"; there is no example data)
 3. **Data** (`data/`). GTFS zips and the OSM extract are stored with Git LFS.
    - install Git LFS once (`brew install git-lfs` or your package manager), then `git lfs install` and `git lfs pull`
    - or download fresh copies: `cd backend && uv run python download.py` (the OSM step fetches Geofabrik

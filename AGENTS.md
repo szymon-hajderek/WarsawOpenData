@@ -332,9 +332,10 @@ Everything in this repo (files, commits, PRs) is written in English.
 - **Routing seam.** `src/api/routes.ts` (`fetchRouteOptions`) calls the backend (`POST /api/routes`).
   If the backend is switched off (`VITE_API_URL=""`), unreachable or answers badly, the call throws `BackendOfflineError` and the app says "Nie połączono z serwerem".
   There is no in-browser mock (removed in `feature/no-mocks`): the app never shows made-up routes or vehicles. Types in `src/types.ts`.
-- Backend URL: `src/config.ts` reads `VITE_API_URL` (default `http://localhost:8000`;
-  `VITE_API_URL=""` in `frontend/.env` = backend off, the app says "Nie połączono z serwerem"). On a phone, `localhost` is the phone itself: set it to
-  the page's own origin (`VITE_API_URL=https://<laptop-ip>:5173 npm run dev:https`); Vite then proxies `/api`.
+- Backend URL: `src/config.ts` reads `VITE_API_URL`. Default in the Vite dev server: the page's own origin (Vite proxies `/api`
+  to port 8000), so the app works from localhost, the laptop's IP or a phone without CORS; in a build and in tests `http://localhost:8000`.
+  `VITE_API_URL=""` = backend off, the app says "Nie połączono z serwerem". (A fixed `VITE_API_URL=https://<ip>:5173` broke every other
+  address: the browser blocked the cross-origin calls and the app said "not connected".)
 - Place search: `src/api/geocode.ts` (`searchPlaces`, `MIN_QUERY`), debounced (300 ms), limited to Warsaw. Calls the backend (`GET /api/geocode`) when `API_URL` is set
   (from 2 characters; sends the user's position as `lat` / `lon`), else Nominatim directly (3 characters, ≈1 request/second limit). The backend answers with our own
   stops and Veturilo stations first (`algorithms/place_search.py`: start-of-word match, accents folded, distance as a tie-break), then Nominatim; stops still come when Nominatim is down.
