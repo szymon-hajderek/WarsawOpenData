@@ -11,6 +11,7 @@ import { useHistory } from '../history/HistoryProvider';
 import { usePreferences } from '../preferences/PreferencesProvider';
 import { routeKcal } from '../preferences/model';
 import { formatDistance, formatDuration, stopsLabel, transfersLabel } from '../utils/format';
+import { legNotes } from '../utils/legStyle';
 import type { Place, RouteLeg, RouteOption } from '../types';
 import { RADIUS } from '../layout';
 
@@ -285,7 +286,7 @@ export default function RouteDetailsSheet({
                       {instruction(leg)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {formatDuration(leg.durationMin)} · {formatDistance(leg.distanceM)}
+                      {[formatDuration(leg.durationMin), formatDistance(leg.distanceM), ...legNotes(leg)].join(' · ')}
                     </Typography>
                   </Box>
                 </Box>

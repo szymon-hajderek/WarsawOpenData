@@ -398,6 +398,11 @@ Everything in this repo (files, commits, PRs) is written in English.
   (no effects for derived state). Under the Preferences page the map and panels are `inert`.
 - Selectable cards use `pressableProps` (`components/pressable.ts`): Enter / Space select, Space does not scroll. The map has ONE MapLibre
   layer; the light / dark switch calls `setStyle`. Leaflet marker icons are plain SVG from `ICON_PATH` in `modes.tsx` (no `react-dom/server`).
+- Leg lines (`src/utils/legStyle.ts`, pure): a leg with `segments` is drawn per segment (`ride` solid, `push` dashed in the bike colour,
+  `walk` dotted, `steps` / `elevator` / `metro_access` a short accent style), the stop connectors from `buildOverlay` stay on the first / last
+  segment; without segments one line. A transit leg with `approximatePath: true` (#85) is dashed, details say "przebieg orientacyjny";
+  a bike leg with segments shows "jazda X km, prowadzenie Y m".
+- Tests on a new Node (seen on 26): run `NODE_OPTIONS=--no-experimental-webstorage npm test`, else Node's own `localStorage` hides jsdom's (HistoryProvider tests fail).
 - Checks: `npm run lint` (ESLint 8, `.eslintrc.cjs`), `npm test` (Vitest 1 + Testing Library), `npm run build`.
 - Vite proxies `/api` to the backend at http://localhost:8000.
 - Geolocation works only on HTTPS or `localhost`. On a phone the plain `http://<laptop-ip>:5173` fails, so use `npm run dev:https` (vite `--mode https`, self-signed
