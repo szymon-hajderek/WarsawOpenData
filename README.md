@@ -146,7 +146,8 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
      user/device identifier or precise journey timestamp is kept in this database. See `data/API.md`.
    - bus detection simulation: `uv run python ../algorithms/simulation/simulate_nearest_buses.py`
      (uses the committed sample; record a new one with `uv run python ../algorithms/simulation/record_buses.py`, needs `PORTAL_KEY`)
-   - rebuild the results page `artifacts/bus-detection/bus-detection-simulation.html`: `uv run python ../algorithms/simulation/export_viz.py`
+   - bus + tram recording for the hard cases: `uv run python ../algorithms/simulation/record_buses.py --trams` (writes `data/live/vehicle_track_sample.json`, needs `PORTAL_KEY`)
+   - rebuild the result pages in `artifacts/bus-detection/` (simulation, fraction, hotspots): `uv run python ../algorithms/simulation/export_viz.py` (the hotspots page needs the GTFS caches)
    - optional `.env` setting `LIVE_BUSES_URL`: where bus detection reads live bus positions (default: the City Hall feed via `PORTAL_KEY`). Without `PORTAL_KEY` the live-vehicle poller stays off and `GET /api/live/vehicles` returns 503.
    - Veturilo station siting (`GET /api/veturilo/siting`): the server builds the hex grid at start (first run ~2.5 min:
      one extra OSM pass, cached in `data/derived/siting_*.npz`). Trial report + map page:

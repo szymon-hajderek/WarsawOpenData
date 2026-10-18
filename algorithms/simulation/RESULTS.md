@@ -59,6 +59,47 @@ distance u * L from the start of the polyline (L = its length). This is the same
 - By u (all radii, 3 points): 100 / 99 / 99 / 100 / 89% for u in 0-0.2 ... 0.8-1.0. The drop at the end comes
   almost only from line 131 (13 of 15 misses), so it is about that route, not about the end of a polyline.
 
+## Third run: hard cases (crowded places, frequent lines, buses and trams)
+
+New recording with buses and trams: `record_buses.py --trams` -> `data/live/vehicle_track_sample.json`
+(2026-10-18, Sunday 05:04 Warsaw time, 773 vehicles of which 139 trams). The ranking covers all of them.
+
+- **10 most crowded places**: 300 m cells with the most vehicles at the same moment (one poll), at least 600 m apart,
+  counting only vehicles that moved at least 100 m in the recording (at 5 am the raw count was led by depots full
+  of parked buses). Per place one vehicle that passed through it; 5 points u * L on the part of its track within
+  300 m of the cell centre. Places: R-3 Zajezdnia Ostrobramska (7 vehicles at once), Dw. Centralny (6),
+  Metro Młociny, Maklakiewicza, Pl. Zbawiciela (5 each), Cybernetyki, Dw. Wileński, Metro Stadion Narodowy,
+  R-4 Zajezdnia Stalowa, Kwatery Głównej (4 each).
+- **10 most frequent lines**: most GTFS trips that day: trams 9, 17, 16, 1, 2 and buses 189, 184, 523, 190, 509
+  (197-272 trips). One moving vehicle per line, 5 points u * L on its whole track.
+- 50 + 50 trials per row, seeds 1018 (choice + u) and 1019 (radius).
+
+| group | radius | points | top-1 | in popup (top-4) | median RMSE |
+|---|---|---|---|---|---|
+| places | 10 m | 1 | 70% | 98% | 27 m |
+| places | 10 m | 3 | 94% | 100% | 22 m |
+| places | 25 m | 1 | 70% | 98% | 34 m |
+| places | 25 m | 3 | 92% | 100% | 29 m |
+| places | 50 m | 1 | 66% | 94% | 52 m |
+| places | 50 m | 3 | 86% | 100% | 39 m |
+| places | 100 m | 1 | 52% | 92% | 78 m |
+| places | 100 m | 3 | 78% | 100% | 74 m |
+| lines | 10 m | 1 | 94% | 100% | 41 m |
+| lines | 10 m | 3 | 98% | 100% | 31 m |
+| lines | 25 m | 1 | 94% | 100% | 42 m |
+| lines | 25 m | 3 | 98% | 100% | 35 m |
+| lines | 50 m | 1 | 94% | 100% | 46 m |
+| lines | 50 m | 3 | 98% | 100% | 45 m |
+| lines | 100 m | 1 | 90% | 100% | 84 m |
+| lines | 100 m | 3 | 98% | 100% | 80 m |
+
+- Crowded places are the hard case: with 1 point the first suggestion is right in only 52-70% of trials, and with a
+  large GPS error the own vehicle can drop out of the popup (92-98% in top-4). 3 points fix the popup (100%) and
+  lift top-1 to 78-94%.
+- Frequent lines behave like the earlier runs (top-1 90-98%, always in the popup).
+- Limit: one 2-minute window early on a Sunday morning, so streets were emptier than at rush hour. Record again at
+  a peak hour (one command) to check the numbers under real crowding.
+
 ## How time is handled
 
 1. Bus reports keep the feed time t_i (Warsaw time). Repeated reports of the cached feed are removed.

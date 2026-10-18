@@ -4,6 +4,9 @@ Run from backend/:  uv run python ../algorithms/simulation/export_viz.py [sample
 
 - artifacts/bus-detection/bus-detection-simulation.html: replays simulate_nearest_buses.py with the same seed
   (same numbers as RESULTS.md), 5 random points per line.
+- artifacts/bus-detection/bus-detection-hotspots.html: hard cases on a bus + tram recording
+  (data/live/vehicle_track_sample.json): 10 most crowded places and 10 lines with the most GTFS trips that day,
+  5 points u * L each; skipped when that recording is missing.
 - artifacts/bus-detection/bus-detection-fraction.html: the same 15 lines, 10 points per line, each point placed at
   distance u * (polyline length) with u drawn from U(0, 1) and shown on the page.
 Both pages get a runtime benchmark of rank_buses (complexity section).
@@ -20,12 +23,18 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "algorithms"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import hotspots  # noqa: E402
 import simulate_nearest_buses as sim  # noqa: E402
 from nearest_buses import rank_buses  # noqa: E402
 
 TEMPLATE = REPO / "artifacts" / "bus-detection" / "templates" / "bus-detection-simulation.html"
 OUT_RANDOM = REPO / "artifacts" / "bus-detection" / "bus-detection-simulation.html"
 OUT_FRACTION = REPO / "artifacts" / "bus-detection" / "bus-detection-fraction.html"
+OUT_HOTSPOTS = REPO / "artifacts" / "bus-detection" / "bus-detection-hotspots.html"
+HOT_SAMPLE = REPO / "data" / "live" / "vehicle_track_sample.json"
+HOT_SEED, HOT_POINTS, HOT_N = 1018, 5, 10
+PLACE_CELL_M, PLACE_RADIUS_M, PLACE_SEP_M = 300, 300, 600
+IN_SERVICE_M = 100  # a vehicle counts for crowding only if it moved this far in the recording (no parked depots)
 FRACTION_SEED, FRACTION_POINTS = 2026, 10
 BENCH_SIZES = (250, 500, 1000, 2000, 4000, 8000)
 
@@ -114,6 +123,99 @@ def page_data(sample, tracks, line_of, moving, targets, per, summary, trials, se
     }
 
 
+def trips_per_line(date: str) -> dict[tuple[str, str], int]:
+    """(mode, line) -> number of ZTM bus / tram trips on that date (GTFS, needs the backend's caches)."""
+    sys.path.insert(0, str(REPO / "backend"))
+    from sources import mkuran
+    routes, services = mkuran.routes(), mkuran.services()
+    out: dict[tuple[str, str], int] = {}
+    for trip in mkuran.trips():
+        route = routes.get(trip[1])
+        if route and route["feed"] == "ztm" and route["mode"] in ("bus", "tram") and date in services.get(trip[2], ()):
+            key = (route["mode"], route["short_name"])
+            out[key] = out.get(key, 0) + 1
+    return out
+
+
+def nearest_stop_name(lat: float, lon: float) -> str:
+    sys.path.insert(0, str(REPO / "backend"))
+    from sources import mkuran
+    stops = [s for s in mkuran.stops() if s["feed"] == "ztm" and s.get("boarding")]
+    return min(stops, key=lambda s: hotspots.haversine_m(lat, lon, s["lat"], s["lon"]))["name"]
+
+
+def group_summary(trials: list[dict], keep) -> list[dict]:
+    out = []
+    for r in sim.RADII_M:
+        for k in (1, 3):
+            rows = [t for t in trials if t["r"] == r and t["k"] == k and keep(t)]
+            n = len(rows)
+            out.append({"r": r, "k": k, "top1": round(100 * sum(t["rank"] == 1 for t in rows) / n),
+                        "top4": round(100 * sum(t["rank"] <= sim.POPUP for t in rows) / n),
+                        "line4": round(100 * sum(any(c["line"] == t["line"] for c in t["top"]) for t in rows) / n),
+                        "rmse": round(statistics.median(t["rmse"] for t in rows))})
+    return out
+
+
+def hotspots_page(bench) -> None:
+    sample = HOT_SAMPLE
+    snaps = json.loads(sample.read_text())
+    tracks = sim.load_tracks(sample)
+    line_of = {vid: tr[-1]["line"] for vid, tr in tracks.items()}
+    mode_of = {vid: tr[-1].get("mode", "bus") for vid, tr in tracks.items()}
+    moving = [vid for vid, tr in tracks.items() if len(tr) >= 5 and sim.length_m(tr) >= 300]
+    rng = random.Random(HOT_SEED)
+    points, targets = [], []
+
+    # 10 most crowded places: one vehicle that passed through each, 5 points u * L on the part near the place.
+    in_service = {vid for vid, tr in tracks.items() if sim.length_m(tr) >= IN_SERVICE_M}
+    for cell in hotspots.crowded_cells(snaps, PLACE_CELL_M, top=3 * HOT_N, min_sep_m=PLACE_SEP_M, only=in_service):
+        if len([t for t in targets if t["group"] == "place"]) == HOT_N:
+            break
+        passing = []
+        for vid in sorted(in_service):
+            part = hotspots.near_part(tracks[vid], cell["lat"], cell["lon"], PLACE_RADIUS_M)
+            if len(tracks[vid]) >= 3 and part and hotspots.path_length_m(part) >= 60:
+                passing.append((vid, part))
+        if not passing:
+            continue
+        vid, part = rng.choice(passing)
+        targets.append({"vid": vid, "group": "place", "place": nearest_stop_name(cell["lat"], cell["lon"]),
+                        "count": cell["count"], "centre": [r5(cell["lat"]), r5(cell["lon"])],
+                        "part_m": round(hotspots.path_length_m(part))})
+        for _ in range(HOT_POINTS):
+            u = rng.random()
+            points.append((vid, sim.time_at_fraction(part, u), u))
+
+    # 10 lines with the most GTFS trips that day: one moving vehicle each, 5 points u * L on its whole track.
+    date = datetime.fromtimestamp(max(v["t"] for v in snaps[0]["vehicles"])).strftime("%Y%m%d")
+    freq = trips_per_line(date)
+    for (mode, line), n in sorted(freq.items(), key=lambda kv: (-kv[1], kv[0])):
+        if len([t for t in targets if t["group"] == "line"]) == HOT_N:
+            break
+        cands = sorted(v for v in moving if line_of[v] == line and mode_of[v] == mode)
+        if not cands:
+            continue
+        vid = rng.choice(cands)
+        targets.append({"vid": vid, "group": "line", "trips": n})
+        for _ in range(HOT_POINTS):
+            u = rng.random()
+            points.append((vid, sim.time_at_fraction(tracks[vid], u), u))
+
+    summary, trials, secs = run_trials(tracks, line_of, points, random.Random(HOT_SEED + 1))
+    n_place = HOT_POINTS * len([t for t in targets if t["group"] == "place"])
+    data = page_data(sample, tracks, line_of, moving, [t["vid"] for t in targets], HOT_POINTS,
+                     summary, trials, secs, bench, "hotspots")
+    for entry, t in zip(data["lines"], targets):
+        entry.update({k: v for k, v in t.items() if k != "vid"}, mode=mode_of[t["vid"]])
+    data["groups"] = [
+        {"id": "place", "name": "10 najbardziej zatłoczonych miejsc", "summary": group_summary(trials, lambda t: t["i"] < n_place)},
+        {"id": "line", "name": "10 najczęstszych linii", "summary": group_summary(trials, lambda t: t["i"] >= n_place)},
+    ]
+    data["trams"] = sum(1 for m in mode_of.values() if m == "tram")
+    write(OUT_HOTSPOTS, data, "Tłok na mieście")
+
+
 def write(path: Path, data: dict, title: str):
     html = (TEMPLATE.read_text(encoding="utf-8").replace("__TITLE__", title)
             .replace("/*__DATA__*/null", json.dumps(data, ensure_ascii=False, separators=(",", ":"))))
@@ -148,6 +250,8 @@ def main():
     summary, trials, secs = run_trials(tracks, line_of, points, random.Random(FRACTION_SEED + 1))
     write(OUT_FRACTION, page_data(sample, tracks, line_of, moving, targets, FRACTION_POINTS,
                                   summary, trials, secs, bench, "fraction"), "Punkt u·L na trasie")
+    if HOT_SAMPLE.exists():
+        hotspots_page(bench)
     print("bench:", bench)
 
 

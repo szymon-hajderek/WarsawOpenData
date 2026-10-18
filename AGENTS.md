@@ -181,6 +181,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   3 points, 80-89% with 1 point.
 - Second run (`artifacts/bus-detection/bus-detection-fraction.html`): point at u * L, u ~ U(0, 1), 10 points per line; same results.
   `rank_buses` is O(V*K*H + V log V), ~2 ms per request for ~880 buses.
+- Third run (`artifacts/bus-detection/bus-detection-hotspots.html`, `algorithms/simulation/hotspots.py`): bus + tram recording
+  `data/live/vehicle_track_sample.json` (`record_buses.py --trams`), 10 most crowded places (moving vehicles only) and the 10 lines
+  with the most GTFS trips; crowded places are the hard case (1 point top-1 52-70%, 3 points 78-94%).
 - Visualization: `artifacts/bus-detection/bus-detection-simulation.html` (charts, one mini map per line, table), rebuilt with
   `uv run python ../algorithms/simulation/export_viz.py` (same seed, so the same numbers as RESULTS.md).
 - Time zone: feed times and GTFS service midnights are Europe/Warsaw (`sim/clock.py`: `warsaw_epoch`,
