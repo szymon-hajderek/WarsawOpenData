@@ -127,7 +127,8 @@ describe('vehicle popup at start', () => {
     renderApp();
     const handle = await screen.findByRole('button', { name: HANDLE });
     expect(handle).toHaveAttribute('aria-expanded', 'false');
-    expect(within(handle).getByText('Wykryto linię 131 → Sadyba')).toBeInTheDocument();
+    expect(within(handle).getByLabelText('Wykryliśmy, że jedziesz linią 131 → Sadyba')).toBeInTheDocument();
+    expect(within(handle).getByText('Zmień')).toBeInTheDocument();
     expect(screen.queryByText('W jakim pojeździe jesteś?')).toBeNull();
 
     fireEvent.keyDown(handle, { key: 'Enter' });
@@ -137,7 +138,7 @@ describe('vehicle popup at start', () => {
     expect(screen.getByText('Autobus 175')).toBeInTheDocument();
   });
 
-  it('several plausible vehicles: the sheet in the middle', async () => {
+  it('several plausible vehicles: a collapsed question bar, not the big sheet', async () => {
     install(true);
     answer = () =>
       json({
@@ -147,8 +148,29 @@ describe('vehicle popup at start', () => {
       });
     renderApp();
     const handle = await screen.findByRole('button', { name: HANDLE });
-    expect(handle).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('W jakim pojeździe jesteś?')).toBeInTheDocument();
+    expect(handle).toHaveAttribute('aria-expanded', 'false');
+    expect(within(handle).getByLabelText('Czy jedziesz tym pojazdem? Autobus 131')).toBeInTheDocument();
+    expect(screen.queryByText('W jakim pojeździe jesteś?')).toBeNull();
+    fireEvent.keyDown(handle, { key: 'Enter' });
+    expect(await screen.findByText('W jakim pojeździe jesteś?')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Jadę tą linią: Autobus 131/ })).toBeInTheDocument();
+  });
+
+  it('a bus standing at the user position (RMSE ~0, e.g. in a jam) is the confident bar', async () => {
+    install(true);
+    answer = () =>
+      json({ candidates: [candidate('bus-9', '26', 'Wiatraczna', 3), candidate('bus-8', '9', 'Gocław', 260)], lines: ['26', '9'], updated_at: 1 });
+    renderApp();
+    const handle = await screen.findByRole('button', { name: HANDLE });
+    expect(handle).toHaveAttribute('aria-expanded', 'false');
+    expect(within(handle).getByLabelText('Wykryliśmy, że jedziesz linią 26 → Wiatraczna')).toBeInTheDocument();
+  });
+
+  it('nothing plausible (best match far away): no bar at all', async () => {
+    install(true);
+    answer = () => json({ candidates: [candidate('bus-1', '131', 'Sadyba', 450)], lines: ['131'], updated_at: 1 });
+    renderApp();
+    await settle();
+    expect(screen.queryByRole('button', { name: HANDLE })).toBeNull();
   });
 });

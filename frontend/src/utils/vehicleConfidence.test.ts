@@ -32,11 +32,11 @@ describe('autoVehicleView', () => {
   });
   it('bar for one confident vehicle, the sheet for several plausible ones', () => {
     expect(autoVehicleView({ candidates: [c('a', 14), c('b', 310)], offline: false })).toBe('bar');
-    expect(autoVehicleView({ candidates: [c('a', 40), c('b', 55)], offline: false })).toBe('sheet');
+    expect(autoVehicleView({ candidates: [c('a', 40), c('b', 55)], offline: false })).toBe('ask');
   });
   it('shows nothing when even the best match is absurdly far (no plausible vehicle)', () => {
     expect(autoVehicleView({ candidates: [c('a', 450), c('b', 900)], offline: false })).toBe('none');
-    expect(autoVehicleView({ candidates: [c('a', 121)], offline: false })).toBe('none');
-    expect(autoVehicleView({ candidates: [c('a', 110), c('b', 130)], offline: false })).toBe('sheet');
+    expect(autoVehicleView({ candidates: [c('a', 61)], offline: false })).toBe('none');
+    expect(autoVehicleView({ candidates: [c('a', 50), c('b', 70)], offline: false })).toBe('ask');
   });
 });
