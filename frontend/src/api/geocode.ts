@@ -1,6 +1,6 @@
 import type { LatLng, Place } from '../types';
 import { API_URL, apiUrl } from '../config';
-import { searchRows, type PlaceRow } from '../utils/placeSearch';
+import { fold, looksLikeAddress, searchRows, type PlaceRow } from '../utils/placeSearch';
 
 interface NominatimItem {
   place_id: number;
@@ -16,47 +16,92 @@ interface NominatimItem {
 // Bounding box of Warsaw (left, top, right, bottom).
 const WARSAW_VIEWBOX = '20.85,52.37,21.28,52.10';
 
-/** Shortest text to search: our own stops are found from 2 characters, Nominatim needs 3. */
+/** Shortest text to search: our own places are found from 2 characters, Nominatim needs 3. */
 export const MIN_QUERY = 2;
 const MIN_NOMINATIM = 3;
-const LOCAL_LIMIT = 4;
+const LOCAL_LIMIT = 5;
+/** Extra wait before asking Nominatim (slow, ~1 request/s): only once the user stops typing. */
+export const NOMINATIM_DELAY_MS = 350;
 
-/** Stops and Veturilo stations of `backend/export_places.py`, loaded on first use (a separate chunk). */
+/** Well-known places, stops and Veturilo stations of `backend/export_places.py`, loaded on first use (a separate chunk). */
 async function localPlaces(query: string, near?: LatLng): Promise<Place[]> {
   const { default: rows } = await import('../data/places.json');
   return searchRows(rows as PlaceRow[], query, LOCAL_LIMIT, near);
 }
 
+async function backendGeocode(
+  query: string,
+  source: 'local' | 'nominatim',
+  signal?: AbortSignal,
+  near?: LatLng,
+): Promise<Place[]> {
+  const where = near ? `&lat=${near[0]}&lon=${near[1]}` : '';
+  const res = await fetch(apiUrl(`/api/geocode?q=${encodeURIComponent(query)}&source=${source}${where}`), { signal });
+  if (!res.ok) throw new Error(`Geocoding failed: ${res.status}`);
+  return (await res.json()) as Place[];
+}
+
+function wait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason);
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    });
+  });
+}
+
+/**
+ * Our places first, then Nominatim's (a place already listed is not repeated). For a street address
+ * ("Marszałkowska 1") Nominatim's come first: it is the source for addresses. Same rule as the backend.
+ */
+export function mergePlaces(query: string, local: Place[], remote: Place[]): Place[] {
+  const seen = new Set(local.map((p) => fold(p.label)));
+  const extra = remote.filter((p) => !seen.has(fold(p.label)));
+  return looksLikeAddress(query) ? [...extra, ...local] : [...local, ...extra];
+}
+
 /**
  * Place search, limited to Warsaw. Call it debounced.
  *
- * Uses the backend (`GET /api/geocode`: our stops and Veturilo stations, then Nominatim) when `API_URL` is set.
- * When the backend is disabled or unreachable, the list of stops and stations bundled with the app answers, and
- * Nominatim is called directly for addresses.
- * `near` (the user's position) orders equally good stops by distance.
+ * Two steps. First our own places (well-known places, stops, Veturilo stations): a few ms on the backend, or the
+ * bundled list when the backend is disabled or unreachable; they are handed to `onLocal` at once. Then, from
+ * 3 characters and after `NOMINATIM_DELAY_MS` more without a new query (abort `signal` to cancel), Nominatim for
+ * addresses and other places: through the backend (`GET /api/geocode?source=...`, cached and rate limited there),
+ * or directly without it. Resolves with the merged list. `near` (the user's position) orders equally good places
+ * by distance.
  */
-export async function searchPlaces(query: string, signal?: AbortSignal, near?: LatLng): Promise<Place[]> {
-  if (API_URL) {
+export async function searchPlaces(
+  query: string,
+  signal?: AbortSignal,
+  near?: LatLng,
+  onLocal?: (places: Place[]) => void,
+): Promise<Place[]> {
+  let backend = Boolean(API_URL);
+  let local: Place[] = [];
+  if (backend) {
     try {
-      const where = near ? `&lat=${near[0]}&lon=${near[1]}` : '';
-      const res = await fetch(apiUrl(`/api/geocode?q=${encodeURIComponent(query)}${where}`), { signal });
-      if (!res.ok) throw new Error(`Geocoding failed: ${res.status}`);
-      return (await res.json()) as Place[];
+      local = await backendGeocode(query, 'local', signal, near);
     } catch (err) {
       if (signal?.aborted) throw err;
-      console.warn('Backend geocode unavailable, falling back to Nominatim.', err);
+      console.warn('Backend geocode unavailable, searching the bundled list and Nominatim.', err);
+      backend = false;
     }
   }
-  // No backend: our own list answers at once, Nominatim adds addresses from 3 characters on.
-  const local = await localPlaces(query, near);
+  if (!backend) local = await localPlaces(query, near);
   if (query.trim().length < MIN_NOMINATIM) return local;
+  onLocal?.(local);
+
+  await wait(NOMINATIM_DELAY_MS, signal);
   try {
-    const found = await searchPlacesNominatim(query, signal);
-    const seen = new Set(local.map((p) => p.label.toLowerCase()));
-    return [...local, ...found.filter((p) => !seen.has(p.label.toLowerCase()))];
+    const remote = backend
+      ? await backendGeocode(query, 'nominatim', signal, near)
+      : await searchPlacesNominatim(query, signal);
+    return mergePlaces(query, local, remote);
   } catch (err) {
-    if (signal?.aborted || local.length === 0) throw err;
-    return local; // the stops we found are still a useful answer
+    if (signal?.aborted) throw err;
+    return local; // Nominatim failed or was rate limited: our places are still a useful answer
   }
 }
 

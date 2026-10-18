@@ -336,11 +336,15 @@ Everything in this repo (files, commits, PRs) is written in English.
   to port 8000), so the app works from localhost, the laptop's IP or a phone without CORS; in a build and in tests `http://localhost:8000`.
   `VITE_API_URL=""` = backend off, the app says "Nie połączono z serwerem". (A fixed `VITE_API_URL=https://<ip>:5173` broke every other
   address: the browser blocked the cross-origin calls and the app said "not connected".)
-- Place search: `src/api/geocode.ts` (`searchPlaces`, `MIN_QUERY`), debounced (300 ms), limited to Warsaw. Calls the backend (`GET /api/geocode`) when `API_URL` is set
-  (from 2 characters; sends the user's position as `lat` / `lon`), else Nominatim directly (3 characters, ≈1 request/second limit). The backend answers with our own
-  stops and Veturilo stations first (`algorithms/place_search.py`: start-of-word match, accents folded, distance as a tie-break), then Nominatim; stops still come when Nominatim is down.
-  Without the backend the same search runs in the browser on `src/data/places.json` (about 3300 stop names and stations, 130 KB, a separate chunk loaded on first use;
-  `src/utils/placeSearch.ts` is the TypeScript twin of `place_search.py`). Regenerate the file after a timetable or station change: `cd backend && uv run python export_places.py`.
+- Place search: `src/api/geocode.ts` (`searchPlaces`, `MIN_QUERY`), limited to Warsaw. `PlaceField` debounces 150 ms; `searchPlaces` first asks
+  `GET /api/geocode?source=local` (well-known places, stops, Veturilo; ~8 ms) and hands them to `onLocal` at once, then, from 3 characters and after 350 ms more
+  without a new query, `source=nominatim`, and merges (Nominatim first only for a street address, `looksLikeAddress`). Without the backend: `src/data/places.json`
+  in the browser + Nominatim directly. Matching (`algorithms/place_search.py` = `src/utils/placeSearch.ts`, keep the twins in sync): every query word at a word
+  start in any order, numbers whole, accents folded, abbreviations both ways (ds, pl, al, dw, os, uw, pw), `nr` / `ul` ignored, aliases; ties: well-known places,
+  then distance. Well-known places are a hand-made list `data/places/landmarks.json` (name, aliases, category + address, coordinates from OSM); add entries there.
+  Backend Nominatim: 1.5 s timeout, 1 h cache, calls >= 1 s apart (skipped when the wait would be > 1 s), 30 s pause after a 429. The Nominatim public server
+  answers 429 for a while after a burst of requests (seen in testing), so never loop over it. `places.json` (about 3400 rows, 136 KB, a separate chunk) is
+  regenerated after a timetable, station or landmark change: `cd backend && uv run python export_places.py`.
 - Colours: one palette, the Warsaw colours (red + yellow): `src/map/palette.ts` (`PALETTE`, light / dark). Red is the main
   colour in light mode, yellow the accent at night. It sets the map colours, the round map buttons / markers AND the accent
   of the whole UI (the MUI theme in `src/theme.ts` is built from it). The old lavender look and the look switch were removed.

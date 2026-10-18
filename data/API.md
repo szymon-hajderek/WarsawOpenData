@@ -832,25 +832,51 @@ Another option of the same answer stays on tram 15 to PKP Rakowiec (one merged r
 
 ### `GET /api/geocode`
 
-Place search for the start and destination fields, limited to Warsaw. The answer lists our own places first: up to 4 stops
-(one per stop name, at the centre of its posts, `sublabel` `Przystanek`, `id` `stop-<gtfs id>`) and Veturilo stations
-(`sublabel` `Stacja Veturilo`, `id` `veturilo-<station id>`), matched on the start of any word without regard to case or Polish
-accents (`marszalk` finds `Marszałkowska`). Then come OpenStreetMap Nominatim results (addresses and other places, up to 6, duplicates
-and places already listed removed), only for texts of 3 or more characters.
-Nominatim place IDs use `osm:<osm_type>:<osm_id>`; Nominatim results without an OSM object reference are omitted.
+Place search for the start and destination fields, limited to Warsaw. Two parts:
+
+- **Local places** (in memory, a few ms): up to 5 of well-known places (`data/places/landmarks.json`: universities,
+  dormitories, malls, stations, landmarks; `sublabel` = category and address, `id` `place-<name words>`, e.g.
+  `place-ds-2-uw`), stops (one per stop name, at the centre of its posts, `sublabel` `Przystanek`, `id` `stop-<gtfs id>`)
+  and Veturilo stations (`sublabel` `Stacja Veturilo`, `id` `veturilo-<station id>`). Every query word must match the
+  start of a word of the name or of an alias, in any order, without regard to case or Polish accents (`marszalk` finds
+  `Marszałkowska`); a number matches only the same number (`2` finds `DS 2 UW`, not `DS 21`); abbreviations match both
+  ways (`ds` = dom studenta, `pl` = plac, `al` = aleja, `dw` = dworzec, `os` = osiedle, `uw` = Uniwersytet Warszawski,
+  `pw` = Politechnika Warszawska); `nr`, `ul`, `ulica` are ignored. Order: the whole name, the start of the name, all words
+  whole, all words at word starts, inside the name; then well-known places first, then distance from `lat` / `lon`.
+  Rules in `algorithms/place_search.py`.
+- **Nominatim** (OpenStreetMap, 0.3-2 s): addresses and other places, up to 6, duplicates and places already listed
+  removed, only for texts of 3 or more characters. IDs `osm:<osm_type>:<osm_id>`; results without an OSM object reference
+  are omitted. The server waits at most 1.5 s for it, keeps answers for 1 hour, keeps calls at least 1 s apart (a request
+  that would wait more than 1 s for its turn is not sent) and does not call it for 30 s after a `429`.
+
+With `source=all` (default) the answer is both lists merged: local places first, but Nominatim's first when the text looks
+like a street address (`Marszałkowska 1`, `Grójecka 17/19`). The frontend asks `source=local` and then
+`source=nominatim`, so local places show at once.
 
 | Query | Type | Default | Meaning |
 |---|---|---|---|
 | `q` | string, at least 1 character | required | search text |
 | `lat`, `lon` | number | none | the user's position; equally good local matches are ordered by distance from it |
+| `source` | `all`, `local`, `nominatim` | `all` | which part to answer with |
 
 ```json
-[{"id": "osm:way:126234965", "label": "Koneser", "sublabel": "Praga-Północ",
-  "position": [52.2555027, 21.0452825], "isCurrentLocation": null}, "..."]
+[{"id": "place-ds-2-uw", "label": "DS 2 UW", "sublabel": "Dom studenta, Żwirki i Wigury 95/97",
+  "position": [52.21187, 20.98746], "isCurrentLocation": null}]
 ```
 
-Errors: `422` for an empty `q`, a `q` longer than 200 characters or a position out of range; `502 {"detail": "Geocoding service failed"}`
-when Nominatim fails and no stop or station matched (when some matched, they are returned alone). The server keeps answers for 10 minutes, so a repeated search does not reach Nominatim.
+`GET /api/geocode?q=pl.%20zbawiciela&source=local`:
+
+```json
+[{"id": "stop-ztm:701002", "label": "Pl. Zbawiciela", "sublabel": "Przystanek", "position": [52.219598, 21.018074],
+  "isCurrentLocation": null},
+ {"id": "veturilo-2585731", "label": "Plac Zbawiciela", "sublabel": "Stacja Veturilo", "position": [52.220223, 21.0179],
+  "isCurrentLocation": null}]
+```
+
+Errors: `422` for an empty `q`, a `q` longer than 200 characters, a position out of range or an unknown `source`;
+`502 {"detail": "Geocoding service failed"}` when Nominatim fails or is skipped and no local place matched (when some
+matched, they are returned alone). `source=local` never fails this way; `source=nominatim` returns `502` whenever
+Nominatim fails or is skipped.
 
 ### `GET /health`
 
