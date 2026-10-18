@@ -28,8 +28,6 @@ interface Props {
   offline?: boolean;
   /** A specific, readable reason of the failure (street routes: "Brak trasy", ...). */
   errorMessage?: string | null;
-  /** The routes are made-up example data. */
-  mock: boolean;
   selectedId: string | null;
   /** Short summary of the preferences the routes follow. */
   summary: string[];
@@ -54,7 +52,6 @@ export default function RouteOptionsSheet({
   error,
   offline = false,
   errorMessage = null,
-  mock,
   selectedId,
   summary,
   activeRule,
@@ -128,7 +125,6 @@ export default function RouteOptionsSheet({
               sx={{ flexShrink: 0 }}
             />
           )}
-          {mock && <Chip label="Dane przykładowe" size="small" color="warning" sx={{ flexShrink: 0 }} />}
           {chips.map((c) => (
             <Chip
               key={c.id}

@@ -11,7 +11,7 @@ npm run lint        # ESLint
 npm test            # Vitest (jsdom); on Node 26: NODE_OPTIONS=--no-experimental-webstorage npm test
 ```
 
-- `src/config.ts` - backend URL (`VITE_API_URL`, default `http://localhost:8000`; `""` = in-browser example data)
+- `src/config.ts` - backend URL (`VITE_API_URL`, default `http://localhost:8000`; `""` = backend off, the app says "Nie połączono z serwerem")
 - `src/api/routes.ts` - route search (`POST /api/routes`); says "Nie połączono z serwerem" when the backend is down
 - `src/api/streetRoute.ts` - street-only trips (walk, wheelchair, stroller, own bike) through `GET /api/osm/route`
 - `src/api/geocode.ts` - place search (backend `GET /api/geocode`, else Nominatim + `src/data/places.json`)

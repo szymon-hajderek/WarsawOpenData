@@ -14,7 +14,4 @@ def make_engine(name: str | None = None) -> RouteEngine:
     if name == "real":
         from .real_engine import RealRouteEngine
         return RealRouteEngine()
-    if name == "stub":
-        from .stub_engine import StubRouteEngine
-        return StubRouteEngine()
-    raise ValueError(f"unknown ROUTE_ENGINE {name!r} (known: real, stub)")
+    raise ValueError(f"unknown ROUTE_ENGINE {name!r} (known: real)")

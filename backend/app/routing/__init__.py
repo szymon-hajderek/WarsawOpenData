@@ -1,1 +1,1 @@
-"""Routing layer: the `RouteEngine` seam and its current stub implementation."""
+"""Routing layer: the `RouteEngine` seam and its implementations."""

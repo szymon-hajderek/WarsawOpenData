@@ -4,7 +4,6 @@ import type { Place } from '../types';
 export interface JourneySelection {
   from: Place;
   to: Place;
-  mock: boolean;
 }
 
 export interface JourneyPoint {

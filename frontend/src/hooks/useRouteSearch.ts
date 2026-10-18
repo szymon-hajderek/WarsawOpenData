@@ -22,7 +22,6 @@ export function useRouteSearch({ origin, destination, via, order, search, travel
   const [error, setError] = useState(false);
   const [offline, setOffline] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [mock, setMock] = useState(false);
 
   useEffect(() => {
     setError(false);
@@ -36,19 +35,17 @@ export function useRouteSearch({ origin, destination, via, order, search, travel
     const ac = new AbortController();
     setLoading(true);
     const request = isStreetMode(travel)
-      ? fetchStreetTrip({ from: origin, to: destination, via, order }, travel, ac.signal).then((found) => ({ options: found, mock: false }))
+      ? fetchStreetTrip({ from: origin, to: destination, via, order }, travel, ac.signal).then((found) => ({ options: found }))
       : fetchRouteOptions({ from: origin, to: destination, profile: 'standard', via, order, search }, ac.signal);
     request
       .then((result) => {
         setOptions(result.options);
-        setMock(result.mock);
         setLoading(false);
       })
       .catch((err) => {
         if (ac.signal.aborted) return;
         console.warn('Route search failed', err);
         setOptions([]);
-        setMock(false);
         setOffline(err instanceof BackendOfflineError);
         setErrorMessage(err instanceof StreetRouteError ? err.message : null);
         setError(true);
@@ -57,5 +54,5 @@ export function useRouteSearch({ origin, destination, via, order, search, travel
     return () => ac.abort();
   }, [origin, destination, via, order, search, travel]);
 
-  return { options, loading, error, offline, errorMessage, mock };
+  return { options, loading, error, offline, errorMessage };
 }
