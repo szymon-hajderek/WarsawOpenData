@@ -15,14 +15,17 @@ stop() {
   for f in logs/backend.pid logs/frontend.pid; do
     [ -f "$f" ] && kill "$(cat "$f")" 2>/dev/null || true; rm -f "$f"
   done
+  pkill -f "^$REPO_DIR/backend/.venv/bin/python $REPO_DIR/backend/.venv/bin/uvicorn main:app" 2>/dev/null || true
   pkill -f "^$REPO_DIR/algorithms/router/build/street_router serve" 2>/dev/null || true
   sleep 1
 }
 stop
 [ "${1:-}" = stop ] && { echo "stopped"; exit 0; }
 
-(cd backend && nohup uv run uvicorn main:app --host 127.0.0.1 --port 8000 > ../logs/backend.log 2>&1 & echo $! > ../logs/backend.pid)
-(cd frontend && nohup npx vite preview --host 0.0.0.0 --port "$PORT" --strictPort > ../logs/frontend.log 2>&1 & echo $! > ../logs/frontend.pid)
+cd backend; nohup uv run uvicorn main:app --host 127.0.0.1 --port 8000 > ../logs/backend.log 2>&1 &
+echo $! > ../logs/backend.pid; cd ..
+cd frontend; nohup npx vite preview --host 0.0.0.0 --port "$PORT" --strictPort > ../logs/frontend.log 2>&1 &
+echo $! > ../logs/frontend.pid; cd ..
 
 echo "waiting for the backend and the router (logs/backend.log)..."
 for _ in $(seq 120); do
