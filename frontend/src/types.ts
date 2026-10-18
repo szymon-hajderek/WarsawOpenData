@@ -7,7 +7,7 @@ export type LonLat = [number, number];
 export type TransportMode = 'walk' | 'bike' | 'veturilo' | 'bus' | 'tram' | 'metro' | 'rail';
 
 /** Travel profile: pace of walking / cycling and accessibility needs. */
-export type Profile = 'standard' | 'slow' | 'accessible';
+export type Profile = 'standard' | 'slow' | 'accessible' | 'stroller';
 
 export interface Place {
   id: string;
@@ -34,6 +34,13 @@ export interface RouteLeg {
   /** `GET /api/stations` id of the stop / station at each end (`ztm:435102`, `vet:14083304`), `null` for a place that is not one. */
   fromId?: string | null;
   toId?: string | null;
+  /** True when GTFS has no shape for the trip and `path` only joins the stops in order. */
+  approximatePath?: boolean;
+  segments?: {
+    kind: 'ride' | 'push' | 'walk' | 'steps' | 'elevator' | 'metro_access';
+    path: LatLng[];
+    lengthM: number;
+  }[];
   /** `[lon, lat]` where a street route boards an elevator / starts a flight of steps (street-only routes). */
   elevators?: LonLat[];
   steps?: LonLat[];
@@ -50,7 +57,7 @@ export interface RouteOption {
   arrival: string;
   durationMin: number;
   distanceM: number;
-  /** Metres on foot (`walk` legs) and by bike (`bike` + `veturilo` legs). */
+  /** Metres walked (including a pushed bike) and ridden (own bike + Veturilo). */
   walkDistance: number;
   bikeDistance: number;
   transfers: number;

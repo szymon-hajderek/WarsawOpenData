@@ -7,6 +7,12 @@ const isPoint = (p: unknown) =>
 /** `fromId` / `toId` come with the new route format: absent, `null` or a string (never a number). */
 const isOptionalId = (x: unknown) => x === undefined || x === null || typeof x === 'string';
 const isOptionalPoint = (x: unknown) => x === undefined || x === null || isPoint(x);
+const segmentKinds = ['ride', 'push', 'walk', 'steps', 'elevator', 'metro_access'];
+const isSegments = (x: unknown) =>
+  x === undefined || (Array.isArray(x) && x.every((s) =>
+    isObject(s) && segmentKinds.includes(s.kind as string) &&
+    Array.isArray(s.path) && s.path.every(isPoint) &&
+    typeof s.lengthM === 'number' && Number.isFinite(s.lengthM) && s.lengthM >= 0));
 
 /** True when the value has the shape the UI needs: every route has legs, every leg a non-empty path. */
 export function isRouteOptions(value: unknown): value is RouteOption[] {
@@ -31,7 +37,9 @@ export function isRouteOptions(value: unknown): value is RouteOption[] {
             isOptionalId(l.fromId) &&
             isOptionalId(l.toId) &&
             isOptionalPoint(l.start) &&
-            isOptionalPoint(l.end),
+            isOptionalPoint(l.end) &&
+            isSegments(l.segments) &&
+            (l.approximatePath === undefined || typeof l.approximatePath === 'boolean'),
         ),
     )
   );

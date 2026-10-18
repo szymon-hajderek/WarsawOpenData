@@ -184,6 +184,7 @@ const WALK_BIKE_SPEED: Record<Profile, { walk: number; bike: number }> = {
   standard: { walk: 4.8, bike: 15 },
   slow: { walk: 3.4, bike: 11 },
   accessible: { walk: 3.6, bike: 0 }, // no Veturilo for a wheelchair / stroller
+  stroller: { walk: 3.6, bike: 0 },
 };
 const PT_SPEED: Partial<Record<TransportMode, number>> = { bus: 17, tram: 19, metro: 32, rail: 38 };
 const PT_WAIT_MIN = 4;
