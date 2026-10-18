@@ -9,6 +9,11 @@ const isPoint = (p: unknown) =>
 const isOptionalId = (x: unknown) => x === undefined || x === null || typeof x === 'string';
 const isOptionalPoint = (x: unknown) => x === undefined || x === null || isPoint(x);
 const isOptionalBool = (x: unknown) => x === undefined || typeof x === 'boolean';
+const isOptionalString = (x: unknown) => x === undefined || typeof x === 'string';
+/** Seconds: absent or a finite number >= 0. */
+const isOptionalSeconds = (x: unknown) => x === undefined || (typeof x === 'number' && Number.isFinite(x) && x >= 0);
+/** `[lat, lon]` point lists (`elevators`, `steps`): absent or every item a point. */
+const isOptionalPoints = (x: unknown) => x === undefined || (Array.isArray(x) && x.every(isPoint));
 
 /** One part of a leg: a known `kind`, a non-empty `[lat, lon]` path and its length. */
 const isSegment = (s: unknown) =>
@@ -35,6 +40,7 @@ export function isRouteOptions(value: unknown): value is RouteOption[] {
         Array.isArray(o.legs) &&
         o.legs.length > 0 &&
         Array.isArray(o.tags) &&
+        isOptionalSeconds(o.waitS) &&
         o.legs.every(
           (l) =>
             isObject(l) &&
@@ -49,7 +55,11 @@ export function isRouteOptions(value: unknown): value is RouteOption[] {
             isOptionalPoint(l.start) &&
             isOptionalPoint(l.end) &&
             isOptionalSegments(l.segments) &&
-            isOptionalBool(l.approximatePath),
+            isOptionalBool(l.approximatePath) &&
+            isOptionalPoints(l.elevators) &&
+            isOptionalPoints(l.steps) &&
+            isOptionalSeconds(l.waitS) &&
+            isOptionalString(l.tripId),
         ),
     )
   );

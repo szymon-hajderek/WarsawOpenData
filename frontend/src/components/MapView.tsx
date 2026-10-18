@@ -14,7 +14,7 @@ import { GLASS, PALETTE } from '../map/palette';
 import { MAP_ATTRIBUTION } from '../map/mapStyle';
 import { createLookStyle, useMapLook, type MapLook } from '../map/mapLook';
 import { useRouteStations } from '../hooks/useRouteStations';
-import { buildOverlay, type Overlay } from '../utils/overlay';
+import { accessPoints, buildOverlay, type Overlay } from '../utils/overlay';
 import { legLines, type LineStyle } from '../utils/legStyle';
 import { glassCss, glassStyle } from '../map/glass';
 import '../map/glass.css';
@@ -184,7 +184,6 @@ function RouteLayer({
         iconAnchor: [size / 2, size / 2],
         html: `<div style="width:${size}px;height:${size}px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;border:2px solid ${border};background:${colors.surface};opacity:${opacity}">${html}</div>`,
       });
-    const swap = (p: [number, number]): [number, number] => [p[1], p[0]];
     const out: { key: string; position: [number, number]; icon: L.DivIcon }[] = [];
     overlay?.markers.forEach((m) => {
       const color = m.station.kind === 'metro_platform' ? MODE_META.metro[palette] : m.station.kind === 'tram_post' ? MODE_META.tram[palette] : m.station.kind === 'veturilo' ? MODE_META.veturilo[palette] : m.station.kind.startsWith('rail') ? MODE_META.rail[palette] : MODE_META.bus[palette];
@@ -193,10 +192,9 @@ function RouteLayer({
     overlay?.entrances.forEach((e, i) => {
       out.push({ key: `entrance-${i}`, position: e, icon: dot(22, iconHtml(ICON_PATH.stairs, 14, MODE_META.metro[palette]), MODE_META.metro[palette]) });
     });
-    route.legs.forEach((leg, i) => {
-      leg.elevators?.forEach((p, k) => out.push({ key: `lift-${i}-${k}`, position: swap(p), icon: dot(24, iconHtml(ICON_PATH.elevator, 16, colors.accent), colors.accent) }));
-      leg.steps?.forEach((p, k) => out.push({ key: `steps-${i}-${k}`, position: swap(p), icon: dot(24, iconHtml(ICON_PATH.stairs, 16, colors.accent), colors.accent) }));
-    });
+    accessPoints(route).forEach(({ key, kind, position }) =>
+      out.push({ key, position, icon: dot(24, iconHtml(kind === 'elevator' ? ICON_PATH.elevator : ICON_PATH.stairs, 16, colors.accent), colors.accent) }),
+    );
     return out;
   }, [overlay, route, colors, palette]);
 

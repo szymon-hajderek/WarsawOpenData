@@ -54,6 +54,24 @@ describe('isRouteOptions', () => {
     expect(isRouteOptions([{ ...option, legs: [{ ...leg, segments: 'ride' }] }])).toBe(false);
   });
 
+  it('accepts elevators / steps, the waits and tripId', () => {
+    const street = { ...leg, elevators: [[52.205, 21.005]], steps: [] };
+    const ride = { ...leg, mode: 'bus', waitS: 240, tripId: '3/1/20' };
+    expect(isRouteOptions([{ ...option, waitS: 300.5, legs: [street, ride] }])).toBe(true);
+    expect(isRouteOptions([{ ...option, waitS: 0, legs: [{ ...ride, waitS: 0 }] }])).toBe(true);
+  });
+
+  it('rejects bad elevators / steps, waits and tripId', () => {
+    const withLeg = (extra: object) => [{ ...option, legs: [{ ...leg, ...extra }] }];
+    expect(isRouteOptions(withLeg({ elevators: [[52.2]] }))).toBe(false);
+    expect(isRouteOptions(withLeg({ steps: 'x' }))).toBe(false);
+    expect(isRouteOptions(withLeg({ waitS: -1 }))).toBe(false);
+    expect(isRouteOptions(withLeg({ waitS: '60' }))).toBe(false);
+    expect(isRouteOptions(withLeg({ tripId: 7 }))).toBe(false);
+    expect(isRouteOptions([{ ...option, waitS: Number.NaN }])).toBe(false);
+    expect(isRouteOptions([{ ...option, waitS: null }])).toBe(false);
+  });
+
   it('rejects an answer that is not a list', () => {
     expect(isRouteOptions({ detail: 'error' })).toBe(false);
     expect(isRouteOptions(null)).toBe(false);

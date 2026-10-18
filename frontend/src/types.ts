@@ -34,9 +34,13 @@ export interface RouteLeg {
   /** `GET /api/stations` id of the stop / station at each end (`ztm:435102`, `vet:14083304`), `null` for a place that is not one. */
   fromId?: string | null;
   toId?: string | null;
-  /** `[lon, lat]` where a street route boards an elevator / starts a flight of steps (street-only routes). */
-  elevators?: LonLat[];
-  steps?: LonLat[];
+  /** `[lat, lon]` where a street leg boards an elevator / starts a flight of steps. */
+  elevators?: LatLng[];
+  steps?: LatLng[];
+  /** Transit legs: seconds waited at the boarding stop (`fromId`) before departure. */
+  waitS?: number;
+  /** Transit legs: the GTFS trip id. */
+  tripId?: string;
   /** Consecutive parts of one kind that cover the whole `path` (street legs; optional). */
   segments?: LegSegment[];
   /** True when GTFS has no shape for the trip and `path` only joins the stops in order (drawn dashed). */
@@ -70,6 +74,8 @@ export interface RouteOption {
   tags: string[];
   /** Start, the intermediate stops in the order they are visited, destination (trips with stops only). */
   waypoints?: Place[];
+  /** Total standing time, seconds: waiting at stops plus signals, crossings, elevators. */
+  waitS?: number;
 }
 
 /** A stop in the delay estimate. Times are Warsaw local `HH:MM:SS`. */
