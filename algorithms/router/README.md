@@ -272,6 +272,7 @@ Body (JSON):
 | `veturilo_s` | longest Veturilo ride, dock to dock; default unlimited; 0 = no Veturilo |
 | `veturilo_pickup_s`, `veturilo_return_s` | fixed times to unlock a bike and to dock it: default 30 s and 15 s |
 | `exclude_modes` | optional list of `bus`, `tram`, `metro`, `rail`, `veturilo`: the search skips the route patterns of those modes (a GTFS trolleybus counts as `bus`); `veturilo` drops the Veturilo legs (as `veturilo_s: 0`), not walking or one's own bike. Omitted or `[]` = nothing excluded; any other value → 400 |
+| `min_bikes` | optional integer ≥ 0: rent a Veturilo bike only at docks with at least this many bikes in the live state (`POST /state`). The state is read **once, at the start of the query**, and stays frozen for the whole search, so availability does not depend on the arrival time (RAPTOR's "earlier is never worse" holds). A dock without data counts as 0 bikes. Returning is allowed at every dock (free places are not checked). Default 0 = every dock, as without state |
 | anything else | **501** `{"error": "not implemented", "unimplemented": [keys]}` |
 
 Answer:
@@ -305,8 +306,9 @@ Answer:
   wait_s, path ([lon, lat]), segments, elevators, steps` as in `/route`, plus `from_snap_m` / `to_snap_m` on a `null`
   end. An in-station metro transfer the matrix used is a two-point leg (`walk_m` = 200, + elevator in no-step modes).
 - **Veturilo leg:** the street-leg fields with `mode: "veturilo"`, `from` / `to` = `vet:<id>`, plus `pickup_s`,
-  `return_s` (included in `seconds` and `wait_s`). The walks to and from the docks are separate `walk` legs. Every
-  dock is assumed to have a bike and a free place (live availability comes later).
+  `return_s` (included in `seconds` and `wait_s`), and `bikes` = bikes at the pickup dock in the frozen state (`null`
+  without data). The walks to and from the docks are separate `walk` legs. Every dock is assumed to have a free
+  place; a bike only with `min_bikes` > 0.
 - **Transit leg:** `mode` (`bus`, `tram`, `metro`, `rail`), `line`, `route_id`, `trip_id` (frequency-based metro runs
   keep the template's trip id: `mkuran.trip_onward(trip_id, from, dep_s)` gives the calls), `headsign`, `from`, `to`,
   `dep_s`, `arr_s`, `wait_s` (standing at `from` since the previous leg arrived), `seconds` (= `wait_s` + ride),
@@ -316,11 +318,19 @@ Answer:
   1000 m from the graph, `503` no timetable, or the mode's matrix does not belong to the overlay (`/health` →
   `plan.<mode>` says why).
 - **Not modelled yet:** GTFS pickup / drop-off restrictions (every call can be boarded and left), trip
-  `wheelchair_accessible` in accessible / stroller, Veturilo dock availability (every dock has a bike and a place).
+  `wheelchair_accessible` in accessible / stroller, free places at the return dock.
   Live delays are deliberately not an input: `/plan` has no delay key (timetable times only).
 - **Speed** (real data, 4 threads): ~0.7 s with the unlimited defaults (most of it the two whole-graph street
   searches for access and egress), ~0.2 s with 15-minute access / egress / footpath limits; the first query of a
   service day builds its patterns (~0.5 s).
+
+### `POST /state`
+
+Live data the router plans with. Today only Veturilo: `{"veturilo": {"vet:<id>": bikes, …}}` replaces the whole
+availability state (docks left out: no data). The backend sends `nextbike.status()` every 30 s
+(`street_router.push_state()`, started by `start()`; a dock that does not rent is sent as 0). A running query keeps
+the state it started with. Answer `{"veturilo": {"docks": <ids taken>, "unknown": [ids that are not Veturilo
+locations]}}`. `400` a bad value (bikes must be an integer ≥ 0), `501` other keys, `503` no `stations.json`.
 
 ### `GET /health`
 
@@ -333,6 +343,7 @@ Also `"timetable": {"status": "ok" | "stale" | "missing", "trips", "routes", "fi
 written for another overlay) and `"plan": {"<mode>": "ok" | reason}`: a mode plans when the timetable is loaded and
 its matrix passed the checks (size 3·N²·4 with N = overlay size, `meta.json` `stations_hash` = overlay hash,
 `points.csv` ids = overlay ids in order; the per-mode `points` fields of `meta.json` are not read).
+`"state": {"veturilo": {"docks", "age_s"} | null}`: the last `POST /state` (`null` = none received yet).
 
 ## Graph file (`graph_<mode>.bin`)
 

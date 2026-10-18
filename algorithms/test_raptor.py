@@ -122,10 +122,11 @@ def secs(m, i, j, walk=WALK, bike=BIKE):
     return m[0, i, j] / walk + m[1, i, j] / bike + m[2, i, j]
 
 
-def brute_force(trips, mats, o, d, t0, veturilo=True, footpath_s=INF, max_legs=8, speeds=(WALK, BIKE)):
+def brute_force(trips, mats, o, d, t0, veturilo=True, footpath_s=INF, max_legs=8, speeds=(WALK, BIKE), pickup=None):
     """Pareto set [(counted legs, arrival)] by rounds over every trip and boarding stop, without any RAPTOR trick:
     best[k][p] = earliest arrival with <= k legs; a round rides every trip from every stop reached in the previous
-    round (or rents a bike at a reached dock), then walks once from the stops it improved."""
+    round (or rents a bike at a reached dock; only at the docks in `pickup` when given), then walks once from the
+    stops it improved."""
     walk = mats["walk"]
     runs = [[(loc, a + shift, dp + shift) for loc, a, dp in t["calls"]]
             for t in trips for shift in ([0] if t["service"] == 0 else [-86400] if t["service"] == 1 else [])]
@@ -141,6 +142,8 @@ def brute_force(trips, mats, o, d, t0, veturilo=True, footpath_s=INF, max_legs=8
                         ride[q] = min(ride[q], arr)
         if veturilo:
             for u, v in itertools.permutations(range(len(POSTS), N), 2):
+                if pickup is not None and u not in pickup:
+                    continue
                 ride[v] = min(ride[v], best[u] + PICKUP + secs(mats["bike"], u, v, speeds[0], BIKE) + RETURN)
         new = [min(best[p], ride[p]) for p in range(N)]
         for p in range(N):
@@ -431,3 +434,58 @@ def test_planning_from_the_vehicle_stays_on_the_same_trip(served):
     first = o["legs"][0]
     assert first["mode"] == "bus" and first["trip_id"] == "trip0" and first["from"] == IDS[1]
     assert first["wait_s"] == 0 and first["stops"][0] == {"id": IDS[1], "arr_s": 1050, "dep_s": 1050}
+
+
+def state(port, bikes):
+    return post(port, {"veturilo": bikes}, path="/state")
+
+
+def health(port):
+    with urllib.request.urlopen(f"http://127.0.0.1:{port}/health") as r:
+        return json.loads(r.read())
+
+
+def test_min_bikes_rents_only_at_docks_with_enough_bikes(served):
+    port, h = served([{"route": 0, "service": 0, "calls": [(0, 99000, 99000), (1, 99100, 99100)]}])
+    d0, d1 = len(POSTS), len(POSTS) + 1
+    rented = lambda o, d, **extra: [l for x in plan(port, **{"from": IDS[o], "to": IDS[d], "time": 1000, **extra})[1]
+                                    ["options"] for l in x["legs"] if l["mode"] == "veturilo"]
+    assert h["state"] == {"veturilo": None}
+    assert rented(d0, d1) and rented(d0, d1)[0]["bikes"] is None  # min_bikes 0 (default): every dock, as before
+    assert not rented(d0, d1, min_bikes=1)                          # no state yet: no dock has a known bike
+    assert state(port, {IDS[d0]: 0, IDS[d1]: 3, "vet:nope": 5, IDS[0]: 1}) == (
+        200, {"veturilo": {"docks": 2, "unknown": ["vet:nope", IDS[0]]}})
+    assert health(port)["state"]["veturilo"]["docks"] == 2
+    assert not rented(d0, d1, min_bikes=1)                          # the pickup dock is empty; returning is free
+    assert rented(d0, d1)[0]["bikes"] == 0
+    assert [l["bikes"] for l in rented(d1, d0, min_bikes=3)] == [3]
+    assert not rented(d1, d0, min_bikes=4)
+    assert state(port, {IDS[d0]: 2}) == (200, {"veturilo": {"docks": 1, "unknown": []}})  # replaces the whole state
+    assert rented(d0, d1, min_bikes=2) and not rented(d1, d0, min_bikes=1)
+    ok = {"from": IDS[d0], "to": IDS[d1], "time": 1000}
+    assert plan(port, **ok, min_bikes=-1)[0] == 400 and plan(port, **ok, min_bikes=1.5)[0] == 400
+    assert state(port, {IDS[d0]: -1})[0] == 400 and state(port, {IDS[d0]: "3"})[0] == 400
+    assert state(port, [])[0] == 400 and post(port, {}, path="/state")[0] == 400
+    assert post(port, {"veturilo": {}, "delays": {}}, path="/state") == (
+        501, {"error": "not implemented", "unimplemented": ["delays"]})
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_min_bikes_matches_brute_force_with_those_docks(city, seed):
+    street, mats = city
+    rng = random.Random(2000 + seed)
+    trips = random_trips(rng, 8 * 3600)
+    write_timetable(street, trips)
+    proc, port, _ = serve(street)
+    try:
+        bikes = {d: rng.randint(0, 3) for d in range(len(POSTS), N)}
+        assert state(port, {IDS[d]: b for d, b in bikes.items()})[0] == 200
+        for _ in range(4):
+            need = rng.randint(1, 3)
+            o, d = rng.sample(range(N), 2)
+            status, got = plan(port, **{"from": IDS[o], "to": IDS[d], "time": 8 * 3600, "min_bikes": need})
+            assert status == 200, got
+            same(got, brute_force(trips, mats, o, d, 8 * 3600, pickup={u for u, b in bikes.items() if b >= need}))
+    finally:
+        proc.terminate()
+        proc.wait()
