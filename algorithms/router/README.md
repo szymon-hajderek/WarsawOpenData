@@ -1,20 +1,23 @@
 # Street router
 
-The street router of the project: walk, bike, accessible and stroller paths on the OSM graph of Warsaw.
+The street router of the project: walk, bike, accessible and stroller paths on the OSM graph of Warsaw, and transit
+trips (RAPTOR, `POST /plan`) on the GTFS timetable with Veturilo and the street matrices.
 
 - **Python (`backend/`) prepares the data:** download and clip OSM, build the walk / bike / accessible / stroller graphs
   with the cost model (numpy), and write them as `graph_<mode>.bin`.
 - **The C++ program `street_router` (this folder) does every search.** It answers point-to-point routes between
   any two coordinates or station ids (`serve`, HTTP, the graphs stay in memory), lists every station reachable from
-  a point (`/access`, the glue for RAPTOR) and builds the all-pairs matrices between stations (`matrix`). The backend
-  starts the server and calls it through `backend/street_router.py`.
+  a point (`/access`), plans whole transit trips (`/plan`: RAPTOR, see `docs/raptor-graph.md`) and builds the
+  all-pairs matrices between stations (`matrix`). The backend starts the server and calls it through
+  `backend/street_router.py`.
 - **StationLocations** (`data/derived/stations.json`, built by `backend/stations.py`) is the one list of transport
   nodes all of this shares: GTFS decides what exists, OSM gives the exact position where the match is exact.
 - **The router returns raw values only.** For one street route it returns: `seconds`, `walk_m`, `bike_m`,
   `wait_s`, `snap_m`, `path`, `elevators`, `steps`, `legs` (one leg with `segments`), and `from_id` / `to_id` when it
   was called with ids (`backend/street_router.py` adds `length_m` and `geometry` for its callers). For `/access` it
   returns per-station times.
-  - It does not build `RouteLeg` / `RouteOption`, knows no timetable and no live data.
+  - It does not build `RouteLeg` / `RouteOption` and knows no live data (delays, Veturilo docks) yet. `/plan`
+    answers with ids only: no positions of stops, no shapes, no names.
   - The backend planner (`backend/app/routing/real_engine.py`) builds the legs and options from these values, the
     GTFS departures and live data. It passes station ids for stop ends, so legs meet at the mapped positions.
 
@@ -36,6 +39,7 @@ All files are in `data/derived/street/` (git-ignored, about 3 GB with the four m
 |---|---|
 | `points.csv` | One row per point: `index,id,kind,source,lat,lon,snap_walk_m,snap_bike_m,entrances`. `index` is the row / column in the matrices. `id` is the StationLocations id (`ztm:700901`, `ztm:7014M:P1`, `pkp:33506_P2`, `wkd:…`, `vet:…`). `kind` is the StationLocations kind (`bus_post`, `tram_post`, `metro_platform`, `rail_platform`, `rail_station`, `veturilo`), `source` is `osm` or `gtfs` (where the position comes from). `snap_*_m` is the distance to the nearest usable graph node. `entrances` is the number of metro entrances (0 for other points). |
 | `walk.bin`, `bike.bin`, `accessible.bin`, `stroller.bin` | **The result.** Little-endian `float32`, shape `(3, N, N)`, row-major. From point `i` to point `j`: `[0][i][j]` = `walk_m`, `[1][i][j]` = `bike_m`, `[2][i][j]` = `wait_s`. Self pairs = 0. `NaN` = no path or no data (a point more than 1000 m from the graph). |
+| `timetable.bin` | The GTFS trips for `/plan` (format: "Timetable file" below), written by `backend/preprocess_transit.py` (~10 s, 110 MB). The backend rewrites it when it is older than the GTFS cache or the overlay. |
 | `graph_<mode>.bin` | The graph the router loads (format below). The backend rewrites it when it is older than the OSM cache, the overlay or the GTFS zips. |
 | `meta.json` | Per mode: number of points, far points, seconds, file size; the thread count; `stations_hash` and `graphs.<mode>.bytes` = the overlay hash and graph sizes the matrices were built from (`/health` compares them). |
 | `../stations.json` | The StationLocations overlay (next section). The matrices' rows and columns are its locations, in `points.csv` order. |
@@ -80,14 +84,20 @@ instead of going out and in. Rail platforms and stations are only joined at thei
 | `backend/stations.py` | Builds `stations.json` + `stations_report.json` from mkuran, nextbike and `osm.transport_objects()`. |
 | `algorithms/station_map.py` | The GTFS → OSM matching rules (posts, rail platforms, entrances), platform grouping, the overlay hash. |
 | `backend/preprocess_street.py` | Writes `points.csv` + `graph_<mode>.bin` from the overlay (`--graph-only`, `write_graphs()`), runs `street_router matrix`, records the hash in `meta.json`. |
-| `backend/street_router.py` | Python client: `route(a, b, mode, **options)`, `access(point, mode, direction, limit_s)`, `health()`, plus `start()` / `stop()` of the server (used by `main.py`). |
+| `backend/street_router.py` | Python client: `route(a, b, mode, **options)`, `access(point, mode, direction, limit_s)`, `plan(a, b, mode, when, **options)`, `health()`, plus `start()` / `stop()` of the server (used by `main.py`). |
+| `backend/preprocess_transit.py` | Writes `timetable.bin` from the mkuran caches (stops → overlay indexes, frequency runs expanded). |
+| `algorithms/timetable_file.py` | The `timetable.bin` writer (`write()`, `pack()`), also used by the tests. |
 | `backend/api_stations.py` | `GET /api/stations`, `/api/stations/{id}`, `/api/stations/report`, `/api/stations/health`. |
 | `algorithms/router/graph.hpp` | Loads a graph file; `Speeds::cost()` = the edge cost for the query's speeds. |
 | `algorithms/router/snap.hpp` | Joins a coordinate to the graph (a 100 m grid over usable nodes; the rule of `osm.access`). |
 | `algorithms/router/search.hpp` | Dijkstra from seeds to targets (point to point) or to every node (matrix); path recording. |
 | `algorithms/router/stations.hpp` | Loads `stations.json`; how a location joins a mode's graph (`ends`). |
-| `algorithms/router/main.cpp` | `matrix`, `route`, `serve` (`/route`, `/access`, `/health`; cpp-httplib + nlohmann/json, fetched by CMake). |
+| `algorithms/router/transit.hpp` | Loads `timetable.bin`; the view of one service day: route patterns (FIFO split), stop incidence, `next_trip` (binary search). |
+| `algorithms/router/matrix.hpp` | Maps `<mode>.bin` read-only and checks it belongs to the overlay; re-times entries with the query's speeds. |
+| `algorithms/router/raptor.hpp` | RAPTOR rounds (patterns, Veturilo, footpaths) and the journeys (steps) of the Pareto set. |
+| `algorithms/router/main.cpp` | `matrix`, `route`, `serve` (`/route`, `/access`, `/plan`, `/health`; cpp-httplib + nlohmann/json, fetched by CMake); `/plan` re-traces the street legs of the chosen journeys. |
 | `algorithms/test_street_model.py` | Tests of the cost model, and of `street_router` (matrix, coordinate routes, the server) against a scipy oracle. |
+| `algorithms/test_raptor.py` | `/plan` against a brute-force search on random toy timetables, plus named cases and errors. |
 
 ## Modes
 
@@ -155,7 +165,7 @@ cmake --build algorithms/router/build
 ```
 
 **With the backend** nothing else is needed. At startup (`backend/main.py`, warm-up thread) `street_router.start()`
-rewrites the graph files if they are stale (~30 s), starts `street_router serve data/derived/street --port 8090`
+rewrites the graph files if they are stale (~30 s) and the timetable if it is stale (~10 s), starts `street_router serve data/derived/street --port 8090`
 (log: `data/derived/street/router.log`) and waits for `/health`. While that runs, `/api/osm` and `/api/routes`
 answer 503. It is stopped with the backend. Environment: `ROUTER_URL` = use a router that runs elsewhere (nothing
 is started); `ROUTER_PORT` = port of the started one (default 8090).
@@ -164,6 +174,7 @@ is started); `ROUTER_PORT` = port of the started one (default 8090).
 
 ```sh
 cd backend && uv run python preprocess_street.py --graph-only        # graph files only (~30 s)
+cd backend && uv run python preprocess_transit.py                    # timetable.bin for /plan (~10 s)
 algorithms/router/build/street_router serve data/derived/street       # [--port 8090] [--threads 4]
 algorithms/router/build/street_router route data/derived/street/graph_walk.bin 52.2297,21.0122 52.2196,20.9652
 cd backend && uv run python preprocess_street.py                     # graphs + the four matrices (~22 min, 12 threads)
@@ -235,6 +246,76 @@ Body: `point` (`[lat, lon]` or a location id), `mode`, `direction` (`from`, defa
 Metro platforms are reached through their entrances; the other platforms of the station then through the
 in-station transfer. About 10–40 ms for a 15-minute limit on foot.
 
+### `POST /plan`
+
+Transit trips between two places on one service day, planned by RAPTOR (the model, the algorithm and its proof:
+`docs/raptor-graph.md`). The search reads the matrices; only the street legs of the returned trips are traced
+again on the graph (that is where `path`, `segments`, `elevators` and `steps` come from).
+
+```sh
+curl -s localhost:8090/plan -d '{"from": [52.2297, 21.0122], "to": [52.1650, 21.0900], "mode": "walk",
+                                 "date": "20261021", "time": 30600}'
+```
+
+Body (JSON):
+
+| Key | Meaning |
+|---|---|
+| `from`, `to` | `[lat, lon]` or a location id (as `/route`) |
+| `mode` | `walk`, `bike`, `accessible`, `stroller`: access, egress and transfers use this mode's graph and matrix. `bike` = own bike carried on transit (transfers ridden). Veturilo only in `walk`. |
+| `date`, `time` | the GTFS service day (`YYYYMMDD`) and the departure in seconds after its midnight (Europe/Warsaw, 0 … 172 800; the client puts a time before 04:00 on the previous day) |
+| `speeds` | optional `{"walk", "bike"}` (m/s): matrix entries are re-timed `walk_m / walk + bike_m / bike + wait_s`; the Veturilo ride uses `bike` (default the bike graph's 4.2 m/s) |
+| `max_legs` | most counted legs (a transit ride or a Veturilo rental = 1; walking = 0); default unlimited, 0 = only the street trip |
+| `access_s`, `egress_s` | longest street time to the first / from the last stop; default unlimited |
+| `footpath_s` | longest transfer walk (or ride, in `bike`); default unlimited (the whole matrix row) |
+| `veturilo_s` | longest Veturilo ride, dock to dock; default unlimited; 0 = no Veturilo |
+| `veturilo_pickup_s`, `veturilo_return_s` | fixed times to unlock a bike and to dock it: default 30 s and 15 s |
+| anything else | **501** `{"error": "not implemented", "unimplemented": [keys]}` |
+
+Answer:
+
+```json
+{"options": ["...",
+  {"seconds": 2325.2, "dep_s": 30678.4, "arr_s": 33003.6, "transfers": 1, "walk_m": 1214.3, "bike_m": 0.0,
+   "wait_s": 71.1, "legs": [
+     {"mode": "walk", "from": null, "to": "ztm:7013M:P1", "seconds": 251.6, "walk_m": 327.1, "bike_m": 0.0,
+      "wait_s": 0.0, "path": [[21.0122, 52.2297], [21.01233, 52.22972], "..."], "segments": ["..."],
+      "elevators": [], "steps": [], "from_snap_m": 7.0},
+     {"mode": "metro", "line": "M1", "route_id": "ztm:M1", "trip_id": "ztm:M1:PcM:KAB", "headsign": "Kabaty",
+      "from": "ztm:7013M:P1", "to": "ztm:3009M:P1", "dep_s": 30930.0, "arr_s": 31470.0, "seconds": 540.0,
+      "wait_s": 0.0, "stops": [{"id": "ztm:7013M:P1", "arr_s": 30930, "dep_s": 30930}, "..."]},
+     "..."]}]}
+```
+
+- **Options:** the street-only trip (0 legs) first, then for each number of counted legs k the earliest arrival
+  with at most k legs, kept only when it arrives at least 1 s earlier than every option with fewer legs (Pareto
+  set). `{"options": []}` when nothing connects.
+- **Times** are seconds after midnight of the service day (`dep_s` / `arr_s` may pass 86 400; trips of the day before
+  that still run after midnight are shifted by −24 h). `dep_s` = the first boarding minus the street time to it:
+  nobody waits at home. `seconds = arr_s − dep_s` = the sum of the legs' `seconds`; the option's `walk_m`, `bike_m`,
+  `wait_s` are the sums over its legs; `transfers = max(0, counted legs − 1)`.
+- **`from` / `to` of every leg:** a StationLocations id, or `null` = the query's own start / end.
+- **Street leg** (`walk` in walk / accessible / stroller, `bike` in bike): `mode, from, to, seconds, walk_m, bike_m,
+  wait_s, path ([lon, lat]), segments, elevators, steps` as in `/route`, plus `from_snap_m` / `to_snap_m` on a `null`
+  end. An in-station metro transfer the matrix used is a two-point leg (`walk_m` = 200, + elevator in no-step modes).
+- **Veturilo leg:** the street-leg fields with `mode: "veturilo"`, `from` / `to` = `vet:<id>`, plus `pickup_s`,
+  `return_s` (included in `seconds` and `wait_s`). The walks to and from the docks are separate `walk` legs. Every
+  dock is assumed to have a bike and a free place (live availability comes later).
+- **Transit leg:** `mode` (`bus`, `tram`, `metro`, `rail`), `line`, `route_id`, `trip_id` (frequency-based metro runs
+  keep the template's trip id: `mkuran.trip_onward(trip_id, from, dep_s)` gives the calls), `headsign`, `from`, `to`,
+  `dep_s`, `arr_s`, `wait_s` (standing at `from` since the previous leg arrived), `seconds` (= `wait_s` + ride),
+  `stops` = every call from boarding to alighting `[{id, arr_s, dep_s}]`. No path: the backend draws transit
+  geometry from GTFS shapes.
+- **Errors:** `400` bad body / mode / date / time / limit, `404` unknown location id, `422` a point more than
+  1000 m from the graph, `503` no timetable, or the mode's matrix does not belong to the overlay (`/health` →
+  `plan.<mode>` says why).
+- **Not modelled yet:** GTFS pickup / drop-off restrictions (every call can be boarded and left), trip
+  `wheelchair_accessible` in accessible / stroller, live delays and Veturilo docks (planned: pushed from Python,
+  e.g. `POST /delays {"trips": {trip_id: delay_s}}`).
+- **Speed** (real data, 4 threads): ~0.7 s with the unlimited defaults (most of it the two whole-graph street
+  searches for access and egress), ~0.2 s with 15-minute access / egress / footpath limits; the first query of a
+  service day builds its patterns (~0.5 s).
+
 ### `GET /health`
 
 `{"modes": {"walk": {"nodes", "edges"}, …}, "stations": {"count", "hash"} | null,
@@ -242,6 +323,10 @@ in-station transfer. About 10–40 ms for a 15-minute limit on foot.
 `matrices.status` is `ok` when `meta.json` carries the loaded overlay's hash and the sizes of the loaded graph
 files; `stale` when the overlay, the model or the graphs changed since the matrices were computed (recompute with
 `preprocess_street.py`); `missing` without matrices.
+Also `"timetable": {"status": "ok" | "stale" | "missing", "trips", "routes", "first_date", "last_date"}` (`stale` =
+written for another overlay) and `"plan": {"<mode>": "ok" | reason}`: a mode plans when the timetable is loaded and
+its matrix passed the checks (size 3·N²·4 with N = overlay size, `meta.json` `stations_hash` = overlay hash,
+`points.csv` ids = overlay ids in order; the per-mode `points` fields of `meta.json` are not read).
 
 ## Graph file (`graph_<mode>.bin`)
 
@@ -263,6 +348,32 @@ nodes incl. 2 virtual nodes per fixed point, m = directed edges.
 | usable | `uint8` | n | 1 = a coordinate may join here (the mode's largest strongly connected component) |
 | entry_wait | `float32` | n | seconds paid when the graph is entered at this node |
 
+## Timetable file (`timetable.bin`)
+
+Little-endian, written by `algorithms/timetable_file.py` (`backend/preprocess_transit.py` fills it from mkuran). A
+string = `uint32` byte length + UTF-8 bytes. Times = seconds after midnight of the trip's service day (may pass 24 h).
+
+| Field | Type | Count | Meaning |
+|---|---|---|---|
+| magic, version | `char[4]`, `uint32` | 1 | `TTB1`, 1 |
+| stations_hash | string | 1 | the overlay the location indexes refer to (must equal `stations.json`'s `hash`) |
+| locations | `uint32` | 1 | number of overlay locations |
+| routes | `uint32` + (string id, string line, string mode) | R | `ztm:M1`, `M1`, `metro` (mode `bus`, `tram`, `metro`, `rail`) |
+| services | `uint32` + (`uint32` count, `uint32` dates) | S | sorted `YYYYMMDD` dates of each GTFS service |
+| trips | `uint32` T; route, service `uint32[T]`; offset `uint32[T + 1]`; T × (string trip id, string headsign) | T | the calls of trip t are `offset[t] .. offset[t+1]` |
+| calls | `uint32` C; location `uint32[C]`; arr, dep `int32[C]` | C | location index in `stations.json` order |
+
+Rules (`preprocess_transit.py`): a stop_times stop goes through `mkuran.canonical()` to its overlay location; rows
+at stops outside the overlay are dropped (PKP trips with no call in the area are left out); consecutive calls at one
+location collapse (arrival of the first, departure of the last); trips with fewer than 2 calls or times going back
+are dropped; frequency templates (metro) become one trip per run (same trip id). 2026-10-18: 277 636 trips,
+7.7 M calls, 514 routes, 4 714 services, 364 days.
+
+The router builds the patterns itself (`transit.hpp`, per service day, cached for the last 3 days): trips of the
+day plus those of the day before that run past midnight (−24 h), grouped by (route, exact location sequence),
+sorted by first departure; a trip that would overtake the previous one in a pattern starts a new pattern, so
+departures at every stop are sorted and `next_trip` is a binary search. 2026-10-21: 41 932 trips, 2 093 patterns.
+
 ## Checks
 
 - `cd backend && uv run pytest ../algorithms` runs the Python unit tests: junctions, islands, oneway,
@@ -272,6 +383,14 @@ nodes incl. 2 virtual nodes per fixed point, m = directed edges.
   (`Grójecka 02 → Centrum 03`, 20 pairs of posts of the same stop, 79 random pairs 0.2–5 km apart).
   For walk and bike it compares the server's coordinate route with the matrix value of the same stops, and the GTFS
   stop position with the OSM platform node of the same post (`ref` = ZTM stop id). Output: `check_pairs.csv`.
+- `cd backend && uv run pytest ../algorithms/test_raptor.py` checks `/plan` on a toy city (the 5 × 5 grid, 6 posts,
+  2 docks, matrices from the router's own `/route`): the Pareto set of 100 random timetables (shared stops, loops,
+  overtaking trips, other service days, trips after midnight; 1–3 legs) against a brute-force search over every
+  trip and boarding stop, the limits, query speeds, bike mode, the leg fields, waits, `null` ends, Veturilo and the
+  errors (wrong date / keys, a matrix or timetable for another overlay → 503).
+- Real data (2026-10-18): 160 random pairs in the four modes: every option's legs chain by id, `seconds` = sum of
+  the legs, `dep_s` ≥ the query time, Pareto order holds; 53 transit legs match `mkuran.trip_onward()` (same calls
+  and times).
 - `uv run python report.py` adds section 5 to `data/REPORT.md`: sizes, medians, the detour factor and symmetry
   (from the matrices).
 

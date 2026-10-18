@@ -112,12 +112,14 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
      downloads cpp-httplib and nlohmann/json. Build once:
      `cmake -S ../algorithms/router -B ../algorithms/router/build -DCMAKE_BUILD_TYPE=Release &&
      cmake --build ../algorithms/router/build`. The backend then starts it by itself (port 8090; it writes
-     `data/derived/street/graph_*.bin` first if needed, ~30 s; log: `data/derived/street/router.log`). Without it,
+     `data/derived/street/graph_*.bin` first if needed, ~30 s, and the RAPTOR timetable `timetable.bin`, ~10 s, by
+     hand: `uv run python preprocess_transit.py`; log: `data/derived/street/router.log`). Without it,
      walk / bike legs, `/api/osm/route` and `/api/stations/health` answer 503. Optional `.env`: `ROUTER_URL` (use a router that runs elsewhere), `ROUTER_PORT`.
    - the first start also builds `data/derived/stations.json` (transport nodes mapped to OSM, a few seconds;
      `uv run python stations.py` rebuilds it and prints the match report)
-   - street matrices for every pair of stops (optional: the server does not read them yet):
-     `uv run python preprocess_street.py` (four modes, ~18 min on 16 threads, ~2.7 GB). Details: `algorithms/router/README.md`
+   - street matrices for every pair of stops (needed by the router's RAPTOR `POST /plan`; without them `/plan` answers
+     503 and `/health` → `plan` says why): `uv run python preprocess_street.py` (four modes, ~18 min on 16 threads,
+     ~2.7 GB). Details: `algorithms/router/README.md`, design: `docs/raptor-graph.md`
    - `uv run pytest tests ../algorithms` runs the tests (pytest is in the `dev` group, installed by `uv sync`)
    - `uv run pytest ../integration` runs the integration tests: synthetic trips on real data in simulation mode,
      about 6 minutes, no keys needed (`-m recorded` / `-m gtfs` for one kind). Results: `integration/RESULTS.md`.
