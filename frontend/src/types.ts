@@ -35,12 +35,12 @@ export interface RouteLeg {
   fromId?: string | null;
   toId?: string | null;
   /** `[lat, lon]` where a street leg boards an elevator / starts a flight of steps. */
-  elevators?: LatLng[];
-  steps?: LatLng[];
+  elevators?: LatLng[] | null;
+  steps?: LatLng[] | null;
   /** Transit legs: seconds waited at the boarding stop (`fromId`) before departure. */
-  waitS?: number;
+  waitS?: number | null;
   /** Transit legs: the GTFS trip id. */
-  tripId?: string;
+  tripId?: string | null;
   /** Consecutive parts of one kind that cover the whole `path` (street legs; optional). */
   segments?: LegSegment[];
   /** True when GTFS has no shape for the trip and `path` only joins the stops in order (drawn dashed). */
@@ -75,7 +75,7 @@ export interface RouteOption {
   /** Start, the intermediate stops in the order they are visited, destination (trips with stops only). */
   waypoints?: Place[];
   /** Total standing time, seconds: waiting at stops plus signals, crossings, elevators. */
-  waitS?: number;
+  waitS?: number | null;
 }
 
 /** A stop in the delay estimate. Times are Warsaw local `HH:MM:SS`. */

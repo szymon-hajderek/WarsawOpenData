@@ -23,18 +23,18 @@ export function transfersLabel(n: number): string {
 }
 
 /** Whole minutes of a wait in seconds; 0 below one minute or when unknown. */
-export function waitMinutes(waitS: number | undefined): number {
-  return waitS !== undefined && waitS >= 60 ? Math.round(waitS / 60) : 0;
+export function waitMinutes(waitS: number | null | undefined): number {
+  return waitS != null && waitS >= 60 ? Math.round(waitS / 60) : 0;
 }
 
 /** "czekasz 4 min" at a boarding stop; null below one minute. */
-export function formatWait(waitS: number | undefined): string | null {
+export function formatWait(waitS: number | null | undefined): string | null {
   const n = waitMinutes(waitS);
   return n > 0 ? `czekasz ${n} min` : null;
 }
 
 /** "w tym czekanie 6 min" next to the duration of a route; null below one minute. */
-export function formatTotalWait(waitS: number | undefined): string | null {
+export function formatTotalWait(waitS: number | null | undefined): string | null {
   const n = waitMinutes(waitS);
   return n > 0 ? `w tym czekanie ${n} min` : null;
 }
