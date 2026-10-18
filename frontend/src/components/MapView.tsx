@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import L from 'leaflet';
 import { CircleMarker, MapContainer, Marker, Polyline, Popup, useMap, useMapEvents } from 'react-leaflet';
-import { Box, Button, IconButton, type PaletteMode } from '@mui/material';
+import { Box, Button, Checkbox, FormControlLabel, IconButton, Popover, Typography, type PaletteMode } from '@mui/material';
 import Add from '@mui/icons-material/Add';
 import Remove from '@mui/icons-material/Remove';
 import MyLocation from '@mui/icons-material/MyLocation';
@@ -9,11 +9,15 @@ import DarkMode from '@mui/icons-material/DarkMode';
 import LightMode from '@mui/icons-material/LightMode';
 import DirectionsBus from '@mui/icons-material/DirectionsBus';
 import Layers from '@mui/icons-material/Layers';
+import Signpost from '@mui/icons-material/Signpost';
 import { ICON_PATH, MODE_META, iconHtml, modeColor } from '../modes';
 import { GLASS, PALETTE } from '../map/palette';
 import { MAP_ATTRIBUTION } from '../map/mapStyle';
 import { createLookStyle, useMapLook, type MapLook } from '../map/mapLook';
 import { useRouteStations } from '../hooks/useRouteStations';
+import { useMapOverlays } from '../hooks/useMapOverlays';
+import { OVERLAYS, loadOverlays, saveOverlays, type OverlayId } from '../map/overlays';
+import { MapOverlays } from './MapOverlays';
 import { accessPoints, buildOverlay, type Overlay } from '../utils/overlay';
 import { legLines, type LineStyle } from '../utils/legStyle';
 import { glassCss, glassStyle } from '../map/glass';
@@ -66,6 +70,8 @@ interface Props {
   onMapPick?: (position: LatLng) => void;
   /** Long press / right click on the map offers "Stąd" / "Dotąd" at that point. */
   onContextPick?: (target: 'origin' | 'destination', position: LatLng) => void;
+  /** "Stąd" / "Dotąd" in the popup of a stop or Veturilo station of the map overlays. */
+  onPlacePick?: (target: 'origin' | 'destination', place: PlaceT) => void;
 }
 
 /** Map taps while picking, and the long-press / right-click menu "Stąd" / "Dotąd". */
@@ -347,8 +353,18 @@ export default function MapView({
   follow = false,
   onMapPick,
   onContextPick,
+  onPlacePick,
 }: Props) {
   const [map, setMap] = useState<L.Map | null>(null);
+  const [overlayIds, setOverlayIds] = useState<OverlayId[]>(loadOverlays);
+  const [overlayAnchor, setOverlayAnchor] = useState<HTMLElement | null>(null);
+  const overlayData = useMapOverlays(map, overlayIds);
+  const toggleOverlay = (id: OverlayId) =>
+    setOverlayIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      saveOverlays(next);
+      return next;
+    });
   const colors = PALETTE[paletteMode];
   const [look, toggleLook] = useMapLook();
   const stations = useRouteStations(route);
@@ -463,6 +479,12 @@ export default function MapView({
             padding={padding}
             follow={follow}
           />
+          <MapOverlays
+            stations={overlayData.stations}
+            status={overlayData.status}
+            paletteMode={paletteMode}
+            onPlacePick={onPlacePick}
+          />
           {route && <RouteLayer route={route} palette={paletteMode} detailed={detailed} look={look} overlay={overlay} />}
           {gpsPosition && (
             <CircleMarker
@@ -530,6 +552,42 @@ export default function MapView({
             <Layers />
           </IconButton>,
         )}
+        {fab(
+          <IconButton
+            aria-label="Warstwy przystanków"
+            aria-haspopup="dialog"
+            aria-pressed={overlayIds.length > 0}
+            onClick={(e) => setOverlayAnchor(e.currentTarget)}
+          >
+            <Signpost />
+          </IconButton>,
+        )}
+        <Popover
+          open={overlayAnchor !== null}
+          anchorEl={overlayAnchor}
+          onClose={() => setOverlayAnchor(null)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          slotProps={{ paper: { sx: { borderRadius: '16px', mr: 1 } } }}
+        >
+          <Box role="dialog" aria-label="Warstwy przystanków" sx={{ px: 2, py: 1.5, display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+              Pokaż na mapie
+            </Typography>
+            {OVERLAYS.map((o) => (
+              <FormControlLabel
+                key={o.id}
+                control={<Checkbox size="small" checked={overlayIds.includes(o.id)} onChange={() => toggleOverlay(o.id)} />}
+                label={o.label}
+              />
+            ))}
+            {OVERLAYS.some((o) => overlayIds.includes(o.id) && overlayData.zoom < o.minZoom) && (
+              <Typography variant="caption" color="text.secondary" sx={{ maxWidth: 200 }}>
+                Przybliż mapę, aby zobaczyć przystanki.
+              </Typography>
+            )}
+          </Box>
+        </Popover>
         {onDetectVehicle &&
           fab(
             <IconButton aria-label="Wykryj pojazd, w którym jesteś" onClick={onDetectVehicle}>
