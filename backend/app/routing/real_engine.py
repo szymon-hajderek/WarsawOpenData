@@ -61,7 +61,18 @@ class RealRouteEngine(RouteEngine):
         return None
 
     def query_routes(self, frm: Place, to: Place, profile: Profile, when: str | None = None, search=None) -> list[RouteOption]:
-        now = _clock(when)
+        return self._routes(frm, to, profile, _clock(when), search)
+
+    def query_from_stop(self, stop_id: str, to: Place, profile: Profile, at: datetime, search=None) -> list[RouteOption]:
+        """Transit options from a stop (StationLocations id) leaving at `at` (naive Warsaw time); /plan gets the id."""
+        found = _loc(stop_id)
+        if not found:
+            raise LookupError(f"unknown stop {stop_id}")
+        frm = Place(id=stop_id, label=found.get("name") or stop_id,
+                    position=(found["position"]["lat"], found["position"]["lon"]))
+        return self._routes(frm, to, profile, at, search, plan_from=stop_id)
+
+    def _routes(self, frm, to, profile, now, search, plan_from=None) -> list[RouteOption]:
         travel = getattr(search, "travel", "transit")
         if travel in ("accessible", "stroller"):
             profile = travel
@@ -80,7 +91,7 @@ class RealRouteEngine(RouteEngine):
             if not _plan_ready(graph):
                 raise street_router.RouteError(503, "transit timetable not ready")
             try:
-                return self._plan(frm, to, profile, now, origin, dest, graph, speed, max_transfers)
+                return self._plan(frm, to, profile, now, plan_from or origin, dest, graph, speed, max_transfers)
             except NotImplementedError as exc:
                 raise street_router.RouteError(503, f"transit timetable not ready: {exc}") from exc
             except street_router.RouteError as exc:
@@ -102,7 +113,7 @@ class RealRouteEngine(RouteEngine):
         if departures and len(raws) < MAX_OPTIONS:
             raws += street_router.plan(origin, dest, mode, date=date, time=int(min(departures)) + 60, **options)
         built = [self._plan_option(raw, frm.label, to.label, origin, dest, date, profile) for raw in raws]
-        if all(_counted(raw) for raw in raws):  # /plan gave no street-only trip: ask for the walk
+        if all(_counted(raw) for raw in raws) and not isinstance(origin, str):  # no street-only trip: walk
             built.append(self._walk_option(frm, to, origin, dest, profile, now))
         return _finish(built)
 

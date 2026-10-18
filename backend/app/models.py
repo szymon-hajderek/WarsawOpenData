@@ -124,6 +124,10 @@ class ExcludedPoint(BaseModel):
     radiusM: float = Field(default=300, ge=50, le=5000)
 
 
+class Onboard(BaseModel):
+    vehicleId: str = Field(min_length=1, max_length=40)  # as in POST /api/live/nearest-buses, e.g. "bus-5914"
+
+
 class RouteBody(BaseModel):
     """Optional body data for the calorie estimate. Missing fields use a typical adult."""
 
@@ -162,6 +166,8 @@ class RouteRequest(BaseModel):
     body: Optional[RouteBody] = None
     # Modes the search must not use (a GTFS trolleybus counts as bus; veturilo = no rented bike, own bike stays).
     excludeModes: list[ExcludableMode] = Field(default_factory=list, max_length=5)
+    # Plan from the vehicle the user is in (timetable only): its next stops are the origins; `from` is ignored.
+    onboard: Optional[Onboard] = None
 
 
 # ---- speed history (stateless: nothing is stored, tracks are not kept) --------------------------
