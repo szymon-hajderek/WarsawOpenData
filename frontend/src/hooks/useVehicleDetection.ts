@@ -126,6 +126,17 @@ export function useVehicleDetection({ position, geoError, getTrack }: Input) {
     selectManualLine,
     clearManual,
     confirm,
+    /**
+     * The bus button of the map: hides the window while it is shown (the confirmed vehicle stays), brings it back
+     * when it is hidden, and detects first when there is nothing to bring back.
+     */
+    toggle: () => {
+      if (open) setOpen(false);
+      else if (vehicles.length > 0 || confirmed) {
+        setOpen(true);
+        setSnap('bar');
+      } else requestLinePopup();
+    },
     dismiss: () => {
       setOpen(false);
       setConfirmed(null); // "Nie jadę komunikacją": no vehicle to plan from

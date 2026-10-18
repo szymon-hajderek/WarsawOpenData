@@ -6,8 +6,10 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
-import { Box, Button, Chip, IconButton, Paper, ToggleButton, ToggleButtonGroup, useTheme } from '@mui/material';
+import { Box, Button, Chip, IconButton, Paper, ToggleButton, ToggleButtonGroup, useTheme, type SxProps, type Theme } from '@mui/material';
 import SwapVert from '@mui/icons-material/SwapVert';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 import TripOriginIcon from '@mui/icons-material/TripOrigin';
 import PlaceIcon from '@mui/icons-material/Place';
 import Add from '@mui/icons-material/Add';
@@ -62,6 +64,9 @@ interface Props {
   /** Reverses the whole trip (start <-> destination, stops in reverse). */
   onSwap: () => void;
   onLocate: () => void;
+  /** Phone: the card shows only "Dokąd jedziesz?" until the chevron opens it. Without `onToggleCollapsed` it is always open. */
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   /** Active trip: a "Wróć do przejazdu" button on top leaves the new search without changing the route. */
   onBackToTrip?: () => void;
   /** Offers "Wybierz na mapie" in every place field. */
@@ -129,6 +134,8 @@ export default function SearchCard({
   onOrderChange,
   onSwap,
   onLocate,
+  collapsed = false,
+  onToggleCollapsed,
   onBackToTrip,
   onPickOnMap,
 }: Props) {
@@ -271,26 +278,56 @@ export default function SearchCard({
   // In the desktop side panel the card is the first block of the panel's column, not a floating card.
   const docked = useSheetDock();
 
+  const paperSx: SxProps<Theme> = {
+    position: 'absolute',
+    zIndex: 1000,
+    top: 'calc(env(safe-area-inset-top) + 12px)',
+    left: { xs: 12, sm: 16 },
+    right: { xs: 12, sm: 'auto' },
+    width: { sm: 440 },
+    maxHeight: 'calc(100vh - 220px)',
+    overflowY: 'auto',
+    p: 1.5,
+    borderRadius: RADIUS.sheet,
+    display: 'flex',
+    alignItems: 'stretch',
+    gap: 1,
+    ...(docked && { position: 'static', width: 'auto', maxHeight: 'none', flexShrink: 0, borderRadius: RADIUS.card }),
+  };
+
+  // Collapsed: only "Dokąd jedziesz?" (phone). The chevron opens the whole card.
+  if (collapsed && onToggleCollapsed && !onBackToTrip) {
+    return (
+      <Paper
+        elevation={docked ? 0 : 4}
+        variant={docked ? 'outlined' : 'elevation'}
+        sx={{ ...paperSx, p: 1.25, alignItems: 'center' }}
+      >
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <PlaceField
+            value={destination}
+            onChange={onDestinationChange}
+            placeholder="Dokąd jedziesz?"
+            currentLocation={currentLocation}
+          />
+          {destination && !origin && (
+            <Button size="small" onClick={onToggleCollapsed} sx={{ mt: 0.5 }}>
+              Ustaw start
+            </Button>
+          )}
+        </Box>
+        <IconButton aria-label="Rozwiń wyszukiwanie: start, przystanki, sposób podróży" aria-expanded={false} onClick={onToggleCollapsed}>
+          <ExpandMore />
+        </IconButton>
+      </Paper>
+    );
+  }
+
   return (
     <Paper
       elevation={docked ? 0 : 4}
       variant={docked ? 'outlined' : 'elevation'}
-      sx={{
-        position: 'absolute',
-        zIndex: 1000,
-        top: 'calc(env(safe-area-inset-top) + 12px)',
-        left: { xs: 12, sm: 16 },
-        right: { xs: 12, sm: 'auto' },
-        width: { sm: 440 },
-        maxHeight: 'calc(100vh - 220px)',
-        overflowY: 'auto',
-        p: 1.5,
-        borderRadius: RADIUS.sheet,
-        display: 'flex',
-        alignItems: 'stretch',
-        gap: 1,
-        ...(docked && { position: 'static', width: 'auto', maxHeight: 'none', flexShrink: 0, borderRadius: RADIUS.card }),
-      }}
+      sx={paperSx}
     >
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {onBackToTrip && (
@@ -440,7 +477,14 @@ export default function SearchCard({
         )}
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between' }}>
+        {onToggleCollapsed ? (
+          <IconButton aria-label="Zwiń wyszukiwanie" aria-expanded onClick={onToggleCollapsed}>
+            <ExpandLess />
+          </IconButton>
+        ) : (
+          <span />
+        )}
         <IconButton
           aria-label={stops.length ? 'Odwróć trasę' : 'Zamień start z celem'}
           onClick={onSwap}
@@ -448,6 +492,7 @@ export default function SearchCard({
         >
           <SwapVert />
         </IconButton>
+        <span />
       </Box>
     </Paper>
   );

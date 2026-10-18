@@ -6,6 +6,7 @@ import { HistoryProvider } from './history/HistoryProvider';
 import { PreferencesProvider } from './preferences/PreferencesProvider';
 import { NEAREST_BUSES, ROUTE_119, WALK_START } from './test/tripFixtures';
 import type { LatLng } from './types';
+import { openSearchCard } from './test/searchCard';
 
 /** Where the fake map is tapped. */
 const TAP: LatLng = [52.2301, 21.0115];
@@ -72,6 +73,7 @@ const routeBodies = () =>
 const destinationInput = () => screen.getByPlaceholderText('Dokąd jedziesz?') as HTMLInputElement;
 
 async function startPickingDestination() {
+  await openSearchCard();
   await waitFor(() => expect((screen.getByPlaceholderText('Skąd jedziesz?') as HTMLInputElement).value).toBe('Twoja lokalizacja'));
   fireEvent.mouseDown(destinationInput());
   fireEvent.click(await screen.findByText('Wybierz na mapie'));
@@ -125,6 +127,7 @@ describe('pick a place on the map', () => {
 
   it('the long-press menu "Dotąd" sets the destination', async () => {
     renderApp();
+    await openSearchCard();
     await waitFor(() => expect((screen.getByPlaceholderText('Skąd jedziesz?') as HTMLInputElement).value).toBe('Twoja lokalizacja'));
     fireEvent.click(screen.getByText('fake-map-dotad'));
     await waitFor(() => expect(destinationInput().value).toBe('Punkt na mapie'));
