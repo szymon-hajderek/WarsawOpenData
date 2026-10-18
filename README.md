@@ -24,6 +24,8 @@ Done:
   up to 5 intermediate stops.
 - Street-only trips on foot, by wheelchair, with a stroller or by own bike, from the C++ street router
   (`algorithms/router/`, `POST /api/routes` with `travel`).
+- Transit trips planned by RAPTOR in the C++ router (`POST /plan`, `docs/raptor-graph.md`): GTFS patterns, Veturilo
+  as a leg, street matrices of every mode. Not yet used by `POST /api/routes`.
 - Two map looks (flat, liquid glass), light and dark mode.
 - "Which vehicle am I in?" window: nearest live buses by MSE (`POST /api/live/nearest-buses`), delay estimate
   (`GET /api/live/delay`).
@@ -33,15 +35,18 @@ Done:
 
 Planned:
 
-- **Transit routing in C++** (RAPTOR on top of the street router). Python then sends only live data and values derived from it.
+- **Transit routing in C++ for the app:** `POST /api/routes` uses the router's RAPTOR (#94); Python then sends only
+  live data and values derived from it (delays, Veturilo docks: #95).
 - **Online route planning.** Change the route while the user travels.
+- Small gaps of the RAPTOR POC: GTFS pickup / drop-off rules, and the trips' `wheelchair_accessible` flag in the
+  wheelchair and stroller modes (stop access is already step-free).
 
 ## Tech stack
 
 - Frontend: React + TypeScript + Vite, Material UI, Leaflet + MapLibre (OpenFreeMap tiles)
 - Backend: Python + FastAPI (data layer managed with uv; routing API in `backend/app/` uses venv)
-- Routing: C++ street router (`algorithms/router/`, runs today); transit routing in Python
-  (`backend/app/routing/`), RAPTOR in C++ planned
+- Routing: C++ street router (`algorithms/router/`) with RAPTOR (`POST /plan`); the app's transit routing is still
+  Python (`backend/app/routing/`)
 - Database: SQLite for opt-in journey counters; source datasets remain raw files in `data/`
 
 ## Folder structure

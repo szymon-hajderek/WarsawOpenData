@@ -11,6 +11,7 @@ RAPTOR transit routing in the C++ router: `POST /plan`.
   arrival) + the street-only trip; street legs re-traced for the answer. `/health` gains `timetable` and `plan`.
 - Answer format agreed with the router owner: ids only (no positions / shapes / names / RouteOption).
 - `street_router.plan()` client (Warsaw service day, before 04:00 = previous day).
+- README: RAPTOR in Features, follow-ups (#94, #95) and the small POC gaps (pickup / drop-off, trip wheelchair flag) under Planned.
 - Docs: `docs/raptor-graph.md` (the spec, as built), `algorithms/router/README.md` (`/plan`, timetable file),
   `data/API.md` (`/api/stations/health` fields), README setup, AGENTS.md.
 - Tests: `algorithms/test_raptor.py` (brute force on 100 random toy timetables + named cases),
