@@ -493,7 +493,11 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Vite proxies `/api` to the backend at http://localhost:8000.
 - Geolocation works only on HTTPS or `localhost`. On a phone the plain `http://<laptop-ip>:5173` fails, so use `npm run dev:https` (vite `--mode https`, self-signed
   certificate from `@vitejs/plugin-basic-ssl`, accept the warning once). The app then shows a specific message (`geoErrorText`) when the page is not secure.
-- Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
+- Layout is mobile first. From 600 px (`sm`) a side panel layout (`src/components/SidePanel.tsx`): one scrollable column on the left
+  (`PANEL_WIDTH`: 360 px, 420 px from `md` 900 px) with the search card and the sheets stacked below it; the map starts right of the panel
+  (so `MAP_PADDING.desktop` is only small margins) and the bottom bar sits under the panel only. Inside the panel `SheetDock` is true:
+  `SnapSheet` renders plain cards (no drag handle, everything shown, `footer` sticky at the panel bottom; `snap: 'bar'` = a one-line
+  card that opens on a click), `SearchCard` / the route details title row are static. Below 600 px nothing changed.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with
   a clean route and round stop markers, light map with a bottom sheet.
 - Run: `npm install`, `npm run dev` (http://localhost:5173), `npm run build` (type-check + build).

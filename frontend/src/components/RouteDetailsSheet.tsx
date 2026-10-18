@@ -4,7 +4,7 @@ import FiberManualRecord from '@mui/icons-material/FiberManualRecord';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
-import SnapSheet, { type SheetSnap } from './SnapSheet';
+import SnapSheet, { useSheetDock, type SheetSnap } from './SnapSheet';
 import LegChain from './LegChain';
 import { MODE_META, modeColor } from '../modes';
 import { useHistory } from '../history/HistoryProvider';
@@ -139,6 +139,8 @@ export default function RouteDetailsSheet({
   const MainIcon = MODE_META[mainLeg.mode].icon;
   // intermediate stops: waypoints without the start and the destination
   const stopCount = Math.max(0, (route.waypoints?.length ?? 0) - 2);
+  // In the desktop side panel the back button + title row sits at the top of the panel's column.
+  const docked = useSheetDock();
 
   return (
     <>
@@ -153,6 +155,7 @@ export default function RouteDetailsSheet({
           display: 'flex',
           alignItems: 'center',
           gap: 1,
+          ...(docked && { position: 'static', width: 'auto', flexShrink: 0 }),
         }}
       >
         <IconButton
@@ -178,7 +181,7 @@ export default function RouteDetailsSheet({
         onSnapChange={onSnapChange}
         middleHeight={292}
         ariaLabel="Szczegóły trasy"
-        header={({ barLike, full }) => (
+        header={({ barLike, full, docked }) => (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography variant="h6" noWrap sx={{ fontWeight: 700, lineHeight: 1.25 }}>
@@ -189,7 +192,7 @@ export default function RouteDetailsSheet({
                 {formatTotalWait(route.waitS) && ` (${formatTotalWait(route.waitS)})`} · {formatDistance(route.distanceM)} · {route.departure} – {route.arrival}
               </Typography>
             </Box>
-            {barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />}
+            {!docked && (barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />)}
           </Box>
         )}
       >

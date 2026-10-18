@@ -12,6 +12,7 @@ import PreferencesPage from './components/PreferencesPage';
 import DemoPage from './components/DemoPage';
 import { simState } from './api/sim';
 import FilterSheet from './components/FilterSheet';
+import SidePanel from './components/SidePanel';
 import { useColorMode } from './colorMode';
 import { detectionPoints, requestLinePopup } from './api/vehicle';
 import { geoErrorText, useLocationTrack } from './hooks/useLocationTrack';
@@ -33,7 +34,7 @@ import {
   summarize,
   type TripFilters,
 } from './preferences/model';
-import { BOTTOM_NAV_HEIGHT, MAP_PADDING } from './layout';
+import { BOTTOM_NAV_HEIGHT, MAP_PADDING, PANEL_WIDTH } from './layout';
 import type { Place, RouteOption, StopOrder } from './types';
 
 /** Origin id prefix of "plan from the vehicle I am in" (`onboard` in `POST /api/routes`). */
@@ -55,6 +56,7 @@ type Step = 'search' | 'options' | 'route';
 export default function App() {
   const { mode, toggle } = useColorMode();
   const theme = useTheme();
+  // From 600 px: the side panel layout (search + sheets in one column on the left, the map on the right).
   const desktop = useMediaQuery(theme.breakpoints.up('sm'));
 
   const { position: userPosition, geoError, clearGeoError, locate, getTrack } = useLocationTrack();
@@ -286,7 +288,8 @@ export default function App() {
 
   const preview = inTrip ? activeTrip.route : step === 'route' ? chosen : step === 'options' ? visible.find((o) => o.id === selectedId) ?? null : null;
 
-  // Parts of the map covered by the panels, so the route stays in the visible area.
+  // Parts of the map covered by the panels, so the route stays in the visible area (on a wide screen the map
+  // starts right of the side panel, so only small margins).
   const padding: MapPadding = desktop
     ? MAP_PADDING.desktop
     : {
@@ -307,6 +310,8 @@ export default function App() {
         {...(tab !== 'map' ? ({ inert: '' } as object) : {})}
         sx={tab === 'demo' ? { visibility: 'hidden' } : undefined}
       >
+        {/* on a wide screen the map starts right of the side panel, so nothing covers it */}
+        <Box sx={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: desktop ? PANEL_WIDTH : 0 }}>
         <MapView
           paletteMode={mode}
           onToggleMode={toggle}
@@ -322,6 +327,9 @@ export default function App() {
           onDetectVehicle={!activeTrip && step === 'search' ? requestLinePopup : undefined}
           follow={inTrip}
         />
+        </Box>
+
+        <SidePanel on={desktop}>
 
         {!inTrip && step !== 'route' && (
           <SearchCard
@@ -451,6 +459,7 @@ export default function App() {
             onStart={startTrip}
           />
         )}
+        </SidePanel>
 
         <FilterSheet
           open={filtersOpen}
