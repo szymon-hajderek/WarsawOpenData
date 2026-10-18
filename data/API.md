@@ -630,19 +630,30 @@ There are no `costPln` and `calories` any more: calories are worked out from the
 
 ### `POST /api/routes`
 
-Route options between two places, from the GTFS timetable, OSM walk/bike paths and live Veturilo
-availability. Up to 6 options: a walk, a Veturilo ride, a Veturilo ride joined to one direct
-public-transport ride (bike then bus/tram/metro/rail, or the ride then a bike), Veturilo between
-two rides, direct rides, one transfer and two transfers. Boarding stops are chosen by OSM walk time
-among the nearest posts, not by straight-line distance alone. A live bus or tram that is behind its
-timetable, a GTFS-RT trip update, or a PKP PLK delay (when `PLK_KEY` is set) adds an
-`opóźnienie N min` tag and shifts departure and arrival. Shape distances in the GTFS file are
-kilometers and are stored as meters. Boarding stops are one post per stop group, so a big node does not fill the whole list.
-Changes between platforms use `transfers.txt` and `pathways.txt` when a feed has them, and posts of the same stop group otherwise.
+Route options between two places. Transit trips are planned by RAPTOR in the C++ router (`POST /plan` on the
+GTFS timetable, see `algorithms/router/README.md`): the street-only walk (dropped when longer than 50 minutes), then
+for each number of counted legs (a ride or a Veturilo rental) the earliest arrival that beats the options with fewer
+legs, plus the same for one later query (60 s after the earliest transit departure) for the next departures. Options
+are deduplicated, sorted by `durationMin`, at most 6; the first gets the tag `Najszybsza`. `title` = the lines in
+order joined by ` + ` (a Veturilo rental as `Veturilo`); `Pieszo` for the walk. `id` = `pt-<trip id>-<trip id>...`
+when the option rides transit (`POST /api/live/route-delays` reads it), `bike` for Veturilo only, `walk` otherwise.
+`departure` / `arrival` come from the router's `dep_s` / `arr_s` on the service day (leaving home just in time);
+`transfers` = counted legs - 1 (a Veturilo rental counts). Every limit of `/plan` is left unlimited; `max_legs` =
+`maxTransfers` + 1 (default 3); `bikeKmh` 0 sends `veturilo_s: 0`. Timetable times only: no live delay shifts
+the times (live delays of suggested rides: `POST /api/live/route-delays`). Veturilo docks are assumed to have a
+bike and a free place. A line in the current ZTM alerts gets the tag `Zmiana na trasie`. Options whose path enters an
+excluded district or point are dropped after planning.
+
+Fallback: while the router's `/health` says the timetable or the plan of the mode is not ready (`timetable.status`,
+`plan.<mode>`), or `/plan` answers 501 / 503, the older Python planner answers instead (logged): a walk, a Veturilo
+ride, Veturilo joined to one direct ride, Veturilo between two rides, direct rides, one and two transfers; boarding
+stops by OSM walk time, one post per stop group, `transfers.txt` / `pathways.txt`; a live bus or tram behind its
+timetable, a GTFS-RT trip update or a PKP PLK delay adds an `opóźnienie N min` tag and shifts the times.
+`profile` `accessible` (fallback) drops stops or trips marked wheelchair-inaccessible (`"2"`); `/plan` does not read
+trip accessibility yet.
 The clock is Europe/Warsaw. Before 04:00 the search uses the previous GTFS service day
-(times at 24:00 and later).
-`profile` `accessible` drops Veturilo and stops or trips marked wheelchair-inaccessible (`"2"`).
-A line that appears in the current ZTM alerts gets the tag `Zmiana na trasie`.
+(times at 24:00 and later). Accessible and stroller searches (and `stepFree` / a wheelchair) plan on that mode's
+graph and matrices; Veturilo only in the walk mode.
 
 Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow`, `accessible` or `stroller`, default `standard`),
 `when` (optional, Warsaw local `HH:MM` or an ISO datetime; empty means now),
@@ -742,8 +753,8 @@ The router rounds street paths to five decimals; stop endpoint metadata retains 
 
 Errors: `422` when the body is not valid, when `when` is not `HH:MM` or an ISO datetime,
 or an explicit street-only endpoint is outside the street graph. `404` when an explicit street-only request has no path.
-Mixed planning skips street candidates rejected with 404/422. `503` when timetable/overlay data is missing
-or the street router is unavailable. Other router errors retain their HTTP status.
+Mixed planning skips street candidates rejected with 404/422, and a `/plan` 404 / 422 (a point off the graph)
+gives an empty list. `503` when timetable/overlay data is missing or the street router is unavailable. Other router errors retain their HTTP status.
 
 ### `GET /api/geocode`
 

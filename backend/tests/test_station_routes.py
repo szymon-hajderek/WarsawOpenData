@@ -66,6 +66,7 @@ def router(monkeypatch):
 
     monkeypatch.setattr(street_router, "route", answer)
     monkeypatch.setattr(street_router, "access", access)
+    monkeypatch.setattr(engine, "_plan_ready", lambda mode: False)  # these tests cover the Python planner
     monkeypatch.setattr(engine, "_live_vehicles", lambda: [])
     monkeypatch.setattr(engine, "_trip_delays", lambda: {})
     monkeypatch.setattr(engine, "_station_delays", lambda: {})

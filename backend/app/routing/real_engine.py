@@ -1,6 +1,9 @@
 """Routes from the parsed GTFS timetable, the OSM street graph and live Veturilo status.
 
-A walk, a Veturilo ride, Veturilo before or after one ride, Veturilo between two rides, a direct
+Transit trips come from the router's RAPTOR (`POST /plan`, `_plan`); every leg goes through `legs_from_router`.
+The Python planner below is the fallback while the router's timetable / plan is not ready (`/health`) or `/plan`
+answers 501 / 503:
+a walk, a Veturilo ride, Veturilo before or after one ride, Veturilo between two rides, a direct
 ride and one transfer. A matched live bus or tram shifts the clock when it is behind schedule.
 Street geometry comes from OSM for the options that are returned.
 """
@@ -86,6 +89,17 @@ class RealRouteEngine(RouteEngine):
             if travel != "transit":
                 option = self._street_option(frm, to, origin, dest, profile, now, travel)
                 return [option] if _option_clear(option) else []
+            if _plan_ready(graph):
+                try:
+                    return self._plan(frm, to, profile, now, origin, dest, graph, speed, max_transfers)
+                except NotImplementedError as exc:
+                    log.warning("route engine: /plan refused (%s); using the Python planner", exc)
+                except street_router.RouteError as exc:
+                    if exc.status in (404, 422):
+                        return []  # a point off the street graph: nothing connects (as the Python planner)
+                    if exc.status != 503:
+                        raise
+                    log.warning("route engine: /plan not ready (%s); using the Python planner", exc)
             self._vehicles = _live_vehicles()
             self._trip_delays = _trip_delays()
             self._station_delays = _station_delays()
@@ -172,6 +186,31 @@ class RealRouteEngine(RouteEngine):
         options = options[:6]
         _tag(options)
         return options
+
+    def _plan(self, frm, to, profile, now, origin, dest, mode, speed, max_transfers) -> list[RouteOption]:
+        """Transit options planned by RAPTOR in the router (POST /plan), plus one later query for more departures."""
+        date, sec = street_router.service_time(now)
+        options = _plan_options(speed, max_transfers, profile)
+        raws = street_router.plan(origin, dest, mode, date=date, time=sec, **options)
+        departures = [raw["dep_s"] for raw in raws if _counted(raw)]
+        if departures and len(raws) < MAX_OPTIONS:
+            raws += street_router.plan(origin, dest, mode, date=date, time=int(min(departures)) + 60, **options)
+        built = [self._plan_option(raw, frm.label, to.label, origin, dest, date, profile) for raw in raws]
+        return _finish(built)
+
+    def _plan_option(self, raw, from_label, to_label, origin, dest, date, profile) -> Optional[RouteOption]:
+        """One /plan option -> RouteOption (None for an empty or too long street-only trip)."""
+        if not raw.get("legs") or (not _counted(raw) and raw["seconds"] > 50 * 60):
+            return None
+        legs = legs_from_router(raw, from_name=from_label, to_name=to_label, points=(origin, dest))
+        leave = datetime.strptime(date, "%Y%m%d") + timedelta(seconds=raw["dep_s"])
+        option = _option(_plan_id(legs), _plan_title(legs), legs, leave, raw["seconds"])
+        option.transfers = int(raw.get("transfers", option.transfers))
+        _street_tags(option, raw, profile)
+        lines = {leg.line for leg in legs if leg.mode not in geometry.STREET_MODES}
+        if lines & alerts.alerted_lines():
+            option.tags.append("Zmiana na trasie")
+        return option
 
     def _walk_option(self, frm, to, origin, dest, profile, now) -> Optional[RouteOption]:
         if _distance(origin, dest) > 5000:
@@ -387,6 +426,64 @@ class RealRouteEngine(RouteEngine):
                 if len(whole) >= 2:
                     late = lateness_s(whole, (vehicle["lat"], vehicle["lon"]), now_sec, _distance)
         return max(late, int(posted), station)
+
+
+MAX_OPTIONS = 6
+
+
+def _plan_ready(mode: str) -> bool:
+    """True when the router's timetable and the mode's plan are ready (GET /health); else log and say no."""
+    health = street_router.health()
+    timetable = (health.get("timetable") or {}).get("status")
+    plan = (health.get("plan") or {}).get(mode)
+    if timetable == "ok" and plan == "ok":
+        return True
+    log.warning("route engine: /plan not ready for %s (timetable %s, plan %s); using the Python planner",
+                mode, timetable, plan)
+    return False
+
+
+def _plan_options(speed, max_transfers, profile) -> dict:
+    """The /plan keys from the preferences: speeds, counted legs, no Veturilo when cycling is off."""
+    options = {"speeds": _router_speeds(profile), "max_legs": max_transfers + 1}
+    if speed["bike"] <= 0:
+        options["veturilo_s"] = 0
+    return options
+
+
+def _counted(raw: dict) -> bool:
+    """A /plan option with a transit ride or a Veturilo rental (not the street-only trip)."""
+    return any(leg["mode"] not in ("walk", "bike") for leg in raw.get("legs") or [])
+
+
+def _plan_title(legs: list[RouteLeg]) -> str:
+    parts = [("Veturilo" if leg.mode == "veturilo" else leg.line or leg.mode) for leg in legs
+             if leg.mode not in ("walk", "bike")]
+    return " + ".join(parts) or ("Własny rower" if any(leg.mode == "bike" for leg in legs) else "Pieszo")
+
+
+def _plan_id(legs: list[RouteLeg]) -> str:
+    """`pt-<trip id>-...` (POST /api/live/route-delays reads it), else `bike` (Veturilo only) or `walk`."""
+    trips = [leg.tripId for leg in legs if leg.tripId]
+    if trips:
+        return "pt-" + "-".join(trips)
+    return "bike" if any(leg.mode == "veturilo" for leg in legs) else "walk"
+
+
+def _finish(built: list[Optional[RouteOption]]) -> list[RouteOption]:
+    """Drop empty options and those crossing an excluded area, dedupe, sort by duration, keep MAX_OPTIONS, tag."""
+    out, seen = [], set()
+    for option in sorted((o for o in built if o is not None), key=lambda o: o.durationMin):
+        key = tuple((leg.mode, leg.line, leg.fromId, leg.toId, leg.tripId) for leg in option.legs)
+        if any(leg.tripId for leg in option.legs):
+            key += (option.departure,)  # frequency-based metro runs share the template's trip id
+        if key in seen or not _option_clear(option):
+            continue
+        seen.add(key)
+        out.append(option)
+    out = out[:MAX_OPTIONS]
+    _tag(out)
+    return out
 
 
 def _limits(profile: Profile, search):

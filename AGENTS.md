@@ -99,7 +99,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   `POST /api/routes`. The route engine (`backend/app/routing/real_engine.py`, Python) builds options from
   GTFS departures, street paths and live Veturilo docks. Street paths (walk, bike, accessible, stroller) come from
   the C++ street router (`algorithms/router/`), which the backend starts. The router also plans transit trips with
-  RAPTOR (`POST /plan`); the route engine does not call it yet. `StubRouteEngine` remains only as the old mock.
+  RAPTOR (`POST /plan`), which the route engine uses for transit (Python planner = fallback). `StubRouteEngine` remains only as the old mock.
 
 ### Tech stack
 
@@ -111,8 +111,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   PostgreSQL + PostGIS for source datasets later if needed.
 - Routing: a long-running **C++ engine** loads its graph at startup and keeps it in memory.
   Today the street router runs (`algorithms/router/`, binary `street_router`, see Backend notes): street paths
-  and station access, and RAPTOR transit trips (`POST /plan`). The route engine still plans transit in Python
-  (`backend/app/routing/real_engine.py`) until it calls `/plan`. `/plan` uses the GTFS timetable only: live
+  and station access, and RAPTOR transit trips (`POST /plan`). The route engine plans transit with `/plan`
+  (`backend/app/routing/real_engine.py`, Python planner only as fallback). `/plan` uses the GTFS timetable only: live
   delays are **not** a router input (router owner's decision; they are a UI-only display, `POST /api/live/route-delays`).
   "From the vehicle": `/plan` from the next stops of its GTFS trip at the scheduled arrival. Python does not send the graph.
   (OpenTripPlanner was the earlier idea; the team chose a custom C++ engine instead.)
@@ -302,7 +302,11 @@ Everything in this repo (files, commits, PRs) is written in English.
   names): options `{seconds, dep_s, arr_s, transfers, walk_m, bike_m, wait_s, legs}`, transit legs with `trip_id`,
   `stops`, `wait_s`; format agreed with the router owner. A matrix is valid by size 3·N²·4 + `meta.json`
   `stations_hash` + `points.csv` ids (the per-mode `points` in `meta.json` can be stale: never read it).
-  `real_engine` does not call `/plan` yet. Tests: `algorithms/test_raptor.py` (brute force on toy timetables).
+  `real_engine._plan` calls `/plan` (#94): options through `legs_from_router`, title = lines joined by " + " ("Veturilo"),
+  id `pt-<trips>` kept, one later query (+60 s) for more departures, dedupe, duration sort, max 6, excluded areas
+  filtered after planning. Fallback to the Python planner (logged) when `/health` `timetable.status` / `plan.<mode>` is
+  not "ok" or `/plan` answers 501 / 503; `/plan` 404 / 422 = no options. No live delay shift on `/plan` options.
+  Tests: `algorithms/test_raptor.py` (brute force on toy timetables), `backend/tests/test_plan_engine.py` (adapter).
 - Rail platforms: `polish_trains.zip` has stations with children per platform + track (`33506_RAIL_2_20` =
   "2 t. 20"), also for SKM. They fold into one location per platform (`pkp:33506_P2`, see "Rail in mkuran");
   `GET /api/gtfs/stops` shows the children in `members`. Platform coordinates in GTFS look synthetic (evenly spaced);
