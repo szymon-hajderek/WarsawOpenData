@@ -198,6 +198,12 @@ Everything in this repo (files, commits, PRs) is written in English.
   `export_delay_viz.py` builds `artifacts/delay-simulation.html`. `search_delay_radius.py`: R 20..200 m every 10 m, then every 1 m
   between the two best neighbours; score = share of passes shown within 30 s. On the 2026-10-17 recording: 30 m 95.0%, best 80 m 96.5%
   (flat from 80 m); default still 30 m.
+- Delays of suggested routes (`POST /api/live/route-delays`, `algorithms/route_delays.py`): a transit option id is
+  `pt-<trip id>-<trip id>...` (built in `real_engine.py`; the endpoint depends on that format, the engine is not changed).
+  Trip -> GTFS line + brigade -> live vehicle with the same Lines + Brigade -> the `/delay` estimate (`_delay_for`).
+  Vehicle still on an earlier trip of its brigade: its current delay with `sameTrip: false`. `multi-N` options get nothing.
+  Frontend: `useRouteDelays` (in `RouteOptionsSheet`, refresh 30 s) -> `LegChain` shows "· +3 min" / "punktualnie" /
+  "2 min wcześniej" ("ok." when `sameTrip` is false) after the line; the engine's own "opóźnienie N min" tag is hidden then.
 - Veturilo siting (`backend/sources/siting.py`, `algorithms/station_siting.py`, `GET /api/veturilo/siting`): Warsaw boundary
   (`data/geojson/warsaw.geojson`, Nominatim relation R336075) split into pointy-top axial hexes, radius 175 m (6476 hexes). Cost
   `J = -a*T*(1 + d*E) + b*P(d_net) + g*S`, `P = (1 - d/R)^2` below R; defaults a=1, b=1, g=0.5, d=0.5, R=1000 m (`DEFAULTS`).
