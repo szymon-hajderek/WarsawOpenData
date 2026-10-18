@@ -10,7 +10,7 @@ from planning import plan, rides, surface_transit
 from sim import api as sim_api
 from sim import clock
 
-pytestmark = pytest.mark.gtfs
+pytestmark = [pytest.mark.gtfs, pytest.mark.skip(reason="the route engine plans on the GTFS timetable only (/plan, user decision): live delays no longer shift options; they are shown by POST /api/live/route-delays")]
 
 
 def test_delay_moves_the_route(client, gtfs_ready, osm_ready, scenario):

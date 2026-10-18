@@ -644,13 +644,10 @@ the times (live delays of suggested rides: `POST /api/live/route-delays`). Vetur
 bike and a free place. A line in the current ZTM alerts gets the tag `Zmiana na trasie`. Options whose path enters an
 excluded district or point are dropped after planning.
 
-Fallback: while the router's `/health` says the timetable or the plan of the mode is not ready (`timetable.status`,
-`plan.<mode>`), or `/plan` answers 501 / 503, the older Python planner answers instead (logged): a walk, a Veturilo
-ride, Veturilo joined to one direct ride, Veturilo between two rides, direct rides, one and two transfers; boarding
-stops by OSM walk time, one post per stop group, `transfers.txt` / `pathways.txt`; a live bus or tram behind its
-timetable, a GTFS-RT trip update or a PKP PLK delay adds an `opóźnienie N min` tag and shifts the times.
-`profile` `accessible` (fallback) drops stops or trips marked wheelchair-inaccessible (`"2"`); `/plan` does not read
-trip accessibility yet.
+No Python fallback: while the router's `/health` says the timetable or the plan of the mode is not ready
+(`timetable.status`, `plan.<mode>`), or `/plan` answers 501 / 503, the answer is `503`
+`{"detail": "transit timetable not ready"}` (or the router's own message). `/plan` does not read trip
+wheelchair accessibility yet. If `/plan` gives no street-only trip, the walk is asked from `POST /route`.
 The clock is Europe/Warsaw. Before 04:00 the search uses the previous GTFS service day
 (times at 24:00 and later). Accessible and stroller searches (and `stepFree` / a wheelchair) plan on that mode's
 graph and matrices; Veturilo only in the walk mode.
@@ -757,7 +754,8 @@ The router rounds street paths to five decimals; stop endpoint metadata retains 
 Errors: `422` when the body is not valid, when `when` is not `HH:MM` or an ISO datetime,
 or an explicit street-only endpoint is outside the street graph. `404` when an explicit street-only request has no path.
 Mixed planning skips street candidates rejected with 404/422, and a `/plan` 404 / 422 (a point off the graph)
-gives an empty list. `503` when timetable/overlay data is missing or the street router is unavailable. Other router errors retain their HTTP status.
+gives an empty list. `503` when the street router is unavailable or its timetable / plan is not ready
+(`{"detail": "transit timetable not ready"}`, or the router's message for its own 503). Other router errors retain their HTTP status.
 
 ### `GET /api/geocode`
 

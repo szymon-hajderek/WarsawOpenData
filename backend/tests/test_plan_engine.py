@@ -1,8 +1,8 @@
-"""real_engine on the router's POST /plan: fake plan() answers -> RouteOptions, and the fallback switch."""
+"""real_engine on the router's POST /plan: fake plan() answers -> RouteOptions; 503 when it is not ready."""
 import pytest
 
 import street_router
-from app.routing import real_engine as engine
+from app.routing import geometry, real_engine as engine
 
 from test_station_routes import (  # noqa: F401  (router = the shared fixture)
     A, B, C, END, P, Q, START, client, request, router,
@@ -50,7 +50,7 @@ def plan(router, monkeypatch):
         return answers[min(len(sent) - 1, len(answers) - 1)]
 
     monkeypatch.setattr(engine, "_plan_ready", lambda mode: True)
-    monkeypatch.setattr(engine.mkuran, "trip_onward", lambda *args: [])  # calls = the router's stops
+    monkeypatch.setattr(geometry.mkuran, "trip_onward", lambda *args: [])  # calls = the router's stops
     monkeypatch.setattr(street_router, "plan", fake_plan)
     return sent, answers
 
@@ -103,20 +103,21 @@ def test_long_street_only_trip_and_excluded_areas_are_dropped(plan):
     answers[0] = [option([walk(None, A), ride(A, B, "ztm:T1", "175", 29000, 29600), walk(B, None)], 28880)]
     answers[0][0]["legs"][0]["path"] = [[21.0100, 52.2300], [21.0300, 52.2400], [21.0105, 52.2305]]
     middle = request(excludedPoints=[{"position": (52.2400, 21.0300), "radiusM": 50}])
-    assert engine.RealRouteEngine().query_routes(START, END, "standard", when="2026-10-18T08:00", search=middle) == []
+    kept = engine.RealRouteEngine().query_routes(START, END, "standard", when="2026-10-18T08:00", search=middle)
+    assert [o.id for o in kept] == ["walk"]  # the bus crosses the area; the walk (asked separately) does not
 
 
-@pytest.mark.parametrize("failure", [NotImplementedError("x"), street_router.RouteError(503, "no timetable")])
-def test_plan_refusal_falls_back_to_the_python_planner(plan, monkeypatch, failure):
+@pytest.mark.parametrize("failure, detail", [
+    (NotImplementedError("x"), "transit timetable not ready: x"),
+    (street_router.RouteError(503, "no timetable"), "no timetable"),
+])
+def test_plan_refusal_is_a_503_without_fallback(plan, monkeypatch, failure, detail):
     def refuse(*args, **kwargs):
         raise failure
 
-    used = []
     monkeypatch.setattr(street_router, "plan", refuse)
-    monkeypatch.setattr(engine.RealRouteEngine, "_query", lambda self, *args: used.append(True) or [])
-    monkeypatch.setattr(engine, "_live_vehicles", lambda: [])
-    engine.RealRouteEngine().query_routes(START, END, "standard", when="2026-10-18T08:00", search=request())
-    assert used == [True]
+    response = client(monkeypatch).post("/api/routes", json=request().model_dump(by_alias=True, mode="json"))
+    assert response.status_code == 503 and response.json() == {"detail": detail}
 
 
 @pytest.mark.parametrize("health, ready", [
@@ -130,13 +131,19 @@ def test_plan_ready_reads_health(monkeypatch, health, ready):
     assert engine._plan_ready("walk") is ready
 
 
-def test_not_ready_router_uses_the_python_planner(router, monkeypatch):
+def test_not_ready_router_answers_503(router, monkeypatch):
     monkeypatch.setattr(engine, "_plan_ready", lambda mode: False)
     monkeypatch.setattr(street_router, "plan", lambda *a, **k: pytest.fail("plan must not be called"))
-    used = []
-    monkeypatch.setattr(engine.RealRouteEngine, "_query", lambda self, *args: used.append(True) or [])
-    engine.RealRouteEngine().query_routes(START, END, "standard", when="2026-10-18T08:00", search=request())
-    assert used == [True]
+    response = client(monkeypatch).post("/api/routes", json=request().model_dump(by_alias=True, mode="json"))
+    assert response.status_code == 503 and response.json() == {"detail": "transit timetable not ready"}
+
+
+def test_walk_is_added_when_plan_gives_no_street_only_trip(plan):
+    _, answers = plan
+    answers[0] = [BUS]
+    ids = [o.id for o in engine.RealRouteEngine().query_routes(START, END, "standard", when="2026-10-18T08:00",
+                                                                search=request())]
+    assert sorted(ids) == ["pt-ztm:T1", "walk"]
 
 
 def test_off_graph_point_gives_no_options_and_downtime_503(plan, monkeypatch):

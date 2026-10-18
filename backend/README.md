@@ -24,7 +24,8 @@ uv run python report.py              # write ../data/REPORT.md and ../data/repor
 - Endpoints: `/api/sources`, `/api/stats`, one router per source, `/api/live/nearest-buses` and `/api/live/delay`
   (`bus_detect.py`), `/api/stations` (`api_stations.py`), `POST /api/routes`, `GET /api/geocode`, `/api/history/*`,
   `POST /api/journeys`, and `/api/sim/*` in simulation mode (`sim/`).
-- `POST /api/routes` uses `app/routing/real_engine.py` (GTFS departures, street paths from the C++ router, live Veturilo).
+- `POST /api/routes` uses `app/routing/real_engine.py`: transit trips from the C++ router's RAPTOR (`POST /plan`),
+  street trips from its `POST /route`. No Python transit planner: while the router's timetable is not ready, 503.
 - See `../data/REPORT.md` for sources, ID compatibility, graph sizes and the full endpoint list.
 - The API reference of both parts is `../data/API.md`. It is the contract: code must match it, and every PR
   keeps it up to date.
@@ -63,7 +64,7 @@ app/
   routing/
     engine.py          RouteEngine interface (seam for the C++ service)
     factory.py         picks the engine from ROUTE_ENGINE
-    real_engine.py     routes from GTFS, street paths and Veturilo; legs_from_router() = the router adapter
+    real_engine.py     options from the router (/plan transit, /route street); legs_from_router() = the adapter
     geometry.py        leg shapes for drawing (router street path, GTFS shape, else a polyline)
     multi.py           trips with intermediate stops
     geo.py             geometry and time helpers
