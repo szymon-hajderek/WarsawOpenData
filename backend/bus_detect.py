@@ -33,7 +33,7 @@ STARTUP_DELAY_S = 2  # LIVE_BUSES_URL may point at our own HTTP server: wait unt
 POLL_S = 3  # the feed changes about every 10 s; 3 s catches a new position soon after it appears
 HISTORY = 3  # positions kept per vehicle
 CANDIDATES = 4  # the popup shows the most likely vehicle + 3 others
-DELAY_RADIUS_M = float(os.getenv("DELAY_RADIUS_M", "30"))  # a vehicle "passed" a stop when this close
+DELAY_RADIUS_M = float(os.getenv("DELAY_RADIUS_M", "80"))  # a vehicle "passed" a stop when this close (search: radius-search.html)
 BUFFER_MARGIN_S = 60  # added to the longest scheduled stop-to-stop time of the trip
 BUFFER_DEFAULT_S = 600  # buffer length when no trip runs for the vehicle
 
