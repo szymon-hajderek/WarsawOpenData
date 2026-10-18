@@ -12,7 +12,7 @@
   Choosing an option replaces the route of the active trip.
 - Later departure: "Rozpocznij przejazd" opens a waiting state ("Wyjazd o 14:30 · za 23 min", first step, "Anuluj",
   "Ruszam teraz"); GPS progress, off-route checks and the recording start at the departure time or on "Ruszam teraz".
-  Pure helper `src/utils/tripStart.ts` (+ tests). Without the departure-time picker the date is today.
+  Pure helper `src/utils/tripStart.ts` (+ tests); the datetime comes from the departure picker's `when` (today for "now").
 - Tests: `src/activeTrip.test.tsx` (whole app, recorded bus-1002 track + GPS noise, answers per the contract),
   `src/utils/progress.test.ts`; fixtures in `src/test/busTrack.ts`, `src/test/tripFixtures.ts`.
 - Needs the backend `onboard` field (parallel backend PR).

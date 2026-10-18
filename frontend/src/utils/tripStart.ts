@@ -8,17 +8,21 @@ export const START_SLACK_S = 60;
 
 /**
  * Full local date and time of a route's `departure` ("HH:MM").
- * `searchDate` ("YYYY-MM-DD") = the date the search was made for; without it the search was for now, so the departure
- * is today, or tomorrow when it is more than 12 h before `now` (a trip found just before midnight).
+ * `searchWhen` ("YYYY-MM-DDTHH:MM", the search's `when`) = the time the search was made for; without it the search
+ * was for `now`. The departure is on that day, or the next one when it is more than 12 h before the searched time
+ * (a trip found just before midnight).
  */
-export function tripStartAt(departure: string, now: Date, searchDate?: string): Date {
+export function tripStartAt(departure: string, now: Date, searchWhen?: string | null): Date {
   const [h, m] = departure.split(':').map(Number);
-  if (searchDate) {
-    const [y, mo, d] = searchDate.split('-').map(Number);
-    return new Date(y, mo - 1, d, h, m, 0, 0);
+  let base = now;
+  if (searchWhen) {
+    const [date, time] = searchWhen.split('T');
+    const [y, mo, d] = date.split('-').map(Number);
+    const [sh, sm] = (time ?? '00:00').split(':').map(Number);
+    base = new Date(y, mo - 1, d, sh, sm, 0, 0);
   }
-  const at = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
-  if (now.getTime() - at.getTime() > 12 * 3600_000) at.setDate(at.getDate() + 1);
+  const at = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m, 0, 0);
+  if (base.getTime() - at.getTime() > 12 * 3600_000) at.setDate(at.getDate() + 1);
   return at;
 }
 

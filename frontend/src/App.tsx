@@ -19,6 +19,7 @@ import { useRouteSearch } from './hooks/useRouteSearch';
 import { useTripProgress } from './hooks/useTripProgress';
 import { countdownText, mustWait, secondsUntil, tripStartAt } from './utils/tripStart';
 import type { TravelMode } from './travel';
+import { departureSummary, departureWhen, type Departure } from './utils/departure';
 import { useVehicleDetection } from './hooks/useVehicleDetection';
 import { usePreferences } from './preferences/PreferencesProvider';
 import { useHistory } from './history/HistoryProvider';
@@ -64,6 +65,8 @@ export default function App() {
   const [stopOrder, setStopOrder] = useState<StopOrder>('given');
   // Public transport (default) or a street-only trip: walking, wheelchair, stroller, own bike.
   const [travel, setTravel] = useState<TravelMode>('transit');
+  // Departure time of the search: `null` = now (not saved, so a reload starts from now again).
+  const [departure, setDeparture] = useState<Departure>(null);
   const [tab, setTab] = useState<Tab>('map');
   // The Demo tab exists only when the backend runs in simulation mode (SIM_SCENARIO).
   const [simulation, setSimulation] = useState(false);
@@ -149,6 +152,7 @@ export default function App() {
     search,
     travel,
     onboardVehicleId,
+    when: departureWhen(departure),
   });
 
   // The backend does not know the vehicle (404): plan from the GPS position instead, with a short note.
@@ -163,7 +167,7 @@ export default function App() {
     setFilters(DEFAULT_FILTERS);
     setPickedId(null);
     setChosenId(null);
-  }, [origin, destination, via, stopOrder, travel]);
+  }, [origin, destination, via, stopOrder, travel, departure]);
 
   // The backend is switched off or could not be reached: say so each time it happens (no made-up data is shown).
   const offlineShown = routesOffline || vehicle.offline;
@@ -210,8 +214,8 @@ export default function App() {
   const startTrip = (begin: () => void) => {
     if (!chosen || !origin || !destination) return;
     const current = new Date();
-    // The search is for now until the departure-time picker sends its date; then pass that date here.
-    const startAt = tripStartAt(chosen.departure, current);
+    // The route's departure on the searched day (the departure picker's `when`, or today for "now").
+    const startAt = tripStartAt(chosen.departure, current, departure);
     const wait = mustWait(startAt, current);
     if (wait) beginRecording.current = begin;
     else begin();
@@ -242,6 +246,7 @@ export default function App() {
     setDestination(keepDestination ? activeTrip.destination : null);
     setStopFields([]);
     setTravel('transit');
+    setDeparture(null); // a new plan inside a running trip is for now
     setTripVehicleOpen(false);
     setReplanning(true);
   };
@@ -311,6 +316,8 @@ export default function App() {
             order={stopOrder}
             travel={travel}
             onTravelChange={setTravel}
+            departure={departure}
+            onDepartureChange={setDeparture}
             currentLocation={currentLocation}
             onOriginChange={setOrigin}
             onDestinationChange={setDestination}
@@ -392,6 +399,7 @@ export default function App() {
         {!inTrip && step === 'options' && (
           <RouteOptionsSheet
             options={visible}
+            departure={departureSummary(departure)}
             foundCount={options.length}
             loading={loading}
             error={searchError}

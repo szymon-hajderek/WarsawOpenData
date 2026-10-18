@@ -417,10 +417,11 @@ Everything in this repo (files, commits, PRs) is written in English.
   `onboard:<vehicleId>` "Z pojazdu: 119 (następne przystanki)" and `POST /api/routes` gets `onboard: {vehicleId}`
   (timetable times only, no live delays in planning); 404 (`VehicleNotFoundError`) -> start = GPS position + a note.
   Choosing an option replaces the trip's route. A departure more than 1 min ahead (`src/utils/tripStart.ts`:
-  `tripStartAt(departure, now, searchDate?)`, `secondsUntil`, `mustWait`, `countdownText`) opens the trip in a waiting
+  `tripStartAt(departure, now, searchWhen?)`, `secondsUntil`, `mustWait`, `countdownText`) opens the trip in a waiting
   state ("Wyjazd o 14:30 · za 23 min", first step, "Anuluj" / "Ruszam teraz"): no progress, off-route or recording until
   the departure time (auto-start) or "Ruszam teraz"; `RouteDetailsSheet` `onStart(begin)` lets the app start the recorder
-  later. Pass the searched date as `searchDate` once the departure-time picker exists. Tests: `src/activeTrip.test.tsx` (whole App, MapView mocked, recorded
+  later. The departure datetime = `tripStartAt(route.departure, now, departure)` with the picker's `when` (carried in
+  `ActiveTrip.startAt`); "Zmień cel" inside a trip resets the picker to now. Tests: `src/activeTrip.test.tsx` (whole App, MapView mocked, recorded
   bus-1002 track from `data/live/bus_track_sample.json` in `src/test/busTrack.ts`, answers per data/API.md).
 - Speed history (device-side, privacy first): in the route view "Rozpocznij przejazd" / "Zakończ" records GPS points (memory only, one every 4 s,
   Screen Wake Lock while recording) and sends the track once to `POST /api/history/records` (`backend/app/api/history.py`,
@@ -431,6 +432,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   gives the average per mode; the frontend falls back to `localSummary` when the backend is down. Preferences: each of Pieszo / Rower / Wózek shows
   "Twoja średnia z historii" with "Użyj X km/h" (when it differs by 10% or more) and the switch "Zawsze używaj średniej z historii" (`autoSpeed`; when on and
   enough trips, `applyHistory` in `src/preferences/model.ts` replaces the level / typed speed and the selector is locked). History can be cleared on the Preferences page.
+- Departure time: the "Wyjazd: Teraz" chip in the search card (`DepartureControl.tsx`, helpers `src/utils/departure.ts`) picks
+  Dziś / Jutro / a date + a time, or "Teraz". State `departure` in `App.tsx` (`null` = now, not saved). A chosen time is sent as
+  `when` = `YYYY-MM-DDTHH:MM` with every search (transit, `via`, street-only); now sends no `when`. A past time is allowed (chip muted).
+  The route list header shows "Wyjazd 14:30" when not now.
 - Travel modes (`src/travel.ts`): chips in the search card (Komunikacja | Pieszo | Wózek inwalidzki | Wózek dziecięcy | Własny rower, not saved). `Komunikacja` is the
   normal `POST /api/routes` search. The other four are street-only trips: `src/api/streetRoute.ts` (`fetchStreetTrip`, also with `via` / `order`; `fetchStreetRoute` = no stops)
   posts to the same `POST /api/routes` with `travel` (`ROUTER_MODE`: `walk`, `accessible`, `stroller`, `bike`) and shows the one `RouteOption` of the answer as it is
