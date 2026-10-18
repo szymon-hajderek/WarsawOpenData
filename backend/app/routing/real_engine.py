@@ -119,7 +119,15 @@ class RealRouteEngine(RouteEngine):
         built = [self._plan_option(raw, frm.label, to.label, origin, dest, date, profile) for raw in raws]
         if all(_counted(raw) for raw in raws) and not isinstance(origin, str):  # no street-only trip: walk
             built.append(self._walk_option(frm, to, origin, dest, profile, now))
-        return _finish(built)
+        result = _finish(built)
+        if not result and not isinstance(origin, str):
+            # No transit option at all (every mode excluded, or nothing runs): the street-only trip is the answer,
+            # however long, instead of an empty list.
+            fallback = self._walk_option(frm, to, origin, dest, profile, now, limit=False)
+            if fallback is not None:
+                fallback.tags.append("Bez komunikacji")
+                result = [fallback]
+        return result
 
     def _plan_option(self, raw, from_label, to_label, origin, dest, date, profile) -> Optional[RouteOption]:
         """One /plan option -> RouteOption (None for an empty or too long street-only trip)."""
@@ -135,12 +143,14 @@ class RealRouteEngine(RouteEngine):
             option.tags.append("Zmiana na trasie")
         return option
 
-    def _walk_option(self, frm, to, origin, dest, profile, now) -> Optional[RouteOption]:
-        if _distance(origin, dest) > 5000:
+    def _walk_option(self, frm, to, origin, dest, profile, now, limit=True) -> Optional[RouteOption]:
+        """The street-only trip next to transit options. `limit`: only when it is short (<= 5 km, <= 50 min), so it
+        does not crowd the list; without a limit it is the fallback when no transit option exists at all."""
+        if limit and _distance(origin, dest) > 5000:
             return None
         bike = _WALK_MODE.get() == "bike"  # transit with the own bike: the street-only trip is ridden
         street = _street(origin, dest, "bike" if bike else "walk", profile)
-        if street is None or _seconds(street) > 50 * 60:
+        if street is None or (limit and _seconds(street) > 50 * 60):
             return None
         legs = legs_from_router(street, from_name=frm.label, to_name=to.label, points=(origin, dest))
         option_id, title = ("bike", "Własny rower") if bike else ("walk", "Pieszo")

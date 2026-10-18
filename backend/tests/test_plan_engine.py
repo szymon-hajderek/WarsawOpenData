@@ -160,3 +160,25 @@ def test_off_graph_point_gives_no_options_and_downtime_503(plan, monkeypatch):
     monkeypatch.setattr(engine, "_plan_ready", down)
     response = client(monkeypatch).post("/api/routes", json=request().model_dump(by_alias=True, mode="json"))
     assert response.status_code == 503
+
+
+def test_no_transit_option_at_all_falls_back_to_the_street_trip_however_long(plan, monkeypatch):
+    # Every mode excluded (or nothing runs): instead of an empty list, the walk / wheelchair trip, even over 50 min.
+    _, answers = plan
+    answers[0] = []
+    long_walk = {"legs": [walk(None, None, 6000.0, 7000.0)]}
+    monkeypatch.setattr(engine, "_street", lambda *args, **kwargs: long_walk)
+    options = engine.RealRouteEngine().query_routes(
+        START, END, "standard", when="2026-10-18T08:00",
+        search=request(excludeModes=["bus", "tram", "metro", "rail", "veturilo"]))
+    assert [o.id for o in options] == ["walk"]
+    assert options[0].durationMin == 100 and "Bez komunikacji" in options[0].tags
+
+
+def test_long_walk_stays_out_when_transit_options_exist(plan, monkeypatch):
+    _, answers = plan
+    answers[0] = [BUS]
+    monkeypatch.setattr(engine, "_street", lambda *args, **kwargs: {"legs": [walk(None, None, 6000.0, 7000.0)]})
+    ids = [o.id for o in engine.RealRouteEngine().query_routes(START, END, "standard", when="2026-10-18T08:00",
+                                                                search=request())]
+    assert ids == ["pt-ztm:T1"]

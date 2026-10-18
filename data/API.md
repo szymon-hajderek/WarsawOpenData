@@ -647,7 +647,10 @@ excluded district or point are dropped after planning.
 No Python fallback: while the router's `/health` says the timetable or the plan of the mode is not ready
 (`timetable.status`, `plan.<mode>`), or `/plan` answers 501 / 503, the answer is `503`
 `{"detail": "transit timetable not ready"}` (or the router's own message). `/plan` does not read trip
-wheelchair accessibility yet. If `/plan` gives no street-only trip, the walk is asked from `POST /route`.
+wheelchair accessibility yet. If `/plan` gives no street-only trip, the walk is asked from `POST /route` (shown next to
+transit options only when it is at most 5 km and 50 min). When no transit option exists at all (e.g. every mode in
+`excludeModes`, or nothing runs), the answer is the street-only trip of the profile (walk, wheelchair, stroller; ridden
+with `access: "bike"`) however long, tagged `Bez komunikacji`, instead of an empty list.
 The clock is Europe/Warsaw. Before 04:00 the search uses the previous GTFS service day
 (times at 24:00 and later). Accessible and stroller searches (and `stepFree` / a wheelchair) plan on that mode's
 graph and matrices; Veturilo only in the walk mode.
