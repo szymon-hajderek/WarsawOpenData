@@ -10,12 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import journey_stats
 from .api import geocode, history, journeys, routes
+from .api import city_events as city_event_api
 from .config import settings
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await asyncio.to_thread(journey_stats.initialize)
+    await asyncio.to_thread(city_event_api.initialize)
     yield
 
 
@@ -32,6 +34,7 @@ app.include_router(routes.router)
 app.include_router(geocode.router)
 app.include_router(history.router)
 app.include_router(journeys.router)
+app.include_router(city_event_api.router)
 
 
 @app.get("/health", tags=["health"])

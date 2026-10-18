@@ -18,6 +18,7 @@ import bus_detect
 import journey_stats
 import street_router
 from app.api import geocode, history, journeys
+from app.api import city_events as city_event_api
 from app.api import routes as route_api
 from app.config import settings
 from config import DATA, MissingKey, UpstreamError, load_json
@@ -39,6 +40,7 @@ NEEDS_CACHES = ("/api/gtfs", "/api/osm", "/api/routes", "/api/live/nearest-buses
 def _warm_up() -> None:
     try:
         journey_stats.initialize()
+        city_event_api.initialize()
         mkuran.warm()
         geocode._local_index()  # place search answers in ms from the first request
         osm.warm()
@@ -107,6 +109,7 @@ app.include_router(route_api.router)
 app.include_router(geocode.router)
 app.include_router(history.router)
 app.include_router(journeys.router)
+app.include_router(city_event_api.router)
 
 # Simulation mode (integration tests, demo): the live feeds replay a scenario on a movable clock.
 if os.getenv("SIM_SCENARIO"):

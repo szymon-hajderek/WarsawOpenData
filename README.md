@@ -155,13 +155,29 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
      (needs `npm install` and `uv sync` once); open http://localhost:5173 and use the "Demo" tab (it exists only in
      simulation mode). `API_PORT` changes the backend port
    - optional `ROUTE_ENGINE` picks the route engine: `real` (default, the only one today)
-   - opt-in journey statistics: no extra dependency or database server is needed. Startup creates
+   - opt-in city research events: `uv sync` and `npm install` above are sufficient; no new dependencies.
+     Startup creates private `db/city-events/journal.sqlite`; writes also produce one
+     `YYYY-MM-DD.json` per Warsaw day, containing hourly event arrays. Optional `CITY_EVENTS_DIR`
+     overrides this directory. Give the backend write access and keep it outside the web root.
+     On the server, use a persistent local directory (or mounted volume) and restrict its OS permissions
+     to the operator; do not expose it through nginx, a public download route or Git.
+     Back up the entire directory and apply the same 12-month retention to backups manually.
+     Startup and event writes delete journal rows and exports older than 12 calendar months.
+     JSON exports are rebuilt from SQLite after an export failure on retry/startup. Daily JSONs are
+     rewritten per event: suitable for POC volumes, not a high-throughput archive.
+     In Preferences, enable the new city research consent (off by default; old endpoint-counter consent
+     does not transfer). The frontend no longer submits new legacy `/api/journeys` counters.
+     Searches, selected routes and recording lifecycle actions include planned legs, age buckets and
+     best-effort status of relevant Veturilo stations. No full tracks, precise coordinates or stable
+     user IDs are stored in the new journal. This is restricted research data, not guaranteed anonymous.
+     There is no public read/export endpoint; operators provide files to the city through private access.
+   - legacy opt-in journey statistics: no extra dependency or database server is needed. Startup creates
      `db/journey_stats.sqlite` (git-ignored; SQLite from the Python standard library). The backend needs write
      access to `db/`. Optional `JOURNEY_STATS_DB` changes the file path; its parent is created automatically.
      Anchors load from local GTFS and `data/gbfs/veturilo_station_information.json`. To download the latter:
      `uv run python download.py nextbike`. Statistics return 503 if no anchor catalog or database is available.
-     Enable **Statystyki podróży** in the app's Preferences (off by default), then explicitly start and finish
-     a real GPS recording. `POST /api/journeys` stores exact selected object references and daily counts;
+     This endpoint remains for older clients and existing data; the current frontend uses city events above.
+     `POST /api/journeys` stores exact selected object references and daily counts;
      current-location endpoints are replaced by the nearest transit/Veturilo anchor. No full GPS track,
      user/device identifier or precise journey timestamp is kept in this database. See `data/API.md`.
    - bus detection simulation: `uv run python ../algorithms/simulation/simulate_nearest_buses.py`

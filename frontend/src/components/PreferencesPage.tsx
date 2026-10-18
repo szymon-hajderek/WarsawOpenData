@@ -169,12 +169,14 @@ export default function PreferencesPage() {
           <Section icon={<HistoryIcon />} title="Statystyki podróży" hint="Pomóż nam lepiej planować transport w Warszawie.">
             <FormControlLabel
               control={<Switch checked={shareJourneys} onChange={(_, enabled) => setShareJourneys(enabled)} />}
-              label="Udostępniaj start i cel zakończonych przejazdów"
+              label="Udostępniaj dane podróży do badań miasta"
             />
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
-              Po zakończeniu nagrywanego przejazdu zliczymy wybrane miejsca startu i celu, bez identyfikatora
-              użytkownika i śladu GPS. Twoją lokalizację zastąpimy najbliższym przystankiem lub stacją Veturilo.
-              Zgodę możesz wyłączyć w każdej chwili. Dotyczy nowych przejazdów.
+              Zapisujemy wyszukiwania, wybrane trasy, rozpoczęcie, zakończenie lub przerwanie nagrywania,
+              planowane odcinki, przedział wieku z ustawień kalorii i dostępność związanych stacji Veturilo.
+              Miejsca zastępujemy heksagonami, zachowujemy identyfikatory stacji. Bez śladu GPS i stałego
+              identyfikatora użytkownika. Dane godzinowe są dostępne tylko dla miasta, do 12 miesięcy.
+              Wyłączenie zatrzymuje nowe wysyłki; nie usuwa wcześniej przekazanych danych.
             </Typography>
           </Section>
         </Box>

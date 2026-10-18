@@ -54,13 +54,13 @@ function NumberField({
   );
 }
 
-/** Body data for the calorie estimate (Preferences page only; it stays on the device). */
+/** Calorie inputs; city opt-in shares only a derived age bracket. */
 export default function BodySection({ value, onChange }: { value: BodySetting; onChange: (v: BodySetting) => void }) {
   return (
     <Section
       icon={<LocalFireDepartment />}
       title="Kalorie"
-      hint="Dzięki tym danym policzymy, ile kalorii naprawdę spalisz w drodze. Zostają tylko na tym urządzeniu."
+      hint="Dane służą do szacowania kalorii. Jeśli włączysz statystyki dla miasta, udostępnimy też przedział wieku."
     >
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, mb: 0.5 }}>
         <NumberField

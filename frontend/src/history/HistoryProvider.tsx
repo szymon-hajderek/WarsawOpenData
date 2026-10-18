@@ -9,7 +9,8 @@ import {
   type ReactNode,
 } from 'react';
 import { fetchSummary, fetchTripRecords, localSummary, type PlannedLeg } from '../api/history';
-import { journeySubmission, logJourney, type JourneySelection, type JourneySubmission } from '../api/journeys';
+import type { JourneySelection } from '../api/journeys';
+import { CITY_SHARING_KEY, cityPoint, cityRoute, forgetJourney, journeyId, logCityEvent, revokeCityConsent } from '../api/cityEvents';
 import { formatKmh } from '../preferences/model';
 import {
   MAX_RECORDS,
@@ -49,7 +50,7 @@ interface HistoryValue {
 }
 
 const STORAGE_KEY = 'trip-history';
-const SHARING_KEY = 'journey-statistics-enabled';
+const SHARING_KEY = CITY_SHARING_KEY;
 const SAMPLE_S = 4; // keep a GPS point at most every 4 seconds
 const MAX_ACCURACY_M = 100;
 
@@ -86,14 +87,13 @@ type WakeLockNavigator = Navigator & { wakeLock?: { request: (type: 'screen') =>
  *
  * Records (no coordinates) are kept in localStorage; the GPS track only lives in memory while a ride is
  * recorded and is sent to the speed-history endpoint once. Separately, opt-in statistics send
- * only the selected whole-trip endpoint references after explicit completion.
+ * research events without storing the GPS track. The legacy endpoint counters are no longer submitted.
  */
 export function HistoryProvider({ children }: { children: ReactNode }) {
   const [records, setRecords] = useState<TripRecord[]>(loadRecords);
   const [summary, setSummary] = useState<SpeedSummary>(() => localSummary(loadRecords()));
   const [shareJourneys, setSharing] = useState(loadSharing);
   const sharing = useRef(shareJourneys);
-  const submissions = useRef(new Set<AbortController>());
 
   const [status, setStatus] = useState<TrackerStatus>('idle');
   const [elapsedS, setElapsedS] = useState(0);
@@ -104,7 +104,8 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
     legs: PlannedLeg[];
     walkAs: 'walking' | 'wheelchair';
     startedAt: number;
-    journey?: JourneySubmission;
+    journey?: Record<string, unknown>;
+    route?: JourneySelection['route'];
   } | null>(null);
   const watchId = useRef<number | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -116,7 +117,7 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem(SHARING_KEY, String(enabled)); } catch { /* storage unavailable */ }
     if (!enabled) {
       if (ride.current) ride.current.journey = undefined;
-      submissions.current.forEach((controller) => controller.abort());
+      revokeCityConsent();
     }
   }, []);
 
@@ -151,10 +152,19 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const pending = submissions.current;
+    const interrupt = () => {
+      const current = ride.current;
+      if (current?.journey) {
+        void logCityEvent('journey_interrupted', { ...current.journey, elapsed_s: (Date.now() - current.startedAt) / 1000 });
+        current.journey = undefined;
+      }
+      if (current?.route) forgetJourney(current.route);
+    };
+    window.addEventListener('pagehide', interrupt);
     return () => {
       stopRecording();
-      pending.forEach((controller) => controller.abort());
+      window.removeEventListener('pagehide', interrupt);
+      interrupt();
     };
   }, [stopRecording]);
 
@@ -168,9 +178,14 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
       }
       points.current = [];
       ride.current = {
-        legs, walkAs, startedAt: Date.now(),
-        journey: sharing.current && journey ? journeySubmission(journey) : undefined,
+        legs, walkAs, startedAt: Date.now(), route: journey?.route,
+        journey: sharing.current && journey ? {
+          journey_id: journey.route ? journeyId(journey.route) : crypto.randomUUID(),
+          origin: cityPoint(journey.from), destination: cityPoint(journey.to),
+          ...(journey.route ? cityRoute(journey.route) : { legs: [] }),
+        } : undefined,
       };
+      if (ride.current.journey) void logCityEvent('journey_started', ride.current.journey);
       setElapsedS(0);
       setMessage(null);
       setStatus('tracking');
@@ -184,7 +199,11 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
         },
         () => {
           stopRecording();
+          if (ride.current?.journey) void logCityEvent('journey_interrupted', {
+            ...ride.current.journey, elapsed_s: (Date.now() - ride.current.startedAt) / 1000,
+          });
           if (ride.current) ride.current.journey = undefined;
+          if (ride.current?.route) forgetJourney(ride.current.route);
           setStatus('error');
           setMessage('Nie udało się ustalić lokalizacji. Sprawdź zgodę na lokalizację i spróbuj ponownie.');
         },
@@ -222,14 +241,12 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
     if (status !== 'tracking') return;
     stopRecording();
     const journey = ride.current?.journey;
-    const track = points.current;
-    if (journey && sharing.current && track.length >= 2 && track[track.length - 1].t > track[0].t) {
-      const controller = new AbortController();
-      submissions.current.add(controller);
-      // Independent of speed-history success, including transit-only trips with no speed records.
-      void logJourney(journey, controller.signal).finally(() => submissions.current.delete(controller));
+    if (journey && sharing.current) {
+      // Explicit app action, not verified GPS arrival or proof of a Veturilo rental.
+      void logCityEvent('journey_finished', { ...journey, elapsed_s: (Date.now() - ride.current!.startedAt) / 1000 });
     }
     if (ride.current) ride.current.journey = undefined;
+    if (ride.current?.route) forgetJourney(ride.current.route);
     await save();
   }, [status, stopRecording, save]);
 

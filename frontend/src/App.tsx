@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { cityPoint, cityRoute, journeyId, linkJourney, logCityEvent } from './api/cityEvents';
 import { Alert, Box, Button, Snackbar, Typography, useMediaQuery, useTheme } from '@mui/material';
 import MapView, { type MapPadding } from './components/MapView';
 import { useMap3d } from './map/map3d';
@@ -320,6 +321,12 @@ export default function App() {
   };
 
   const confirmOption = () => {
+    const selection = visible.find((o) => o.id === selectedId);
+    if (selection && activeTrip && replanning) linkJourney(selection, journeyId(activeTrip.route));
+    if (selection && origin && destination) void logCityEvent('route_selected', {
+      journey_id: journeyId(selection), origin: cityPoint(origin), destination: cityPoint(destination),
+      ...cityRoute(selection),
+    });
     if (activeTrip && replanning) {
       const picked = visible.find((o) => o.id === selectedId);
       if (!picked || !origin || !destination) return;

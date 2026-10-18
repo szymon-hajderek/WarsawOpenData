@@ -140,7 +140,7 @@ export interface ExcludedAreas {
 
 export type Sex = 'female' | 'male';
 
-/** Body data for the calorie estimate. `null` = not given (a typical value is assumed). Stays on the device. */
+/** Calorie inputs: null = not given. City opt-in shares only the derived age bracket. */
 export interface BodySetting {
   weightKg: number | null;
   heightCm: number | null;

@@ -28,3 +28,4 @@ integration/report/
 # worktrees of agent sessions
 .claude/worktrees/
 logs/
+db/city-events/

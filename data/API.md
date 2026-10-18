@@ -957,6 +957,62 @@ Errors: `422` for a malformed body or a value out of range (e.g. `minTrips: 0`).
 
 ## Journey statistics
 
+### `POST /api/city-events`
+
+Opt-in city research events, independent of the legacy `/api/journeys` counters.
+Body: `event_id` (UUID), `journey_id` (optional UUID), `type` (`search`,
+`route_selected`, `journey_started`, `journey_finished`, `journey_interrupted`),
+`age_group` (null or `<18`, `18-24`, `25-34`, `35-44`, `45-54`, `55-64`, `65+`),
+optional `plan_id` (UUID, distinguishes changed plans within one journey),
+optional `origin` / `destination` and `via` (max 5 points), `legs` (max 100),
+`result_count` (optional nonnegative integer), `travel` (optional transport choice),
+`departure_hour` (optional 0..23), `elapsed_s` (optional nonnegative number).
+Searches accept `outcome` (`results`, `no_results`, `offline`, `rejected`)
+and `excluded_modes` (transport mode array, max 7). Route summaries accept
+`duration_min`, `distance_m`, `transfers` (optional nonnegative values, transfers integer).
+Each point: `position: [lat, lon]`, optional `station_id` (catalog ID).
+Each leg: `mode` (`walk`, `bike`, `veturilo`, `bus`, `tram`, `metro`, `rail`),
+optional `origin` / `destination`, `duration_min`, `distance_m`, optional `wait_s`.
+Search result legs carry optional `option_index` (0-based) to distinguish alternatives.
+Unknown fields, invalid coordinates and nonfinite numbers are rejected (422).
+Journey events require `journey_id`. Times and distances on legs describe the plan,
+not measured completion of individual legs; `elapsed_s` is app elapsed time.
+
+Server assigns reception date/hour in Europe/Warsaw (no precise event timestamp
+is persisted). Every position becomes the existing axial `q:r` hex, radius 175 m;
+only known transport station IDs are retained. No labels, OSM place IDs, tracks,
+exact coordinates or persistent user IDs are stored. Optional age is bucketed by
+the client from the explicitly entered calorie age; an empty age stays null.
+For relevant Veturilo stations only, the server attaches a best-effort GBFS snapshot
+(availability, renting/returning, feed timestamp and age); failure is recorded as
+unavailable and does not reject the event. No periodic station archive is created.
+
+Response: `200 {"recorded": true}`; duplicate event UUID: `{"recorded": false}`.
+`503 {"detail": "city event storage unavailable"}` on storage failure.
+Private storage defaults to `db/city-events/` (`CITY_EVENTS_DIR` overrides it).
+SQLite is the durable event journal and retry deduplication index; an atomically
+written daily `YYYY-MM-DD.json` contains `schema_version`, `day`, `timezone`, and `hours`
+(keys `00`..`23`, arrays of heterogeneous events). Days follow receipt time;
+cross-midnight journeys keep their ID. DST repeated hours share a bucket.
+SQLite transactions serialize writes and exports across threads/workers. Failed
+exports are repaired on retry/startup. There is no public read/export API.
+Files and journal rows older than 12 calendar months are removed at startup and
+on writes. This is restricted research microdata, not guaranteed anonymous data.
+The consent switch covers searches, selections, journey lifecycle, planned legs,
+age groups and relevant station snapshots. No consent means no submission.
+Demo/simulation events are not collected. Browser close interruption delivery is
+best effort; absence of a finish event must not be interpreted as completed travel.
+
+Verified on a running local `uvicorn app.main:app` server, port 8767, with an
+isolated temporary `CITY_EVENTS_DIR` (2026-10-18). Request:
+
+```json
+{"event_id":"1ff008a1-e58c-4c27-86be-6329ef952cf3","type":"search","age_group":"25-34","origin":{"position":[52.23,21.01]},"destination":{"position":[52.24,21.02]},"result_count":0,"outcome":"no_results","travel":"transit"}
+```
+
+First response: `200 {"recorded":true}`. Identical retry:
+`200 {"recorded":false}`. Neither response contains coordinates.
+
 ### `POST /api/journeys`
 
 Records one explicitly completed GPS recording, only when the user has opted in (off by default).

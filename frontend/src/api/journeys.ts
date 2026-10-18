@@ -1,7 +1,8 @@
 import { API_URL, apiUrl } from '../config';
-import type { Place } from '../types';
+import type { Place, RouteOption } from '../types';
 
 export interface JourneySelection {
+  route?: RouteOption;
   from: Place;
   to: Place;
 }

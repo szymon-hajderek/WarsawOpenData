@@ -76,7 +76,7 @@ function TripRecorder({ route, origin, destination, onStart }: { route: RouteOpt
             variant="outlined"
             startIcon={<FiberManualRecord sx={{ color: 'error.main' }} />}
             onClick={() => {
-              const begin = () => tracker.start(legs, walkAs, { from: origin, to: destination });
+              const begin = () => tracker.start(legs, walkAs, { from: origin, to: destination, route });
               // The app decides when the recording begins (a later departure waits for its time).
               if (onStart) onStart(begin);
               else begin();

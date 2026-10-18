@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { cityConsent, cityConsentRevision, cityLegs, cityPoint, logCityEvent } from '../api/cityEvents';
 import { BackendOfflineError, fetchRouteOptions, VehicleNotFoundError } from '../api/routes';
 import { fetchStreetTrip, StreetRouteError } from '../api/streetRoute';
 import { streetMode, TRANSIT_PROFILE, type Access, type TransitAccess, type TravelMode } from '../travel';
@@ -45,6 +46,8 @@ export function useRouteSearch({ origin, destination, via, order, search, travel
       setLoading(false);
       return;
     }
+    const collect = cityConsent();
+    const consentRevision = cityConsentRevision();
     const ac = new AbortController();
     setLoading(true);
     // Street trips send `travel` and the user's pace only: the vehicle exclusions are about public transport.
@@ -70,11 +73,25 @@ export function useRouteSearch({ origin, destination, via, order, search, travel
         );
     request
       .then((result) => {
+        if (ac.signal.aborted) return;
+        if (collect && consentRevision === cityConsentRevision()) void logCityEvent('search', {
+          origin: cityPoint(origin), destination: cityPoint(destination), via: via.map(cityPoint),
+          travel, departure_hour: when ? Number(when.slice(11, 13)) : undefined,
+          result_count: result.options.length,
+          outcome: result.options.length ? 'results' : 'no_results',
+          excluded_modes: search?.excludeModes,
+          legs: result.options.flatMap((route, index) => cityLegs(route).map((leg) => ({ ...leg, option_index: index }))).slice(0, 100),
+        });
         setOptions(result.options);
         setLoading(false);
       })
       .catch((err) => {
         if (ac.signal.aborted) return;
+        if (collect && consentRevision === cityConsentRevision()) void logCityEvent('search', {
+          origin: cityPoint(origin), destination: cityPoint(destination), via: via.map(cityPoint), travel,
+          result_count: 0, outcome: err instanceof BackendOfflineError ? 'offline' : 'rejected',
+          excluded_modes: search?.excludeModes,
+        });
         console.warn('Route search failed', err);
         setOptions([]);
         setOffline(err instanceof BackendOfflineError);

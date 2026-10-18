@@ -552,6 +552,16 @@ Everything in this repo (files, commits, PRs) is written in English.
 
 ### Backend — routing API (`backend/app/`)
 
+- City research events: `POST /api/city-events` (`app/api/city_events.py`, `city_events.py`) journals
+  heterogeneous opt-in events in private SQLite and atomically writes one JSON per Warsaw day with
+  hourly buckets (`db/city-events/`, override `CITY_EVENTS_DIR`). No public export endpoint. Positions
+  become the existing 175 m axial hexes, only catalog station IDs survive; age becomes a bracket.
+  Planned legs are explicitly marked, recording completion is not verified arrival. Relevant Veturilo
+  snapshots are best effort; no periodic station archive. Startup/writes remove data older than 12
+  calendar months; operators apply retention to backups too. New consent `city-research-enabled-v1`
+  defaults off and replaces frontend submissions to legacy `/api/journeys`; its old database remains.
+  Restricted city microdata must not be described as guaranteed anonymous. Issue reporting is deferred.
+
 - Journey statistics (#52): `POST /api/journeys` records only the whole-trip start/destination of explicitly
   finished real GPS recordings after separate opt-in (off by default, localStorage `journey-statistics-enabled`).
   `backend/journey_stats.py` initializes SQLite and the local GTFS/GBFS anchor catalog at startup in both apps;
