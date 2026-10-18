@@ -8,3 +8,4 @@ A prototype, on purpose easy to remove: a tilted 3D map as an option.
 - Not in 3D (use 2D): picking a point on the map (picking switches back to 2D), stop overlays and popups, the follow mode of an active trip, the Veturilo / overlay layers button.
 - Assumptions: pitch 55 and bearing -17 look good on a phone; building colours are lighter than the flat ones so the walls read; no new dependency (`maplibre-gl` was already there).
 - Checked in the browser pane (WebGL works there): light and dark, buildings and the tilt; route lines checked only in unit tests until the backend is up again.
+- The 2D / 3D switch is the first button of the map controls in both maps, so it stays at the same place (checked: same position in 2D and 3D).

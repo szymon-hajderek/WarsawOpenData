@@ -539,6 +539,13 @@ export default function MapView({
           gap: 1.25,
         }}
       >
+        {/* the 2D / 3D switch is the first button in both maps, so it stays where it is */}
+        {onOpen3d &&
+          fab(
+            <IconButton aria-label="Włącz mapę 3D (prototyp)" onClick={onOpen3d}>
+              <ThreeDRotation />
+            </IconButton>,
+          )}
         {fab(
           <IconButton
             aria-label={paletteMode === 'dark' ? 'Włącz jasny motyw' : 'Włącz ciemny motyw'}
@@ -556,12 +563,6 @@ export default function MapView({
             <Layers />
           </IconButton>,
         )}
-        {onOpen3d &&
-          fab(
-            <IconButton aria-label="Włącz mapę 3D (prototyp)" onClick={onOpen3d}>
-              <ThreeDRotation />
-            </IconButton>,
-          )}
         {fab(
           <IconButton
             aria-label="Warstwy przystanków"
