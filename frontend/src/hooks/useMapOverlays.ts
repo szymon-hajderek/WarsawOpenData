@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type L from 'leaflet';
 import { fetchStations, type Station } from '../api/stations';
 import { fetchVeturiloStatus, type DockStatus } from '../api/veturilo';
 import { visibleKinds, type OverlayId } from '../map/overlays';
 
 type Box = [number, number, number, number]; // min_lat, min_lon, max_lat, max_lon
+
+/** What the hook needs from a map: both the Leaflet map and the MapLibre map have it. */
+export interface ViewMap {
+  on(type: 'moveend', fn: () => void): unknown;
+  off(type: 'moveend', fn: () => void): unknown;
+  getZoom(): number;
+  getBounds(): { getSouth(): number; getWest(): number; getNorth(): number; getEast(): number };
+}
 
 const STATUS_EVERY_MS = 60_000;
 
@@ -13,8 +20,10 @@ const inside = (a: Box, b: Box) => a[0] >= b[0] && a[1] >= b[1] && a[2] <= b[2] 
 /**
  * Stations of the switched-on overlays in the visible part of the map (loaded for the view plus a margin, again only
  * when the view leaves it), and the live Veturilo status while Veturilo is shown. Failures leave the overlay empty.
+ * `zoomOffset` converts the zoom of the map to the zoom the overlay thresholds are written for (Leaflet zoom; the MapLibre
+ * zoom is one lower).
  */
-export function useMapOverlays(map: L.Map | null, ids: OverlayId[]) {
+export function useMapOverlays(map: ViewMap | null, ids: OverlayId[], zoomOffset = 0) {
   const [view, setView] = useState<{ zoom: number; box: Box } | null>(null);
   const [loaded, setLoaded] = useState<{ box: Box; stations: Station[] } | null>(null);
   const [status, setStatus] = useState<Map<string, DockStatus>>(new Map());
@@ -25,7 +34,7 @@ export function useMapOverlays(map: L.Map | null, ids: OverlayId[]) {
     if (!map) return;
     const read = () => {
       const b = map.getBounds();
-      setView({ zoom: map.getZoom(), box: [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()] });
+      setView({ zoom: map.getZoom() + zoomOffset, box: [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()] });
     };
     const onMove = () => {
       window.clearTimeout(timer.current);
@@ -37,7 +46,7 @@ export function useMapOverlays(map: L.Map | null, ids: OverlayId[]) {
       map.off('moveend', onMove);
       window.clearTimeout(timer.current);
     };
-  }, [map]);
+  }, [map, zoomOffset]);
 
   const kinds = useMemo(() => (view ? visibleKinds(ids, view.zoom) : new Set<string>()), [ids, view]);
   const any = kinds.size > 0;
