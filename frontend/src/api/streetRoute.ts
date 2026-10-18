@@ -1,4 +1,5 @@
-import type { LatLng, LonLat, Place, RouteOption } from '../types';
+import type { LatLng, LegSegment, LonLat, Place, RouteOption, SegmentKind } from '../types';
+import { SEGMENT_KINDS } from '../utils/legStyle';
 import { ROUTER_MODE, TRAVEL_LABELS, type StreetMode } from '../travel';
 import { API_URL, apiUrl } from '../config';
 import { formatTime } from '../utils/format';
@@ -23,12 +24,20 @@ export class StreetRouteError extends Error {
 }
 
 const MESSAGES: Record<number, string> = {
+  // only old servers: every street mode (also stroller) is supported now
   400: 'Ten tryb nie jest jeszcze dostępny na serwerze',
   404: 'Brak trasy',
   422: 'Punkt poza zasięgiem mapy',
   503: 'Serwer tras nie działa',
 };
 const messageFor = (status: number) => MESSAGES[status] ?? 'Serwer tras nie działa';
+
+/** One part of the street leg as the router sends it (`path` is `[lon, lat]`). */
+interface StreetSegment {
+  kind: SegmentKind;
+  length_m: number;
+  path: LonLat[];
+}
 
 interface StreetAnswer {
   seconds: number;
@@ -39,11 +48,30 @@ interface StreetAnswer {
   path?: LonLat[];
   elevators?: LonLat[];
   steps?: LonLat[];
+  /** One leg; its `segments` (optional) split the path into ridden / pushed / walked parts. */
+  legs?: { segments?: StreetSegment[] }[];
 }
 
 const isPoint = (p: unknown): p is [number, number] =>
   Array.isArray(p) && p.length === 2 && p.every((n) => typeof n === 'number' && Number.isFinite(n));
 const isPoints = (x: unknown) => x === undefined || (Array.isArray(x) && x.every(isPoint));
+const isObject = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null;
+
+const isStreetSegment = (s: unknown) =>
+  isObject(s) &&
+  typeof s.kind === 'string' &&
+  (SEGMENT_KINDS as readonly string[]).includes(s.kind) &&
+  typeof s.length_m === 'number' &&
+  Number.isFinite(s.length_m) &&
+  Array.isArray(s.path) &&
+  s.path.length > 0 &&
+  s.path.every(isPoint);
+
+/** `legs` and their `segments` are optional (older servers); when present they must have the right shape. */
+const isStreetLegs = (x: unknown) =>
+  x === undefined ||
+  (Array.isArray(x) &&
+    x.every((l) => isObject(l) && (l.segments === undefined || (Array.isArray(l.segments) && l.segments.every(isStreetSegment)))));
 
 /** True when the answer has the numbers and the geometry the route is built from. */
 export function isStreetAnswer(v: unknown): v is StreetAnswer {
@@ -56,11 +84,19 @@ export function isStreetAnswer(v: unknown): v is StreetAnswer {
     a.geometry.every(isPoint) &&
     isPoints(a.path) &&
     isPoints(a.elevators) &&
-    isPoints(a.steps)
+    isPoints(a.steps) &&
+    isStreetLegs(a.legs)
   );
 }
 
 const lonLat = (p: LatLng): LonLat => [p[1], p[0]];
+const latLng = (p: LonLat): LatLng => [p[1], p[0]];
+
+/** The router's segments in the UI shape: `[lat, lon]` paths and `lengthM`. */
+export function toSegments(segments: StreetSegment[] | undefined): LegSegment[] | undefined {
+  if (!segments?.length) return undefined;
+  return segments.map((s) => ({ kind: s.kind, lengthM: s.length_m, path: s.path.map(latLng) }));
+}
 
 /** The one-leg `RouteOption` of a router answer. */
 export function streetOption(answer: StreetAnswer, from: Place, to: Place, mode: StreetMode, now = new Date()): RouteOption {
@@ -68,6 +104,7 @@ export function streetOption(answer: StreetAnswer, from: Place, to: Place, mode:
   const elevators = answer.elevators ?? [];
   const steps = answer.steps ?? [];
   const path = answer.geometry;
+  const segments = toSegments(answer.legs?.[0]?.segments);
   const tags: string[] = [];
   if (mode === 'wheelchair' || mode === 'stroller') tags.push('bez schodów');
   if (elevators.length > 0) tags.push(`windy: ${elevators.length}`);
@@ -88,6 +125,7 @@ export function streetOption(answer: StreetAnswer, from: Place, to: Place, mode:
         path,
         elevators,
         steps,
+        ...(segments ? { segments } : {}),
       },
     ],
     departure: formatTime(now),

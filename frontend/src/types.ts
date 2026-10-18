@@ -37,6 +37,19 @@ export interface RouteLeg {
   /** `[lon, lat]` where a street route boards an elevator / starts a flight of steps (street-only routes). */
   elevators?: LonLat[];
   steps?: LonLat[];
+  /** Consecutive parts of one kind that cover the whole `path` (street legs; optional). */
+  segments?: LegSegment[];
+  /** Transit leg whose `path` is a straight line through the stops (no GTFS shape). */
+  approximatePath?: boolean;
+}
+
+/** `ride` = bike ridden, `push` = bike pushed, `metro_access` = the walk down to a metro platform. */
+export type SegmentKind = 'ride' | 'push' | 'walk' | 'steps' | 'elevator' | 'metro_access';
+
+export interface LegSegment {
+  kind: SegmentKind;
+  path: LatLng[];
+  lengthM: number;
 }
 
 /** Keep the intermediate stops as added, or let the backend reorder them for the shortest trip. */

@@ -15,6 +15,7 @@ import { MAP_ATTRIBUTION } from '../map/mapStyle';
 import { createLookStyle, useMapLook, type MapLook } from '../map/mapLook';
 import { useRouteStations } from '../hooks/useRouteStations';
 import { buildOverlay, type Overlay } from '../utils/overlay';
+import { legLines, type LineStyle } from '../utils/legStyle';
 import { glassCss, glassStyle } from '../map/glass';
 import '../map/glass.css';
 import type { LatLng, Place as PlaceT, RouteOption } from '../types';
@@ -234,6 +235,18 @@ function RouteLayer({
         const color = walk ? colors.accent : modeColor(leg.mode, palette);
         const positions = overlay?.paths[i] ?? leg.path;
         const buried = underground && leg.mode === 'metro';
+        // ridden parts solid, pushed parts dashed, steps / elevators / metro access in their own style
+        const lines = legLines(leg, positions);
+        const options = (style: LineStyle) =>
+          style === 'access'
+            ? { color: colors.accent, weight: 8, dashArray: '2 6', opacity: 1, lineCap: 'butt' as const }
+            : {
+                color,
+                weight: style === 'dotted' ? 5 : 6,
+                dashArray: style === 'dotted' ? '1 10' : style === 'dashed' || buried ? '8 8' : undefined,
+                opacity: buried ? 0.55 : 1,
+                lineCap: 'round' as const,
+              };
         return (
           <Fragment key={`${i}-${leg.mode}`}>
             {!walk && !buried && (
@@ -243,18 +256,14 @@ function RouteLayer({
                 pathOptions={{ color: colors.surface, weight: 12, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }}
               />
             )}
-            <Polyline
-              positions={positions}
-              interactive={false}
-              pathOptions={{
-                color,
-                weight: walk ? 5 : 6,
-                dashArray: walk ? '1 10' : buried ? '8 8' : undefined,
-                opacity: buried ? 0.55 : 1,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
+            {lines.map((line, k) => (
+              <Polyline
+                key={k}
+                positions={line.path}
+                interactive={false}
+                pathOptions={{ ...options(line.style), lineJoin: 'round' }}
+              />
+            ))}
           </Fragment>
         );
       })}
