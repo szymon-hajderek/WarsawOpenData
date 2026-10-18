@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GeoJSONSource, LngLatBoundsLike, Map as MlMap, Marker as MlMarker } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { Box, IconButton, type PaletteMode } from '@mui/material';
-import Add from '@mui/icons-material/Add';
-import Remove from '@mui/icons-material/Remove';
-import MyLocation from '@mui/icons-material/MyLocation';
-import DarkMode from '@mui/icons-material/DarkMode';
-import LightMode from '@mui/icons-material/LightMode';
-import ThreeDRotation from '@mui/icons-material/ThreeDRotation';
+import { Box, type PaletteMode } from '@mui/material';
 import { ICON_PATH, iconHtml } from '../modes';
 import { PALETTE } from '../map/palette';
 import { MAP_ATTRIBUTION } from '../map/mapStyle';
 import { createLookStyle, useMapLook } from '../map/mapLook';
+import { OVERLAYS } from '../map/overlays';
+import { stationsGeoJson } from '../map/overlay3d';
+import { useOverlayIds } from '../hooks/useOverlayIds';
+import { useMapOverlays, type ViewMap } from '../hooks/useMapOverlays';
+import MapControls from './MapControls';
 import { BEARING_3D, PITCH_3D, with3dBuildings } from '../map/style3d';
 import { routeGeoJson } from '../map/route3d';
 import type { LatLng, Place, RouteOption } from '../types';
@@ -30,6 +29,8 @@ interface Props {
   padding: MapPadding;
   stops?: Place[];
   controlsOffset?: number;
+  /** Shows the vehicle detection button, like on the 2D map. */
+  onDetectVehicle?: () => void;
   /** Back to the flat 2D map. */
   onClose3d: () => void;
 }
@@ -60,13 +61,20 @@ export default function MapView3D({
   padding,
   stops = [],
   controlsOffset = 0,
+  onDetectVehicle,
   onClose3d,
 }: Props) {
   const colors = PALETTE[paletteMode];
-  const [look] = useMapLook();
+  const [look, toggleLook] = useMapLook();
+  const [overlayIds, toggleOverlay] = useOverlayIds();
+  const [rotateMode, setRotateMode] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<MlMap | null>(null);
   const markers = useRef<MlMarker[]>([]);
+  // MapLibre zoom is one lower than the Leaflet zoom the stop layers' thresholds are written for.
+  const overlayData = useMapOverlays(map as ViewMap | null, overlayIds, 1);
+  const overlayRef = useRef(overlayData);
+  overlayRef.current = overlayData;
   const latest = useRef({ route, paletteMode });
   latest.current = { route, paletteMode };
 
@@ -93,6 +101,41 @@ export default function MapView3D({
     m.addLayer({ id: 'route-access', type: 'line', source: 'route', filter: is('access'), paint: { 'line-color': ['get', 'color'], 'line-width': 7, 'line-dasharray': [1, 2] } });
   };
 
+  /** The stop layers: dots for stops, a pill with the bike count for Veturilo stations (again after every style change). */
+  const addOverlayLayers = (m: MlMap) => {
+    if (m.getSource('stations')) return;
+    const { stations, status } = overlayRef.current;
+    m.addSource('stations', { type: 'geojson', data: stationsGeoJson(stations, status, latest.current.paletteMode) });
+    m.addLayer({
+      id: 'stations-stops',
+      type: 'circle',
+      source: 'stations',
+      filter: ['==', ['get', 'type'], 'stop'],
+      paint: {
+        'circle-color': ['get', 'color'],
+        'circle-radius': ['case', ['get', 'big'], 6, 4.5],
+        'circle-stroke-color': '#FFFFFF',
+        'circle-stroke-width': 1.5,
+        'circle-pitch-alignment': 'map',
+      },
+    });
+    m.addLayer({
+      id: 'stations-docks',
+      type: 'circle',
+      source: 'stations',
+      filter: ['==', ['get', 'type'], 'veturilo'],
+      paint: { 'circle-color': ['get', 'color'], 'circle-radius': 10, 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 2 },
+    });
+    m.addLayer({
+      id: 'stations-count',
+      type: 'symbol',
+      source: 'stations',
+      filter: ['==', ['get', 'type'], 'veturilo'],
+      layout: { 'text-field': ['get', 'count'], 'text-font': ['Noto Sans Bold'], 'text-size': 11, 'text-allow-overlap': true },
+      paint: { 'text-color': '#FFFFFF' },
+    });
+  };
+
   // One map for the life of the component.
   useEffect(() => {
     let cancelled = false;
@@ -110,7 +153,11 @@ export default function MapView3D({
         maxPitch: 70,
         attributionControl: { compact: true, customAttribution: MAP_ATTRIBUTION },
       });
-      created.on('style.load', () => created && addRouteLayers(created));
+      created.on('style.load', () => {
+        if (!created) return;
+        addRouteLayers(created);
+        addOverlayLayers(created);
+      });
       setMap(created);
     });
     return () => {
@@ -139,6 +186,47 @@ export default function MapView3D({
     const source = map?.getSource('route') as GeoJSONSource | undefined;
     source?.setData(route ? routeGeoJson(route, paletteMode) : { type: 'FeatureCollection', features: [] });
   }, [map, route, paletteMode]);
+
+  // The stop layers on the map.
+  useEffect(() => {
+    const source = map?.getSource('stations') as GeoJSONSource | undefined;
+    source?.setData(stationsGeoJson(overlayData.stations, overlayData.status, paletteMode));
+  }, [map, overlayData.stations, overlayData.status, paletteMode]);
+
+  // Rotate mode: one finger (or the mouse) turns the map sideways and tilts it, instead of moving it.
+  useEffect(() => {
+    if (!map || !rotateMode) return;
+    const el = map.getCanvasContainer();
+    map.dragPan.disable();
+    el.style.touchAction = 'none';
+    let last: { x: number; y: number } | null = null;
+    const down = (e: PointerEvent) => {
+      last = { x: e.clientX, y: e.clientY };
+      el.setPointerCapture?.(e.pointerId);
+    };
+    const move = (e: PointerEvent) => {
+      if (!last) return;
+      const dx = e.clientX - last.x;
+      const dy = e.clientY - last.y;
+      last = { x: e.clientX, y: e.clientY };
+      map.jumpTo({ bearing: map.getBearing() - dx * 0.4, pitch: Math.min(70, Math.max(0, map.getPitch() - dy * 0.3)) });
+    };
+    const up = () => {
+      last = null;
+    };
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    return () => {
+      el.removeEventListener('pointerdown', down);
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+      el.style.touchAction = '';
+      map.dragPan.enable();
+    };
+  }, [map, rotateMode]);
 
   // Markers: user, start, destination, stops.
   useEffect(() => {
@@ -189,35 +277,24 @@ export default function MapView3D({
     }
   }, [map, userPosition, origin, destination]);
 
-  const fab = (label: string, onClick: () => void, child: React.ReactNode) => (
-    <Box sx={{ borderRadius: '50%', bgcolor: colors.surface, boxShadow: colors.shadow, '& .MuiIconButton-root': { width: 46, height: 46, color: colors.accent, fontWeight: 800, fontSize: 15 } }}>
-      <IconButton aria-label={label} onClick={onClick}>
-        {child}
-      </IconButton>
-    </Box>
-  );
-
   return (
     <>
       <Box ref={box} data-testid="map-3d" sx={{ position: 'absolute', inset: 0, '& .maplibregl-ctrl-attrib': { fontSize: 10 } }} />
-      <Box
-        sx={{
-          position: 'absolute',
-          zIndex: 900,
-          right: { xs: 12, sm: 16 },
-          top: { xs: `calc(env(safe-area-inset-top) + ${156 + controlsOffset}px)`, sm: 'calc(env(safe-area-inset-top) + 16px)' },
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 1.25,
-        }}
-      >
-        {fab('Wróć do mapy 2D', onClose3d, '2D')}
-        {fab(paletteMode === 'dark' ? 'Włącz jasny motyw' : 'Włącz ciemny motyw', onToggleMode, paletteMode === 'dark' ? <LightMode /> : <DarkMode />)}
-        {fab('Moja lokalizacja', onLocate, <MyLocation />)}
-        {fab('Przybliż', () => map?.zoomIn(), <Add />)}
-        {fab('Oddal', () => map?.zoomOut(), <Remove />)}
-        {fab('Zmień nachylenie mapy', () => map?.easeTo({ pitch: map.getPitch() > 10 ? 0 : PITCH_3D, bearing: map.getPitch() > 10 ? 0 : BEARING_3D, duration: 600 }), <ThreeDRotation />)}
-      </Box>
+      <MapControls
+        paletteMode={paletteMode}
+        onToggleMode={onToggleMode}
+        view3d
+        onSwitchView={onClose3d}
+        look={look}
+        onToggleLook={toggleLook}
+        overlayIds={overlayIds}
+        onToggleOverlay={toggleOverlay}
+        overlayZoomedOut={OVERLAYS.some((o) => overlayIds.includes(o.id) && overlayData.zoom < o.minZoom)}
+        onLocate={onLocate}
+        onDetectVehicle={onDetectVehicle}
+        rotate={{ on: rotateMode, onToggle: () => setRotateMode((on) => !on) }}
+        controlsOffset={controlsOffset}
+      />
     </>
   );
 }

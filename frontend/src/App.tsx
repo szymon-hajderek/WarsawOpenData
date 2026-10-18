@@ -374,6 +374,7 @@ export default function App() {
               padding={padding}
               stops={inTrip ? [] : via}
               controlsOffset={inTrip || step === 'route' ? 0 : 84 + stopFields.length * 56 + (hasAccess(travel) && !byBike ? 36 : 0) + (travel === 'transit' ? 36 : 0)}
+              onDetectVehicle={!activeTrip && step === 'search' ? requestLinePopup : undefined}
               onClose3d={() => setMap3d(false)}
             />
           </Suspense>
