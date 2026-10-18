@@ -47,6 +47,7 @@ WALK_M = {"standard": 900, "slow": 700, "accessible": 600, "stroller": 600}
 CATCH_SLACK_S = 20
 _SPEED = contextvars.ContextVar("route_speed", default=None)
 _BLOCK = contextvars.ContextVar("route_block", default=None)
+_EXCLUDE = contextvars.ContextVar("route_exclude", default=frozenset())
 _WALK_MODE = contextvars.ContextVar("route_walk_mode", default=None)
 
 
@@ -84,7 +85,10 @@ class RealRouteEngine(RouteEngine):
         origin = tuple(frm.position)
         dest = tuple(to.position)
         graph = "accessible" if accessible else "stroller" if profile == "stroller" else "walk"
-        tokens = (_SPEED.set(speed), _BLOCK.set(block), _WALK_MODE.set(graph))
+        exclude = frozenset(getattr(search, "excludeModes", None) or ())
+        if travel == "transit" and "veturilo" in exclude:
+            speed["bike"] = 0.0  # no rented bike; an own-bike trip (travel=bike) is not affected
+        tokens = (_SPEED.set(speed), _BLOCK.set(block), _WALK_MODE.set(graph), _EXCLUDE.set(exclude))
         try:
             if travel != "transit":
                 option = self._street_option(frm, to, origin, dest, profile, now, travel)
@@ -108,6 +112,7 @@ class RealRouteEngine(RouteEngine):
             _SPEED.reset(tokens[0])
             _BLOCK.reset(tokens[1])
             _WALK_MODE.reset(tokens[2])
+            _EXCLUDE.reset(tokens[3])
 
     def _query(self, frm, to, profile, now, now_sec, date, origin, dest, speed, accessible, max_transfers):
         stops = [_mapped(s) for s in mkuran.vertices()]
@@ -448,6 +453,8 @@ def _plan_options(speed, max_transfers, profile) -> dict:
     options = {"speeds": _router_speeds(profile), "max_legs": max_transfers + 1}
     if speed["bike"] <= 0:
         options["veturilo_s"] = 0
+    if _EXCLUDE.get():
+        options["exclude_modes"] = sorted(_EXCLUDE.get())
     return options
 
 
@@ -549,6 +556,9 @@ def _ride_clear(ride) -> bool:
 
 
 def _option_clear(option: RouteOption) -> bool:
+    """False when the option uses an excluded mode (the safety net) or its path enters an excluded area."""
+    if any(leg.mode in _EXCLUDE.get() for leg in option.legs):
+        return False
     for leg in option.legs:
         for point in leg.path[1:-1]:
             if _inside(point[0], point[1]):
