@@ -11,6 +11,8 @@ export interface Station {
   id: string;
   kind: StationKind | string;
   name: string;
+  /** Post number ("02"), rail platform ("peron 1/2") or Veturilo number; absent when empty. */
+  code?: string;
   /** The position to draw (`position` of the answer, as `[lat, lon]`). */
   position: LatLng;
   /** Metro: the station's entrances (where the walk goes down), as `[lat, lon]`. */
@@ -28,7 +30,8 @@ export function parseStation(raw: unknown): Station | null {
   const entrances: LatLng[] = Array.isArray(raw.entrances)
     ? raw.entrances.flatMap((e) => (isObject(e) && isNum(e.lat) && isNum(e.lon) ? [[e.lat, e.lon] as LatLng] : []))
     : [];
-  return { id: raw.id, kind: raw.kind, name: raw.name, position: [p.lat, p.lon], entrances };
+  const code = typeof raw.code === 'string' && raw.code ? raw.code : undefined;
+  return { id: raw.id, kind: raw.kind, name: raw.name, code, position: [p.lat, p.lon], entrances };
 }
 
 /** Stations inside a box (`min_lat,min_lon,max_lat,max_lon`). Empty without a backend: there are no made-up stops. */
