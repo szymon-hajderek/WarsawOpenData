@@ -345,6 +345,12 @@ Everything in this repo (files, commits, PRs) is written in English.
   Backend Nominatim: 1.5 s timeout, 1 h cache, calls >= 1 s apart (skipped when the wait would be > 1 s), 30 s pause after a 429. The Nominatim public server
   answers 429 for a while after a burst of requests (seen in testing), so never loop over it. `places.json` (about 3400 rows, 136 KB, a separate chunk) is
   regenerated after a timetable, station or landmark change: `cd backend && uv run python export_places.py`.
+- Pick on map: every `PlaceField` lists "Wybierz na mapie" (when not typing; `SearchCard` `onPickOnMap(target)`, target =
+  origin / destination / stop index). `App.tsx` then shows `PickBanner` ("Dotknij mapy, aby wybrać punkt", "Anuluj", Escape)
+  instead of the search card and sheets; a tap / click on the map (crosshair cursor) -> `api/pickPlace.ts` `placeAt`: the nearest
+  stop / Veturilo station within 60 m (`GET /api/stations?bbox`, its id and name) else `map:<lat>,<lon>` "Punkt na mapie"; the
+  search then runs as usual. Long press / right click on the map (`MapView` `onContextPick`) offers "Stąd" / "Dotąd".
+  `map:` ids are not accepted by `POST /api/journeys` (no journey statistics for such a trip).
 - Colours: one palette, the Warsaw colours (red + yellow): `src/map/palette.ts` (`PALETTE`, light / dark). Red is the main
   colour in light mode, yellow the accent at night. It sets the map colours, the round map buttons / markers AND the accent
   of the whole UI (the MUI theme in `src/theme.ts` is built from it). The old lavender look and the look switch were removed.

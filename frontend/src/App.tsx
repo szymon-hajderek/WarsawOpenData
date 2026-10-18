@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Box, Button, Snackbar, Typography, useMediaQuery, useTheme } from '@mui/material';
 import MapView, { type MapPadding } from './components/MapView';
-import SearchCard from './components/SearchCard';
+import SearchCard, { type PickTarget } from './components/SearchCard';
+import PickBanner from './components/PickBanner';
+import { placeAt } from './api/pickPlace';
 import RouteOptionsSheet from './components/RouteOptionsSheet';
 import RouteDetailsSheet from './components/RouteDetailsSheet';
 import VehicleSheet from './components/VehicleSheet';
@@ -35,7 +37,7 @@ import {
   type TripFilters,
 } from './preferences/model';
 import { BOTTOM_NAV_HEIGHT, MAP_PADDING, PANEL_WIDTH } from './layout';
-import type { Place, RouteOption, StopOrder } from './types';
+import type { LatLng, Place, RouteOption, StopOrder } from './types';
 
 /** Origin id prefix of "plan from the vehicle I am in" (`onboard` in `POST /api/routes`). */
 const ONBOARD_PREFIX = 'onboard:';
@@ -193,6 +195,39 @@ export default function App() {
   }, [offlineShown]);
 
 
+  // "Wybierz na mapie": the field being picked, and whether the tapped point is being named (nearest stop).
+  const [picking, setPicking] = useState<PickTarget | null>(null);
+  const [pickBusy, setPickBusy] = useState(false);
+  const pickRun = useRef(0);
+  const setPlace = (target: PickTarget, place: Place) => {
+    if (target === 'origin') setOrigin(place);
+    else if (target === 'destination') setDestination(place);
+    else setStopFields((prev) => prev.map((s, k) => (k === target ? place : s)));
+  };
+  const pickAt = async (target: PickTarget, position: LatLng) => {
+    const run = ++pickRun.current;
+    setPickBusy(true);
+    const place = await placeAt(position);
+    if (run !== pickRun.current) return; // cancelled meanwhile
+    setPickBusy(false);
+    setPicking(null);
+    setPlace(target, place);
+  };
+  const cancelPick = () => {
+    pickRun.current++;
+    setPickBusy(false);
+    setPicking(null);
+  };
+  // Escape leaves the picking too.
+  useEffect(() => {
+    if (picking === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') cancelPick();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [picking]);
+
   const handleLocateOrigin = () => {
     if (currentLocation) setOrigin(currentLocation);
     else locate();
@@ -326,12 +361,16 @@ export default function App() {
           controlsOffset={inTrip || step === 'route' ? 0 : 84 + stopFields.length * 56 + (hasAccess(travel) && !byBike ? 36 : 0) + (travel === 'transit' ? 36 : 0)}
           onDetectVehicle={!activeTrip && step === 'search' ? requestLinePopup : undefined}
           follow={inTrip}
+          onMapPick={picking !== null && !pickBusy ? (p) => void pickAt(picking, p) : undefined}
+          onContextPick={!inTrip && picking === null ? (target, p) => void pickAt(target, p) : undefined}
         />
         </Box>
 
         <SidePanel on={desktop}>
 
-        {!inTrip && step !== 'route' && (
+        {picking !== null && <PickBanner target={picking} busy={pickBusy} onCancel={cancelPick} />}
+
+        {!inTrip && step !== 'route' && picking === null && (
           <SearchCard
             origin={origin}
             destination={destination}
@@ -353,10 +392,11 @@ export default function App() {
             onSwap={swap}
             onLocate={handleLocateOrigin}
             onBackToTrip={replanning ? () => setReplanning(false) : undefined}
+            onPickOnMap={setPicking}
           />
         )}
 
-        {!activeTrip && step === 'search' && vehicle.open && (
+        {!activeTrip && step === 'search' && vehicle.open && picking === null && (
           <VehicleSheet
             candidates={vehicle.vehicles}
             lines={vehicle.lines}
@@ -425,7 +465,7 @@ export default function App() {
           />
         )}
 
-        {!inTrip && step === 'options' && (
+        {!inTrip && step === 'options' && picking === null && (
           <RouteOptionsSheet
             options={visible}
             departure={departureSummary(departure)}

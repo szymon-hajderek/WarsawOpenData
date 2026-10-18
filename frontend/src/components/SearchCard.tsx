@@ -32,6 +32,9 @@ function mix(a: string, b: string, t: number): string {
   return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
+/** Which field a point picked on the map fills: the start, the destination or stop `n` (0-based). */
+export type PickTarget = 'origin' | 'destination' | number;
+
 interface Props {
   origin: Place | null;
   destination: Place | null;
@@ -61,6 +64,8 @@ interface Props {
   onLocate: () => void;
   /** Active trip: a "Wróć do przejazdu" button on top leaves the new search without changing the route. */
   onBackToTrip?: () => void;
+  /** Offers "Wybierz na mapie" in every place field. */
+  onPickOnMap?: (target: PickTarget) => void;
 }
 
 /** One row of the timeline column: a gradient segment above and below the icon. */
@@ -125,6 +130,7 @@ export default function SearchCard({
   onSwap,
   onLocate,
   onBackToTrip,
+  onPickOnMap,
 }: Props) {
   const { routeStart, routeEnd } = PALETTE[useTheme().palette.mode];
   const count = stops.length + 2; // rows: start, stops, destination
@@ -302,6 +308,7 @@ export default function SearchCard({
             currentLocation={currentLocation}
             showLocateButton
             onLocate={onLocate}
+            onPickOnMap={onPickOnMap && (() => onPickOnMap('origin'))}
           />,
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {handle(0)}
@@ -335,6 +342,7 @@ export default function SearchCard({
               currentLocation={currentLocation}
               // eslint-disable-next-line jsx-a11y/no-autofocus -- the field is added by the user's own click
               autoFocus={stop === null}
+              onPickOnMap={onPickOnMap && (() => onPickOnMap(i))}
             />,
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               {handle(i + 1)}
@@ -358,6 +366,7 @@ export default function SearchCard({
             onChange={onDestinationChange}
             placeholder="Dokąd jedziesz?"
             currentLocation={currentLocation}
+            onPickOnMap={onPickOnMap && (() => onPickOnMap('destination'))}
           />,
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {handle(count - 1)}
