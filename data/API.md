@@ -366,6 +366,56 @@ Not available (the vehicle passed K-1 but no buffered point was within the radiu
 
 Errors: `404 {"detail": "unknown vehicle"}`; `503` when there is no live vehicle data yet.
 
+### `POST /api/live/route-delays`
+
+Live delay of the buses and trams in suggested routes (`POST /api/routes` answers), before the user boards them.
+A transit option id is `pt-<trip id>-<trip id>...` (one GTFS trip per ride, in ride order). For each trip the server takes
+its line and brigade from GTFS, finds the live vehicle with the same line and brigade and runs the same estimate as
+`GET /api/live/delay` (delay at the stop the vehicle passed last). When that vehicle is still on an earlier trip of its
+brigade, its current delay is returned with `sameTrip: false` (a forecast). Options with other ids (walk, bike,
+`multi-N` trips with stops) get an empty list.
+
+Body (JSON):
+
+| Field | Type | Meaning |
+|---|---|---|
+| `options` | list, at most 20 | options to check |
+| `options[].id` | string | `RouteOption.id` |
+| `options[].lines` | list of strings | `line` of the transit legs (bus, tram, metro, rail) of that option, in order |
+
+Answer: object `option id -> list`, one item per transit leg that has a trip:
+
+| Field | Meaning |
+|---|---|
+| `transitIndex` | 0-based index among the transit legs of the option (0 = first bus / tram / metro / train) |
+| `line` | line of that leg |
+| `vehicleId` | live vehicle (`bus-1234`), `null` when none |
+| `available` | `false` = no delay to show |
+| `delaySec` | seconds, negative = early; `null` when not available |
+| `sameTrip` | `true` when the vehicle already runs this trip, `false` when it is still on an earlier trip of its brigade |
+| `reason` | `null` when available, else `not_live` (metro, rail or a trip GTFS does not know), `no_vehicle` (no live vehicle for that line and brigade) or a reason of `GET /api/live/delay` |
+
+Request (night bus N37 then metro M1; the second option asks for a later trip of the same brigade):
+
+```json
+{"options": [{"id": "pt-ztm:2026-10-17:N37:SbS:169:2715-ztm:2026-10-18:M1:NdS:3:0530", "lines": ["N37", "M1"]},
+             {"id": "pt-ztm:2026-10-17:N37:SbS:169:2823", "lines": ["N37"]},
+             {"id": "walk", "lines": []}]}
+```
+
+Answer:
+
+```json
+{"pt-ztm:2026-10-17:N37:SbS:169:2715-ztm:2026-10-18:M1:NdS:3:0530": [
+   {"transitIndex": 0, "line": "N37", "vehicleId": "bus-8548", "available": true, "delaySec": 112, "sameTrip": true, "reason": null},
+   {"transitIndex": 1, "line": "M1", "vehicleId": null, "available": false, "delaySec": null, "sameTrip": false, "reason": "not_live"}],
+ "pt-ztm:2026-10-17:N37:SbS:169:2823": [
+   {"transitIndex": 0, "line": "N37", "vehicleId": "bus-8548", "available": true, "delaySec": 112, "sameTrip": false, "reason": null}],
+ "walk": []}
+```
+
+Errors: `422` for a wrong body or more than 20 options; `503` when there is no live vehicle data yet.
+
 ---
 
 ## Veturilo (city bikes)
