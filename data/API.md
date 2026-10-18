@@ -661,7 +661,8 @@ Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Vet
 implies `accessible` routing and no Veturilo; `weightKg`, `heightCm`, `age` and `sex` are accepted but not used by the route search).
 `excludeModes` (optional list of `bus`, `tram`, `metro`, `rail`, `veturilo`; default `[]`): the search does not use
 those modes (a GTFS trolleybus counts as `bus`); `veturilo` drops rented bikes, not walking and not `travel: "bike"`
-(own bike). Sent to `/plan` as `exclude_modes`; any option that still has a leg of an excluded mode is dropped. Any other value → `422`. A trip with stops plans the next leg from the
+(own bike). Sent to `/plan` as `exclude_modes`; any option that still has a leg of an excluded mode is dropped. Any other value → `422`.
+`onboard` (optional `{"vehicleId"}`): plan from the vehicle the user is in, see "From the vehicle" below. A trip with stops plans the next leg from the
 previous arrival plus 2 minutes at the stop. `order` `optimal` minimises a time estimate, not straight-line distance.
 
 Optional `travel`: `transit` (default, the usual mixed options), `walk`, `accessible`, `stroller` or `bike`.
@@ -756,6 +757,62 @@ or an explicit street-only endpoint is outside the street graph. `404` when an e
 Mixed planning skips street candidates rejected with 404/422, and a `/plan` 404 / 422 (a point off the graph)
 gives an empty list. `503` when the street router is unavailable or its timetable / plan is not ready
 (`{"detail": "transit timetable not ready"}`, or the router's message for its own 503). Other router errors retain their HTTP status.
+
+#### From the vehicle (`onboard`)
+
+`onboard` (optional, default `null`): `{"vehicleId": "<id>"}` with a live vehicle id as in
+`POST /api/live/nearest-buses` (e.g. `bus-5914`, `tram-1234`). The trip is planned from the vehicle the user is in;
+`from` is still required by the schema but ignored. **Timetable only: no live delay is used anywhere.**
+
+- The live feed only says which GTFS trip the vehicle runs and its next stop (the same matching as
+  `GET /api/live/delay`; its delay is ignored). Without a known next stop, the first call of the trip whose
+  scheduled time is after now is used.
+- The **next two stops** of the trip are the planning origins, each at its **scheduled** arrival: `/plan` with
+  `from` = the stop id, same preferences, `excludeModes` and excluded areas as a normal search.
+- Every option gets a **ride leg prepended**: `mode` = the vehicle's mode (`bus` / `tram`), `line`, `tripId` (the
+  vehicle's GTFS trip), `from` = `"Obecna pozycja"`, `fromId` = `null` (the vehicle's position), `start` = the
+  vehicle's last live position, `toId` = the stop, `path` = the GTFS shape from the vehicle's position to the
+  stop, `durationMin` = now -> the scheduled arrival at the stop, `waitS` = `0`.
+- **Staying on:** when the planned option's first ride is the same trip, the two rides merge into one leg (from
+  the vehicle's position to where the user gets off).
+- `title` starts with the vehicle's line (`"15 + 1"`; staying on: the plan's own title; a walk after the ride:
+  just the line). `id` = `pt-<vehicle trip>-<other trips>`. `departure` = now, `durationMin` = now -> arrival,
+  `transfers` counts the vehicle's ride. The options of both stops are sorted by arrival, deduplicated (also by
+  `id`), at most 6; the first gets `Najszybsza`.
+- Errors: `404` `{"detail": "vehicle not found"}` (unknown vehicle, no GTFS trip, no stop of the trip ahead);
+  `503` without live data (no `PORTAL_KEY`, like the other live endpoints) or while the router's timetable is not
+  ready; `422` with `via` or a `travel` other than `transit`.
+
+Example (real GTFS, overlay and router; the live vehicle was faked because no `PORTAL_KEY` was available: tram 15
+on trip `ztm:2026-10-19:15:PcS:10:0728` between Instytut Lotnictwa and Lipowczana at 07:29):
+
+```json
+{"from": {"id": "x", "label": "x", "position": [52.2297, 21.0122]},
+ "to": {"id": "gdanski", "label": "Dworzec Gdański", "position": [52.2574, 20.9933]},
+ "when": "2026-10-19T07:29", "onboard": {"vehicleId": "tram-x"}}
+```
+
+One option of the answer (paths cut, `segments` left out):
+
+```json
+{"id": "pt-ztm:2026-10-19:15:PcS:10:0728-ztm:2026-10-19:1:PcS:6:0732", "title": "15 + 1",
+ "legs": [{"mode": "tram", "from": "Obecna pozycja", "to": "Lipowczana", "line": "15", "durationMin": 2, "distanceM": 281.6,
+           "path": [[52.1812005, 20.949349], "...", [52.183319, 20.951612]], "start": [20.949349, 52.1812005],
+           "end": [20.9515507, 52.1831895], "fromId": null, "toId": "ztm:401301", "stop": null, "approximatePath": false,
+           "elevators": null, "steps": null, "waitS": 0.0, "tripId": "ztm:2026-10-19:15:PcS:10:0728"},
+          {"mode": "tram", "from": "Lipowczana", "to": "Dw. Gdański", "line": "1", "durationMin": 36, "distanceM": 9806.0,
+           "path": [[52.183319, 20.951612], "...", [52.258018, 20.994907]], "start": [20.9515507, 52.1831895],
+           "end": [20.994864, 52.2579807], "fromId": "ztm:401301", "toId": "ztm:701907", "stop": null,
+           "approximatePath": false, "elevators": null, "steps": null, "waitS": 0.0, "tripId": "ztm:2026-10-19:1:PcS:6:0732"},
+          {"mode": "walk", "from": "Dw. Gdański", "to": "Dworzec Gdański", "line": null, "durationMin": 2, "distanceM": 133.9,
+           "path": [[52.25798, 20.99486], "...", [52.2574, 20.9933]], "start": [20.994864, 52.2579807], "end": [20.9933, 52.2574],
+           "fromId": "ztm:701907", "toId": null, "stop": null, "approximatePath": false, "elevators": [], "steps": [],
+           "waitS": null, "tripId": null}],
+ "departure": "07:29", "arrival": "08:13", "durationMin": 44, "distanceM": 10221.5, "walkDistance": 133.9,
+ "bikeDistance": 0.0, "transfers": 1, "tags": [], "waitS": 0.0, "waypoints": []}
+```
+
+Another option of the same answer stays on tram 15 to PKP Rakowiec (one merged ride leg) and changes to the R80 train.
 
 ### `GET /api/geocode`
 

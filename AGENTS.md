@@ -310,6 +310,12 @@ Everything in this repo (files, commits, PRs) is written in English.
   shift and no "opóźnienie" tag any more (`integration/gtfs/test_delay.py` is skipped). `lateness.py` and the planner
   functions of `plan_trip.py` were removed.
   Tests: `algorithms/test_raptor.py` (brute force on toy timetables), `backend/tests/test_plan_engine.py` (adapter).
+- From the vehicle (`RouteRequest.onboard: {vehicleId}`, `app/routing/onboard.py`): timetable only, **no live delays**
+  (user decision). `bus_detect._delay_for` gives only the trip id and next stop (delay ignored; no next stop = first
+  call after now); the next 2 stops of the trip are `/plan` origins (`query_from_stop`, `from` = stop id, `time` =
+  scheduled arrival). A ride leg (`fromId` null, `from` "Obecna pozycja", vehicle mode / line / tripId, `waitS` 0,
+  GTFS shape from the vehicle's position) is prepended; same trip in the plan -> merged into one ride. Sorted by
+  arrival, deduped (legs and id), max 6, departure = now. 404 "vehicle not found", 503 without live data.
 - Rail platforms: `polish_trains.zip` has stations with children per platform + track (`33506_RAIL_2_20` =
   "2 t. 20"), also for SKM. They fold into one location per platform (`pkp:33506_P2`, see "Rail in mkuran");
   `GET /api/gtfs/stops` shows the children in `members`. Platform coordinates in GTFS look synthetic (evenly spaced);
