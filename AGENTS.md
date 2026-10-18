@@ -368,6 +368,12 @@ Everything in this repo (files, commits, PRs) is written in English.
   bright edge and a soft red shadow (`fill-translate`, no 3D: the Leaflet + MapLibre layer cannot tilt), light shores on water. Round buttons and markers get frosted glass
   (`src/map/glass.ts`, `backdrop-filter`); `src/map/glass.css` has the slowly drifting light over the map (`.glass-sheen`) and the pulse of the "me" / destination markers
   (both off with `prefers-reduced-motion`), plus bright sweeping bands, twinkling glints, a light running around the rim of round glass (`.glass-rim`) and a breathing glow of the road / shore layers (`VectorBasemap` animates `line-opacity`). Cards, sheets and the rest of the UI are not glass. Labels are shared (`labelLayers`).
+- **3D map (prototype, easy to remove):** the "3D" button in the map controls (`onOpen3d` of `MapView`) switches to `src/components/MapView3D.tsx`, a separate map drawn with MapLibre GL
+  directly (the Leaflet map cannot tilt). Tilted (pitch 55, bearing -17, `src/map/style3d.ts`), buildings extruded from `render_height` (`with3dBuildings` replaces the flat building
+  layers of the current look, flat or glass, light or dark), the route as GeoJSON lines (`src/map/route3d.ts`, uses `legLines`), markers for the user, start, stops and destination, buttons
+  for 2D, theme, location, zoom and tilt. Chosen state is remembered (`useMap3d`, localStorage `map-3d`); `App` loads it lazily. Missing in 3D: picking a point on the map, stop overlays and
+  popups, the follow mode of an active trip (picking switches back to 2D). To remove the prototype: delete `MapView3D.tsx`, `map/style3d.ts`, `map/route3d.ts`, `map/map3d.ts` (+ tests), the
+  `onOpen3d` prop / button in `MapView` and the lazy switch in `App`.
 - Corner radii: use the `RADIUS` tokens from `src/layout.ts` (sheet 28 px, card 20, tile / row / input 16, control 12,
   pill 999). **Pitfall:** in MUI `sx` a numeric `borderRadius` is multiplied by `theme.shape.borderRadius` (12), so
   `borderRadius: 4` is 48 px and swallows the content. Nested corners: inner radius = outer radius - padding.

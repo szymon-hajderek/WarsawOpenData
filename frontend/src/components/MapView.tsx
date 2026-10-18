@@ -10,6 +10,7 @@ import LightMode from '@mui/icons-material/LightMode';
 import DirectionsBus from '@mui/icons-material/DirectionsBus';
 import Layers from '@mui/icons-material/Layers';
 import Signpost from '@mui/icons-material/Signpost';
+import ThreeDRotation from '@mui/icons-material/ThreeDRotation';
 import { ICON_PATH, MODE_META, iconHtml, modeColor } from '../modes';
 import { GLASS, PALETTE } from '../map/palette';
 import { MAP_ATTRIBUTION } from '../map/mapStyle';
@@ -72,6 +73,8 @@ interface Props {
   onContextPick?: (target: 'origin' | 'destination', position: LatLng) => void;
   /** "Stąd" / "Dotąd" in the popup of a stop or Veturilo station of the map overlays. */
   onPlacePick?: (target: 'origin' | 'destination', place: PlaceT) => void;
+  /** Opens the 3D map prototype (a button in the map controls). */
+  onOpen3d?: () => void;
 }
 
 /** Map taps while picking, and the long-press / right-click menu "Stąd" / "Dotąd". */
@@ -354,6 +357,7 @@ export default function MapView({
   onMapPick,
   onContextPick,
   onPlacePick,
+  onOpen3d,
 }: Props) {
   const [map, setMap] = useState<L.Map | null>(null);
   const [overlayIds, setOverlayIds] = useState<OverlayId[]>(loadOverlays);
@@ -552,6 +556,12 @@ export default function MapView({
             <Layers />
           </IconButton>,
         )}
+        {onOpen3d &&
+          fab(
+            <IconButton aria-label="Włącz mapę 3D (prototyp)" onClick={onOpen3d}>
+              <ThreeDRotation />
+            </IconButton>,
+          )}
         {fab(
           <IconButton
             aria-label="Warstwy przystanków"
