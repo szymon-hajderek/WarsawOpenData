@@ -18,7 +18,7 @@ import { geoErrorText, useLocationTrack } from './hooks/useLocationTrack';
 import { useRouteSearch } from './hooks/useRouteSearch';
 import { useTripProgress } from './hooks/useTripProgress';
 import { countdownText, mustWait, secondsUntil, tripStartAt } from './utils/tripStart';
-import type { TravelMode } from './travel';
+import { hasAccess, type Access, type TravelMode } from './travel';
 import { departureSummary, departureWhen, type Departure } from './utils/departure';
 import { useVehicleDetection } from './hooks/useVehicleDetection';
 import { usePreferences } from './preferences/PreferencesProvider';
@@ -63,8 +63,10 @@ export default function App() {
   // Intermediate stops (`null` = an empty field the user has just added) and how they are ordered.
   const [stopFields, setStopFields] = useState<(Place | null)[]>([]);
   const [stopOrder, setStopOrder] = useState<StopOrder>('given');
-  // Public transport (default) or a street-only trip: walking, wheelchair, stroller, own bike.
+  // Public transport (default) or a street-only trip: walking or own bike.
   const [travel, setTravel] = useState<TravelMode>('transit');
+  // Accessibility picked for this search (transit and walking); null = not picked, follow the wheelchair preference.
+  const [accessChoice, setAccessChoice] = useState<Access | null>(null);
   // Departure time of the search: `null` = now (not saved, so a reload starts from now again).
   const [departure, setDeparture] = useState<Departure>(null);
   const [tab, setTab] = useState<Tab>('map');
@@ -140,8 +142,10 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const via = useMemo(() => stopFields.filter((p): p is Place => p !== null), [viaKey]);
   const trip = useMemo(() => applyOverrides(effective, filters.overrides), [effective, filters.overrides]);
+  // A wheelchair in the preferences preselects "Wózek inwalidzki"; a picked accessibility wins for this search.
+  const access: Access = accessChoice ?? (trip.wheelchair.type !== 'none' ? 'wheelchair' : 'standard');
   // The vehicle chips of the filters override the preference's excluded modes for this search.
-  const search = useMemo(() => routeSearchBody(trip, filters.modes), [trip, filters.modes]);
+  const search = useMemo(() => routeSearchBody(trip, filters.modes, accessChoice), [trip, filters.modes, accessChoice]);
 
   const onboardVehicleId = origin?.id.startsWith(ONBOARD_PREFIX) ? origin.id.slice(ONBOARD_PREFIX.length) : null;
   const { options, loading, error: searchError, offline: routesOffline, errorMessage, vehicleNotFound } = useRouteSearch({
@@ -151,6 +155,7 @@ export default function App() {
     order: stopOrder,
     search,
     travel,
+    access,
     onboardVehicleId,
     when: departureWhen(departure),
   });
@@ -167,7 +172,7 @@ export default function App() {
     setFilters(DEFAULT_FILTERS);
     setPickedId(null);
     setChosenId(null);
-  }, [origin, destination, via, stopOrder, travel, departure]);
+  }, [origin, destination, via, stopOrder, travel, access, departure]);
 
   // The backend is switched off or could not be reached: say so each time it happens (no made-up data is shown).
   const offlineShown = routesOffline || vehicle.offline;
@@ -246,6 +251,7 @@ export default function App() {
     setDestination(keepDestination ? activeTrip.destination : null);
     setStopFields([]);
     setTravel('transit');
+    setAccessChoice(null);
     setDeparture(null); // a new plan inside a running trip is for now
     setTripVehicleOpen(false);
     setReplanning(true);
@@ -303,7 +309,7 @@ export default function App() {
           detailed={inTrip || step === 'route'}
           padding={padding}
           stops={inTrip ? [] : via}
-          controlsOffset={inTrip || step === 'route' ? 0 : 84 + stopFields.length * 56}
+          controlsOffset={inTrip || step === 'route' ? 0 : 84 + stopFields.length * 56 + (hasAccess(travel) ? 36 : 0)}
           onDetectVehicle={!activeTrip && step === 'search' ? requestLinePopup : undefined}
           follow={inTrip}
         />
@@ -316,6 +322,8 @@ export default function App() {
             order={stopOrder}
             travel={travel}
             onTravelChange={setTravel}
+            access={access}
+            onAccessChange={setAccessChoice}
             departure={departure}
             onDepartureChange={setDeparture}
             currentLocation={currentLocation}
