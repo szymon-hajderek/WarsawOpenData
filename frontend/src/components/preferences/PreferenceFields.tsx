@@ -12,6 +12,7 @@ import type { SpeedSummary } from '../../history/types';
 import {
   BIKE_LEVELS,
   cyclingKmh,
+  MIN_BIKES_CHOICES,
   FILTER_MODES,
   modeName,
   type ExcludableMode,
@@ -128,6 +129,28 @@ export function CyclingSection({
               onUse={(kmh) => onChange({ ...value, customKmh: kmh })}
             />
           )}
+          <Typography variant="body2" sx={{ fontWeight: 600, mt: 2, mb: 0.75 }}>
+            Rowery na stacji
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Wypożyczaj tylko tam, gdzie teraz stoi co najmniej tyle rowerów.
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }} role="group" aria-label="Najmniej rowerów na stacji">
+            {MIN_BIKES_CHOICES.map((c) => {
+              const selected = value.minBikes === c.value;
+              return (
+                <Chip
+                  key={c.value}
+                  label={c.label}
+                  clickable
+                  color={selected ? 'primary' : 'default'}
+                  variant={selected ? 'filled' : 'outlined'}
+                  aria-pressed={selected}
+                  onClick={() => onChange({ ...value, minBikes: c.value })}
+                />
+              );
+            })}
+          </Box>
         </>
       )}
     </Section>

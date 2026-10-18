@@ -296,7 +296,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   metro frequency runs expanded, rebuilt by `street_router.start()` when stale, ~10 s); C++ builds route patterns
   per service day (route + exact stop sequence, FIFO split, D−1 trips after midnight at −24 h; `transit.hpp`),
   footpaths = **dense matrix rows of the query's mode, no cut** (user decision; mmap, `matrix.hpp`), Veturilo = dock to
-  dock from `bike.bin`, +1 leg, walk mode only, pickup 30 s / return 15 s, always available. Every limit unlimited by
+  dock from `bike.bin`, +1 leg, walk mode only, pickup 30 s / return 15 s; `min_bikes` (per query, default 0 = every dock)
+  rents only at docks with that many bikes in the live state (`POST /state`, pushed by `street_router.push_state()` every
+  30 s); a query reads the state once at its start and keeps it frozen (RAPTOR needs availability independent of time).
+  Free places at the return dock are not checked. Every limit unlimited by
   default (`max_legs`, `access_s`, `egress_s`, `footpath_s`, `veturilo_s`); `exclude_modes` skips transit modes / Veturilo.
   From the vehicle: `from` = next stop id, `time` = arrival there (same trip, `wait_s` 0). Backend relies on `/health`
   `timetable.status` and `plan.<mode>`: keep them stable. Answer = ids only (no positions, shapes,
@@ -409,7 +412,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   (start, stops in visiting order, destination), `RouteLeg.stop` (1-based number of the stop the leg ends at); `backend/app/routing/multi.py` asks the
   engine once per segment and chains the n-th best option of every segment (max 3 options); "optimal" = `algorithms/stop_order.py` (exact, a walk under 700 m otherwise a wait plus transit time,
   start and destination fixed). The next segment starts at the previous arrival plus 2 minutes.
-- Preferences are sent with the search (`walkKmh`, `bikeKmh`, `stepFree`, `maxTransfers`, excluded areas, `excludeModes`, `body`). Only max walking time still filters the list in the browser. Model, level tables (default speeds), time
+- Preferences are sent with the search (`walkKmh`, `bikeKmh`, `stepFree`, `minBikes`, `maxTransfers`, excluded areas, `excludeModes`, `body`).
+  `minBikes` = `cycling.minBikes` ("Rowery na stacji" chips in the Veturilo section, default 1, 0 = any dock) -> `real_engine` ->
+  `/plan` `min_bikes` (live Nextbike state in the router, frozen per search). Only max walking time still filters the list in the browser. Model, level tables (default speeds), time
   rules and list filtering: `src/preferences/model.ts`; storage in localStorage key `preferences`
   (`src/preferences/PreferencesProvider.tsx`). Preferences page: `src/components/PreferencesPage.tsx`; reusable fields
   (levels + custom km/h, wheelchair, priorities, excluded districts / own points): `src/components/preferences/`.
