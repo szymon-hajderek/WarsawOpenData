@@ -67,6 +67,9 @@ planner: keep it in sync with the code. The API (body, answer, errors) is in `al
 
 ## 3. Query
 
+`exclude_modes` (bus, tram, metro, rail, veturilo; trolleybus = bus) removes the patterns of those modes from the
+round scan and, for `veturilo`, the dock-to-dock legs; walking and one's own bike stay.
+
 Round `k = 1, 2, …` (until nothing improves or `k = max_legs`, default unlimited):
 
 1. `τ[k] = τ[k − 1]`; `marked` = the locations improved in round `k − 1` (round 0 = the access search).

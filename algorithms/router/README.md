@@ -270,6 +270,7 @@ Body (JSON):
 | `footpath_s` | longest transfer walk (or ride, in `bike`); default unlimited (the whole matrix row) |
 | `veturilo_s` | longest Veturilo ride, dock to dock; default unlimited; 0 = no Veturilo |
 | `veturilo_pickup_s`, `veturilo_return_s` | fixed times to unlock a bike and to dock it: default 30 s and 15 s |
+| `exclude_modes` | optional list of `bus`, `tram`, `metro`, `rail`, `veturilo`: the search skips the route patterns of those modes (a GTFS trolleybus counts as `bus`); `veturilo` drops the Veturilo legs (as `veturilo_s: 0`), not walking or one's own bike. Omitted or `[]` = nothing excluded; any other value → 400 |
 | anything else | **501** `{"error": "not implemented", "unimplemented": [keys]}` |
 
 Answer:
@@ -287,6 +288,9 @@ Answer:
      "..."]}]}
 ```
 
+- **From the vehicle the user is in:** `from` = the id of the next stop, `time` = the expected arrival there. Staying
+  on the same trip is an ordinary result: a transit leg from that stop with `wait_s` ≈ 0 (the trip is boarded again
+  where it departs at or after `time`).
 - **Options:** the street-only trip (0 legs) first, then for each number of counted legs k the earliest arrival
   with at most k legs, kept only when it arrives at least 1 s earlier than every option with fewer legs (Pareto
   set). `{"options": []}` when nothing connects.
@@ -306,7 +310,7 @@ Answer:
   `dep_s`, `arr_s`, `wait_s` (standing at `from` since the previous leg arrived), `seconds` (= `wait_s` + ride),
   `stops` = every call from boarding to alighting `[{id, arr_s, dep_s}]`. No path: the backend draws transit
   geometry from GTFS shapes.
-- **Errors:** `400` bad body / mode / date / time / limit, `404` unknown location id, `422` a point more than
+- **Errors:** `400` bad body / mode / date / time / limit / `exclude_modes`, `404` unknown location id, `422` a point more than
   1000 m from the graph, `503` no timetable, or the mode's matrix does not belong to the overlay (`/health` →
   `plan.<mode>` says why).
 - **Not modelled yet:** GTFS pickup / drop-off restrictions (every call can be boarded and left), trip
@@ -384,7 +388,8 @@ departures at every stop are sorted and `next_trip` is a binary search. 2026-10-
   For walk and bike it compares the server's coordinate route with the matrix value of the same stops, and the GTFS
   stop position with the OSM platform node of the same post (`ref` = ZTM stop id). Output: `check_pairs.csv`.
 - `cd backend && uv run pytest ../algorithms/test_raptor.py` checks `/plan` on a toy city (the 5 × 5 grid, 6 posts,
-  2 docks, matrices from the router's own `/route`): the Pareto set of 100 random timetables (shared stops, loops,
+  2 docks, matrices from the router's own `/route`): the Pareto set of 100 random timetables (and 30 more with
+  random `exclude_modes`, against the brute force on the remaining trips) (shared stops, loops,
   overtaking trips, other service days, trips after midnight; 1–3 legs) against a brute-force search over every
   trip and boarding stop, the limits, query speeds, bike mode, the leg fields, waits, `null` ends, Veturilo and the
   errors (wrong date / keys, a matrix or timetable for another overlay → 503).

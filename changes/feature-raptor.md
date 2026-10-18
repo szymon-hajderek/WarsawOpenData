@@ -10,6 +10,8 @@ RAPTOR transit routing in the C++ router: `POST /plan`.
   Veturilo as an always-available dock-to-dock leg (walk mode only, 30 s + ride + 15 s), Pareto set (counted legs,
   arrival) + the street-only trip; street legs re-traced for the answer. `/health` gains `timetable` and `plan`.
 - Answer format agreed with the router owner: ids only (no positions / shapes / names / RouteOption).
+- `/plan` key `exclude_modes` (bus, tram, metro, rail, veturilo): a real search without those modes; planning from
+  the vehicle (`from` = next stop id, `time` = arrival there) keeps the same trip with `wait_s` 0 (tested).
 - `street_router.plan()` client (Warsaw service day, before 04:00 = previous day).
 - README: RAPTOR in Features, follow-ups (#94, #95) and the small POC gaps (pickup / drop-off, trip wheelchair flag) under Planned.
 - Docs: `docs/raptor-graph.md` (the spec, as built), `algorithms/router/README.md` (`/plan`, timetable file),

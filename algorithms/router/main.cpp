@@ -16,6 +16,7 @@
 #include <memory>
 #include <optional>
 #include <print>
+#include <set>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -273,6 +274,17 @@ std::expected<json, Error> plan(const Modes& modes, const Mode& mode, const Stat
     }
     const auto max_legs = body.value("max_legs", json(std::numeric_limits<int>::max()));
     if (!max_legs.is_number_integer() || max_legs.get<long long>() < 0) return std::unexpected(Error{400, "max_legs must be an integer >= 0"});
+    // exclude_modes: transit modes the search must not use ("bus" covers trolleybuses), and "veturilo"
+    std::set<std::string, std::less<>> excluded;
+    if (const auto ex = body.find("exclude_modes"); ex != body.end()) {
+        static const std::set<std::string, std::less<>> allowed{"bus", "tram", "metro", "rail", "veturilo"};
+        if (!ex->is_array()) return std::unexpected(Error{400, "exclude_modes must be a list"});
+        for (const auto& m : *ex) {
+            if (!m.is_string() || !allowed.contains(m.get<std::string>()))
+                return std::unexpected(Error{400, "exclude_modes may only contain bus, tram, metro, rail, veturilo"});
+            excluded.insert(m.get<std::string>());
+        }
+    }
     if (const auto s = tr.status(mode.name); s != "ok") return std::unexpected(Error{503, s});
 
     const auto from = resolve(body.value("from", json()), mode, &st, speeds, true, "from");
@@ -309,11 +321,14 @@ std::expected<json, Error> plan(const Modes& modes, const Mode& mode, const Stat
     if (const auto i = index(*to)) q.egress[*i] = 0;
     q.start = start, q.initial_best = best;
     q.footpath_s = limits[2], q.veturilo_s = limits[3], q.pickup_s = limits[4], q.return_s = limits[5];
+    if (!excluded.empty())
+        for (const auto& r : tr.timetable->routes)
+            q.skip_route.push_back(excluded.contains(r.mode == "trolleybus" ? std::string("bus") : r.mode));
     q.max_legs = static_cast<int>(std::min<long long>(max_legs.get<long long>(), std::numeric_limits<int>::max()));
     // Veturilo only on foot (walk mode): the dock-to-dock ride comes from the bike matrix
     const Mode* bike_mode = nullptr;
     Speeds bike_speeds = speeds;
-    if (mode.name == "walk" && tr.status("bike") == "ok") {
+    if (mode.name == "walk" && !excluded.contains("veturilo") && tr.status("bike") == "ok") {
         if (const auto b = modes.find("bike"); b != modes.end()) {
             bike_mode = b->second.get();
             const auto s = body.find("speeds");
@@ -611,7 +626,7 @@ void serve(const std::filesystem::path& dir, int port, unsigned threads) {
     server.Post("/plan", [&](const httplib::Request& req, httplib::Response& res) {
         const auto parsed = parse(req, res, {"from", "to", "mode", "speeds", "date", "time", "max_legs", "access_s",
                                              "egress_s", "footpath_s", "veturilo_s", "veturilo_pickup_s",
-                                             "veturilo_return_s"});
+                                             "veturilo_return_s", "exclude_modes"});
         if (!parsed) return;
         const auto& [body, mode, speeds] = *parsed;
         if (!st) return reply(res, 503, {{"error", "no stations.json loaded"}});

@@ -294,7 +294,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   per service day (route + exact stop sequence, FIFO split, D−1 trips after midnight at −24 h; `transit.hpp`),
   footpaths = **dense matrix rows of the query's mode, no cut** (user decision; mmap, `matrix.hpp`), Veturilo = dock to
   dock from `bike.bin`, +1 leg, walk mode only, pickup 30 s / return 15 s, always available. Every limit unlimited by
-  default (`max_legs`, `access_s`, `egress_s`, `footpath_s`, `veturilo_s`). Answer = ids only (no positions, shapes,
+  default (`max_legs`, `access_s`, `egress_s`, `footpath_s`, `veturilo_s`); `exclude_modes` skips transit modes / Veturilo.
+  From the vehicle: `from` = next stop id, `time` = arrival there (same trip, `wait_s` 0). Backend relies on `/health`
+  `timetable.status` and `plan.<mode>`: keep them stable. Answer = ids only (no positions, shapes,
   names): options `{seconds, dep_s, arr_s, transfers, walk_m, bike_m, wait_s, legs}`, transit legs with `trip_id`,
   `stops`, `wait_s`; format agreed with the router owner. A matrix is valid by size 3·N²·4 + `meta.json`
   `stations_hash` + `points.csv` ids (the per-mode `points` in `meta.json` can be stale: never read it).

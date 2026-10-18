@@ -24,6 +24,7 @@ struct RaptorQuery {
     const Matrix* bike = nullptr;  // Veturilo rides (nullptr: no Veturilo)
     Speeds bike_speeds{1.3, 4.2};
     std::vector<std::uint32_t> docks;  // locations that are Veturilo stations
+    std::vector<char> skip_route;      // per timetable route: 1 = its mode is excluded (empty = none)
     std::vector<double> access, egress;  // seconds from the start to each location / from each location to the end
     double start = 0;                    // departure time (s after midnight of the service day)
     double initial_best = kInfinity;     // arrival of the street-only trip: options must beat it
@@ -86,6 +87,7 @@ public:
             queue.clear();
             for (const auto p : marked)
                 for (const auto& [pat, i] : day.incidence[p]) {
+                    if (!q.skip_route.empty() && q.skip_route[day.patterns[pat].route]) continue;
                     if (first[pat] < 0) queue.push_back(pat), first[pat] = i;
                     else if (i < first[pat]) first[pat] = i;
                 }

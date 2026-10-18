@@ -99,11 +99,13 @@ def city(tmp_path_factory):
 
 
 def write_timetable(street, trips, hash_="toy"):
-    """trips: dicts {route, service (0 = DATE, 1 = YESTERDAY, 2 = OTHER), calls [(loc, arr, dep)]}."""
+    """trips: dicts {route, service (0 = DATE, 1 = YESTERDAY, 2 = OTHER), calls [(loc, arr, dep)], mode? (of the
+    route, default bus)}."""
     for k, t in enumerate(trips):
         t.setdefault("id", f"trip{k}")
         t.setdefault("headsign", f"to {t['calls'][-1][0]}")
-    routes = [(f"ztm:r{r}", str(100 + r), "bus") for r in range(max(t["route"] for t in trips) + 1)]
+    modes = {t["route"]: t.get("mode", "bus") for t in trips}
+    routes = [(f"ztm:r{r}", str(100 + r), modes.get(r, "bus")) for r in range(max(t["route"] for t in trips) + 1)]
     with open(street / "timetable.bin", "wb") as f:
         timetable_file.write(f, hash_, N, routes, [[str(DATE)], [str(YESTERDAY)], [str(OTHER)]],
                              **timetable_file.pack(trips))
@@ -158,6 +160,9 @@ def counted(option):
     return sum(leg["mode"] not in ("walk", "bike") for leg in option["legs"])
 
 
+TRANSIT = ["bus", "tram", "metro", "rail", "trolleybus"]
+
+
 def random_trips(rng, t0):
     trips = []
     for r in range(rng.randint(3, 6)):
@@ -172,7 +177,7 @@ def random_trips(rng, t0):
                 dwell = rng.choice([0, 0, 20])
                 calls.append((loc, t, t + dwell))
                 t += dwell + rng.randint(10, 150)  # different speeds: trips overtake each other
-            trips.append({"route": r, "service": service, "calls": calls})
+            trips.append({"route": r, "service": service, "calls": calls, "mode": TRANSIT[r % len(TRANSIT)]})
     return trips
 
 
@@ -377,3 +382,52 @@ def test_errors(served, city):
         assert status == 200 and plan(port, **ok, mode="bike")[0] == 503
     finally:
         (street / "bike.bin").write_bytes(bike)
+
+
+@pytest.mark.parametrize("seed", range(30))
+def test_excluded_modes_match_brute_force_without_them(city, seed):
+    street, mats = city
+    rng = random.Random(1000 + seed)
+    trips = random_trips(rng, 8 * 3600)
+    write_timetable(street, trips)
+    proc, port, _ = serve(street)
+    try:
+        for _ in range(4):
+            excluded = rng.sample(["bus", "tram", "metro", "rail", "veturilo"], rng.randint(0, 3))
+            kept = [t for t in trips if ("bus" if t["mode"] == "trolleybus" else t["mode"]) not in excluded]
+            o, d = rng.sample(range(N), 2)
+            status, got = plan(port, **{"from": IDS[o], "to": IDS[d], "time": 8 * 3600, "exclude_modes": excluded})
+            assert status == 200, got
+            same(got, brute_force(kept, mats, o, d, 8 * 3600, veturilo="veturilo" not in excluded))
+            used = {l["mode"] for x in got["options"] for l in x["legs"]}
+            assert not used & set(excluded)
+    finally:
+        proc.terminate()
+        proc.wait()
+
+
+def test_exclude_modes_values(served):
+    trips = [{"route": 0, "service": 0, "mode": "tram", "calls": [(0, 1000, 1000), (4, 1050, 1050)]},
+             {"route": 1, "service": 0, "mode": "trolleybus", "calls": [(0, 1010, 1010), (4, 1100, 1100)]}]
+    port, _ = served(trips)
+    ok = {"from": IDS[0], "to": IDS[4], "time": 900, "veturilo_s": 0}
+    ride = lambda got: [l["mode"] for l in got["options"][-1]["legs"] if l["mode"] not in ("walk", "bike")]
+    assert ride(plan(port, **ok)[1]) == ["tram"] and ride(plan(port, **ok, exclude_modes=[])[1]) == ["tram"]
+    assert ride(plan(port, **ok, exclude_modes=["tram"])[1]) == ["trolleybus"]  # the route keeps its GTFS mode
+    status, got = plan(port, **ok, exclude_modes=["tram", "bus"])  # trolleybus counts as bus
+    assert status == 200 and [counted(o) for o in got["options"]] == [0]
+    assert plan(port, **ok, exclude_modes=["car"])[0] == 400
+    assert plan(port, **ok, exclude_modes="bus")[0] == 400
+    assert plan(port, **ok, exclude_modes=[1])[0] == 400
+
+
+def test_planning_from_the_vehicle_stays_on_the_same_trip(served):
+    # the user rides trip 0 and will be at p1 at 1050: planning from p1 at that time keeps the same trip, no wait
+    port, _ = served([{"route": 0, "service": 0, "calls": [(0, 1000, 1000), (1, 1050, 1050), (4, 1100, 1100)]},
+                      {"route": 0, "service": 0, "calls": [(0, 1600, 1600), (1, 1650, 1650), (4, 1700, 1700)]}])
+    status, got = plan(port, **{"from": IDS[1], "to": IDS[4], "time": 1050, "veturilo_s": 0})
+    o = got["options"][-1]
+    assert status == 200 and o["dep_s"] == 1050 and o["arr_s"] == 1100
+    first = o["legs"][0]
+    assert first["mode"] == "bus" and first["trip_id"] == "trip0" and first["from"] == IDS[1]
+    assert first["wait_s"] == 0 and first["stops"][0] == {"id": IDS[1], "arr_s": 1050, "dep_s": 1050}
