@@ -414,8 +414,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   walk / accessible / stroller / bike for street-only trips without timetable/live queries; default is transit.
   Stroller is a profile; stepFree/wheelchair uses the accessible graph. Route totals include pushed-bike metres
   in walkDistance and ridden metres in bikeDistance, including multi-stop trips.
-- The C++ router never returns transit shapes. Transit geometry comes from GTFS in `real_engine` (`_ride_path`: `shape_slice`,
-  then `shape_by_stops`); without any shape, a polyline through the stops with `approximatePath: true`.
+- The C++ router never returns transit shapes. Transit geometry comes from GTFS in `geometry.py` (`_ride_path`: `shape_slice`,
+  then `shape_by_stops`); without any shape, a polyline through the stops with `approximatePath: true`. The shape is cut at
+  the projections of the first / last stop's mapped (`stations.json`) positions and joined to them, so rides start / end on
+  the stop markers and meet the walks (the raw GTFS slice was median 11 m, up to 94 m off: metro platforms).
 - **Active trip** (`activeTrip` + `replanning` in `App.tsx`, `ActiveTripSheet.tsx`): "Rozpocznij przejazd" starts the recorder
   and enters the mode; "Zakończ" leaves it and saves the pace recording (recorder unchanged). The map follows the user
   (`MapView` `follow`). Progress = `src/utils/progress.ts` (`routeProgress`: projection on the leg paths, forward only;

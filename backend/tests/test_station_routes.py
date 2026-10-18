@@ -194,8 +194,11 @@ def _shapes(monkeypatch, sliced, by_stops):
 def test_ride_without_stop_distances_uses_the_shape_projected_on_the_stops(router, monkeypatch):
     shape = [[52.25, 21.04], [52.255, 21.045], [52.26, 21.05]]
     seen = _shapes(monkeypatch, [], shape)
+    _, locations, _ = router
     trip = ride(line="wkd1")
-    assert geometry.leg_path(_ride_leg(trip), calls=trip["calls"]) == (shape, False)
+    a, b = ([locations[s]["position"]["lat"], locations[s]["position"]["lon"]] for s in (A, B))
+    # joined to the mapped stop positions (the fake shape is far away: projections are its ends)
+    assert geometry.leg_path(_ride_leg(trip), calls=trip["calls"]) == ([a, *shape, b], False)
     assert seen == ["shape-wkd1"]
 
 
