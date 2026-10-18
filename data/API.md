@@ -606,10 +606,16 @@ Types:
 | `LatLng` | `[lat, lon]` (used in `path` and `Place.position`) |
 | `LonLat` | `[lon, lat]` (GPS / GeoJSON order, used in a leg's `start` and `end`) |
 | `Place` | `id`, `label`, `sublabel` (optional), `position` (`LatLng`), `isCurrentLocation` (optional bool) |
-| `RouteLeg` | `mode` (`walk`, `bike` = own bike, `veturilo` = rented Veturilo bike, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names of the start and end stop or place), `line` (or `null`), `durationMin`, `distanceM`, `start`, `end` (`LonLat`, the first and last point of `path`), `path` (list of `LatLng`), `stop` (optional, 1-based number of the intermediate stop the leg ends at) |
+| `RouteLeg` | `mode` (`walk`, `bike` = own bike, `veturilo` = rented Veturilo bike, `bus`, `tram`, `metro`, `rail`), `from`, `to` (names), `fromId`, `toId` (StationLocations IDs or `null` for non-station places), `line` (or `null`), `durationMin`, `distanceM`, `start`, `end` (`LonLat`, mapped stop positions or the router's place endpoints), `path` (list of `LatLng`), `segments` (optional list; empty when unavailable), `stop` (optional, 1-based number of the intermediate stop the leg ends at), `approximatePath` (bool, optional, default `false`: `true` when GTFS has no shape for the trip and `path` only joins the stops in order; street legs never set it) |
 | `RouteOption` | `id`, `title`, `legs`, `departure`, `arrival` (`HH:MM`), `durationMin`, `distanceM`, `walkDistance`, `bikeDistance`, `transfers`, `tags`, `waypoints` (optional, trips with stops) |
 
-`walkDistance` is the sum of the `walk` legs and `bikeDistance` the sum of the `bike` and `veturilo` legs, in metres; `distanceM` is the whole trip.
+`segments` contains `{kind, path, lengthM}`: kind is `ride`, `push`, `walk`, `steps`, `elevator` or `metro_access`;
+path is `[lat, lon]` and lengthM is metres. Segments preserve the router's consecutive parts within a leg.
+Rented bikes keep mode `veturilo` even while pushed. Consumers must also accept legs without segments.
+
+`walkDistance` includes walking and pushed-bike metres; `bikeDistance` includes ridden metres (own bike and Veturilo);
+`distanceM` is the whole trip, including transit. Station IDs refer to `GET /api/stations`.
+Street and transit legs meet at the same mapped station position even when the GTFS shape endpoint differs.
 There are no `costPln` and `calories` any more: calories are worked out from the legs (`mode`, `distanceM`, `durationMin`; see `algorithms/calories.py`).
 
 ### `POST /api/routes`
@@ -628,7 +634,7 @@ The clock is Europe/Warsaw. Before 04:00 the search uses the previous GTFS servi
 `profile` `accessible` drops Veturilo and stops or trips marked wheelchair-inaccessible (`"2"`).
 A line that appears in the current ZTM alerts gets the tag `Zmiana na trasie`.
 
-Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow` or `accessible`, default `standard`),
+Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow`, `accessible` or `stroller`, default `standard`),
 `when` (optional, Warsaw local `HH:MM` or an ISO datetime; empty means now),
 `via` (optional list of `Place`, at most 5) and `order` (`given` or `optimal`).
 Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Veturilo), `stepFree` (bool),
@@ -637,25 +643,58 @@ Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Vet
 implies `accessible` routing and no Veturilo; `weightKg`, `heightCm`, `age` and `sex` are accepted but not used by the route search). A trip with stops plans the next leg from the
 previous arrival plus 2 minutes at the stop. `order` `optimal` minimises a time estimate, not straight-line distance.
 
+Optional `travel`: `transit` (default, the usual mixed options), `walk`, `accessible`, `stroller` or `bike`.
+The other values return a street-only option without requiring GTFS or live feeds; `bike` means the user's own bike.
+They also support `via`. Walk uses the accessible graph for an accessible profile, `stepFree` or a wheelchair,
+and the stroller graph for the stroller profile. Explicit `accessible` / `stroller` travel selects that profile's
+default walking speed (unless walkKmh overrides it). Bike legs use the bike graph. Accessible and stroller profiles
+disable Veturilo. A zero cycling speed rejects an explicit own-bike request with 422.
+Accessible options carry `bez schodów`; stroller options carry `schody tylko z rynnami` when the path takes steps
+(with stroller rails), else `bez schodów`; routes with elevators carry `windy: N`.
+
 Answer: list of `RouteOption`. Public-transport geometry follows the GTFS shape between the stops
-boarded and alighted. Walk and bike geometry follows the OSM graph (a straight line only when the
-graph has no path).
+boarded and alighted (by stop distances, else the shape with the stops projected on it). A trip without any shape
+is still offered: its `path` joins every stop of the ride in order and the leg has `approximatePath: true`. Walk and bike geometry comes only from the street router, using StationLocations IDs
+at stop and Veturilo endpoints (metro access includes the entrances). A missing street path drops the mixed
+candidate. The result may be empty. No straight lines replace missing street paths.
+
+Verified through a running local API and C++ router, with the repository's GTFS/OSM data:
 
 ```json
-[{"id": "pt-ztm:trip", "title": "175",
-  "legs": [{"mode": "walk", "from": "Start", "to": "Marszałkowska", "line": null,
-            "durationMin": 4, "distanceM": 280,
-            "start": [21.0122, 52.2297], "end": [21.015, 52.231],
-            "path": [[52.2297, 21.0122], [52.231, 21.015], "..."]},
-           {"mode": "bus", "from": "Marszałkowska", "to": "Metro Politechnika", "line": "175",
-            "durationMin": 12, "distanceM": 2400,
-            "start": [21.015, 52.231], "end": [21.0054, 52.2194], "path": [[52.231, 21.015], "..."]}],
-  "departure": "15:59", "arrival": "16:18", "durationMin": 19, "distanceM": 2800,
-  "walkDistance": 280, "bikeDistance": 0, "transfers": 0, "tags": ["Najszybsza"]}, "..."]
+{"from": {"id": "centrum", "label": "Centrum", "position": [52.2297, 21.0122]},
+ "to": {"id": "gdanski", "label": "Dworzec Gdański", "position": [52.2574, 20.9933]},
+ "when": "2026-10-18T08:00", "profile": "accessible", "bikeKmh": 0, "maxTransfers": 0}
 ```
 
-Errors: `422` when the body is not valid, or when `when` is not `HH:MM` or an ISO datetime.
-`503` when the GTFS zip is not on disk.
+Abbreviated answer (paths shortened; optional segments omitted here):
+
+```json
+[{"id": "pt-ztm:M1:NdM:MLO", "title": "M1",
+  "legs": [{"mode": "walk", "from": "Centrum", "to": "Centrum", "line": null,
+            "fromId": null, "toId": "ztm:7013M:P1", "durationMin": 6, "distanceM": 327.1,
+            "start": [21.0122, 52.2297], "end": [21.010385558, 52.231009364],
+            "path": [[52.2297, 21.0122], "...", [52.23101, 21.01039]]},
+           {"mode": "metro", "from": "Centrum", "to": "Dworzec Gdański", "line": "M1",
+            "fromId": "ztm:7013M:P1", "toId": "ztm:7019M:P1", "durationMin": 6, "distanceM": 3190.8,
+            "start": [21.010385558, 52.231009364], "end": [20.994182473076926, 52.25808857692308],
+            "path": [[52.23106, 21.010189], "...", [52.257832, 20.994385]]},
+           {"mode": "walk", "from": "Dworzec Gdański", "to": "Dworzec Gdański", "line": null,
+            "fromId": "ztm:7019M:P1", "toId": null, "durationMin": 5, "distanceM": 227.2,
+            "start": [20.994182473076926, 52.25808857692308], "end": [20.9933, 52.2574],
+            "path": [[52.25809, 20.99418], "...", [52.2574, 20.9933]]}],
+  "departure": "08:02", "arrival": "08:19", "durationMin": 17, "distanceM": 3745.1,
+  "walkDistance": 554.3, "bikeDistance": 0, "transfers": 0, "tags": ["Najszybsza"]}]
+```
+
+The router rounds street paths to five decimals; stop endpoint metadata retains exact catalog positions.
+The GTFS shape remains unchanged. In this example the access/egress segments also include `metro_access`.
+For the same local dataset, Centrum [52.2297, 21.0122] → Ochota [52.2196, 20.9652] with
+`travel: "bike"` returned 21 min, walkDistance 88.7 m (pushed) and bikeDistance 3988.8 m (ridden).
+
+Errors: `422` when the body is not valid, when `when` is not `HH:MM` or an ISO datetime,
+or an explicit street-only endpoint is outside the street graph. `404` when an explicit street-only request has no path.
+Mixed planning skips street candidates rejected with 404/422. `503` when timetable/overlay data is missing
+or the street router is unavailable. Other router errors retain their HTTP status.
 
 ### `GET /api/geocode`
 

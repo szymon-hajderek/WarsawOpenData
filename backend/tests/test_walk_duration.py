@@ -17,8 +17,12 @@ def test_walk_total_and_arrival_include_the_walking_leg(monkeypatch, seconds, mi
     departure = datetime.fromisoformat("2026-10-18T23:50:00+02:00")
     monkeypatch.setattr(real_engine, "_street", lambda *args: {
         "seconds": seconds,
-        "length_m": 520.8,
-        "geometry": [start.position, end.position],
+        "legs": [{
+            "mode": "walk", "seconds": seconds, "walk_m": 520.8, "bike_m": 0,
+            "from": {"id": None, "lonlat": start.position[::-1]},
+            "to": {"id": None, "lonlat": end.position[::-1]},
+            "path": [start.position[::-1], end.position[::-1]],
+        }],
     })
 
     option = real_engine.RealRouteEngine()._walk_option(

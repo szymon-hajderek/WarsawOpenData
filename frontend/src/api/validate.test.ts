@@ -31,9 +31,50 @@ describe('isRouteOptions', () => {
     expect(isRouteOptions([{ ...option, legs: [{ ...leg, start: [1] }] }])).toBe(false);
   });
 
+  it('accepts legs with and without segments / approximatePath', () => {
+    const segments = [
+      { kind: 'push', path: [[52.2, 21.0], [52.201, 21.001]], lengthM: 120 },
+      { kind: 'ride', path: [[52.201, 21.001], [52.21, 21.01]], lengthM: 900 },
+    ];
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, mode: 'bike', segments }] }])).toBe(true);
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, mode: 'bus', approximatePath: true }] }])).toBe(true);
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, mode: 'bus', approximatePath: false }] }])).toBe(true);
+  });
+
+  it('rejects approximatePath that is not a boolean', () => {
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, approximatePath: 'yes' }] }])).toBe(false);
+  });
+
+  it('rejects a segment with a bad kind, path or length', () => {
+    const withSegment = (s: object) => [{ ...option, legs: [{ ...leg, segments: [s] }] }];
+    expect(isRouteOptions(withSegment({ kind: 'fly', path: [[52.2, 21.0]], lengthM: 1 }))).toBe(false);
+    expect(isRouteOptions(withSegment({ kind: 'ride', path: [], lengthM: 1 }))).toBe(false);
+    expect(isRouteOptions(withSegment({ kind: 'ride', path: [[52.2, 'x']], lengthM: 1 }))).toBe(false);
+    expect(isRouteOptions(withSegment({ kind: 'ride', path: [[52.2, 21.0]] }))).toBe(false);
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, segments: 'ride' }] }])).toBe(false);
+  });
+
   it('rejects an answer that is not a list', () => {
     expect(isRouteOptions({ detail: 'error' })).toBe(false);
     expect(isRouteOptions(null)).toBe(false);
+  });
+
+  it('accepts optional segments and rejects malformed segment coordinates or kinds', () => {
+    const segments = [{ kind: 'push', path: leg.path, lengthM: 12 }];
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, segments }] }])).toBe(true);
+    for (const broken of [
+      [{ ...segments[0], kind: 'teleport' }],
+      [{ ...segments[0], path: [[52.2]] }],
+      [{ ...segments[0], lengthM: -1 }],
+    ]) {
+      expect(isRouteOptions([{ ...option, legs: [{ ...leg, segments: broken }] }])).toBe(false);
+    }
+  });
+
+  it('accepts a boolean or missing approximatePath and rejects other values', () => {
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, approximatePath: true }] }])).toBe(true);
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, approximatePath: false }] }])).toBe(true);
+    expect(isRouteOptions([{ ...option, legs: [{ ...leg, approximatePath: 'yes' }] }])).toBe(false);
   });
 });
 

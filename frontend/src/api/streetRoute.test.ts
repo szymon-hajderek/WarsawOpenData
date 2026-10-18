@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BackendOfflineError } from './routes';
 import { fetchStreetRoute, fetchStreetTrip, StreetRouteError } from './streetRoute';
 import type { Place } from '../types';
+import { BIKE_ANSWER, STROLLER_ANSWER } from '../test/streetAnswers';
+import { legLines } from '../utils/legStyle';
 
 const from: Place = { id: 'a', label: 'Aleja Solidarności 171', position: [52.2386, 20.9906] };
 const to: Place = { id: 'b', label: 'Banderii 4', position: [52.2495, 20.9838] };
@@ -95,6 +97,64 @@ describe('fetchStreetRoute', () => {
   it('an answer without a geometry is not trusted', async () => {
     vi.stubGlobal('fetch', reply({ seconds: 10, walk_m: 1, bike_m: 0, length_m: 1 }));
     await expect(fetchStreetRoute(from, to, 'walk')).rejects.toThrow('Serwer tras nie działa');
+  });
+});
+
+describe('fetchStreetRoute: segments', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const sum = (xs: { lengthM: number }[]) => xs.reduce((s, x) => s + x.lengthM, 0);
+
+  it('bike: segments come as [lat, lon] with lengthM', async () => {
+    vi.stubGlobal('fetch', reply(BIKE_ANSWER));
+    const segs = (await fetchStreetRoute(from, to, 'bike')).legs[0].segments!;
+    expect(segs.map((s) => s.kind)).toEqual(['push', 'ride', 'push', 'ride', 'push']);
+    expect(segs[0]).toEqual({ kind: 'push', lengthM: 4.0, path: [[52.2297, 21.0122], [52.22969, 21.01226]] });
+  });
+
+  it('bike: ridden metres sum to bike_m, the rest to walk_m', async () => {
+    vi.stubGlobal('fetch', reply(BIKE_ANSWER));
+    const segs = (await fetchStreetRoute(from, to, 'bike')).legs[0].segments!;
+    expect(Math.abs(sum(segs.filter((s) => s.kind === 'ride')) - BIKE_ANSWER.bike_m)).toBeLessThanOrEqual(1);
+    expect(Math.abs(sum(segs.filter((s) => s.kind !== 'ride')) - BIKE_ANSWER.walk_m)).toBeLessThanOrEqual(1);
+  });
+
+  it.each([
+    ['bike', BIKE_ANSWER],
+    ['stroller', STROLLER_ANSWER],
+  ] as const)('%s: consecutive segments touch and cover the whole path', async (mode, answer) => {
+    vi.stubGlobal('fetch', reply(answer));
+    const leg = (await fetchStreetRoute(from, to, mode)).legs[0];
+    const segs = leg.segments!;
+    for (let i = 1; i < segs.length; i++) expect(segs[i].path[0]).toEqual(segs[i - 1].path[segs[i - 1].path.length - 1]);
+    expect(segs[0].path[0]).toEqual(leg.path[0]);
+    expect(segs[segs.length - 1].path.slice(-1)).toEqual(leg.path.slice(-1));
+  });
+
+  it('stroller: walk, steps and elevator segments; walked metres sum to walk_m', async () => {
+    vi.stubGlobal('fetch', reply(STROLLER_ANSWER));
+    const o = await fetchStreetRoute(from, to, 'stroller');
+    const segs = o.legs[0].segments!;
+    expect(segs.map((s) => s.kind)).toEqual(['walk', 'steps', 'walk', 'elevator', 'walk']);
+    expect(Math.abs(sum(segs) - STROLLER_ANSWER.walk_m)).toBeLessThanOrEqual(1);
+    expect(legLines(o.legs[0]).map((l) => l.style)).toEqual(['dotted', 'access', 'dotted', 'access', 'dotted']);
+  });
+
+  it('a leg without segments (older server) is still one line', async () => {
+    vi.stubGlobal('fetch', reply(answers.bike));
+    const leg = (await fetchStreetRoute(from, to, 'bike')).legs[0];
+    expect(leg.segments).toBeUndefined();
+    expect(legLines(leg)).toEqual([{ path: GEOMETRY, style: 'solid' }]);
+  });
+
+  it('a segment with a bad kind or path is not trusted', async () => {
+    const bad = (segment: object) => ({ ...BIKE_ANSWER, legs: [{ ...BIKE_ANSWER.legs[0], segments: [segment] }] });
+    vi.stubGlobal('fetch', reply(bad({ kind: 'fly', length_m: 1, path: [[21, 52]] })));
+    await expect(fetchStreetRoute(from, to, 'bike')).rejects.toThrow('Serwer tras nie działa');
+    vi.stubGlobal('fetch', reply(bad({ kind: 'ride', length_m: 1, path: [[21]] })));
+    await expect(fetchStreetRoute(from, to, 'bike')).rejects.toThrow('Serwer tras nie działa');
   });
 });
 
