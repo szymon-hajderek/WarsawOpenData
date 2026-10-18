@@ -121,7 +121,8 @@ Everything in this repo (files, commits, PRs) is written in English.
 
 - `frontend/` — React + TypeScript + Vite app
 - `ui/` — UI feature work; `ui/concept-art/` holds concept graphics
-- `artifacts/` — self-contained HTML pages (visualizations); rebuilt by scripts, templates in `artifacts/templates/`
+- `artifacts/` — self-contained HTML pages (visualizations); rebuilt by scripts, one folder per topic with its own `templates/` (`artifacts/README.md`)
+  (`delays/` with `tests/`, `bus-detection/`, `veturilo-siting/`; no loose pages in `artifacts/` itself)
 - `backend/` — FastAPI app
 - `algorithms/` — algorithms (mandatory folder): pure functions + their pytest files (`nearest_buses.py`, `stop_order.py`);
   `algorithms/router/` the C++ street router, `algorithms/simulation/` the simulation scripts
@@ -177,9 +178,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   `data/live/bus_track_sample.json` (committed); `simulate_nearest_buses.py` puts users on bus polylines with a GPS
   radius (10-100 m). Results in `algorithms/simulation/RESULTS.md`: own bus always in top-4, top-1 96-100% with
   3 points, 80-89% with 1 point.
-- Second run (`artifacts/bus-detection-fraction.html`): point at u * L, u ~ U(0, 1), 10 points per line; same results.
+- Second run (`artifacts/bus-detection/bus-detection-fraction.html`): point at u * L, u ~ U(0, 1), 10 points per line; same results.
   `rank_buses` is O(V*K*H + V log V), ~2 ms per request for ~880 buses.
-- Visualization: `artifacts/bus-detection-simulation.html` (charts, one mini map per line, table), rebuilt with
+- Visualization: `artifacts/bus-detection/bus-detection-simulation.html` (charts, one mini map per line, table), rebuilt with
   `uv run python ../algorithms/simulation/export_viz.py` (same seed, so the same numbers as RESULTS.md).
 - Time zone: feed times and GTFS service midnights are Europe/Warsaw (`sim/clock.py`: `warsaw_epoch`,
   `warsaw_time`, `zoneinfo` + the `tzdata` package), whatever the server's zone. `record_buses.py` still stores
@@ -195,7 +196,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   Delay simulation: `record_delay_sample.py` records all live vehicles + `/api/live/delay` answers from a local server into
   `data/live/delay_sample.json.gz` (t = seconds since local midnight of `date`); `simulate_delay.py` (`evaluate(sample, radius_m,
   drop, noise_m)`, for future R searches) compares the replayed estimate with the full-track reference (stop crossing on the shape);
-  `export_delay_viz.py` builds `artifacts/delay-simulation.html`. `search_delay_radius.py`: R 20..200 m every 10 m, then every 1 m
+  `export_delay_viz.py` builds `artifacts/delays/delay-statistics.html`. `search_delay_radius.py`: R 20..200 m every 10 m, then every 1 m
   between the two best neighbours; score = share of passes shown within 30 s. On the 2026-10-17 recording: 30 m 95.0%, best 80 m 96.5%
   (flat from 80 m); default still 30 m.
 - Delays of suggested routes (`POST /api/live/route-delays`, `algorithms/route_delays.py`): a transit option id is
@@ -215,7 +216,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   5000 m), 0 in a hex with a station. Greedy top-N: after each pick, Dijkstra from the new station (limit R) and min.
   Not proposed: hexes with a station or without streets. Built in `warm()` (~2.5 min first time, cache `data/derived/siting_*.npz`).
   With these defaults T saturates at 1 in many hexes, so picks are mostly ranked by E and P; a weak quadratic P lets picks sit
-  ~750 m (network) apart. Report: `uv run python siting_report.py` -> `data/SITING_REPORT.md`, `artifacts/veturilo-siting.html`
+  ~750 m (network) apart. Report: `uv run python siting_report.py` -> `data/SITING_REPORT.md`, `artifacts/veturilo-siting/veturilo-siting.html`
   (own canvas map with pan / zoom, no external scripts: Leaflet from a CDN failed to load for the user and broke the page).
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
 - **Ride demo** (`./demo.sh [scenario]`): Demo tab in the frontend, shown only when `GET /api/sim/state` answers (backend in

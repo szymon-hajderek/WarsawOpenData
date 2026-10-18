@@ -1,10 +1,10 @@
-"""Rebuild the HTML result pages of the nearest bus simulation in artifacts/.
+"""Rebuild the HTML result pages of the nearest bus simulation in artifacts/bus-detection/.
 
 Run from backend/:  uv run python ../algorithms/simulation/export_viz.py [sample.json]
 
-- artifacts/bus-detection-simulation.html: replays simulate_nearest_buses.py with the same seed
+- artifacts/bus-detection/bus-detection-simulation.html: replays simulate_nearest_buses.py with the same seed
   (same numbers as RESULTS.md), 5 random points per line.
-- artifacts/bus-detection-fraction.html: the same 15 lines, 10 points per line, each point placed at
+- artifacts/bus-detection/bus-detection-fraction.html: the same 15 lines, 10 points per line, each point placed at
   distance u * (polyline length) with u drawn from U(0, 1) and shown on the page.
 Both pages get a runtime benchmark of rank_buses (complexity section).
 """
@@ -23,9 +23,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import simulate_nearest_buses as sim  # noqa: E402
 from nearest_buses import rank_buses  # noqa: E402
 
-TEMPLATE = REPO / "artifacts" / "templates" / "bus-detection-simulation.html"
-OUT_RANDOM = REPO / "artifacts" / "bus-detection-simulation.html"
-OUT_FRACTION = REPO / "artifacts" / "bus-detection-fraction.html"
+TEMPLATE = REPO / "artifacts" / "bus-detection" / "templates" / "bus-detection-simulation.html"
+OUT_RANDOM = REPO / "artifacts" / "bus-detection" / "bus-detection-simulation.html"
+OUT_FRACTION = REPO / "artifacts" / "bus-detection" / "bus-detection-fraction.html"
 FRACTION_SEED, FRACTION_POINTS = 2026, 10
 BENCH_SIZES = (250, 500, 1000, 2000, 4000, 8000)
 

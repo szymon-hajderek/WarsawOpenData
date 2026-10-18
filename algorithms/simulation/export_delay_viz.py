@@ -1,10 +1,10 @@
-"""Build the HTML report of the delay simulation: artifacts/delay-simulation.html.
+"""Build the HTML report of the delay simulation: artifacts/delays/delay-statistics.html.
 
 Run from backend/:  uv run python ../algorithms/simulation/export_delay_viz.py [--radius 30] [--sample ...]
 
 Runs simulate_delay.evaluate for the base setting and the variants (lost polls, GPS noise), compares the live
 server's answers from the recording with the reference, and inlines everything into the template
-artifacts/templates/delay-simulation.html (slot /*__DATA__*/null).
+artifacts/delays/templates/delay-statistics.html (slot /*__DATA__*/null).
 """
 import argparse
 import json
@@ -19,8 +19,8 @@ import search_delay_radius as srch  # noqa: E402
 import simulate_delay as sd  # noqa: E402
 
 REPO = sd.REPO
-TEMPLATE = REPO / "artifacts" / "templates" / "delay-simulation.html"
-OUT = REPO / "artifacts" / "delay-simulation.html"
+TEMPLATE = REPO / "artifacts" / "delays" / "templates" / "delay-statistics.html"
+OUT = REPO / "artifacts" / "delays" / "delay-statistics.html"
 VARIANTS = [("drop", 0.1), ("drop", 0.3), ("noise", 10), ("noise", 20)]
 WARMUP_S = 300  # live answers in the first 5 minutes: the server buffer was still filling
 

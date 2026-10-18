@@ -41,4 +41,4 @@ Parameters: α = 1.0, β = 1.0, γ = 0.5, δ = 0.5, R = 1000 m, hex radius 175 m
 | 10 | -6319:22119 | 52.21675, 21.09777 | -1.029 | 1.00 | 0.54 | 1193 | 0.000 | 0.48 |
 
 d_net is the distance at the moment of the pick (after the earlier picks).
-Interactive map: `artifacts/veturilo-siting.html`. API: `GET /api/veturilo/siting` (`data/API.md`).
+Interactive map: `artifacts/veturilo-siting/veturilo-siting.html`. API: `GET /api/veturilo/siting` (`data/API.md`).

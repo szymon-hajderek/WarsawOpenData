@@ -172,6 +172,22 @@ pre { margin: 0; background: var(--surface); border: 1px solid var(--grid); bord
   </section>
 
   <section>
+    <h2>Testy</h2>
+    <p class="sub-lead">Stan na 18.10.2026, kod z <code>main</code>. Pełny dziennik testów (co, na jakich danych, jak powtórzyć): <code>artifacts/delays/tests/delay-tests.html</code>. Opis funkcji: <code>artifacts/delays/delay-docs.html</code>.</p>
+    <div class="tbl"><table>
+      <thead><tr><th class="l">co</th><th>testy</th><th class="l">wynik</th></tr></thead>
+      <tbody>
+        <tr><td class="l"><code>algorithms/test_bus_delay.py</code> (algorytm opóźnienia)</td><td>13</td><td class="l">przechodzą</td></tr>
+        <tr><td class="l"><code>algorithms/test_route_delays.py</code> (pojazd dla każdego odcinka trasy)</td><td>5</td><td class="l">przechodzą</td></tr>
+        <tr><td class="l"><code>algorithms/simulation/test_search_delay_radius.py</code> (wybór R)</td><td>4</td><td class="l">przechodzą</td></tr>
+        <tr><td class="l">cały backend: <code>uv run pytest tests ../algorithms</code></td><td>278</td><td class="l">270 przechodzi, 7 pominiętych, 1 pada bez zbudowanego routera C++ (nie dotyczy opóźnień)</td></tr>
+        <tr><td class="l">frontend: <code>npm run lint</code>, <code>npm test</code>, <code>npm run build</code></td><td>98</td><td class="l">lint bez błędów, 98/98 testów, build OK</td></tr>
+        <tr><td class="l">lista tras w działającej aplikacji (podstawione odpowiedzi serwera)</td><td>1</td><td class="l">„180 · 12′ · +3 min”, „17 · 18′ · ok. 1 min wcześniej”, etykieta silnika ukryta</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
     <h2>Jak to liczymy</h2>
     <div class="method">
       <div>
