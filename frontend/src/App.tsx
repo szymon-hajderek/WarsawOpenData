@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Box, Button, Snackbar, Typography, useMediaQuery, useTheme } from '@mui/material';
 import MapView, { type MapPadding } from './components/MapView';
+import { useMap3d } from './map/map3d';
 import SearchCard, { type PickTarget } from './components/SearchCard';
 import PickBanner from './components/PickBanner';
 import { placeAt } from './api/pickPlace';
@@ -39,6 +40,9 @@ import {
 } from './preferences/model';
 import { BOTTOM_NAV_HEIGHT, MAP_PADDING, PANEL_WIDTH } from './layout';
 import type { LatLng, Place, RouteOption, StopOrder, VehicleCandidate } from './types';
+
+// The 3D map prototype is loaded only when it is switched on (MapLibre GL is big).
+const MapView3D = lazy(() => import('./components/MapView3D'));
 
 /** Origin id prefix of "plan from the vehicle I am in" (`onboard` in `POST /api/routes`). */
 const ONBOARD_PREFIX = 'onboard:';
@@ -80,6 +84,8 @@ export default function App() {
   const [stopOrder, setStopOrder] = useState<StopOrder>('given');
   // Public transport (default) or a street-only trip: walking or own bike.
   const [travel, setTravel] = useState<TravelMode>('transit');
+  // The 3D map prototype (a tilted map with extruded buildings), remembered on the device.
+  const [map3d, setMap3d] = useMap3d();
   // Accessibility picked for this search (transit and walking); null = not picked, follow the wheelchair preference.
   const [accessChoice, setAccessChoice] = useState<Access | null>(null);
   // Public transport: reach the stops on foot (default) or by the own bike (then no wheelchair / stroller).
@@ -362,6 +368,24 @@ export default function App() {
       >
         {/* on a wide screen the map starts right of the side panel, so nothing covers it */}
         <Box sx={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: desktop ? PANEL_WIDTH : 0 }}>
+        {map3d && picking === null ? (
+          <Suspense fallback={null}>
+            <MapView3D
+              paletteMode={mode}
+              onToggleMode={toggle}
+              userPosition={userPosition}
+              onLocate={locate}
+              origin={inTrip ? activeTrip.origin : origin}
+              destination={inTrip ? activeTrip.destination : destination}
+              route={preview}
+              padding={padding}
+              stops={inTrip ? [] : via}
+              controlsOffset={inTrip || step === 'route' ? 0 : 84 + stopFields.length * 56 + (hasAccess(travel) && !byBike ? 36 : 0) + (travel === 'transit' ? 36 : 0)}
+              onDetectVehicle={!activeTrip && step === 'search' ? requestLinePopup : undefined}
+              onClose3d={() => setMap3d(false)}
+            />
+          </Suspense>
+        ) : (
         <MapView
           paletteMode={mode}
           onToggleMode={toggle}
@@ -378,8 +402,10 @@ export default function App() {
           follow={inTrip}
           onMapPick={picking !== null && !pickBusy ? (p) => void pickAt(picking, p) : undefined}
           onContextPick={!inTrip && picking === null ? (target, p) => void pickAt(target, p) : undefined}
+          onOpen3d={() => setMap3d(true)}
           onPlacePick={!inTrip ? (target, place) => { cancelPick(); setPlace(target, place); } : undefined}
         />
+        )}
         </Box>
 
         <SidePanel on={desktop}>
