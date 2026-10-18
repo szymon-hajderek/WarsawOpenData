@@ -107,8 +107,8 @@ export default function App() {
   const [onboardNotice, setOnboardNotice] = useState(false);
   const tripHeights = useSnapHeights(300);
 
-  // "Which vehicle am I in?" window: opens by itself only when the first detection found something (a bar for one
-  // confident vehicle, else the sheet); the bus button on the map brings it back. In the active trip it
+  // "Which vehicle am I in?" window: detects every 5 s until a vehicle is confirmed and opens as a small bar when it
+  // found one (also in the active trip); the bus button on the map / "W jakim pojeździe jestem?" asks at once. In the active trip it
   // detects from the trip's own track (the recorder's points), else from the last 1-3 positions.
   const tripTrack = () => {
     const points = activeTrip ? detectionPoints(tracker.track()) : [];
@@ -447,7 +447,7 @@ export default function App() {
           />
         )}
 
-        {inTrip && tripVehicleOpen && vehicle.open && (
+        {inTrip && vehicle.open && (tripVehicleOpen || !vehicle.confirmed) && (
           <VehicleSheet
             candidates={vehicle.vehicles}
             lines={vehicle.lines}
@@ -465,6 +465,7 @@ export default function App() {
             onRedetect={vehicle.redetect}
             onConfirm={() => {
               vehicle.confirm();
+              vehicle.hide();
               setTripVehicleOpen(false);
             }}
             onDismiss={() => {

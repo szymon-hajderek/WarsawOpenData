@@ -304,7 +304,7 @@ Answer:
 
 | Field | Meaning |
 |---|---|
-| `candidates` | up to 4 vehicles, lowest error first: `id`, `vehicle`, `line`, `brigade`, `mode` (`"bus"` or `"tram"`), `direction` (GTFS headsign, empty when no trip matches), `rmse_m` |
+| `candidates` | up to 4 vehicles, lowest error first (each user point is compared with the vehicle's position at that point's time: interpolated between its feed positions, or extrapolated along its last movement for at most 30 s when the point is newer than the feed, which lags ~10-20 s): `id`, `vehicle`, `line`, `brigade`, `mode` (`"bus"` or `"tram"`), `direction` (GTFS headsign, empty when no trip matches), `rmse_m` |
 | `lines` | all lines seen in the live feed, sorted |
 | `updated_at` | Unix time (seconds) of the last poll |
 
