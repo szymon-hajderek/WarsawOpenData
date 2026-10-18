@@ -14,6 +14,8 @@ import Add from '@mui/icons-material/Add';
 import Close from '@mui/icons-material/Close';
 import DragIndicator from '@mui/icons-material/DragIndicator';
 import PlaceField from './PlaceField';
+import DepartureControl from './DepartureControl';
+import type { Departure } from '../utils/departure';
 import { MAX_STOPS } from '../api/routes';
 import type { Place, StopOrder } from '../types';
 import { RADIUS } from '../layout';
@@ -38,6 +40,9 @@ interface Props {
   travel?: TravelMode;
   /** Without it the row of travel modes is not shown (the ride demo). */
   onTravelChange?: (mode: TravelMode) => void;
+  /** Departure time (`null` = now). Without `onDepartureChange` the control is not shown (the ride demo). */
+  departure?: Departure;
+  onDepartureChange?: (d: Departure) => void;
   currentLocation: Place | null;
   onOriginChange: (p: Place | null) => void;
   onDestinationChange: (p: Place | null) => void;
@@ -96,6 +101,8 @@ export default function SearchCard({
   order,
   travel = 'transit',
   onTravelChange,
+  departure = null,
+  onDepartureChange,
   currentLocation,
   onOriginChange,
   onDestinationChange,
@@ -335,6 +342,7 @@ export default function SearchCard({
         )}
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', pl: 4.5, pt: 0.5 }}>
+          {onDepartureChange && <DepartureControl value={departure} onChange={onDepartureChange} />}
           {stops.length < MAX_STOPS && (
             <Button size="small" startIcon={<Add />} onClick={() => onStopsChange([...stops, null])}>
               Dodaj przystanek
