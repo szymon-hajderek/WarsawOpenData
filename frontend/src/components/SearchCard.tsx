@@ -45,10 +45,10 @@ interface Props {
   travel?: TravelMode;
   /** Without it the row of travel modes is not shown (the ride demo). */
   onTravelChange?: (mode: TravelMode) => void;
-  /** Accessibility of a transit or walking search ("Zwykle" / wheelchair / stroller); not shown for the bike. */
+  /** Accessibility of a transit or walking search ("Pieszo" / "Na wózku" / "Z wózkiem dziecięcym"); not shown for the bike. */
   access?: Access;
   onAccessChange?: (access: Access) => void;
-  /** Public transport only: reach the stops on foot or by the own bike ("Rowerem" hides the accessibility choice). */
+  /** Public transport only: the "Z własnym rowerem" switch (own bike to / from / between stops; hides the accessibility choice). */
   transitAccess?: TransitAccess;
   onTransitAccessChange?: (access: TransitAccess) => void;
   /** Departure time (`null` = now). Without `onDepartureChange` the control is not shown (the ride demo). */

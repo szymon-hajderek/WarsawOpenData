@@ -57,7 +57,7 @@ describe('transit access: on foot or by the own bike', () => {
   });
 });
 
-describe('"Dojazd" in the search card', () => {
+describe('"Z własnym rowerem" in the search card', () => {
   const props = {
     origin: null,
     destination: null,
@@ -75,21 +75,24 @@ describe('"Dojazd" in the search card', () => {
     access: 'standard' as const,
   };
 
-  it('shown for public transport only; "Rowerem" hides the accessibility choice', () => {
+  it('a switch for public transport only, off by default; on hides the accessibility choice', () => {
     const onChange = vi.fn();
     const { rerender } = render(<SearchCard {...props} travel="transit" transitAccess="walk" onTransitAccessChange={onChange} />);
-    const group = screen.getByRole('group', { name: 'Dojazd:' });
-    expect(Array.from(group.children).map((c) => c.textContent)).toEqual(['Pieszo', 'Rowerem']);
-    expect(screen.getByRole('group', { name: 'Dostępność' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Rowerem' }));
+    const toggle = screen.getByRole('checkbox', { name: 'Z własnym rowerem' });
+    expect(toggle).not.toBeChecked();
+    const access = screen.getByRole('group', { name: 'Dostępność' });
+    expect(Array.from(access.children).map((c) => c.textContent)).toEqual(['Pieszo', 'Na wózku', 'Z wózkiem dziecięcym']);
+    fireEvent.click(toggle);
     expect(onChange).toHaveBeenCalledWith('bike');
 
     rerender(<SearchCard {...props} travel="transit" transitAccess="bike" onTransitAccessChange={onChange} />);
-    expect(screen.getByRole('button', { name: 'Rowerem' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('checkbox', { name: 'Z własnym rowerem' })).toBeChecked();
     expect(screen.queryByRole('group', { name: 'Dostępność' })).toBeNull();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Z własnym rowerem' }));
+    expect(onChange).toHaveBeenLastCalledWith('walk');
 
     rerender(<SearchCard {...props} travel="walk" transitAccess="bike" onTransitAccessChange={onChange} />);
-    expect(screen.queryByRole('group', { name: 'Dojazd:' })).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: 'Z własnym rowerem' })).toBeNull();
     expect(screen.getByRole('group', { name: 'Dostępność' })).toBeInTheDocument();
   });
 });

@@ -21,9 +21,9 @@ export type Access = 'standard' | 'wheelchair' | 'stroller';
 export const ACCESS_OPTIONS: Access[] = ['standard', 'wheelchair', 'stroller'];
 
 export const ACCESS_LABELS: Record<Access, string> = {
-  standard: 'Zwykle',
-  wheelchair: 'Wózek inwalidzki',
-  stroller: 'Wózek dziecięcy',
+  standard: 'Pieszo',
+  wheelchair: 'Na wózku',
+  stroller: 'Z wózkiem dziecięcym',
 };
 
 /**

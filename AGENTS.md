@@ -435,7 +435,7 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Transit with the own bike: `RouteRequest.access` = `walk` (default) | `bike`. `bike` runs `/plan` in mode `bike` (no
   Veturilo; `bikeKmh` 0 keeps the default speed), street legs are `bike`, titles "Rower + 525 + Rower" (ridden legs only,
   repeats merged), street-only = "Własny rower" (id `bike`). 422 with a wheelchair / stroller (profile, travel, stepFree,
-  body.wheelchair). Frontend: "Dojazd: Pieszo | Rowerem" (`TransitAccessToggle.tsx`, `TransitAccess` in `travel.ts`) under
+  body.wheelchair). Frontend: the switch "Z własnym rowerem" (off by default) (`TransitAccessToggle.tsx`, `TransitAccess` in `travel.ts`) under
   Komunikacja; Rowerem hides the accessibility toggle and sends profile `standard` + `access: "bike"`.
 - The C++ router never returns transit shapes. Transit geometry comes from GTFS in `geometry.py` (`_ride_path`: `shape_slice`,
   then `shape_by_stops`); without any shape, a polyline through the stops with `approximatePath: true`. The shape is cut at
@@ -472,9 +472,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   `when` = `YYYY-MM-DDTHH:MM` with every search (transit, `via`, street-only); now sends no `when`. A past time is allowed (chip muted).
   The route list header shows "Wyjazd 14:30" when not now.
 - Travel modes (`src/travel.ts`, not saved): three main chips in the search card (Komunikacja | Pieszo | Rower) and, for Komunikacja and Pieszo only,
-  a small toggle row "Dostępność": Zwykle | Wózek inwalidzki | Wózek dziecięcy (`Access`, per search; a wheelchair in the preferences preselects
+  a small toggle row "Dostępność": Pieszo | Na wózku | Z wózkiem dziecięcym (`Access`, per search; a wheelchair in the preferences preselects
   "Wózek inwalidzki"). Komunikacja = the normal search with `profile` (`TRANSIT_PROFILE`: standard / accessible / stroller); a picked accessibility
-  wins over the stepFree / wheelchair preferences (`routeSearchBody(p, modes, access)`: "Zwykle" sends `stepFree: false` and wheelchair `none`,
+  wins over the stepFree / wheelchair preferences (`routeSearchBody(p, modes, access)`: "Pieszo" (standard) sends `stepFree: false` and wheelchair `none`,
   wheelchair / stroller leave out `walkKmh` unless the wheelchair speed is known). Vehicle exclusions only go with Komunikacja. Pieszo = `travel`
   walk / accessible / stroller, Rower = `travel` bike (`streetMode(mode, access)`). Street-only trips: `src/api/streetRoute.ts` (`fetchStreetTrip`, also with `via` / `order`; `fetchStreetRoute` = no stops)
   posts to the same `POST /api/routes` with `travel` (`ROUTER_MODE`: `walk`, `accessible`, `stroller`, `bike`) and shows the one `RouteOption` of the answer as it is
