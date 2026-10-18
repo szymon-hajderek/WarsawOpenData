@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import MyLocation from '@mui/icons-material/MyLocation';
 import PlaceOutlined from '@mui/icons-material/PlaceOutlined';
+import AddLocationAlt from '@mui/icons-material/AddLocationAlt';
 import { MIN_QUERY, searchPlaces } from '../api/geocode';
 import type { Place } from '../types';
 import { RADIUS } from '../layout';
@@ -24,7 +25,12 @@ interface Props {
   showLocateButton?: boolean;
   onLocate?: () => void;
   autoFocus?: boolean;
+  /** Offers "Wybierz na mapie" in the list: the place is then picked by tapping the map. */
+  onPickOnMap?: () => void;
 }
+
+/** The "Wybierz na mapie" entry of the list (never a real place). */
+const PICK_ON_MAP: Place = { id: 'pick-on-map', label: 'Wybierz na mapie', position: [0, 0] };
 
 export default function PlaceField({
   value,
@@ -34,6 +40,7 @@ export default function PlaceField({
   showLocateButton,
   onLocate,
   autoFocus,
+  onPickOnMap,
 }: Props) {
   const [input, setInput] = useState(value?.label ?? '');
   const [results, setResults] = useState<Place[]>([]);
@@ -80,6 +87,7 @@ export default function PlaceField({
     ...(currentLocation && !typing ? [currentLocation] : []),
     ...(typing ? results : []),
     ...(value && !typing && value.id !== currentLocation?.id ? [value] : []),
+    ...(onPickOnMap && !typing ? [PICK_ON_MAP] : []),
   ];
 
   return (
@@ -96,7 +104,7 @@ export default function PlaceField({
       onInputChange={(_, text, reason) => {
         if (reason === 'input' || reason === 'clear') setInput(text);
       }}
-      onChange={(_, place) => onChange(place)}
+      onChange={(_, place) => (place?.id === PICK_ON_MAP.id ? onPickOnMap?.() : onChange(place))}
       // Leaving the field without a choice puts the chosen place back, so text and value never disagree.
       onClose={(_, reason) => {
         if (reason === 'blur' || reason === 'escape') setInput(value?.label ?? '');
@@ -119,7 +127,9 @@ export default function PlaceField({
         const { key: _key, ...rest } = props as typeof props & { key: string };
         return (
           <Box component="li" key={option.id} {...rest} sx={{ gap: 1.5 }}>
-            {option.isCurrentLocation ? (
+            {option.id === PICK_ON_MAP.id ? (
+              <AddLocationAlt color="primary" fontSize="small" />
+            ) : option.isCurrentLocation ? (
               <MyLocation color="primary" fontSize="small" />
             ) : (
               <PlaceOutlined color="action" fontSize="small" />

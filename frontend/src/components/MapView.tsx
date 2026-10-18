@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import L from 'leaflet';
-import { CircleMarker, MapContainer, Marker, Polyline, useMap } from 'react-leaflet';
-import { Box, IconButton, type PaletteMode } from '@mui/material';
+import { CircleMarker, MapContainer, Marker, Polyline, Popup, useMap, useMapEvents } from 'react-leaflet';
+import { Box, Button, IconButton, type PaletteMode } from '@mui/material';
 import Add from '@mui/icons-material/Add';
 import Remove from '@mui/icons-material/Remove';
 import MyLocation from '@mui/icons-material/MyLocation';
@@ -62,6 +62,38 @@ interface Props {
   gpsPosition?: LatLng | null;
   /** Active trip: the map keeps the user's position in view. */
   follow?: boolean;
+  /** Picking a point ("Wybierz na mapie"): a tap / click on the map gives its position, the cursor is a crosshair. */
+  onMapPick?: (position: LatLng) => void;
+  /** Long press / right click on the map offers "Stąd" / "Dotąd" at that point. */
+  onContextPick?: (target: 'origin' | 'destination', position: LatLng) => void;
+}
+
+/** Map taps while picking, and the long-press / right-click menu "Stąd" / "Dotąd". */
+function MapPicker({ onMapPick, onContextPick }: Pick<Props, 'onMapPick' | 'onContextPick'>) {
+  const [menu, setMenu] = useState<LatLng | null>(null);
+  useMapEvents({
+    click: (e) => onMapPick?.([e.latlng.lat, e.latlng.lng]),
+    contextmenu: (e) => {
+      if (onContextPick && !onMapPick) setMenu([e.latlng.lat, e.latlng.lng]);
+    },
+  });
+  if (!menu || !onContextPick) return null;
+  const pick = (target: 'origin' | 'destination') => {
+    setMenu(null);
+    onContextPick(target, menu);
+  };
+  return (
+    <Popup position={menu} closeButton={false} eventHandlers={{ remove: () => setMenu(null) }}>
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        <Button size="small" variant="outlined" onClick={() => pick('origin')}>
+          Stąd
+        </Button>
+        <Button size="small" variant="contained" onClick={() => pick('destination')}>
+          Dotąd
+        </Button>
+      </Box>
+    </Popup>
+  );
 }
 
 /** Fits the view to what is visible (route / points) and handles the first geolocation fix. */
@@ -313,6 +345,8 @@ export default function MapView({
   onDetectVehicle,
   gpsPosition = null,
   follow = false,
+  onMapPick,
+  onContextPick,
 }: Props) {
   const [map, setMap] = useState<L.Map | null>(null);
   const colors = PALETTE[paletteMode];
@@ -404,7 +438,13 @@ export default function MapView({
 
   return (
     <>
-      <Box sx={{ position: 'absolute', inset: 0 }}>
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          ...(onMapPick && { '& .leaflet-container, & .leaflet-container.leaflet-grab': { cursor: 'crosshair' } }),
+        }}
+      >
         <MapContainer
           ref={setMap}
           center={WARSAW}
@@ -414,6 +454,7 @@ export default function MapView({
           style={{ height: '100%', width: '100%' }}
         >
           <VectorBasemap mode={paletteMode} look={look} />
+          <MapPicker onMapPick={onMapPick} onContextPick={onContextPick} />
           <MapController
             origin={origin}
             destination={destination}
