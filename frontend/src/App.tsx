@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Box, Button, Snackbar, Typography, useMediaQuery, useTheme } from '@mui/material';
 import MapView, { type MapPadding } from './components/MapView';
 import SearchCard from './components/SearchCard';
@@ -17,6 +17,7 @@ import { detectionPoints, requestLinePopup } from './api/vehicle';
 import { geoErrorText, useLocationTrack } from './hooks/useLocationTrack';
 import { useRouteSearch } from './hooks/useRouteSearch';
 import { useTripProgress } from './hooks/useTripProgress';
+import { countdownText, mustWait, secondsUntil, tripStartAt } from './utils/tripStart';
 import type { TravelMode } from './travel';
 import { useVehicleDetection } from './hooks/useVehicleDetection';
 import { usePreferences } from './preferences/PreferencesProvider';
@@ -42,6 +43,10 @@ interface ActiveTrip {
   route: RouteOption;
   origin: Place;
   destination: Place;
+  /** Full local departure datetime of the route (today + `route.departure`, or the searched date). */
+  startAt: Date;
+  /** False while waiting for a later departure: no GPS progress, no off-route check, no recording yet. */
+  started: boolean;
 }
 
 type Step = 'search' | 'options' | 'route';
@@ -93,7 +98,26 @@ export default function App() {
     return points.length > 0 ? points : getTrack();
   };
   const vehicle = useVehicleDetection({ position: userPosition, geoError, getTrack: tripTrack });
-  const progress = useTripProgress(activeTrip?.route ?? null, userPosition);
+  const progress = useTripProgress(activeTrip?.started ? activeTrip.route : null, userPosition);
+
+  // Waiting for a later departure: a live countdown, then the trip starts by itself (or on "Ruszam teraz").
+  const beginRecording = useRef<(() => void) | null>(null);
+  const [now, setNow] = useState(() => new Date());
+  const waitingTrip = activeTrip !== null && !activeTrip.started;
+  useEffect(() => {
+    if (!waitingTrip) return;
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, [waitingTrip]);
+  const launchTrip = () => {
+    beginRecording.current?.();
+    beginRecording.current = null;
+    setActiveTrip((t) => (t ? { ...t, started: true } : t));
+  };
+  useEffect(() => {
+    if (activeTrip && !activeTrip.started && secondsUntil(activeTrip.startAt, now) <= 0) launchTrip();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTrip, now]);
 
   const currentLocation = useMemo<Place | null>(
     () =>
@@ -183,15 +207,23 @@ export default function App() {
   // What is on the screen: the active trip (unless a new route is being searched) or the normal flow.
   const inTrip = activeTrip !== null && !replanning;
 
-  const startTrip = () => {
+  const startTrip = (begin: () => void) => {
     if (!chosen || !origin || !destination) return;
-    setActiveTrip({ route: chosen, origin, destination });
+    const current = new Date();
+    // The search is for now until the departure-time picker sends its date; then pass that date here.
+    const startAt = tripStartAt(chosen.departure, current);
+    const wait = mustWait(startAt, current);
+    if (wait) beginRecording.current = begin;
+    else begin();
+    setNow(current);
+    setActiveTrip({ route: chosen, origin, destination, startAt, started: !wait });
     setReplanning(false);
     setTripSnap('middle');
   };
 
   const endTrip = () => {
-    void tracker.stop(); // saves the pace recording, as before
+    beginRecording.current = null;
+    void tracker.stop(); // saves the pace recording, as before (nothing while still waiting)
     setActiveTrip(null);
     setReplanning(false);
     setTripVehicleOpen(false);
@@ -219,7 +251,7 @@ export default function App() {
       const picked = visible.find((o) => o.id === selectedId);
       if (!picked || !origin || !destination) return;
       // The new route replaces the old one; the trip (and its recording) goes on.
-      setActiveTrip({ route: picked, origin, destination });
+      setActiveTrip({ ...activeTrip, route: picked, origin, destination });
       setReplanning(false);
       setTripSnap('middle');
       return;
@@ -322,6 +354,12 @@ export default function App() {
             onChangeDestination={() => replan(false)}
             onReroute={() => replan(true)}
             onEnd={endTrip}
+            waiting={
+              activeTrip.started
+                ? null
+                : { departure: activeTrip.route.departure, countdown: countdownText(secondsUntil(activeTrip.startAt, now)) }
+            }
+            onStartNow={launchTrip}
           />
         )}
 

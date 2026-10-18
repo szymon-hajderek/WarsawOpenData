@@ -7,7 +7,7 @@ import SnapSheet, { type SheetSnap } from './SnapSheet';
 import { instruction } from './RouteDetailsSheet';
 import { MODE_META, modeColor } from '../modes';
 import { formatDistance, formatDuration } from '../utils/format';
-import type { TripProgress } from '../utils/progress';
+import { nextStepText, type TripProgress } from '../utils/progress';
 import type { RouteOption, VehicleCandidate } from '../types';
 import { RADIUS } from '../layout';
 
@@ -29,6 +29,10 @@ interface Props {
   onReroute: () => void;
   /** "Zakończ": leaves the active trip and saves the pace recording. */
   onEnd: () => void;
+  /** Waiting for a later departure: "Wyjazd o 14:30 · za 23 min" (null = the trip runs). */
+  waiting?: { departure: string; countdown: string } | null;
+  /** "Ruszam teraz": start the trip before its departure time (same route). */
+  onStartNow?: () => void;
 }
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -45,10 +49,12 @@ export default function ActiveTripSheet({
   onChangeDestination,
   onReroute,
   onEnd,
+  waiting = null,
+  onStartNow,
 }: Props) {
   const palette = useTheme().palette.mode;
-  const current = progress?.legIndex ?? 0;
-  const nextStep = progress?.nextStep ?? instruction(route.legs[0]);
+  const current = waiting ? 0 : progress?.legIndex ?? 0;
+  const nextStep = (!waiting && progress?.nextStep) || nextStepText(route.legs, 0) || instruction(route.legs[0]);
 
   return (
     <SnapSheet
@@ -60,7 +66,7 @@ export default function ActiveTripSheet({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="caption" color="text.secondary" noWrap component="div">
-              Aktywny przejazd · {clock(elapsedS)} · cel o {route.arrival}
+              {waiting ? `Wyjazd o ${waiting.departure} · ${waiting.countdown}` : `Aktywny przejazd · ${clock(elapsedS)} · cel o ${route.arrival}`}
             </Typography>
             <Typography variant="h6" noWrap sx={{ fontWeight: 700, lineHeight: 1.25 }} data-testid="next-step">
               {nextStep}
@@ -70,18 +76,29 @@ export default function ActiveTripSheet({
         </Box>
       )}
       footer={
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" startIcon={<Place />} onClick={onChangeDestination} sx={{ flex: 1 }}>
-            Zmień cel
-          </Button>
-          <Button variant="contained" onClick={onEnd} sx={{ flex: 1 }}>
-            Zakończ
-          </Button>
-        </Box>
+        waiting ? (
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button variant="outlined" onClick={onEnd} sx={{ flex: 1 }}>
+              Anuluj
+            </Button>
+            <Button variant="contained" onClick={onStartNow} sx={{ flex: 1 }}>
+              Ruszam teraz
+            </Button>
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button variant="outlined" startIcon={<Place />} onClick={onChangeDestination} sx={{ flex: 1 }}>
+              Zmień cel
+            </Button>
+            <Button variant="contained" onClick={onEnd} sx={{ flex: 1 }}>
+              Zakończ
+            </Button>
+          </Box>
+        )
       }
     >
       <Box>
-        {progress?.offRoute && (
+        {!waiting && progress?.offRoute && (
           <Alert
             severity="warning"
             sx={{ mb: 1.5 }}
@@ -95,7 +112,7 @@ export default function ActiveTripSheet({
           </Alert>
         )}
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{ display: waiting ? 'none' : 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
           <Button size="small" variant="outlined" startIcon={<DirectionsBus />} onClick={onDetectVehicle}>
             W jakim pojeździe jestem?
           </Button>

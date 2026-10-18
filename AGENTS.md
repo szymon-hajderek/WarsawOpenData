@@ -416,7 +416,11 @@ Everything in this repo (files, commits, PRs) is written in English.
   open the full `SearchCard` ("← Wróć do przejazdu"); with a confirmed (not hand-picked) vehicle the start is
   `onboard:<vehicleId>` "Z pojazdu: 119 (następne przystanki)" and `POST /api/routes` gets `onboard: {vehicleId}`
   (timetable times only, no live delays in planning); 404 (`VehicleNotFoundError`) -> start = GPS position + a note.
-  Choosing an option replaces the trip's route. Tests: `src/activeTrip.test.tsx` (whole App, MapView mocked, recorded
+  Choosing an option replaces the trip's route. A departure more than 1 min ahead (`src/utils/tripStart.ts`:
+  `tripStartAt(departure, now, searchDate?)`, `secondsUntil`, `mustWait`, `countdownText`) opens the trip in a waiting
+  state ("Wyjazd o 14:30 · za 23 min", first step, "Anuluj" / "Ruszam teraz"): no progress, off-route or recording until
+  the departure time (auto-start) or "Ruszam teraz"; `RouteDetailsSheet` `onStart(begin)` lets the app start the recorder
+  later. Pass the searched date as `searchDate` once the departure-time picker exists. Tests: `src/activeTrip.test.tsx` (whole App, MapView mocked, recorded
   bus-1002 track from `data/live/bus_track_sample.json` in `src/test/busTrack.ts`, answers per data/API.md).
 - Speed history (device-side, privacy first): in the route view "Rozpocznij przejazd" / "Zakończ" records GPS points (memory only, one every 4 s,
   Screen Wake Lock while recording) and sends the track once to `POST /api/history/records` (`backend/app/api/history.py`,

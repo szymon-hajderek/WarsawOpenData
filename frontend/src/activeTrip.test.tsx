@@ -42,6 +42,10 @@ interface Call {
 }
 let calls: Call[] = [];
 let onboardAnswer: 'route' | '404' = 'route';
+/** Minutes from now of the first route's departure (0 = leave now). */
+let departInMin = 0;
+const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const departure = () => hhmm(new Date(Date.now() + departInMin * 60_000));
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 
 function installBackend() {
@@ -61,9 +65,16 @@ function installBackend() {
         );
       }
       if (url.includes('/api/routes')) {
-        if (body?.onboard) return onboardAnswer === '404' ? json({ detail: 'vehicle not found' }, 404) : json([onboardRoute(NEW_DESTINATION)]);
+        if (body?.onboard)
+          return onboardAnswer === '404'
+            ? json({ detail: 'vehicle not found' }, 404)
+            : json([{ ...onboardRoute(NEW_DESTINATION), departure: hhmm(new Date()) }]);
         const to = body?.to as { label?: string } | undefined;
-        return json(to?.label === 'Nowy cel' ? [{ ...onboardRoute(NEW_DESTINATION), id: 'pt-gps', title: 'Z GPS' }] : [ROUTE_119]);
+        return json(
+          to?.label === 'Nowy cel'
+            ? [{ ...onboardRoute(NEW_DESTINATION), id: 'pt-gps', title: 'Z GPS', departure: hhmm(new Date()) }]
+            : [{ ...ROUTE_119, departure: departure() }],
+        );
       }
       if (url.includes('/api/live/route-delays')) return json({});
       return json({ detail: 'not found' }, 404);
@@ -123,10 +134,48 @@ describe('active trip', () => {
     installGeolocation();
     installBackend();
     onboardAnswer = 'route';
+    departInMin = 0;
   });
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
+
+  it('a later departure waits: countdown, no progress or recording, then "Ruszam teraz"', async () => {
+    departInMin = 30;
+    await startTrip();
+    expect(await screen.findByText(/^Wyjazd o \d\d:\d\d · za (29|30) min$/)).toBeInTheDocument();
+    expect(screen.getByTestId('next-step')).toHaveTextContent('Idź do: Grochowska 01');
+    // GPS does not move the trip and the recorder is not running (only the app's own location watch is)
+    const watchesBefore = watchers.size;
+    ride(1, 6);
+    expect(screen.getByTestId('next-step')).toHaveTextContent('Idź do: Grochowska 01');
+    expect(screen.queryByRole('button', { name: 'W jakim pojeździe jestem?' })).toBeNull(); // hidden while waiting
+    fireEvent.click(screen.getByRole('button', { name: 'Ruszam teraz' }));
+    await screen.findByText(/^Aktywny przejazd · /);
+    expect(watchers.size).toBe(watchesBefore + 1); // the pace recording started now
+    ride(5, 6);
+    expect(screen.getByTestId('next-step')).toHaveTextContent('Wysiadasz na: Rondo Wiatraczna 02');
+  }, 20_000);
+
+  it('a waiting trip starts by itself at the departure time', async () => {
+    departInMin = 5;
+    await startTrip();
+    await screen.findByText(/^Wyjazd o /);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(Date.now() + 6 * 60_000));
+    await screen.findByText(/^Aktywny przejazd · /, {}, { timeout: 3000 });
+    vi.useRealTimers();
+    fireEvent.click(screen.getByRole('button', { name: 'Zakończ' }));
+    await waitFor(() => expect(screen.queryByTestId('next-step')).not.toBeInTheDocument());
+  }, 20_000);
+
+  it('"Anuluj" leaves a waiting trip', async () => {
+    departInMin = 45;
+    await startTrip();
+    fireEvent.click(await screen.findByRole('button', { name: 'Anuluj' }));
+    await waitFor(() => expect(screen.queryByTestId('next-step')).not.toBeInTheDocument());
+  }, 20_000);
 
   it('follows the recorded ride, detects the bus, plans a new destination from it and replaces the route', async () => {
     await startTrip();

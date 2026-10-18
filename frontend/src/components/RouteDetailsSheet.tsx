@@ -43,7 +43,7 @@ function Tile({ label, value }: { label: string; value: string }) {
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 /** Records the ride with GPS so the app can learn the user's real pace (see `src/history/`). */
-function TripRecorder({ route, origin, destination, onStart }: { route: RouteOption; origin: Place; destination: Place; onStart?: () => void }) {
+function TripRecorder({ route, origin, destination, onStart }: { route: RouteOption; origin: Place; destination: Place; onStart?: (begin: () => void) => void }) {
   const { tracker } = useHistory();
   const { effective } = usePreferences();
   const walkAs = effective.wheelchair.type !== 'none' ? 'wheelchair' : 'walking';
@@ -76,8 +76,10 @@ function TripRecorder({ route, origin, destination, onStart }: { route: RouteOpt
             variant="outlined"
             startIcon={<FiberManualRecord sx={{ color: 'error.main' }} />}
             onClick={() => {
-              tracker.start(legs, walkAs, { from: origin, to: destination });
-              onStart?.();
+              const begin = () => tracker.start(legs, walkAs, { from: origin, to: destination });
+              // The app decides when the recording begins (a later departure waits for its time).
+              if (onStart) onStart(begin);
+              else begin();
             }}
           >
             Rozpocznij przejazd
@@ -114,8 +116,8 @@ interface Props {
   snap: SheetSnap;
   onSnapChange: (snap: SheetSnap) => void;
   onBack: () => void;
-  /** "Rozpocznij przejazd": the recording starts and the app enters the active trip mode. */
-  onStart?: () => void;
+  /** "Rozpocznij przejazd": the app enters the active trip mode and calls `begin` (starts the recording) when the trip really starts. */
+  onStart?: (begin: () => void) => void;
 }
 
 /** The chosen route: a header at the top and a summary + steps panel at the bottom. */
