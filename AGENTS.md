@@ -418,6 +418,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   override it) is the persistent exclusion; the FilterSheet vehicle chips (`TripFilters.modes`, null = as in the preferences)
   replace it for one search. `routeSearchBody(trip, filters.modes)` turns both into `excludeModes` for `POST /api/routes`.
   `fetchRouteOptions` sends `walkKmh`, `bikeKmh`, `stepFree`, `maxTransfers`, excluded districts and points, `excludeModes` and `body`.
+- Frequent places (device-side, hidden): `src/places/frequentPlaces.ts` + `FrequentPlacesProvider` (localStorage `frequent-places`, max 50).
+  Each route search gives every place (not the current location) a point, once per 10 min; points halve every 30 days; suggested from 1.5.
+  `PlaceField` shows up to 3 when empty (history icon, "Często wybierane") and matching ones first while typing. Cleared in Preferences.
 - Calories (device-side): `Preferences.body` (weight, height, age, sex; all optional, defaults 70 kg / 170 cm / 35 y) is edited in the "Kalorie" section of the
   Preferences page only (`components/preferences/BodySection.tsx`); rules and filters never override it (`applyOverrides` keeps it). `routeKcal(route, prefs)` in
   `src/preferences/model.ts` computes NET kcal of the walk / bike legs (MET from the Compendium of Physical Activities interpolated by the user's km/h x weight x hours

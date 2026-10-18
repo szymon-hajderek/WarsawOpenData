@@ -17,6 +17,10 @@ artifacts/
 │   ├── bus-detection-simulation.html
 │   ├── bus-detection-fraction.html
 │   └── templates/bus-detection-simulation.html
+├── frequent-places/             hidden "frequent places" in the search fields
+│   ├── frequent-places-docs.html   report: how it works, screenshots, privacy, files
+│   ├── tests/frequent-places-tests.html
+│   ├── templates/, img/, build.py  page bodies, screenshots, builder (inlines the images)
 └── veturilo-siting/             where to put new Veturilo stations
     ├── veturilo-siting.html
     └── templates/veturilo-siting.html
@@ -29,4 +33,6 @@ artifacts/
 | `delays/tests/delay-tests.html` | Test log of the delay feature: unit tests one by one, backend and frontend suites, live tuning, simulation, radius search, live endpoint checks, the route list in the running app, what could not be tested | none, edited by hand |
 | `bus-detection/bus-detection-simulation.html` | Nearest bus detection (MSE) on 2 minutes of live ZTM data: hit rate by GPS radius, median RMSE, one mini map per line with every simulated rider, results table, how time is handled, complexity | `uv run python ../algorithms/simulation/export_viz.py` |
 | `bus-detection/bus-detection-fraction.html` | The same test with each point placed at u·L (u ~ U(0, 1), 10 points per line): results, hit rate by u, how time is handled, complexity with a runtime benchmark | the same `export_viz.py` (writes both pages) |
+| `frequent-places/frequent-places-docs.html` | Hidden frequent places in the search fields: what the user sees (screenshots), the scoring rules, privacy, files, limits | `python artifacts/frequent-places/build.py` (from the repo root) |
+| `frequent-places/tests/frequent-places-tests.html` | Test log: unit tests, the field component test, the whole frontend, a step-by-step run in the app with screenshots, what was not tested | the same `build.py` |
 | `veturilo-siting/veturilo-siting.html` | Where to put new Veturilo stations: hex grid (175 m) with the J_synergy cost, layers T / E / S / d_net / J, mock traffic counters and e-scooter events, greedy picks step by step with a slider, top-10 table; canvas map without base tiles. T and E are mock data | `uv run python siting_report.py` |
