@@ -61,10 +61,10 @@ def _future_trip(locations):
 
 def _no_shapes(monkeypatch):
     monkeypatch.setattr(geometry, "_ride_path", _RIDE_PATH)
-    monkeypatch.setattr(engine.mkuran, "trip_onward", lambda *args: [])
-    monkeypatch.setattr(engine.mkuran, "trip_shape_id", lambda trip_id: "")
-    monkeypatch.setattr(engine.mkuran, "shape_slice", lambda *args: [])
-    monkeypatch.setattr(engine.mkuran, "shape_by_stops", lambda *args: [])
+    monkeypatch.setattr(geometry.mkuran, "trip_onward", lambda *args: [])
+    monkeypatch.setattr(geometry.mkuran, "trip_shape_id", lambda trip_id: "")
+    monkeypatch.setattr(geometry.mkuran, "shape_slice", lambda *args: [])
+    monkeypatch.setattr(geometry.mkuran, "shape_by_stops", lambda *args: [])
 
 
 def test_future_transit_and_veturilo_legs_convert(router, monkeypatch):
@@ -110,9 +110,9 @@ def test_leg_path_per_leg_type_and_fallback(router, monkeypatch):
     shape = [[52.25, 21.04], [52.255, 21.045], [52.26, 21.05]]
     calls = [{"stop_id": s, "lat": 52.25, "lon": 21.04, "shape_dist": i * 100} for i, s in enumerate((A, B, C, D))]
     seen = []
-    monkeypatch.setattr(engine.mkuran, "trip_onward", lambda trip_id, stop_id, sec: calls)
-    monkeypatch.setattr(engine.mkuran, "trip_shape_id", lambda trip_id: "shape")
-    monkeypatch.setattr(engine.mkuran, "shape_slice", lambda shape_id, d0, d1: seen.append((d0, d1)) or shape)
+    monkeypatch.setattr(geometry.mkuran, "trip_onward", lambda trip_id, stop_id, sec: calls)
+    monkeypatch.setattr(geometry.mkuran, "trip_shape_id", lambda trip_id: "shape")
+    monkeypatch.setattr(geometry.mkuran, "shape_slice", lambda shape_id, d0, d1: seen.append((d0, d1)) or shape)
     assert geometry.leg_path(bus) == (shape, False)
     assert seen == [(0, 200)]  # cut at C, not D
     # mkuran calls given directly (today's planner).
@@ -126,28 +126,6 @@ def test_position_resolves_ids_and_query_points(router):
     assert geometry.position(None, START.position) == START.position
     assert geometry.position(None, A) == a  # the query point may itself be an id
     assert geometry.position("ztm:unknown", START.position) == START.position
-
-
-def test_transit_legs_today_carry_trip_id_and_wait_at_the_boarding_stop(router):
-    option = engine.RealRouteEngine()._transit_option(
-        START, END, START.position, END.position, "standard", NOW, 28800,
-        [ride(), ride(C, D, 30300, 30900, "17")], 0, None)
-    first, second = [leg for leg in option.legs if leg.mode == "bus"]
-    assert (first.tripId, second.tripId) == ("175", "17")
-    assert first.waitS == 0  # the user leaves just in time for the first ride
-    assert second.waitS == 30300 - (30000 + 60)  # arrival + the 60 s transfer walk B -> C
-    assert all(leg.waitS is None and leg.tripId is None for leg in option.legs if leg.mode == "walk")
-    assert option.waitS == 240
-
-
-def test_transit_wait_after_a_veturilo_bridge(router):
-    pickup, dropoff = {"id": P, "name": "P"}, {"id": Q, "name": "Q"}
-    legs, seconds, _ = engine._bike_bridge(B, "B", pickup, dropoff, C, "C", "standard")
-    option = engine.RealRouteEngine()._transit_option(
-        START, END, START.position, END.position, "standard", NOW, 28800,
-        [ride(), ride(C, D, 30600, 31200, "17")], 0, None, between=(legs, seconds))
-    second = [leg for leg in option.legs if leg.mode == "bus"][1]
-    assert second.waitS == 30600 - (30000 + seconds)
 
 
 def test_new_format_bike_trip_keeps_segments_and_wait(router, monkeypatch):

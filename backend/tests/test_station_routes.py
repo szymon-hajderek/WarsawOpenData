@@ -1,5 +1,4 @@
-"""Planner integration with the station overlay and router, without downloads or data files."""
-from copy import deepcopy
+"""Route engine with the station overlay and the router (street trips, the adapter), without data files."""
 from datetime import datetime
 
 import pytest
@@ -28,9 +27,8 @@ def router(monkeypatch):
         "gtfs": {"lat": 52.25 + i * 0.001, "lon": 21.04 + i * 0.001},
     } for i, station_id in enumerate((A, B, C, D, P, Q))]
     by_id = {loc["id"]: loc for loc in locations}
-    monkeypatch.setattr(engine.stations, "locations", lambda: locations)
+    monkeypatch.setattr(geometry.stations, "locations", lambda: locations)
     engine._overlay.cache_clear()
-    engine._FOOT_CACHE.clear()
     calls = []
 
     def point(value):
@@ -66,15 +64,10 @@ def router(monkeypatch):
 
     monkeypatch.setattr(street_router, "route", answer)
     monkeypatch.setattr(street_router, "access", access)
-    monkeypatch.setattr(engine, "_plan_ready", lambda mode: False)  # these tests cover the Python planner
-    monkeypatch.setattr(engine, "_live_vehicles", lambda: [])
-    monkeypatch.setattr(engine, "_trip_delays", lambda: {})
-    monkeypatch.setattr(engine, "_station_delays", lambda: {})
     monkeypatch.setattr(engine.alerts, "alerted_lines", lambda: set())
     monkeypatch.setattr(geometry, "_ride_path", lambda *args: [[52.25, 21.04], [52.26, 21.05]])
     yield calls, by_id, answer
     engine._overlay.cache_clear()
-    engine._FOOT_CACHE.clear()
 
 
 def ride(a=A, b=B, departure=29400, arrival=30000, line="175"):
@@ -95,57 +88,6 @@ def client(monkeypatch):
     return TestClient(app)
 
 
-def test_mapped_candidates_calls_and_transit_ends_do_not_mutate_gtfs(router, monkeypatch):
-    calls, locations, _ = router
-    vertices = [{"id": key, "lat": loc["gtfs"]["lat"], "lon": loc["gtfs"]["lon"], "name": key}
-                for key, loc in locations.items() if key in (A, B)]
-    trip = ride()
-    before = deepcopy((vertices, trip))
-    monkeypatch.setattr(engine.mkuran, "vertices", lambda: vertices)
-    monkeypatch.setattr(engine.mkuran, "departures", lambda station_id, *args, **kw: [trip["dep"]] if station_id == A else [])
-    monkeypatch.setattr(engine.mkuran, "trip_onward", lambda *args: trip["calls"])
-    monkeypatch.setattr(engine, "_footpaths", lambda *args: {})
-    req = request(bikeKmh=0, maxTransfers=0)
-    options = engine.RealRouteEngine().query_routes(START, END, req.profile, req.when, req)
-    option = next(o for o in options if any(leg.mode == "bus" for leg in o.legs))
-    walk_in, transit, walk_out = option.legs
-    assert (walk_in.toId, transit.fromId, transit.toId, walk_out.fromId) == (A, A, B, B)
-    assert walk_in.end == transit.start == tuple(locations[A]["position"].values())[::-1]
-    assert transit.end == walk_out.start == tuple(locations[B]["position"].values())[::-1]
-    assert walk_in.path[-1] == transit.start[::-1]
-    assert transit.start != transit.path[0][::-1]  # GTFS shape is independent of the mapped marker.
-    assert calls[0][0] == calls[1][0] == "access"
-    assert (calls[0][3], calls[1][3]) == ("from", "to")
-    assert (START.position, A, "walk") in [call[:3] for call in calls]
-    assert (B, END.position, "walk") in [call[:3] for call in calls]
-    assert (vertices, trip) == before
-
-
-def test_transfer_uses_ids_and_joins_mapped_ends(router):
-    calls, _, _ = router
-    option = engine.RealRouteEngine()._transit_option(
-        START, END, START.position, END.position, "standard", NOW, 28800,
-        [ride(), ride(C, D, 30300, 30900, "17")], 0, None)
-    assert option is not None
-    assert (B, C, "walk") in [call[:3] for call in calls]
-    for previous, following in zip(option.legs, option.legs[1:]):
-        assert previous.end == following.start
-        assert previous.toId == following.fromId
-
-
-@pytest.mark.parametrize("start,end", [(START.position, END.position), (A, END.position), (START.position, B), (A, B)])
-def test_veturilo_bridge_keeps_station_ids_and_ride_push_totals(router, start, end):
-    calls, _, _ = router
-    pickup, dropoff = {"id": P, "name": "Pickup"}, {"id": Q, "name": "Dropoff"}
-    legs, seconds, _ = engine._bike_bridge(start, "Start", pickup, dropoff, end, "End", "standard")
-    assert [call[:3] for call in calls] == [(start, P, "walk"), (P, Q, "bike"), (Q, end, "walk")]
-    assert [leg.mode for leg in legs] == ["walk", "veturilo", "walk"]
-    assert (legs[0].toId, legs[1].fromId, legs[1].toId, legs[2].fromId) == (P, P, Q, Q)
-    option = engine._option("test", "Test", legs, NOW, seconds)
-    assert option.walkDistance == 210 and option.bikeDistance == 500
-    assert [segment.kind for segment in legs[1].segments] == ["push", "ride"]
-
-
 @pytest.mark.parametrize("travel,profile,extras,graph", [
     ("walk", "standard", {}, "walk"),
     ("walk", "accessible", {}, "accessible"),
@@ -162,9 +104,8 @@ def test_street_only_modes_use_effective_speeds_without_timetable_or_live_data(r
     def forbidden(*args):
         pytest.fail("Street-only requests must not load the timetable or live feeds")
 
-    monkeypatch.setattr(engine.mkuran, "vertices", forbidden)
-    monkeypatch.setattr(engine.stations, "locations", forbidden)
-    monkeypatch.setattr(engine, "_live_vehicles", forbidden)
+    monkeypatch.setattr(geometry.stations, "locations", forbidden)
+    monkeypatch.setattr(street_router, "plan", forbidden)
     req = request(travel=travel, profile=profile, walkKmh=3.6, bikeKmh=18, **extras)
     option, = engine.RealRouteEngine().query_routes(START, END, profile, req.when, req)
     cycling_disabled = profile in ("accessible", "stroller") or travel in ("accessible", "stroller") or "body" in extras
@@ -199,7 +140,6 @@ def test_mixed_street_errors_drop_candidates_but_explicit_requests_keep_status(r
     monkeypatch.setattr(street_router, "route", failure)
     monkeypatch.setattr(street_router, "access", failure)
     assert engine._street(START.position, A, "walk", "accessible") is None
-    assert engine._by_street(START.position, [{"id": A}], "accessible") == []
     req = request(travel="accessible")
     response = client(monkeypatch).post("/api/routes", json=req.model_dump(by_alias=True))
     assert response.status_code == status
@@ -212,7 +152,7 @@ def test_router_downtime_returns_503(router, monkeypatch, travel):
 
     monkeypatch.setattr(street_router, "route", unavailable)
     monkeypatch.setattr(street_router, "access", unavailable)
-    monkeypatch.setattr(engine.mkuran, "vertices", lambda: [])
+    monkeypatch.setattr(street_router, "health", unavailable)
     response = client(monkeypatch).post("/api/routes", json=request(travel=travel).model_dump(by_alias=True))
     assert response.status_code == 503 and response.json()["detail"] == "router stopped"
 
@@ -225,17 +165,6 @@ def test_street_only_via_keeps_segments_and_totals(router, monkeypatch):
     assert option["walkDistance"] == 20 and option["bikeDistance"] == 1000
     assert option["legs"][0]["stop"] == 1
     assert option["legs"][0]["segments"][-1]["path"][-1] == option["legs"][1]["path"][0]
-
-
-def test_veturilo_station_catalog_preserves_prefix_and_overlay_position(router, monkeypatch):
-    _, locations, _ = router
-    monkeypatch.setattr(engine.nextbike, "vehicle_types", lambda: [])
-    monkeypatch.setattr(engine.nextbike, "status", lambda: [{"station_id": "P", "bikes": 2, "docks": 3}])
-    monkeypatch.setattr(engine.nextbike, "stations", lambda **kw: [
-        {"id": P, "station_id": "P", "name": "P", "lat": 52.25, "lon": 21.04}])
-    station, = engine._stations()
-    assert station["id"] == P
-    assert (station["lat"], station["lon"]) == tuple(locations[P]["position"].values())
 
 
 def test_exact_marker_position_is_preserved_when_router_rounds_coordinates(router):
@@ -256,9 +185,9 @@ def _shapes(monkeypatch, sliced, by_stops):
     """Use the real _ride_path with fake GTFS shapes; returns the shape ids passed to shape_by_stops."""
     seen = []
     monkeypatch.setattr(geometry, "_ride_path", _RIDE_PATH)
-    monkeypatch.setattr(engine.mkuran, "trip_shape_id", lambda trip_id: "shape-" + trip_id)
-    monkeypatch.setattr(engine.mkuran, "shape_slice", lambda *args: sliced)
-    monkeypatch.setattr(engine.mkuran, "shape_by_stops", lambda shape_id, calls: seen.append(shape_id) or by_stops)
+    monkeypatch.setattr(geometry.mkuran, "trip_shape_id", lambda trip_id: "shape-" + trip_id)
+    monkeypatch.setattr(geometry.mkuran, "shape_slice", lambda *args: sliced)
+    monkeypatch.setattr(geometry.mkuran, "shape_by_stops", lambda shape_id, calls: seen.append(shape_id) or by_stops)
     return seen
 
 
@@ -268,10 +197,6 @@ def test_ride_without_stop_distances_uses_the_shape_projected_on_the_stops(route
     trip = ride(line="wkd1")
     assert geometry.leg_path(_ride_leg(trip), calls=trip["calls"]) == (shape, False)
     assert seen == ["shape-wkd1"]
-    option = engine.RealRouteEngine()._transit_option(
-        START, END, START.position, END.position, "standard", NOW, 28800, [trip], 0, None)
-    transit = next(leg for leg in option.legs if leg.mode == "bus")
-    assert transit.path == [tuple(p) for p in shape] and transit.approximatePath is False
 
 
 def test_ride_without_any_shape_is_kept_as_a_polyline_through_every_call(router, monkeypatch):
@@ -280,21 +205,8 @@ def test_ride_without_any_shape_is_kept_as_a_polyline_through_every_call(router,
     trip = ride(A, C)
     trip["calls"].insert(1, {**trip["calls"][0], "stop_id": B, "name": B, "dep": 29700, "arr": 29700})
     expected = [[locations[s]["position"]["lat"], locations[s]["position"]["lon"]] for s in (A, B, C)]
+    # mapped positions, not the GTFS call coordinates
     assert geometry.leg_path(_ride_leg(trip), calls=trip["calls"]) == (expected, True)
-    option = engine.RealRouteEngine()._transit_option(
-        START, END, START.position, END.position, "standard", NOW, 28800, [trip], 0, None)
-    assert option is not None
-    transit = next(leg for leg in option.legs if leg.mode == "bus")
-    assert [list(p) for p in transit.path] == expected  # mapped positions, not the GTFS call coordinates
-    assert transit.model_dump(by_alias=True)["approximatePath"] is True
-    assert all(not leg.approximatePath for leg in option.legs if leg.mode == "walk")
-
-
-def test_ride_with_a_single_call_is_dropped(router):
-    trip = ride()
-    trip["calls"] = trip["calls"][:1]
-    assert engine.RealRouteEngine()._transit_option(
-        START, END, START.position, END.position, "standard", NOW, 28800, [trip], 0, None) is None
 
 
 @pytest.mark.parametrize("profile, steps, tag", [
@@ -307,13 +219,6 @@ def test_step_free_tags_per_profile(router, profile, steps, tag):
     option = engine._option("walk", "Pieszo", [], NOW, 60)
     engine._street_tags(option, {"steps": steps, "elevators": []}, profile)
     assert option.tags == [tag]
-
-
-def test_by_street_falls_back_to_the_nearest_candidates_when_access_reaches_none(router, monkeypatch):
-    monkeypatch.setattr(street_router, "access", lambda *args, **kwargs: [{"id": "ztm:other", "seconds": 30}])
-    candidates = [{"id": f"ztm:{i}", "lat": 52.2300 + 0.001 * (10 - i), "lon": 21.0100} for i in range(10)]
-    picked = engine._by_street(START.position, candidates, "standard")
-    assert [stop["id"] for stop in picked] == [f"ztm:{i}" for i in (9, 8, 7, 6, 5, 4, 3, 2)]
 
 
 def test_other_router_errors_are_not_hidden(router, monkeypatch):
@@ -330,18 +235,6 @@ def test_disabled_bike_returns_422(router, monkeypatch):
     assert response.status_code == 422
 
 
-def test_transfer_and_pathway_ids_are_canonicalized(router, monkeypatch):
-    monkeypatch.setattr(engine.mkuran, "transfer_links", lambda: [
-        ("outside-the-area", "old-B", 50), ("old-A", "old-B", 80)])
-    monkeypatch.setattr(engine.mkuran, "pathway_links", lambda step_free: [("old-B", "old-A", 30, 70)])
-    monkeypatch.setattr(engine.mkuran, "canonical", lambda station_id: {"old-A": A, "old-B": B}[station_id])
-    links = engine._footpaths([
-        {"id": A, "lat": 52.23, "lon": 21.01},
-        {"id": B, "lat": 52.3, "lon": 21.1},
-    ], 450)
-    assert links[A] == [(B, 80, 80)] and links[B] == [(A, 30, 70)]
-
-
 def test_pushed_only_bike_totals_stay_correct_without_segments(router):
     _, _, answer = router
     raw = answer(START.position, END.position, "bike")
@@ -353,38 +246,3 @@ def test_pushed_only_bike_totals_stay_correct_without_segments(router):
     assert option.model_dump()["bikeDistance"] == 0
 
 
-@pytest.mark.parametrize("placement", ["before", "after", "middle"])
-def test_bike_transit_variants_pass_transit_stop_ids_to_the_bridge(router, monkeypatch, placement):
-    calls, locations, _ = router
-    pickup, dropoff = [
-        {"id": station_id, "name": station_id, "lat": locations[station_id]["position"]["lat"],
-         "lon": locations[station_id]["position"]["lon"], "bikes": 2, "docks": 2}
-        for station_id in (P, Q)]
-    monkeypatch.setattr(engine, "_stations", lambda: [pickup, dropoff])
-    planner = engine.RealRouteEngine()
-    if placement == "middle":
-        monkeypatch.setattr(engine, "bike_between", lambda *args: {
-            "first": ride(), "second": ride(C, D, 30300, 30900, "17"),
-            "pickup": pickup, "dropoff": dropoff,
-        })
-        option = planner._bike_in_the_middle(
-            START, END, START.position, END.position, "standard", NOW, 28800,
-            [], {D}, [A], None, None, False)
-        expected = [(B, P, "walk"), (Q, C, "walk")]
-    else:
-        pairs = [{"stop": {"id": A}, "pickup": pickup, "dropoff": dropoff}] if placement == "before" else []
-        monkeypatch.setattr(engine, "bike_access_pairs", lambda *args: pairs)
-        monkeypatch.setattr(engine, "direct_rides", lambda *args: [ride()])
-        monkeypatch.setattr(engine, "best_bike_pair", lambda *args, **kwargs: (pickup, dropoff))
-        # For the after variant the raw call position is far enough to consider bike egress.
-        options = planner._bike_with_transit(
-            START, END, START.position, END.position, "standard", NOW, 28800,
-            [], {B}, [ride()] if placement == "after" else [], None, None, False)
-        option, = options
-        expected = [(Q, A, "walk")] if placement == "before" else [(B, P, "walk")]
-    assert option is not None
-    assert any(leg.mode == "veturilo" for leg in option.legs)
-    for call in expected:
-        assert call in [item[:3] for item in calls]
-    for previous, following in zip(option.legs, option.legs[1:]):
-        assert previous.end == following.start and previous.toId == following.fromId

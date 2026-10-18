@@ -20,7 +20,7 @@ The project aims at inclusivity (walking, cycling and stroller pace), safety, pr
 Done:
 
 - Map UI in Polish: start / destination fields, list of options, route preview, route details.
-- Route options from real data (`POST /api/routes`): GTFS departures, Veturilo, live delays and alerts; trips with
+- Route options from real data (`POST /api/routes`): RAPTOR trips from the C++ router (GTFS timetable, Veturilo), alerts; trips with
   up to 5 intermediate stops.
 - Street-only trips on foot, by wheelchair, with a stroller or by own bike, from the C++ street router
   (`algorithms/router/`, `POST /api/routes` with `travel`).
@@ -45,8 +45,8 @@ Planned:
 
 - Frontend: React + TypeScript + Vite, Material UI, Leaflet + MapLibre (OpenFreeMap tiles)
 - Backend: Python + FastAPI (data layer managed with uv; routing API in `backend/app/` uses venv)
-- Routing: C++ street router (`algorithms/router/`) with RAPTOR (`POST /plan`); the app's transit routing is still
-  Python (`backend/app/routing/`)
+- Routing: C++ street router (`algorithms/router/`) with RAPTOR (`POST /plan`), the only transit planner;
+  `backend/app/routing/` turns its answers into route options
 - Database: SQLite for opt-in journey counters; source datasets remain raw files in `data/`
 
 ## Folder structure

@@ -50,7 +50,7 @@ Everything in this repo (files, commits, PRs) is written in English.
 - **The street routing code and the route engine have their own maintainers. Do not change them.**
   - Street routing: `backend/sources/osm.py`, `algorithms/street_model.py`, `algorithms/street_graph.py`,
     `algorithms/test_street_model.py`, `algorithms/router/` and `backend/preprocess_street.py`.
-  - Route engine: `backend/app/routing/`, `algorithms/plan_trip.py` and `algorithms/lateness.py`.
+  - Route engine: `backend/app/routing/` and `algorithms/plan_trip.py` (now only the Warsaw clock helpers).
 - When you find a problem there (bug, slowdown, stale cache, wrong result), only report it:
   1. Open a GitHub issue (`gh issue create`) with the symptom, how to reproduce it, measurements,
      the cause if known and a suggested fix.
@@ -96,10 +96,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   other cities, safety, privacy, evidence-based, technical correctness, business model.
 - **Time frame:** 24h hackathon, so keep everything simple.
 - **Status:** the frontend UI exists. `uv run uvicorn main:app` serves the data and
-  `POST /api/routes`. The route engine (`backend/app/routing/real_engine.py`, Python) builds options from
-  GTFS departures, street paths and live Veturilo docks. Street paths (walk, bike, accessible, stroller) come from
+  `POST /api/routes`. The route engine (`backend/app/routing/real_engine.py`) builds options from the router's
+  RAPTOR trips (`POST /plan`) and street paths; the old Python transit planner is removed. Street paths (walk, bike, accessible, stroller) come from
   the C++ street router (`algorithms/router/`), which the backend starts. The router also plans transit trips with
-  RAPTOR (`POST /plan`), which the route engine uses for transit (Python planner = fallback). There is no mock engine and no frontend mock any more.
+  RAPTOR (`POST /plan`), the only transit planner (503 while its timetable is not ready). There is no mock engine and no frontend mock any more.
 
 ### Tech stack
 
@@ -112,7 +112,7 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Routing: a long-running **C++ engine** loads its graph at startup and keeps it in memory.
   Today the street router runs (`algorithms/router/`, binary `street_router`, see Backend notes): street paths
   and station access, and RAPTOR transit trips (`POST /plan`). The route engine plans transit with `/plan`
-  (`backend/app/routing/real_engine.py`, Python planner only as fallback). `/plan` uses the GTFS timetable only: live
+  (`backend/app/routing/real_engine.py`; no Python fallback). `/plan` uses the GTFS timetable only: live
   delays are **not** a router input (router owner's decision; they are a UI-only display, `POST /api/live/route-delays`).
   "From the vehicle": `/plan` from the next stops of its GTFS trip at the scheduled arrival. Python does not send the graph.
   (OpenTripPlanner was the earlier idea; the team chose a custom C++ engine instead.)
@@ -231,7 +231,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   in the server and mounts `/api/sim/*`. Two kinds: `recorded/` and `gtfs/` (pytest markers). `ROUTE_ENGINE`
   (`app/routing/factory.py`) picks the engine; a new engine (C++) must pass this suite before it replaces `real`.
 - **Do not change the route engine to make an integration test pass.** The engine (`backend/app/routing/`,
-  `algorithms/plan_trip.py`, `algorithms/lateness.py`) and the street routing code have their own maintainers. When a
+  `algorithms/plan_trip.py`) and the street routing code have their own maintainers. When a
   test finds an engine bug: open a GitHub issue (symptom, a `curl` to reproduce, measurements, cause if known), mark
   the case as strict xfail with the issue number, and tell the user. Simulation mode does not touch the engine either:
   tests send the simulated time as `when`.
@@ -304,8 +304,11 @@ Everything in this repo (files, commits, PRs) is written in English.
   `stations_hash` + `points.csv` ids (the per-mode `points` in `meta.json` can be stale: never read it).
   `real_engine._plan` calls `/plan` (#94): options through `legs_from_router`, title = lines joined by " + " ("Veturilo"),
   id `pt-<trips>` kept, one later query (+60 s) for more departures, dedupe, duration sort, max 6, excluded areas
-  filtered after planning. Fallback to the Python planner (logged) when `/health` `timetable.status` / `plan.<mode>` is
-  not "ok" or `/plan` answers 501 / 503; `/plan` 404 / 422 = no options. No live delay shift on `/plan` options.
+  filtered after planning, the walk from `/route` when `/plan` gives no street-only trip. **No Python fallback** (user
+  decision): `/health` `timetable.status` / `plan.<mode>` not "ok", or `/plan` 501 / 503 -> `POST /api/routes` 503
+  `{"detail": "transit timetable not ready"}` (or the router's message); `/plan` 404 / 422 = no options. No live delay
+  shift and no "opóźnienie" tag any more (`integration/gtfs/test_delay.py` is skipped). `lateness.py` and the planner
+  functions of `plan_trip.py` were removed.
   Tests: `algorithms/test_raptor.py` (brute force on toy timetables), `backend/tests/test_plan_engine.py` (adapter).
 - Rail platforms: `polish_trains.zip` has stations with children per platform + track (`33506_RAIL_2_20` =
   "2 t. 20"), also for SKM. They fold into one location per platform (`pkp:33506_P2`, see "Rail in mkuran");
