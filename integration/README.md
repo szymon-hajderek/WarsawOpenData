@@ -62,6 +62,7 @@ Found so far: #63, #64, #65 (direct bus / tram options dropped), #66 (`lateness.
 | `veturilo-kabaty-ursynow` | `gtfs/test_veturilo.py` | pickup station empty after 5 min: routes stop using it |
 | `alert-wilenski-waszyngtona` | `gtfs/test_alert.py` | ZTM alert on the line after 2 min: "Zmiana na trasie" tag on exactly those options |
 | `history-veturilo-ride` | `gtfs/test_history.py` | walk + bike track (a fix every 4 s) -> history API averages match the simulated speeds |
+| `trip-gorczewska-daszynskiego` | `gtfs/test_ride_api.py` | the demo API: scenarios are listed, `POST /api/sim/ride` returns a timeline |
 | `engine-sanity` | `gtfs/test_engine_sanity.py` | 8 trips: there are options, none leaves more than 60 min after the query |
 
 ## Scenario file (`scenarios/<name>.json`)

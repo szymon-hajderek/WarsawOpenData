@@ -24,11 +24,11 @@ sys.path.insert(0, str(REPO / "algorithms"))
 from bus_delay import WINDOW_S, add_point, estimate  # noqa: E402
 from nearest_buses import rank_buses  # noqa: E402
 
-# When LIVE_BUSES_URL is set, only that feed is polled (mode taken from type=).
-# Otherwise both the bus and the tram feeds of this server are polled.
+# When LIVE_BUSES_URL is set, only that feed is polled over HTTP (mode taken from type=).
+# Otherwise the bus and the tram feeds are read directly from the City Hall API (fetch_vehicles, needs PORTAL_KEY).
 _CUSTOM = os.getenv("LIVE_BUSES_URL")
 STALE_S = 300  # a vehicle that has not reported for this long is forgotten
-STARTUP_DELAY_S = 2  # the poller reads our own HTTP server: wait until uvicorn accepts connections
+STARTUP_DELAY_S = 2  # LIVE_BUSES_URL may point at our own HTTP server: wait until uvicorn accepts connections
 POLL_S = 3  # the feed changes about every 10 s; 3 s catches a new position soon after it appears
 HISTORY = 3  # positions kept per vehicle
 CANDIDATES = 4  # the popup shows the most likely vehicle + 3 others

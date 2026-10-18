@@ -2,7 +2,7 @@
 
 The street router of the project: walk, bike, accessible and stroller paths on the OSM graph of Warsaw.
 
-- **Python (`backend/`) prepares the data:** download and clip OSM, build the walk / bike / accessible graphs
+- **Python (`backend/`) prepares the data:** download and clip OSM, build the walk / bike / accessible / stroller graphs
   with the cost model (numpy), and write them as `graph_<mode>.bin`.
 - **The C++ program `street_router` (this folder) does every search.** It answers point-to-point routes between
   any two coordinates or station ids (`serve`, HTTP, the graphs stay in memory), lists every station reachable from
@@ -10,9 +10,10 @@ The street router of the project: walk, bike, accessible and stroller paths on t
   starts the server and calls it through `backend/street_router.py`.
 - **StationLocations** (`data/derived/stations.json`, built by `backend/stations.py`) is the one list of transport
   nodes all of this shares: GTFS decides what exists, OSM gives the exact position where the match is exact.
-- **The router returns raw values only.** For one street segment it returns: `seconds`, `walk_m`, `bike_m`,
-  `wait_s`, `length_m`, `path` / `geometry`, `elevators`, `steps`, `snap_m`, and `from_id` / `to_id` when it was
-  called with ids. For `/access` it returns per-station times.
+- **The router returns raw values only.** For one street route it returns: `seconds`, `walk_m`, `bike_m`,
+  `wait_s`, `snap_m`, `path`, `elevators`, `steps`, `legs` (one leg with `segments`), and `from_id` / `to_id` when it
+  was called with ids (`backend/street_router.py` adds `length_m` and `geometry` for its callers). For `/access` it
+  returns per-station times.
   - It does not build `RouteLeg` / `RouteOption`, knows no timetable and no live data.
   - The backend planner (`backend/app/routing/real_engine.py`) builds the legs and options from these values, the
     GTFS departures and live data. It passes station ids for stop ends, so legs meet at the mapped positions.
@@ -20,7 +21,7 @@ The street router of the project: walk, bike, accessible and stroller paths on t
 Every path has three parts:
 
 - `walk_m`: metres walked: footways, access to the graph, a **pushed bike**, the walk down to a metro platform;
-- `bike_m`: metres ridden on a bike (0 in walk and accessible);
+- `bike_m`: metres ridden on a bike (0 in walk, accessible and stroller);
 - `wait_s`: seconds that do not depend on speed: signals, crossings and **elevators (60 s each)**.
 
 Travel time = `walk_m / walk speed + bike_m / bike speed + wait_s`. The router minimises exactly this, with the
@@ -29,11 +30,11 @@ stroller 1.3 m/s). The matrices use the defaults.
 
 ## Files
 
-All files are in `data/derived/street/` (git-ignored, about 2.4 GB):
+All files are in `data/derived/street/` (git-ignored, about 3 GB with the four matrices):
 
 | File | What it is |
 |---|---|
-| `points.csv` | One row per point: `index,id,kind,lat,lon,snap_walk_m,snap_bike_m,entrances`. `index` is the row / column in the matrices. `id` is the GTFS stop id (`ztm:700901`, `ztm:7014M:P1`, `pkp:…`, `wkd:…`) or the Veturilo id (`vet:…`). `kind` is `stop` or `veturilo`. `snap_*_m` is the distance to the nearest usable graph node. `entrances` is the number of metro entrances (0 for other points). |
+| `points.csv` | One row per point: `index,id,kind,source,lat,lon,snap_walk_m,snap_bike_m,entrances`. `index` is the row / column in the matrices. `id` is the StationLocations id (`ztm:700901`, `ztm:7014M:P1`, `pkp:33506_P2`, `wkd:…`, `vet:…`). `kind` is the StationLocations kind (`bus_post`, `tram_post`, `metro_platform`, `rail_platform`, `rail_station`, `veturilo`), `source` is `osm` or `gtfs` (where the position comes from). `snap_*_m` is the distance to the nearest usable graph node. `entrances` is the number of metro entrances (0 for other points). |
 | `walk.bin`, `bike.bin`, `accessible.bin`, `stroller.bin` | **The result.** Little-endian `float32`, shape `(3, N, N)`, row-major. From point `i` to point `j`: `[0][i][j]` = `walk_m`, `[1][i][j]` = `bike_m`, `[2][i][j]` = `wait_s`. Self pairs = 0. `NaN` = no path or no data (a point more than 1000 m from the graph). |
 | `graph_<mode>.bin` | The graph the router loads (format below). The backend rewrites it when it is older than the OSM cache, the overlay or the GTFS zips. |
 | `meta.json` | Per mode: number of points, far points, seconds, file size; the thread count; `stations_hash` and `graphs.<mode>.bytes` = the overlay hash and graph sizes the matrices were built from (`/health` compares them). |
@@ -109,7 +110,7 @@ instead of going out and in. Rail platforms and stations are only joined at thei
   Dijkstra minimises this expected time. `walk_m`, `bike_m` and `wait_s` are the sums along the chosen path.
 - **Waits** are average delays, paid when a node is entered:
 
-  | Node | walk | bike | accessible |
+  | Node | walk | bike | accessible, stroller |
   |---|---|---|---|
   | signal crossing (`crossing=traffic_signals`) | 27.2 s | 27.2 s | 27.2 s |
   | plain crossing | 2 s | 0 s | 2 s |
@@ -127,14 +128,14 @@ instead of going out and in. Rail platforms and stations are only joined at thei
 - **Usable nodes = the main component.** Points join only nodes of the largest strongly connected component
   of the mode, so every point can reach every other one and back. Paths still use the whole graph.
   What is left out are islands that are not connected to the rest at all: closed estates, unconnected
-  paths and, in `accessible`, places reachable only by steps. That is 1.2% of the nodes for walk,
+  paths and, in `accessible` / `stroller`, places reachable only by steps. That is 1.2% of the nodes for walk,
   1.9% for accessible and 1.8% for bike. A point whose nearest node is on an island joins the main
   component a bit farther away (at most about 50 m); that distance is in `walk_m`.
 - **Metro.** A metro platform (`ztm:…M:P1`) does not join the graph at its own position, because it is
   underground. Instead it joins through **all entrances of its station** (GTFS `location_type=2`,
   e.g. `7014M:E1…E9`), and Dijkstra picks the best one. Going between an entrance and the platform is a
   **150 m walk** (`walk_m`; stairs, corridors; about 2 min). Every entrance is assumed to have an elevator:
-  modes without steps (`accessible`, `bike`) also pay 60 s for it (`wait_s`). 251 of the 253 GTFS entrances match an OSM
+  modes without steps (`bike`, `accessible`, `stroller`: `osm.NO_STEPS`) also pay 60 s for it (`wait_s`). 251 of the 253 GTFS entrances match an OSM
   `railway=subway_entrance` within 30 m. Most Warsaw metro platforms are island platforms (`ref=1;2`),
   so the travel direction does not change the access.
 - **Only the default speeds are optimal.** For other speeds, `walk_m / v_walk + bike_m / v_bike + wait_s`
@@ -142,7 +143,6 @@ instead of going out and in. Rail platforms and stations are only joined at thei
 
 Known gaps: a pedestrian crosses a road only where OSM connects the two sidewalks. Waits are averages
 (no signal timing data, no green wave). An L-shaped walk across two legs of one junction pays once.
-A metro transfer inside one station (Świętokrzyska M1 ↔ M2) goes out and in again (2 × 150 m walked).
 
 ## Build and run
 
@@ -166,7 +166,7 @@ is started); `ROUTER_PORT` = port of the started one (default 8090).
 cd backend && uv run python preprocess_street.py --graph-only        # graph files only (~30 s)
 algorithms/router/build/street_router serve data/derived/street       # [--port 8090] [--threads 4]
 algorithms/router/build/street_router route data/derived/street/graph_walk.bin 52.2297,21.0122 52.2196,20.9652
-cd backend && uv run python preprocess_street.py                     # graphs + the three matrices (~18 min, 16 threads)
+cd backend && uv run python preprocess_street.py                     # graphs + the four matrices (~22 min, 12 threads)
 ```
 
 ### `POST /route`
@@ -184,11 +184,15 @@ Body (JSON):
 | `speeds` | optional `{"walk": m/s, "bike": m/s}`: the path is optimal for these speeds (default: the mode's) |
 | anything else | **501** `{"error": "not implemented", "unimplemented": [keys]}`: callers can relay options as they come; the router says which ones it does not support yet |
 
-Answer:
+Answer (here from a metro platform id to a coordinate, `stroller`):
 
 ```json
-{"seconds": 2870.5, "walk_m": 3634.9, "bike_m": 0.0, "wait_s": 74.4, "snap_m": [7.0, 4.5],
- "path": [[21.0122, 52.2297], [21.01228, 52.22966], "..."], "elevators": [], "steps": [[21.01139, 52.22944], "..."]}
+{"seconds": 743.2, "walk_m": 802.4, "bike_m": 0.0, "wait_s": 126.0, "snap_m": [0.0, 7.0], "from_id": "ztm:7014M:P1",
+ "path": [["..."]], "elevators": [[21.0121, 52.23028]], "steps": [],
+ "legs": [{"mode": "walk", "from": {"id": "ztm:7014M:P1", "lonlat": ["..."]}, "to": {"id": null, "lonlat": [21.0122, 52.2297]},
+           "seconds": 743.2, "walk_m": 802.4, "bike_m": 0.0, "wait_s": 126.0, "path": [["..."]],
+           "segments": [{"kind": "metro_access", "length_m": 157.1, "path": ["..."]}, {"kind": "walk", "length_m": 567.2, "path": ["..."]},
+                        {"kind": "elevator", "length_m": 1.4, "path": ["..."]}, {"kind": "walk", "length_m": 76.6, "path": ["..."]}]}]}
 ```
 
 - `path`: `[lon, lat]`, 5 decimals (about 1 m), from `from` to `to`. `elevators`: where the path boards one.
@@ -268,23 +272,25 @@ nodes incl. 2 virtual nodes per fixed point, m = directed edges.
   (`Grójecka 02 → Centrum 03`, 20 pairs of posts of the same stop, 79 random pairs 0.2–5 km apart).
   For walk and bike it compares the server's coordinate route with the matrix value of the same stops, and the GTFS
   stop position with the OSM platform node of the same post (`ref` = ZTM stop id). Output: `check_pairs.csv`.
-- `uv run python report.py` adds section 5 to `data/REPORT.md`: sizes, medians, a check against
-  `osm.route()`, the detour factor and symmetry.
+- `uv run python report.py` adds section 5 to `data/REPORT.md`: sizes, medians, the detour factor and symmetry
+  (from the matrices).
 
 ## Last run
 
-2026-10-17, map `warsaw_ztm.osm.pbf` (1 847 096 nodes, 2 092 772 segments), GTFS of that day, 16 threads.
+2026-10-18, map `warsaw_ztm.osm.pbf`, GTFS of that day, on the StationLocations overlay (7 542 points: 6 244 bus
+posts, 610 tram posts, 39 metro platforms, 207 rail platforms, 93 rail stations, 349 Veturilo stations), 12 threads.
+Graph sizes as the running server reports them (`GET /health`):
 
-| Mode | Points | Graph nodes (incl. virtual) | Directed edges | C++ time | File |
-|---|---|---|---|---|---|
-| walk | 7 494 | 1 862 084 | 4 125 134 | 347 s | 674 MB |
-| bike | 7 494 | 1 862 084 | 4 233 311 | 427 s | 674 MB |
-| accessible | 7 494 | 1 862 084 | 4 097 508 | 328 s | 674 MB |
+| Mode | Graph nodes (incl. virtual) | Directed edges | C++ time | File |
+|---|---|---|---|---|
+| walk | 1 862 180 | 4 125 994 | 339 s | 683 MB |
+| bike | 1 862 180 | 4 236 809 | ~400 s | 683 MB |
+| accessible | 1 862 180 | 4 098 986 | 299 s | 683 MB |
+| stroller | 1 862 180 | 4 101 048 | 304 s | 683 MB |
 
-2026-10-18, on the StationLocations overlay (7 542 points), 12 threads: walk 339 s, bike ~400 s, accessible 299 s,
-stroller 304 s, 683 MB each. Walk / bike graph files did not change with the stroller split (same bytes).
 `accessible` takes 314 ramp steps (`ramp:wheelchair`), `stroller` 1 345; stroller is faster than accessible for
-13.8% of pairs (median 32 s, p95 331 s). `/access` (15 min, centre): 30-45 ms.
+13.8% of pairs (median 32 s, p95 331 s). `/access` (15 min, centre): 30-45 ms. Walk / bike graph files did not
+change with the stroller split (same bytes).
 
 - Far points (> 1000 m from the graph): 0. Unreachable pairs: 0.
 - Server: about 1 GB with the four graphs loaded; ~1 ms for a transfer between nearby stops, ~0.4 s for a
