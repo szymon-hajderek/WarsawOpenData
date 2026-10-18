@@ -7,7 +7,7 @@ export type LonLat = [number, number];
 export type TransportMode = 'walk' | 'bike' | 'veturilo' | 'bus' | 'tram' | 'metro' | 'rail';
 
 /** Travel profile: pace of walking / cycling and accessibility needs. */
-export type Profile = 'standard' | 'slow' | 'accessible';
+export type Profile = 'standard' | 'slow' | 'accessible' | 'stroller';
 
 export interface Place {
   id: string;
@@ -39,7 +39,7 @@ export interface RouteLeg {
   steps?: LonLat[];
   /** Consecutive parts of one kind that cover the whole `path` (street legs; optional). */
   segments?: LegSegment[];
-  /** Transit leg whose `path` is a straight line through the stops (no GTFS shape). */
+  /** True when GTFS has no shape for the trip and `path` only joins the stops in order (drawn dashed). */
   approximatePath?: boolean;
 }
 
@@ -63,7 +63,7 @@ export interface RouteOption {
   arrival: string;
   durationMin: number;
   distanceM: number;
-  /** Metres on foot (`walk` legs) and by bike (`bike` + `veturilo` legs). */
+  /** Metres walked (including a pushed bike) and ridden (own bike + Veturilo). */
   walkDistance: number;
   bikeDistance: number;
   transfers: number;

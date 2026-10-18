@@ -355,9 +355,19 @@ Everything in this repo (files, commits, PRs) is written in English.
   minus resting energy (Mifflin-St Jeor); manual wheelchair uses a rough table from Conger and Bassett 2011, electric = 0; transit legs count as resting). The speed of a leg is its distance over its time
   (the pace from the preferences is the fallback). Routes carry no `calories` or `costPln` any more; kcal is worked out from the legs in the route list, details and the "most active"
   sort. `algorithms/calories.py` (`net_kcal`) is the same formula for any consumer of the route format. Not modelled yet: slope, carried load, bike type, wind.
-- Route format (`data/API.md`): `RouteLeg.mode` is `walk`, `bike` (own bike, nothing produces it yet), `veturilo` (rented), `bus`, `tram`, `metro`, `rail`; a leg also has
+- Route format (`data/API.md`): `RouteLeg.mode` is `walk`, `bike` (own bike), `veturilo` (rented), `bus`, `tram`, `metro`, `rail`; a leg also has
   `start` / `end` as `[lon, lat]` (the `path` stays `[lat, lng]`). `RouteOption` has `walkDistance` and `bikeDistance` (m) and no price: the backend's fare code
   (`algorithms/fares.py`) is not used by the route engine any more. Only "Najszybsza" is a backend tag; the frontend sort "Najaktywniejsze" uses `routeKcal`.
+- Station-aware routing (#79): `real_engine` copies GTFS stops/calls onto `stations.locations()` positions and passes
+  station IDs (including `vet:`) to the street router. One `legs_from_router` adapter converts paths/optional segments;
+  all stop-touching legs carry `fromId` / `toId` and exact catalog `start` / `end` (street geometry stays router-rounded).
+  Access/egress candidate ranking uses one `/access` call in the appropriate direction. Missing street paths
+  drop mixed options; router downtime returns 503. `POST /api/routes` also accepts `travel` =
+  walk / accessible / stroller / bike for street-only trips without timetable/live queries; default is transit.
+  Stroller is a profile; stepFree/wheelchair uses the accessible graph. Route totals include pushed-bike metres
+  in walkDistance and ridden metres in bikeDistance, including multi-stop trips.
+- The C++ router never returns transit shapes. Transit geometry comes from GTFS in `real_engine` (`_ride_path`: `shape_slice`,
+  then `shape_by_stops`); without any shape, a polyline through the stops with `approximatePath: true`.
 - Speed history (device-side, privacy first): in the route view "Rozpocznij przejazd" / "Zakończ" records GPS points (memory only, one every 4 s,
   Screen Wake Lock while recording) and sends the track once to `POST /api/history/records` (`backend/app/api/history.py`,
   `algorithms/speed_history.py::split_track`: shares the moving distance between the route's legs by planned distance, ignores standing
@@ -425,9 +435,11 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Routing is behind a `RouteEngine` seam (`app/routing/engine.py`): `query_routes(...)` and
   `update_state(...)`. Current impl is `RealRouteEngine` (GTFS + OSM + Veturilo). `StubRouteEngine`
   is the old mock. A `CppRouteEngine` can replace the real engine later; nothing else changes.
-- The Python<->C++ wire format is owned by the C++ team (not defined yet). C++ builds the graph
-  itself when it starts. `update_state` then carries only live data and derivatives of that live
-  data, not a new graph. `query_routes` asks C++ for routes. Nothing calls `update_state` yet.
+- The street protocol is owned by the C++ team: `/route` returns `legs` with optional `segments`,
+  while `/access` returns station costs without paths. Python preprocessing writes the graph files once;
+  the long-running street router loads them and keeps them in memory. Python still plans GTFS combinations.
+  A future C++ RAPTOR engine can return whole trips in the same leg shape. `update_state` remains unused;
+  it is reserved for live data and derivatives, not graph uploads.
 - Config via env vars (all optional): `CORS_ORIGINS`, `NOMINATIM_URL`, `NOMINATIM_USER_AGENT`.
 
 ### Decisions and notes

@@ -17,6 +17,7 @@ const isSegment = (s: unknown) =>
   (SEGMENT_KINDS as readonly string[]).includes(s.kind) &&
   typeof s.lengthM === 'number' &&
   Number.isFinite(s.lengthM) &&
+  s.lengthM >= 0 &&
   Array.isArray(s.path) &&
   s.path.length > 0 &&
   s.path.every(isPoint);

@@ -117,6 +117,7 @@ WALK_BIKE_SPEED: dict[Profile, dict[str, float]] = {
     "standard": {"walk": 4.8, "bike": 15},
     "slow": {"walk": 3.4, "bike": 11},
     "accessible": {"walk": 3.6, "bike": 0},  # no Veturilo for a wheelchair / stroller
+    "stroller": {"walk": 3.6, "bike": 0},
 }
 PT_SPEED: dict[str, float] = {"bus": 17, "tram": 19, "metro": 32, "rail": 38}
 PT_WAIT_MIN = 4
