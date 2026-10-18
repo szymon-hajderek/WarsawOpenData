@@ -163,7 +163,7 @@ export default function App() {
   );
 
   const onboardVehicleId = origin?.id.startsWith(ONBOARD_PREFIX) ? origin.id.slice(ONBOARD_PREFIX.length) : null;
-  const { options, loading, error: searchError, offline: routesOffline, errorMessage, vehicleNotFound } = useRouteSearch({
+  const { options, loading, error: searchError, offline: routesOffline, errorMessage, vehicleNotFound, refresh: refreshRoutes } = useRouteSearch({
     origin,
     destination,
     via,
@@ -453,6 +453,7 @@ export default function App() {
             onClearChip={(id) => setFilters((f) => clearFilter(f, id))}
             onClearAll={() => setFilters(DEFAULT_FILTERS)}
             onConfirm={confirmOption}
+            onRefresh={refreshRoutes}
           />
         )}
 
