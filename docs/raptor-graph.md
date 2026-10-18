@@ -49,8 +49,10 @@ planner: keep it in sync with the code. The API (body, answer, errors) is in `al
 6. **First / last mile.** The origin and the destination are not vertices: one street Dijkstra from the origin to
    every location (`access_s`), one on the reversed graph from every location to the destination (`egress_s`), both
    unlimited by default (the whole graph, ~0.3 s each). A location id as origin / destination costs 0 there.
-7. **Live data** (delays, docks) is not used yet. Plan: pushed from Python (`POST /delays {"trips": {trip_id:
-   delay_s}}`), planned GTFS times stay the fallback; patterns are re-split if delays break the FIFO order.
+7. **No live data.** Pathfinding uses the GTFS timetable only (decision of the router owner, no time for more):
+   there is no delay input. Live delays are shown in the UI only (`POST /api/live/route-delays`). Planning "from the
+   vehicle I am in" calls `/plan` from one of the next stops of the vehicle's GTFS trip at its **scheduled** arrival;
+   staying on the same trip is an ordinary result (`wait_s` ≈ 0). Veturilo dock availability is not used either.
 
 ### 2A. The matrix artifact
 

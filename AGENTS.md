@@ -112,8 +112,9 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Routing: a long-running **C++ engine** loads its graph at startup and keeps it in memory.
   Today the street router runs (`algorithms/router/`, binary `street_router`, see Backend notes): street paths
   and station access, and RAPTOR transit trips (`POST /plan`). The route engine still plans transit in Python
-  (`backend/app/routing/real_engine.py`) until it calls `/plan`. Then Python pushes only live data and values derived from it (vehicle positions, Veturilo
-  availability, alerts, delays), then asks the engine for routes. Python does not send the graph.
+  (`backend/app/routing/real_engine.py`) until it calls `/plan`. `/plan` uses the GTFS timetable only: live
+  delays are **not** a router input (router owner's decision; they are a UI-only display, `POST /api/live/route-delays`).
+  "From the vehicle": `/plan` from the next stops of its GTFS trip at the scheduled arrival. Python does not send the graph.
   (OpenTripPlanner was the earlier idea; the team chose a custom C++ engine instead.)
 - Deployment: Docker (planned, not set up yet)
 

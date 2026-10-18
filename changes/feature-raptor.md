@@ -24,4 +24,6 @@ Assumptions (decided during the work):
 - A journey with more legs is kept only when it arrives at least 1 s earlier (float ties are not options).
 - A transit leg's `seconds` includes its `wait_s`, so an option's `seconds` is the sum of its legs.
 - Accessible / stroller do not filter trips by `wheelchair_accessible`; GTFS pickup / drop-off types are ignored.
-- `real_engine` is unchanged; a follow-up issue covers using `/plan` there, another the live data push.
+- `real_engine` is unchanged; #94 covers using `/plan` there.
+- No live delays in pathfinding (router owner): `/plan` uses the GTFS timetable only; "from the vehicle" = next stop of
+  its GTFS trip at the scheduled arrival. Delays stay a UI display. Veturilo dock availability: #95.

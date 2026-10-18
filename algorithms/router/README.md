@@ -16,7 +16,8 @@ trips (RAPTOR, `POST /plan`) on the GTFS timetable with Veturilo and the street 
   `wait_s`, `snap_m`, `path`, `elevators`, `steps`, `legs` (one leg with `segments`), and `from_id` / `to_id` when it
   was called with ids (`backend/street_router.py` adds `length_m` and `geometry` for its callers). For `/access` it
   returns per-station times.
-  - It does not build `RouteLeg` / `RouteOption` and knows no live data (delays, Veturilo docks) yet. `/plan`
+  - It does not build `RouteLeg` / `RouteOption` and knows no live data: `/plan` uses the GTFS timetable only
+    (live delays are a UI-only display, decision of the router owner). `/plan`
     answers with ids only: no positions of stops, no shapes, no names.
   - The backend planner (`backend/app/routing/real_engine.py`) builds the legs and options from these values, the
     GTFS departures and live data. It passes station ids for stop ends, so legs meet at the mapped positions.
@@ -288,7 +289,8 @@ Answer:
      "..."]}]}
 ```
 
-- **From the vehicle the user is in:** `from` = the id of the next stop, `time` = the expected arrival there. Staying
+- **From the vehicle the user is in:** `from` = the id of one of the next stops of the vehicle's GTFS trip, `time` =
+  the **scheduled** arrival there (no delay added; the backend asks once per stop). Staying
   on the same trip is an ordinary result: a transit leg from that stop with `wait_s` ≈ 0 (the trip is boarded again
   where it departs at or after `time`).
 - **Options:** the street-only trip (0 legs) first, then for each number of counted legs k the earliest arrival
@@ -314,8 +316,8 @@ Answer:
   1000 m from the graph, `503` no timetable, or the mode's matrix does not belong to the overlay (`/health` →
   `plan.<mode>` says why).
 - **Not modelled yet:** GTFS pickup / drop-off restrictions (every call can be boarded and left), trip
-  `wheelchair_accessible` in accessible / stroller, live delays and Veturilo docks (planned: pushed from Python,
-  e.g. `POST /delays {"trips": {trip_id: delay_s}}`).
+  `wheelchair_accessible` in accessible / stroller, Veturilo dock availability (every dock has a bike and a place).
+  Live delays are deliberately not an input: `/plan` has no delay key (timetable times only).
 - **Speed** (real data, 4 threads): ~0.7 s with the unlimited defaults (most of it the two whole-graph street
   searches for access and egress), ~0.2 s with 15-minute access / egress / footpath limits; the first query of a
   service day builds its patterns (~0.5 s).

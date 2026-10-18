@@ -35,8 +35,8 @@ Done:
 
 Planned:
 
-- **Transit routing in C++ for the app:** `POST /api/routes` uses the router's RAPTOR (#94); Python then sends only
-  live data and values derived from it (delays, Veturilo docks: #95).
+- **Transit routing in C++ for the app:** `POST /api/routes` uses the router's RAPTOR (#94). It plans on the GTFS
+  timetable; live delays are shown in the UI only (`POST /api/live/route-delays`), not used for pathfinding.
 - **Online route planning.** Change the route while the user travels.
 - Small gaps of the RAPTOR POC: GTFS pickup / drop-off rules, and the trips' `wheelchair_accessible` flag in the
   wheelchair and stroller modes (stop access is already step-free).
