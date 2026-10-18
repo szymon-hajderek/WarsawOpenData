@@ -364,7 +364,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   gives the heights so `App.tsx` can keep the map visible above the sheet. Used by the vehicle popup (middle 258 px), the route list (352 px: header, filters, the selected
   route, pinned "Wybierz tę trasę") and the route details (292 px: start / destination, leg bar, time and distance; full = tiles, trip recorder, steps).
 - "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): the automatic detection at start opens it only when it found
-  something (`src/utils/vehicleConfidence.ts`, `autoVehicleView`): nothing / no location / 503 / offline = no window; one confident vehicle
+  something (`src/utils/vehicleConfidence.ts`, `autoVehicleView`): nothing / no location / 503 / offline / best RMSE > 120 m (`PLAUSIBLE_MAX_RMSE_M`, the backend has no distance cut-off) = no window; one confident vehicle
   (top-1 RMSE <= 60 m and the 2nd >= 2.5x worse, tuned on the recorded buses: right in 97.5%) = a collapsed bar "Wykryto linię 131 → Sadyba"
   that a tap opens to the full sheet; several = the sheet in the middle (suggested vehicle + confirm), about 1/3 of the screen.
   A detection the user asked for (bus button) always opens the sheet, with an explanation when nothing was found.
