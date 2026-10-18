@@ -149,6 +149,9 @@ class RouteRequest(BaseModel):
     to: Place
     profile: Profile = "standard"
     travel: Literal["transit", "walk", "accessible", "stroller", "bike"] = "transit"
+    # How a transit trip reaches, leaves and changes between stops: on foot (default) or by the user's own bike,
+    # carried on transit (no Veturilo then). Not combinable with a wheelchair / stroller (422).
+    access: Literal["walk", "bike"] = "walk"
     # Warsaw local departure. "HH:MM" or an ISO datetime. Empty = now.
     when: Optional[str] = None
     # Intermediate stops (at most MAX_VIA). `order` says whether to keep them as given or reorder
@@ -168,6 +171,15 @@ class RouteRequest(BaseModel):
     excludeModes: list[ExcludableMode] = Field(default_factory=list, max_length=5)
     # Plan from the vehicle the user is in (timetable only): its next stops are the origins; `from` is ignored.
     onboard: Optional[Onboard] = None
+
+    @model_validator(mode="after")
+    def _bike_access_alone(self) -> "RouteRequest":
+        if self.access == "bike" and (
+            self.profile in ("accessible", "stroller") or self.travel in ("accessible", "stroller")
+            or self.stepFree or (self.body is not None and self.body.wheelchair != "none")
+        ):
+            raise ValueError("access 'bike' cannot be combined with a wheelchair or stroller")
+        return self
 
 
 # ---- speed history (stateless: nothing is stored, tracks are not kept) --------------------------

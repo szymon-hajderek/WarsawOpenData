@@ -665,6 +665,20 @@ those modes (a GTFS trolleybus counts as `bus`); `veturilo` drops rented bikes, 
 `onboard` (optional `{"vehicleId"}`): plan from the vehicle the user is in, see "From the vehicle" below. A trip with stops plans the next leg from the
 previous arrival plus 2 minutes at the stop. `order` `optimal` minimises a time estimate, not straight-line distance.
 
+Optional `access` (transit only): `walk` (default) or `bike`. `bike` = the user's own bike to the first stop, from
+the last stop and between stops, carried on transit: `/plan` runs in its `bike` mode with the user's speeds
+(`bikeKmh` 0 then keeps the default 15 km/h: it only means "no Veturilo"). Street legs are `mode: "bike"` (pushed
+parts are `push` segments; ridden metres go to `bikeDistance`, pushed ones to `walkDistance`), transit legs are as
+usual, and there are no Veturilo legs. `excludeModes` still applies. The title names the ridden bike legs:
+`"Rower + 502 + Rower"` (a transfer only walked with the bike, e.g. inside a metro station, is not named); the
+street-only trip is `"Własny rower"` (id `bike`). `access: "bike"` with a wheelchair or stroller (`profile`
+`accessible` / `stroller`, `travel` `accessible` / `stroller`, `stepFree: true` or `body.wheelchair` other than
+`none`) → `422`. Ignored by the street-only `travel` values `walk` and `bike`.
+Verified on the repository data, Centrum [52.2297, 21.0122] → Wawer [52.1966, 21.1772], `when` 2026-10-19T08:00:
+`access: "bike"` gives `"Rower + 525 + Rower"` 08:05–08:48 (43 min, `bikeDistance` 1901.1, `walkDistance` 65.1,
+`waitS` 80.0, legs bike / bus / bike with `push` + `ride` segments); the default transit search's best is
+`"525 + 521"` (50 min); `travel: "bike"` alone takes 61 min.
+
 Optional `travel`: `transit` (default, the usual mixed options), `walk`, `accessible`, `stroller` or `bike`.
 The other values return a street-only option without requiring GTFS or live feeds; `bike` means the user's own bike.
 They also support `via`. Walk uses the accessible graph for an accessible profile, `stepFree` or a wheelchair,

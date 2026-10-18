@@ -81,7 +81,11 @@ class RealRouteEngine(RouteEngine):
         dest = tuple(to.position)
         graph = "accessible" if accessible else "stroller" if profile == "stroller" else "walk"
         exclude = frozenset(getattr(search, "excludeModes", None) or ())
-        if travel == "transit" and "veturilo" in exclude:
+        if travel == "transit" and getattr(search, "access", "walk") == "bike":
+            graph = "bike"  # own bike to, from and between stops, carried on transit; /plan has no Veturilo then
+            if speed["bike"] <= 0:
+                speed["bike"] = OSM_SPEED["bike"]  # bikeKmh 0 only switches Veturilo off
+        elif travel == "transit" and "veturilo" in exclude:
             speed["bike"] = 0.0  # no rented bike; an own-bike trip (travel=bike) is not affected
         tokens = (_SPEED.set(speed), _BLOCK.set(block), _WALK_MODE.set(graph), _EXCLUDE.set(exclude))
         try:
@@ -134,11 +138,13 @@ class RealRouteEngine(RouteEngine):
     def _walk_option(self, frm, to, origin, dest, profile, now) -> Optional[RouteOption]:
         if _distance(origin, dest) > 5000:
             return None
-        street = _street(origin, dest, "walk", profile)
+        bike = _WALK_MODE.get() == "bike"  # transit with the own bike: the street-only trip is ridden
+        street = _street(origin, dest, "bike" if bike else "walk", profile)
         if street is None or _seconds(street) > 50 * 60:
             return None
         legs = legs_from_router(street, from_name=frm.label, to_name=to.label, points=(origin, dest))
-        return _street_tags(_option("walk", "Pieszo", legs, now, _seconds(street)), street, profile)
+        option_id, title = ("bike", "Własny rower") if bike else ("walk", "Pieszo")
+        return _street_tags(_option(option_id, title, legs, now, _seconds(street)), street, profile)
 
     def _street_option(self, frm, to, origin, dest, profile, now, travel):
         mode = "bike" if travel == "bike" else "walk"
@@ -180,18 +186,26 @@ def _counted(raw: dict) -> bool:
     return any(leg["mode"] not in ("walk", "bike") for leg in raw.get("legs") or [])
 
 
+def _ridden(leg: RouteLeg) -> bool:
+    """An own-bike leg that is really ridden (not only pushed, e.g. an in-station metro transfer)."""
+    return leg.mode == "bike" and bool(leg._street_distances and leg._street_distances[1] > 0)
+
+
 def _plan_title(legs: list[RouteLeg]) -> str:
-    parts = [("Veturilo" if leg.mode == "veturilo" else leg.line or leg.mode) for leg in legs
-             if leg.mode not in ("walk", "bike")]
+    """Rides and rentals ("16 + M1", "Veturilo + 502"); with the own bike its ridden legs too ("Rower + 502 + Rower")."""
+    counted = any(leg.mode not in ("walk", "bike") for leg in legs)
+    parts = [("Veturilo" if leg.mode == "veturilo" else "Rower" if leg.mode == "bike" else leg.line or leg.mode)
+             for leg in legs if leg.mode != "walk" and (leg.mode != "bike" or (counted and _ridden(leg)))]
+    parts = [part for i, part in enumerate(parts) if part != "Rower" or i == 0 or parts[i - 1] != "Rower"]
     return " + ".join(parts) or ("Własny rower" if any(leg.mode == "bike" for leg in legs) else "Pieszo")
 
 
 def _plan_id(legs: list[RouteLeg]) -> str:
-    """`pt-<trip id>-...` (POST /api/live/route-delays reads it), else `bike` (Veturilo only) or `walk`."""
+    """`pt-<trip id>-...` (POST /api/live/route-delays reads it), else `bike` (Veturilo or own bike only) or `walk`."""
     trips = [leg.tripId for leg in legs if leg.tripId]
     if trips:
         return "pt-" + "-".join(trips)
-    return "bike" if any(leg.mode == "veturilo" for leg in legs) else "walk"
+    return "bike" if any(leg.mode in ("veturilo", "bike") for leg in legs) else "walk"
 
 
 def _finish(built: list[Optional[RouteOption]]) -> list[RouteOption]:

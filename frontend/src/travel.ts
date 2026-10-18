@@ -26,6 +26,19 @@ export const ACCESS_LABELS: Record<Access, string> = {
   stroller: 'Wózek dziecięcy',
 };
 
+/**
+ * How a transit trip reaches, leaves and changes between stops (`access` of `POST /api/routes`): on foot, or by the
+ * user's own bike carried on transit (no Veturilo then, and no wheelchair / stroller choice).
+ */
+export type TransitAccess = 'walk' | 'bike';
+
+export const TRANSIT_ACCESS_OPTIONS: TransitAccess[] = ['walk', 'bike'];
+
+export const TRANSIT_ACCESS_LABELS: Record<TransitAccess, string> = {
+  walk: 'Pieszo',
+  bike: 'Rowerem',
+};
+
 /** Only public transport and walking have an accessibility choice; the own bike has none. */
 export const hasAccess = (m: TravelMode) => m !== 'bike';
 

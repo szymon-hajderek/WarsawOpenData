@@ -2,6 +2,7 @@ import type { RouteSearchBody } from '../preferences/model';
 import type { Place, Profile, RouteOption, StopOrder } from '../types';
 import { API_URL, apiUrl } from '../config';
 import { isRouteOptions } from './validate';
+import type { TransitAccess } from '../travel';
 
 /** Most intermediate stops on one trip (the backend enforces the same limit). */
 export const MAX_STOPS = 5;
@@ -30,6 +31,8 @@ export interface RouteQuery {
    * times from the timetable. A 404 means the backend does not know the vehicle (`VehicleNotFoundError`).
    */
   onboard?: { vehicleId: string } | null;
+  /** `bike` = the own bike to, from and between the stops (sent as `access`); `walk` (default) is not sent. */
+  access?: TransitAccess;
 }
 
 export interface RouteResult {
@@ -67,7 +70,7 @@ export async function fetchRouteOptions(query: RouteQuery, signal?: AbortSignal)
       signal,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to, profile, ...(via.length ? { via, order } : {}), ...(query.when ? { when: query.when } : {}), ...query.search, ...(query.onboard ? { onboard: query.onboard } : {}) }),
+      body: JSON.stringify({ from, to, profile, ...(via.length ? { via, order } : {}), ...(query.when ? { when: query.when } : {}), ...query.search, ...(query.onboard ? { onboard: query.onboard } : {}), ...(query.access === 'bike' ? { access: 'bike' } : {}) }),
     });
     if (res.status === 404 && query.onboard) throw new VehicleNotFoundError();
     if (!res.ok) throw new HttpError(res.status);
