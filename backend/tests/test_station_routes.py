@@ -9,9 +9,9 @@ from fastapi.testclient import TestClient
 import street_router
 from app.api import routes
 from app.models import Place, RouteRequest
-from app.routing import real_engine as engine
+from app.routing import geometry, real_engine as engine
 
-_RIDE_PATH = engine._ride_path  # the real one; the fixture stubs it
+_RIDE_PATH = geometry._ride_path  # the real one; the fixture stubs it
 
 A, B, C, D = "ztm:A", "ztm:B", "ztm:C", "ztm:D"
 P, Q = "vet:P", "vet:Q"
@@ -70,7 +70,7 @@ def router(monkeypatch):
     monkeypatch.setattr(engine, "_trip_delays", lambda: {})
     monkeypatch.setattr(engine, "_station_delays", lambda: {})
     monkeypatch.setattr(engine.alerts, "alerted_lines", lambda: set())
-    monkeypatch.setattr(engine, "_ride_path", lambda *args: ([(52.25, 21.04), (52.26, 21.05)], False))
+    monkeypatch.setattr(geometry, "_ride_path", lambda *args: [[52.25, 21.04], [52.26, 21.05]])
     yield calls, by_id, answer
     engine._overlay.cache_clear()
     engine._FOOT_CACHE.clear()
@@ -246,10 +246,15 @@ def test_exact_marker_position_is_preserved_when_router_rounds_coordinates(route
     assert leg.end == (21.0105123, 52.2305123)
 
 
+def _ride_leg(trip):
+    calls = trip["calls"]
+    return {"mode": "bus", "trip_id": trip["dep"]["trip_id"], "from": calls[0]["stop_id"], "to": calls[-1]["stop_id"]}
+
+
 def _shapes(monkeypatch, sliced, by_stops):
     """Use the real _ride_path with fake GTFS shapes; returns the shape ids passed to shape_by_stops."""
     seen = []
-    monkeypatch.setattr(engine, "_ride_path", _RIDE_PATH)
+    monkeypatch.setattr(geometry, "_ride_path", _RIDE_PATH)
     monkeypatch.setattr(engine.mkuran, "trip_shape_id", lambda trip_id: "shape-" + trip_id)
     monkeypatch.setattr(engine.mkuran, "shape_slice", lambda *args: sliced)
     monkeypatch.setattr(engine.mkuran, "shape_by_stops", lambda shape_id, calls: seen.append(shape_id) or by_stops)
@@ -260,7 +265,7 @@ def test_ride_without_stop_distances_uses_the_shape_projected_on_the_stops(route
     shape = [[52.25, 21.04], [52.255, 21.045], [52.26, 21.05]]
     seen = _shapes(monkeypatch, [], shape)
     trip = ride(line="wkd1")
-    assert engine._ride_path("wkd1", trip["calls"]) == (shape, False)
+    assert geometry.leg_path(_ride_leg(trip), calls=trip["calls"]) == (shape, False)
     assert seen == ["shape-wkd1"]
     option = engine.RealRouteEngine()._transit_option(
         START, END, START.position, END.position, "standard", NOW, 28800, [trip], 0, None)
@@ -274,7 +279,7 @@ def test_ride_without_any_shape_is_kept_as_a_polyline_through_every_call(router,
     trip = ride(A, C)
     trip["calls"].insert(1, {**trip["calls"][0], "stop_id": B, "name": B, "dep": 29700, "arr": 29700})
     expected = [[locations[s]["position"]["lat"], locations[s]["position"]["lon"]] for s in (A, B, C)]
-    assert engine._ride_path(trip["dep"]["trip_id"], trip["calls"]) == (expected, True)
+    assert geometry.leg_path(_ride_leg(trip), calls=trip["calls"]) == (expected, True)
     option = engine.RealRouteEngine()._transit_option(
         START, END, START.position, END.position, "standard", NOW, 28800, [trip], 0, None)
     assert option is not None

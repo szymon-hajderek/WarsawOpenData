@@ -23,7 +23,7 @@ Done:
 - Route options from real data (`POST /api/routes`): GTFS departures, Veturilo, live delays and alerts; trips with
   up to 5 intermediate stops.
 - Street-only trips on foot, by wheelchair, with a stroller or by own bike, from the C++ street router
-  (`algorithms/router/`, `GET /api/osm/route`).
+  (`algorithms/router/`, `POST /api/routes` with `travel`).
 - Two map looks (flat, liquid glass), light and dark mode.
 - "Which vehicle am I in?" window: nearest live buses by MSE (`POST /api/live/nearest-buses`), delay estimate
   (`GET /api/live/delay`).
@@ -113,7 +113,7 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
      `cmake -S ../algorithms/router -B ../algorithms/router/build -DCMAKE_BUILD_TYPE=Release &&
      cmake --build ../algorithms/router/build`. The backend then starts it by itself (port 8090; it writes
      `data/derived/street/graph_*.bin` first if needed, ~30 s; log: `data/derived/street/router.log`). Without it,
-     walk / bike legs, `/api/osm/route` and `/api/stations/health` answer 503. Optional `.env`: `ROUTER_URL` (use a router that runs elsewhere), `ROUTER_PORT`.
+     walk / bike legs and `/api/stations/health` answer 503. Optional `.env`: `ROUTER_URL` (use a router that runs elsewhere), `ROUTER_PORT`.
    - the first start also builds `data/derived/stations.json` (transport nodes mapped to OSM, a few seconds;
      `uv run python stations.py` rebuilds it and prints the match report)
    - street matrices for every pair of stops (optional: the server does not read them yet):

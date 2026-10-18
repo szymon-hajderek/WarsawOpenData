@@ -90,6 +90,23 @@ export interface DelayStop {
 }
 
 /** Detail of the `bus-delay` event = answer of `GET /api/live/delay` (see data/API.md). */
+/** Live delay of one bus / tram ride of a suggested route (`POST /api/live/route-delays`, see data/API.md). */
+export interface LegDelay {
+  /** 0-based index among the transit legs (bus, tram, metro, rail) of the option. */
+  transitIndex: number;
+  line: string | null;
+  vehicleId: string | null;
+  available: boolean;
+  /** Seconds; negative = early. Null when not available. */
+  delaySec: number | null;
+  /** False: the vehicle still runs an earlier trip of its brigade, so the delay is a forecast. */
+  sameTrip: boolean;
+  reason: string | null;
+}
+
+/** Route option id -> delays of its rides. */
+export type RouteDelays = Record<string, LegDelay[]>;
+
 export interface BusDelayDetail {
   vehicleId: string;
   vehicle?: string;

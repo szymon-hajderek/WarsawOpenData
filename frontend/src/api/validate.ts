@@ -1,4 +1,4 @@
-import type { RouteOption } from '../types';
+import type { RouteDelays, RouteOption } from '../types';
 import { SEGMENT_KINDS } from '../utils/legStyle';
 
 const isObject = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null;
@@ -61,6 +61,25 @@ export function isRouteOptions(value: unknown): value is RouteOption[] {
             isOptionalPoints(l.steps) &&
             isOptionalSeconds(l.waitS) &&
             isOptionalString(l.tripId),
+        ),
+    )
+  );
+}
+
+/** True when the route-delays answer is `option id -> [{ transitIndex, available, delaySec, sameTrip }]`. */
+export function isRouteDelays(value: unknown): value is RouteDelays {
+  return (
+    isObject(value) &&
+    Object.values(value).every(
+      (rows) =>
+        Array.isArray(rows) &&
+        rows.every(
+          (r) =>
+            isObject(r) &&
+            typeof r.transitIndex === 'number' &&
+            typeof r.available === 'boolean' &&
+            (r.delaySec === null || typeof r.delaySec === 'number') &&
+            typeof r.sameTrip === 'boolean',
         ),
     )
   );

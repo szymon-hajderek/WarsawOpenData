@@ -57,6 +57,14 @@ class RouteLeg(BaseModel):
     stop: Optional[int] = None
     # True when GTFS has no shape for the trip and `path` only joins the stops in order.
     approximatePath: bool = False
+    # Street legs: where the path boards an elevator / starts a flight of steps, `[lat, lon]`.
+    elevators: Optional[list[LatLng]] = None
+    steps: Optional[list[LatLng]] = None
+    # Transit legs: seconds standing at the boarding stop (`fromId`) before departure, and the GTFS trip id.
+    waitS: Optional[float] = None
+    tripId: Optional[str] = None
+    # Street legs: expected waits (signals, crossings, elevators), part of `RouteOption.waitS`.
+    _street_wait: float = PrivateAttr(default=0.0)
 
     @model_validator(mode="after")
     def _fill_ends(self) -> "RouteLeg":
@@ -81,6 +89,8 @@ class RouteOption(BaseModel):
     bikeDistance: float = 0
     transfers: int
     tags: list[str]
+    # Total standing: transit `waitS` at boarding stops plus street waits (signals, crossings, elevators).
+    waitS: float = 0
 
     @model_validator(mode="after")
     def _fill_distances(self) -> "RouteOption":
@@ -100,6 +110,8 @@ class RouteOption(BaseModel):
             self.walkDistance = round(walked, 1)
         if "bikeDistance" not in self.model_fields_set:
             self.bikeDistance = round(ridden, 1)
+        if "waitS" not in self.model_fields_set:
+            self.waitS = round(sum((leg.waitS or 0) + leg._street_wait for leg in self.legs), 1)
         return self
     # Start, the intermediate stops in the order they are visited, destination (multi-stop trips only).
     waypoints: list[Place] = Field(default_factory=list)
