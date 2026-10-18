@@ -19,6 +19,8 @@ MAX_VIA = 5
 # `bike` = the rider's own bike, `veturilo` = a rented Veturilo bike.
 TransportMode = Literal["walk", "bike", "veturilo", "bus", "tram", "metro", "rail"]
 Profile = Literal["standard", "slow", "accessible", "stroller"]
+# Modes a search can exclude (`RouteRequest.excludeModes`).
+ExcludableMode = Literal["bus", "tram", "metro", "rail", "veturilo"]
 
 
 class Place(BaseModel):
@@ -158,6 +160,8 @@ class RouteRequest(BaseModel):
     excludedDistricts: list[str] = Field(default_factory=list, max_length=18)
     excludedPoints: list[ExcludedPoint] = Field(default_factory=list, max_length=20)
     body: Optional[RouteBody] = None
+    # Modes the search must not use (a GTFS trolleybus counts as bus; veturilo = no rented bike, own bike stays).
+    excludeModes: list[ExcludableMode] = Field(default_factory=list, max_length=5)
 
 
 # ---- speed history (stateless: nothing is stored, tracks are not kept) --------------------------
