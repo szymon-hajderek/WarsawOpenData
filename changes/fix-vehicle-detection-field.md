@@ -11,3 +11,4 @@ Field test (tram 24, 2026-10-18): no vehicle bar. Causes and fixes:
   movement for at most 30 s): on live trams own vehicle first 60/60, median error 21 -> 11 m.
 - The 60 m limit is removed (user decision): the best match is always offered; "Wykryliśmy" only when the second
   candidate is 2.5x worse.
+- "Jadę tą linią" on the start screen sets the start to "Z pojazdu: <line> (następne przystanki)", so the next search plans from the vehicle (before, only "Zmień cel" in the active trip did).

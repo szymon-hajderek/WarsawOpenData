@@ -38,10 +38,17 @@ import {
   type TripFilters,
 } from './preferences/model';
 import { BOTTOM_NAV_HEIGHT, MAP_PADDING, PANEL_WIDTH } from './layout';
-import type { LatLng, Place, RouteOption, StopOrder } from './types';
+import type { LatLng, Place, RouteOption, StopOrder, VehicleCandidate } from './types';
 
 /** Origin id prefix of "plan from the vehicle I am in" (`onboard` in `POST /api/routes`). */
 const ONBOARD_PREFIX = 'onboard:';
+
+/** The start "Z pojazdu: 24": the search plans from the vehicle's next stops (`onboard` of `POST /api/routes`). */
+const onboardPlace = (v: VehicleCandidate, position: LatLng | null): Place => ({
+  id: `${ONBOARD_PREFIX}${v.id}`,
+  label: `Z pojazdu: ${v.line} (następne przystanki)`,
+  position: position ?? [52.2297, 21.0122],
+});
 
 /** The active trip ("Rozpocznij przejazd" ... "Zakończ"): the route being travelled and its ends. */
 interface ActiveTrip {
@@ -299,7 +306,7 @@ export default function App() {
     const v = vehicle.confirmed;
     setOrigin(
       v && !v.manual
-        ? { id: `${ONBOARD_PREFIX}${v.id}`, label: `Z pojazdu: ${v.line} (następne przystanki)`, position: here }
+        ? onboardPlace(v, here)
         : currentLocation ?? { id: 'current-location', label: 'Twoja lokalizacja', position: here, isCurrentLocation: true },
     );
     setDestination(keepDestination ? activeTrip.destination : null);
@@ -421,7 +428,13 @@ export default function App() {
             onManualLine={vehicle.selectManualLine}
             onClearManual={vehicle.clearManual}
             onRedetect={vehicle.redetect}
-            onConfirm={vehicle.confirm}
+            onConfirm={() => {
+              // "Jadę tą linią" on the start screen: plan from that vehicle's next stops (unless a start was typed)
+              const v = vehicle.confirm();
+              if (v && !v.manual && (!origin || origin.isCurrentLocation || origin.id.startsWith(ONBOARD_PREFIX))) {
+                setOrigin(onboardPlace(v, userPosition ?? origin?.position ?? null));
+              }
+            }}
             onDismiss={vehicle.dismiss}
           />
         )}

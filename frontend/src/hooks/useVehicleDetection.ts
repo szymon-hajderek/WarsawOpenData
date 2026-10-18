@@ -128,6 +128,7 @@ export function useVehicleDetection({ position, getTrack }: Input) {
     setConfirmed(picked);
     setDelayVehicleId(picked?.id ?? null);
     setSnap('bar');
+    return picked;
   }, [manual, vehicles, selectedId]);
 
   return {

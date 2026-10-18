@@ -210,4 +210,16 @@ describe('vehicle popup at start', () => {
     const handle = await screen.findByRole('button', { name: HANDLE });
     expect(within(handle).getByLabelText('Wykryliśmy, że jedziesz linią 24 → Gocławek')).toBeInTheDocument();
   });
+
+  it('"Jadę tą linią" on the start screen makes the vehicle the start of the next search', async () => {
+    install(true);
+    answer = () =>
+      json({ candidates: [candidate('bus-1', '131', 'Sadyba', 22), candidate('bus-2', '175', 'Lotnisko', 300)], lines: ['131'], updated_at: 1 });
+    renderApp();
+    await ride();
+    const handle = await screen.findByRole('button', { name: HANDLE });
+    fireEvent.keyDown(handle, { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('button', { name: /Jadę tą linią: Autobus 131/ }));
+    await waitFor(() => expect(screen.getByLabelText('Skąd jedziesz?')).toHaveValue('Z pojazdu: 131 (następne przystanki)'));
+  });
 });
