@@ -98,7 +98,8 @@ export default function App() {
   const [onboardNotice, setOnboardNotice] = useState(false);
   const tripHeights = useSnapHeights(300);
 
-  // "Which vehicle am I in?" window: open from the start, can be hidden and brought back. In the active trip it
+  // "Which vehicle am I in?" window: opens by itself only when the first detection found something (a bar for one
+  // confident vehicle, else the sheet); the bus button on the map brings it back. In the active trip it
   // detects from the trip's own track (the recorder's points), else from the last 1-3 positions.
   const tripTrack = () => {
     const points = activeTrip ? detectionPoints(tracker.track()) : [];
@@ -347,7 +348,7 @@ export default function App() {
           />
         )}
 
-        {!activeTrip && step === 'search' && !vehicle.dismissed && (
+        {!activeTrip && step === 'search' && vehicle.open && (
           <VehicleSheet
             candidates={vehicle.vehicles}
             lines={vehicle.lines}
@@ -389,7 +390,7 @@ export default function App() {
           />
         )}
 
-        {inTrip && tripVehicleOpen && !vehicle.dismissed && (
+        {inTrip && tripVehicleOpen && vehicle.open && (
           <VehicleSheet
             candidates={vehicle.vehicles}
             lines={vehicle.lines}

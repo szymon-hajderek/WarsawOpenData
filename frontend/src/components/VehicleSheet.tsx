@@ -28,6 +28,8 @@ const directionText = (v: VehicleCandidate) => (v.direction ? `kier. ${v.directi
 /** Distance of the vehicle from the user, when the backend sent it. */
 const distanceText = (v: VehicleCandidate) =>
   v.distanceM !== undefined ? `ok. ${formatDistance(v.distanceM)} od Ciebie` : '';
+/** The collapsed bar of a detected (not yet confirmed) vehicle: "Wykryto linię 131 → Sadyba". */
+const detectedText = (v: VehicleCandidate) => `Wykryto linię ${v.line}${v.direction ? ` → ${v.direction}` : ''}`;
 
 /** Heights the popup settles on: a bar, the middle (suggested vehicle + confirm) and the full popup. */
 export type VehicleSnap = SheetSnap;
@@ -119,10 +121,14 @@ export default function VehicleSheet({
   });
   const pressable = (c: VehicleCandidate) => pressableProps(c.id === selectedId, () => onSelect(c.id));
 
+  // A tap on the bar of a detected vehicle opens the whole sheet (other lines, "Inna linia", confirm) at once.
+  const changeSnap = (next: VehicleSnap) =>
+    onSnapChange(snap === 'bar' && next === 'middle' && !confirmed && suggested ? 'full' : next);
+
   return (
     <SnapSheet
       snap={snap}
-      onSnapChange={onSnapChange}
+      onSnapChange={changeSnap}
       middleHeight={258}
       ariaLabel="Okienko pojazdu"
       header={({ barLike, full }) => (
@@ -149,19 +155,27 @@ export default function VehicleSheet({
             ) : shown ? (
               <>
                 <ModeBadge vehicle={shown} size={40} />
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography noWrap sx={{ fontWeight: 700 }}>
-                    {confirmed ? `Jedziesz: ${vehicleName(shown)}` : vehicleName(shown)}
-                  </Typography>
-                  {directionText(shown) && (
-                    <Typography variant="body2" color="text.secondary" noWrap>
-                      {directionText(shown)}
+                {confirmed ? (
+                  <>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography noWrap sx={{ fontWeight: 700 }}>
+                        {`Jedziesz: ${vehicleName(shown)}`}
+                      </Typography>
+                      {directionText(shown) && (
+                        <Typography variant="body2" color="text.secondary" noWrap>
+                          {directionText(shown)}
+                        </Typography>
+                      )}
+                    </Box>
+                    <Typography variant="body2" color="primary" sx={{ fontWeight: 700 }}>
+                      Zmień
                     </Typography>
-                  )}
-                </Box>
-                <Typography variant="body2" color="primary" sx={{ fontWeight: 700 }}>
-                  {confirmed ? 'Zmień' : 'Pokaż'}
-                </Typography>
+                  </>
+                ) : (
+                  <Typography noWrap sx={{ flex: 1, minWidth: 0, fontWeight: 700 }}>
+                    {detectedText(shown)}
+                  </Typography>
+                )}
                 <ExpandLess color="primary" />
               </>
             ) : (
@@ -201,6 +215,15 @@ export default function VehicleSheet({
               <Button onClick={onRedetect} sx={{ mt: 1 }}>
                 Spróbuj ponownie
               </Button>
+            </Box>
+          )}
+
+          {!offline && !liveUnavailable && !loading && candidates.length === 0 && (
+            <Box sx={{ py: 1.5, textAlign: 'center' }}>
+              <Typography color="text.secondary">
+                Nie wykryto pojazdu w pobliżu. Wykrywanie potrzebuje Twojej lokalizacji podczas jazdy. Możesz wybrać linię
+                ręcznie (przesuń w górę).
+              </Typography>
             </Box>
           )}
 
