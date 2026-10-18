@@ -227,14 +227,20 @@ def _finish(built: list[Optional[RouteOption]]) -> list[RouteOption]:
     """Drop empty options and those crossing an excluded area, dedupe, sort by duration, keep MAX_OPTIONS, tag."""
     out, seen = [], set()
     for option in sorted((o for o in built if o is not None), key=lambda o: o.durationMin):
-        key = tuple((leg.mode, leg.line, leg.fromId, leg.toId, leg.tripId) for leg in option.legs)
-        if any(leg.tripId for leg in option.legs):
-            key += (option.departure,)  # frequency-based metro runs share the template's trip id
+        # The same rides arriving at the same time are one trip: only the one leaving latest (shortest) stays. The
+        # arrival also keeps apart the runs of a metro frequency trip, which share the template's trip id.
+        rides = tuple((leg.mode, leg.line, leg.fromId, leg.toId, leg.tripId) for leg in option.legs if leg.tripId)
+        key = (rides, option.arrival) if rides else tuple((leg.mode, leg.line, leg.fromId, leg.toId) for leg in option.legs)
         if key in seen or not _option_clear(option):
             continue
         seen.add(key)
         out.append(option)
     out = out[:MAX_OPTIONS]
+    ids: set[str] = set()
+    for option in out:  # ids are unique in one answer (the list selects by id)
+        if option.id in ids:
+            option.id = f"{option.id}@{option.departure.replace(':', '')}"
+        ids.add(option.id)
     _tag(out)
     return out
 

@@ -27,3 +27,4 @@ integration/report/
 
 # worktrees of agent sessions
 .claude/worktrees/
+logs/

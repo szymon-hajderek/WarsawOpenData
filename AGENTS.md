@@ -397,6 +397,12 @@ Everything in this repo (files, commits, PRs) is written in English.
   Detection runs once after start and on `requestLinePopup()`. Each detection also sends a `bus-popup` event on `window`
   (`{ candidates, lines, points }`). Direction is the GTFS `trip_headsign` for that line and brigade.
   The poller reads buses and trams. Concept: `ui/concept-art/current-line-popup.paint`.
+- Map overlays ("Warstwy przystanków", a signpost button in the right map bar, popover with checkboxes): Stacje Veturilo (from zoom 13,
+  teal pill with the live bike count, grey at 0, `/api/veturilo/status` every 60 s, `src/api/veturilo.ts`), Autobusy i tramwaje and
+  Metro i kolej (from zoom 14, every post as a canvas dot in the mode colour). Data: `GET /api/stations?bbox=` for the view + 30 % margin,
+  reloaded only when the view leaves it (`src/hooks/useMapOverlays.ts`, ids / zooms / storage in `src/map/overlays.ts`, localStorage
+  `map-overlays`, all off by default). Popup: name + post code, Veturilo bikes / free docks, "Stąd" / "Dotąd" set the station as start /
+  destination (`onPlacePick`, `stationPlace` in `src/components/MapOverlays.tsx`; no buttons during an active trip).
 - Navigation: bottom bar (`src/components/BottomNav.tsx`) with tabs Mapa and Preferencje; floating panels sit above it
   (`src/layout.ts`: `BOTTOM_NAV_HEIGHT`, `PANEL_BOTTOM`). The Preferences page is an overlay, the map stays mounted below.
 - Trips with intermediate stops (up to 5, `MAX_STOPS` / `MAX_VIA`): `SearchCard.tsx` has "Dodaj przystanek", a drag handle on every row (⋮⋮, shown once there is at least one stop; start and destination too, so a stop can be exchanged with them: the rows `[start, ...stops, destination]` are reordered together;
@@ -485,7 +491,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   wins over the stepFree / wheelchair preferences (`routeSearchBody(p, modes, access)`: "Pieszo" (standard) sends `stepFree: false` and wheelchair `none`,
   wheelchair / stroller leave out `walkKmh` unless the wheelchair speed is known). Vehicle exclusions only go with Komunikacja. Pieszo = `travel`
   walk / accessible / stroller, Rower = `travel` bike (`streetMode(mode, access)`). Street-only trips: `src/api/streetRoute.ts` (`fetchStreetTrip`, also with `via` / `order`; `fetchStreetRoute` = no stops)
-  posts to the same `POST /api/routes` with `travel` (`ROUTER_MODE`: `walk`, `accessible`, `stroller`, `bike`) and shows the one `RouteOption` of the answer as it is
+  posts to the same `POST /api/routes` with `travel` (`ROUTER_MODE`: `walk`, `accessible`, `stroller`, `bike`) and the user's pace (`walkKmh`, and `bikeKmh` for the bike, from the same preferences as the transit search, so "Rower" and "Komunikacja + Z własnym rowerem" ride at the same speed) and shows the one `RouteOption` of the answer as it is
   (checked by `isRouteOptions`; `GET /api/osm/route` is gone, the frontend no longer parses raw router answers). Errors are said in Polish: 422 "Punkt poza zasięgiem mapy",
   404 (or an empty list) "Brak trasy", 503 "Serwer tras nie działa", 400 "Ten tryb nie jest jeszcze dostępny na serwerze". **No mock and no straight line** for street trips:
   a wheelchair user must know the path was really checked. Filters and sorting do not apply to a street trip.

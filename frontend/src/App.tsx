@@ -371,6 +371,7 @@ export default function App() {
           follow={inTrip}
           onMapPick={picking !== null && !pickBusy ? (p) => void pickAt(picking, p) : undefined}
           onContextPick={!inTrip && picking === null ? (target, p) => void pickAt(target, p) : undefined}
+          onPlacePick={!inTrip ? (target, place) => { cancelPick(); setPlace(target, place); } : undefined}
         />
         </Box>
 
