@@ -97,7 +97,7 @@ tbody tr:last-child td { border-bottom: 0; }
     <span class="eyebrow">WarsawOpenData · opóźnienia autobusów i tramwajów · dokumentacja</span>
     <h1>Opóźnienia ZTM: dokumentacja</h1>
     <p class="lead">Jak serwer szacuje opóźnienie autobusu lub tramwaju na żywo, gdzie to widać w aplikacji, jak z tego korzystać przy pracy nad UI i czego jeszcze brakuje. Liczby są na <code>artifacts/delays/delay-statistics.html</code>, a co i na czym testowałem: <code>artifacts/delays/tests/delay-tests.html</code>.</p>
-    <div class="meta"><span>stan na <b>18.10.2026</b></span><span>gałąź <b>main</b></span><span>kontrakt API <b>data/API.md</b></span><span>promień <b>R = 30 m</b></span></div>
+    <div class="meta"><span>stan na <b>18.10.2026</b></span><span>gałąź <b>main</b></span><span>kontrakt API <b>data/API.md</b></span><span>promień <b>R = 80 m</b></span></div>
   </header>
 
   <section>
@@ -106,7 +106,7 @@ tbody tr:last-child td { border-bottom: 0; }
       <ul>
         <li><b>Lista proponowanych tras:</b> przy każdym autobusie i tramwaju widać jego opóźnienie na żywo, np. „180 · 12′ · +3 min”. Działa dla każdej linii autobusowej i tramwajowej.</li>
         <li><b>Pojazd, w którym jedziesz</b> (po „Jadę tą linią”): opóźnienie przychodzi co 10 s w evencie <code>bus-delay</code>, ale żaden element ekranu go jeszcze nie pokazuje.</li>
-        <li><b>Dokładność</b> na 32 min prawdziwych danych: opóźnienie dostępne dla 98,2% przejazdów, połowa wyników różni się od wzorca o 2 s lub mniej.</li>
+        <li><b>Dokładność</b> na 32 min prawdziwych danych: przy R = 80 m opóźnienie ma każdy przejazd obok przystanku, połowa wyników różni się od wzorca o 2 s lub mniej.</li>
       </ul>
     </div>
     <div class="tbl"><table>
@@ -128,7 +128,7 @@ tbody tr:last-child td { border-bottom: 0; }
       <li><span><b>Bufor pojazdu.</b> Dla każdego pojazdu serwer trzyma pozycje z ostatnich minut: najdłuższy planowy przejazd między dwoma przystankami jego kursu + 60 s (10 min, gdy kursu nie da się ustalić). Między dwoma odczytami dopisuje punkt w połowie drogi, więc pozycja jest mniej więcej co 5 s. Nie dopisuje go, gdy pobranie się nie udało albo odczyty dzieli więcej niż 25 s.</span></li>
       <li><span><b>Kurs z rozkładu.</b> Linia + brygada wskazują kursy z rozkładu GTFS. Serwer rzutuje pozycję na trasę każdego kursu, który jedzie teraz ± 15 min i przebiega bliżej niż 100 m, i wybiera ten, którego rozkład w tym miejscu trasy jest najbliżej „teraz” (brygada jeździ tą samą trasą kilka razy dziennie).</span></li>
       <li><span><b>Ostatni minięty przystanek (K-1)</b> to ostatni przystanek kursu przed miejscem, w którym jest pojazd. Następny to K.</span></li>
-      <li><span><b>Moment przejazdu:</b> punkt z bufora najbliższy przystankowi K-1, ale tylko w promieniu R = 30 m (<code>DELAY_RADIUS_M</code>). Brak takiego punktu = „dane o opóźnieniu niedostępne”.</span></li>
+      <li><span><b>Moment przejazdu:</b> punkt z bufora najbliższy przystankowi K-1, ale tylko w promieniu R = 80 m (<code>DELAY_RADIUS_M</code>; wybrane wyszukiwaniem, patrz <code>artifacts/delays/tests/radius-search.html</code>). Brak takiego punktu = „dane o opóźnieniu niedostępne”.</span></li>
       <li><span><b>Opóźnienie</b> = moment przejazdu − planowy odjazd z K-1. Może być ujemne (przed czasem). Pokazujemy je jako przewidywane opóźnienie na następnym przystanku K.</span></li>
     </ol>
     <pre class="mermaid">
@@ -136,7 +136,7 @@ flowchart LR
   A["API Urzędu Miasta<br/>co 3 s"] --> B["bufor pojazdu<br/>punkty co ~5 s"]
   B --> C["kurs z GTFS<br/>linia + brygada"]
   C --> D["K-1 na trasie"]
-  D --> E["przejazd w promieniu 30 m"]
+  D --> E["przejazd w promieniu 80 m"]
   E --> F["opóźnienie<br/>= przejazd − rozkład"]
     </pre>
     <p class="note">Pułapka znaleziona po drodze: w <code>warsaw.zip</code> odległość wzdłuż trasy (<code>shape_dist_traveled</code>) jest w kilometrach, a cache ucinał ją do pełnych kilometrów. Kod opóźnień liczy więc metry ze współrzędnych (<code>mkuran._trip_static</code>).</p>
@@ -235,7 +235,7 @@ export function useBusDelay(): BusDelayDetail | null {
       <li>Serwer: <code>cd backend &amp;&amp; uv run uvicorn main:app</code> (potrzebny <code>PORTAL_KEY</code> w <code>.env</code>). Pierwsze minuty po starcie: bufor się zapełnia, odpowiedzi <code>503</code> albo <code>no_pass_in_radius</code>.</li>
       <li>Jeden pojazd: <code>curl "localhost:8000/api/live/delay?vehicle=bus-5914"</code> (id z okna „W jakim pojeździe jestem”).</li>
       <li>Testy: <code>cd backend &amp;&amp; uv run pytest tests ../algorithms</code>; frontend: <code>npm run lint</code>, <code>npm test</code>, <code>npm run build</code>.</li>
-      <li>Statystyki od nowa z nagrania: <code>uv run python ../algorithms/simulation/export_delay_viz.py</code>; najlepszy promień: <code>search_delay_radius.py</code>; nowe nagranie (serwer włączony, 30 min): <code>record_delay_sample.py 30</code>.</li>
+      <li>Statystyki od nowa z nagrania: <code>uv run python ../algorithms/simulation/export_delay_viz.py</code>; najlepszy promień i jego raport: <code>search_delay_radius.py --report</code>; nowe nagranie (serwer włączony, 30 min): <code>record_delay_sample.py 30</code>.</li>
     </ul>
   </section>
 
@@ -256,11 +256,11 @@ export function useBusDelay(): BusDelayDetail | null {
   <section>
     <h2>Statystyki w skrócie</h2>
     <div class="tiles">
-      <div class="tile"><span class="big">98,2%</span><span class="sub">przejazdów z opóźnieniem (1110 z 1130)</span></div>
+      <div class="tile"><span class="big">100%</span><span class="sub">przejazdów z opóźnieniem przy R = 80 m (1130 z 1130); 96,5% dokładnych do 30 s</span></div>
       <div class="tile"><span class="big">2 s</span><span class="sub">mediana błędu; 90% do 14 s</span></div>
-      <div class="tile"><span class="big">91,4%</span><span class="sub">dostępne, gdy ginie 30% pobrań danych</span></div>
-      <div class="tile"><span class="big">30 m</span><span class="sub">używany promień R; najlepszy w wyszukiwaniu 80 m (+1,5 pp.)</span></div>
-      <div class="tile"><span class="big">0,27 ms</span><span class="sub">mediana obliczenia jednego opóźnienia; 90% do 0,49 ms</span></div>
+      <div class="tile"><span class="big">97,8%</span><span class="sub">dostępne, gdy ginie 30% pobrań danych</span></div>
+      <div class="tile"><span class="big">80 m</span><span class="sub">promień R wybrany wyszukiwaniem (wcześniej 30 m: 95,0%)</span></div>
+      <div class="tile"><span class="big">0,41 ms</span><span class="sub">mediana obliczenia jednego opóźnienia; 90% do 0,54 ms</span></div>
     </div>
     <p class="note">Szczegóły, wykresy, mapy linii, wyniki per linia i przystanek oraz testy: <code>artifacts/delays/delay-statistics.html</code>.</p>
   </section>

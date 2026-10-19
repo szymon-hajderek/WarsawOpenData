@@ -249,7 +249,7 @@ def test_bus_detect_forgets_vehicles_that_left_the_feed(monkeypatch):
 def test_geocode_answers_from_the_cache():
     from app.models import Place
     geocode._cache.put("rondo daszyńskiego", [Place(id="osm-1", label="Rondo", position=(52.2, 21.0))])
-    r = client.get("/api/geocode", params={"q": "Rondo   Daszyńskiego"})  # same key after normalising
+    r = client.get("/api/geocode", params={"q": "Rondo   Daszyńskiego", "source": "nominatim"})  # same key
     assert r.status_code == 200
     assert r.json()[0]["id"] == "osm-1"
     assert client.get("/api/geocode", params={"q": "x" * 201}).status_code == 422

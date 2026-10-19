@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { alpha, Badge, Box, Button, Chip, CircularProgress, Typography } from '@mui/material';
+import { alpha, Badge, Box, Button, Chip, CircularProgress, IconButton, Typography } from '@mui/material';
+import Refresh from '@mui/icons-material/Refresh';
 import Tune from '@mui/icons-material/Tune';
 import Schedule from '@mui/icons-material/Schedule';
 import LocalFireDepartment from '@mui/icons-material/LocalFireDepartment';
@@ -44,6 +45,8 @@ interface Props {
   onClearChip: (id: FilterChip['id']) => void;
   onClearAll: () => void;
   onConfirm: () => void;
+  /** Runs the same search again ("Odśwież trasy"). */
+  onRefresh?: () => void;
 }
 
 /** List of connections - "Choose your route" - with the preference summary and filters. */
@@ -66,6 +69,7 @@ export default function RouteOptionsSheet({
   onClearChip,
   onClearAll,
   onConfirm,
+  onRefresh,
 }: Props) {
   const noScrollbar = { scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } } as const;
   const { effective } = usePreferences();
@@ -93,7 +97,7 @@ export default function RouteOptionsSheet({
       middleHeight={352}
       ariaLabel="Lista tras"
       contentRef={content}
-      header={({ barLike, full }) => (
+      header={({ barLike, full, docked }) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.25 }}>
@@ -108,7 +112,23 @@ export default function RouteOptionsSheet({
                   : `${options.length} ${options.length === 1 ? 'trasa' : 'tras'}${fastest !== null ? ` · najszybsza ${formatDuration(fastest)}` : ''}`}
             </Typography>
           </Box>
-          {barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />}
+          {onRefresh && (
+            // inside the drag zone: the button's own presses must not drag or step the sheet
+            <IconButton
+              size="small"
+              aria-label="Odśwież trasy"
+              title="Odśwież trasy"
+              disabled={loading}
+              onClick={onRefresh}
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              sx={{ flexShrink: 0 }}
+            >
+              {loading ? <CircularProgress size={20} aria-label="Odświeżam" /> : <Refresh />}
+            </IconButton>
+          )}
+          {!docked && (barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />)}
         </Box>
       )}
       toolbar={

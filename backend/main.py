@@ -40,6 +40,7 @@ def _warm_up() -> None:
     try:
         journey_stats.initialize()
         mkuran.warm()
+        geocode._local_index()  # place search answers in ms from the first request
         osm.warm()
         siting.warm()  # hex grid for /api/veturilo/siting (first run ~2.5 min, then cached)
         street_router.start()  # the C++ street router (writes its graph files first if they are stale)

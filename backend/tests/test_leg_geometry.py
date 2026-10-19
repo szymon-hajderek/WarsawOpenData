@@ -113,10 +113,44 @@ def test_leg_path_per_leg_type_and_fallback(router, monkeypatch):
     monkeypatch.setattr(geometry.mkuran, "trip_onward", lambda trip_id, stop_id, sec: calls)
     monkeypatch.setattr(geometry.mkuran, "trip_shape_id", lambda trip_id: "shape")
     monkeypatch.setattr(geometry.mkuran, "shape_slice", lambda shape_id, d0, d1: seen.append((d0, d1)) or shape)
-    assert geometry.leg_path(bus) == (shape, False)
+    def at(station_id):
+        return [locations[station_id]["position"]["lat"], locations[station_id]["position"]["lon"]]
+
+    # the shape joined to the mapped stop positions (the fake shape is far away: projections are its ends)
+    assert geometry.leg_path(bus) == ([at(A), *shape, at(C)], False)
     assert seen == [(0, 200)]  # cut at C, not D
     # mkuran calls given directly (today's planner).
-    assert geometry.leg_path({"mode": "tram", "trip_id": "t", "from": A, "to": B}, calls=calls[:2]) == (shape, False)
+    assert geometry.leg_path({"mode": "tram", "trip_id": "t", "from": A, "to": B}, calls=calls[:2]) == (
+        [at(A), *shape, at(B)], False)
+
+
+def test_ride_path_starts_and_ends_at_the_mapped_stops(router, monkeypatch):
+    """Regression: the GTFS shape slice used to start / end at its own points, tens of metres from the stop
+    markers (`stations.json` positions) where the walks end. Now it is cut at the markers' projections and
+    joined to them, so the ride meets the markers and the walk legs."""
+    _, locations, _ = router
+    _no_shapes(monkeypatch)
+    a, c = (locations[s]["position"] for s in (A, C))
+    # a straight east-west shape ~11 m north of A and C; the slice starts past A and runs on past C
+    lat = a["lat"] + 0.0001
+    shape = [[lat, a["lon"] + 0.0001], [lat, (a["lon"] + c["lon"]) / 2], [lat, c["lon"] + 0.0003]]
+    calls = [{"stop_id": s, "lat": 52.25, "lon": 21.04, "shape_dist": i * 100} for i, s in enumerate((A, B, C))]
+    monkeypatch.setattr(geometry.mkuran, "trip_shape_id", lambda trip_id: "shape")
+    monkeypatch.setattr(geometry.mkuran, "shape_slice", lambda *args: shape)
+    path, approximate = geometry.leg_path({"mode": "bus", "trip_id": "t", "from": A, "to": C}, calls=calls)
+    assert not approximate
+    assert path[0] == [a["lat"], a["lon"]] and path[-1] == [c["lat"], c["lon"]]
+    assert path[1] == shape[0]  # A lies before the slice: joined to its first point
+    assert path[2] == shape[1]
+    assert path[-2] == pytest.approx([lat, c["lon"]])  # cut at C's projection, not run on past it
+    # the leg chain walk -> ride -> walk meets at the markers
+    trip = _future_trip(locations)
+    monkeypatch.setattr(geometry.mkuran, "trip_onward", lambda trip_id, stop_id, sec: calls)
+    legs = engine.legs_from_router({"legs": trip["legs"][2:]}, points=(None, END.position))
+    assert [leg.mode for leg in legs] == ["walk", "bus", "walk"] and legs[1].approximatePath is False
+    for previous, following in zip(legs, legs[1:]):
+        assert list(previous.path[-1]) == pytest.approx(list(following.path[0]))
+        assert previous.end == following.start
 
 
 def test_position_resolves_ids_and_query_points(router):

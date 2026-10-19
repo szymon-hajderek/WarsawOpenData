@@ -78,8 +78,8 @@ tbody tr:last-child td { border-bottom: 0; }
         <tr><td>2. Cały backend</td><td>testy całego zespołu</td><td><span class="r pass">270 OK</span> <span class="r skip">7 pominiętych</span> <span class="r fail">1 bez routera C++</span></td></tr>
         <tr><td>3. Frontend: lint, testy, build</td><td>kod <code>frontend/</code></td><td><span class="r pass">lint OK · 98/98 · build OK</span></td></tr>
         <tr><td>4. Strojenie R na żywo (pierwsza wersja)</td><td>8 min feedu na żywo, 17.10, ok. 1100 autobusów</td><td><span class="r pass">89% przy K-1</span> po naprawie km</td></tr>
-        <tr><td>5. Symulacja na nagraniu</td><td><code>data/live/delay_sample.json.gz</code>, 32 min, 6 linii, 1130 przejazdów</td><td><span class="r pass">98,2% dostępne · mediana 2 s</span></td></tr>
-        <tr><td>6. Szukanie najlepszego R</td><td>to samo nagranie, R 20–200 m</td><td><span class="r pass">najlepszy 80 m · 30 m: 95,0%</span></td></tr>
+        <tr><td>5. Symulacja na nagraniu</td><td><code>data/live/delay_sample.json.gz</code>, 32 min, 6 linii, 1130 przejazdów</td><td><span class="r pass">R 80 m: 100% dostępne · mediana 2 s</span></td></tr>
+        <tr><td>6. Szukanie najlepszego R</td><td>to samo nagranie, R 20–200 m</td><td><span class="r pass">najlepszy 80 m: 96,5% · było 30 m: 95,0%</span></td></tr>
         <tr><td>7. Serwer na żywo w czasie nagrania</td><td>2760 odpowiedzi <code>/api/live/delay</code></td><td><span class="r pass">98,2% dostępne · mediana 2 s</span></td></tr>
         <tr><td>8. Lista tras: endpoint na żywo</td><td>prawdziwe kursy nocne, 18.10 ok. 03:15</td><td><span class="r pass">N37 +112 s, N24 +102 s</span></td></tr>
         <tr><td>9. Lista tras: wygląd w aplikacji</td><td>frontend z podstawionymi odpowiedziami serwera</td><td><span class="r pass">napisy widoczne</span> <span class="r fail">1 błąd wyglądu</span></td></tr>
@@ -165,13 +165,16 @@ tbody tr:last-child td { border-bottom: 0; }
       <dt>powtórz</dt><dd><code>cd backend &amp;&amp; uv run python ../algorithms/simulation/simulate_delay.py --radius 30 [--drop 0.3] [--noise 20]</code></dd>
     </dl>
     <div class="tbl"><table>
-      <thead><tr><th>warunki (R = 30 m)</th><th class="n">dostępne</th><th class="n">mediana błędu</th><th class="n">90% błędów do</th><th class="n">błąd ≤ 30 s</th></tr></thead>
+      <thead><tr><th>warunki</th><th class="n">dostępne</th><th class="n">mediana błędu</th><th class="n">90% błędów do</th><th class="n">błąd ≤ 30 s</th></tr></thead>
       <tbody>
-        <tr><td>dane jak nagrane</td><td class="n">98,2%</td><td class="n">2 s</td><td class="n">14 s</td><td class="n">96,8%</td></tr>
-        <tr><td>10% pobrań ginie</td><td class="n">96,7%</td><td class="n">2 s</td><td class="n">15 s</td><td class="n">96,8%</td></tr>
-        <tr><td>30% pobrań ginie</td><td class="n">91,4%</td><td class="n">3 s</td><td class="n">18 s</td><td class="n">96,6%</td></tr>
-        <tr><td>szum GPS 10 m</td><td class="n">97,9%</td><td class="n">2,5 s</td><td class="n">14 s</td><td class="n">96,8%</td></tr>
-        <tr><td>szum GPS 20 m</td><td class="n">97,8%</td><td class="n">4 s</td><td class="n">18 s</td><td class="n">96,3%</td></tr>
+        <tr><td><b>R = 80 m (domyślne)</b>, dane jak nagrane</td><td class="n">100%</td><td class="n">2 s</td><td class="n">14 s</td><td class="n">96,5%</td></tr>
+        <tr><td>R = 80 m, 30% pobrań ginie</td><td class="n">97,8%</td><td class="n">3 s</td><td class="n">20 s</td><td class="n">96,4%</td></tr>
+        <tr><td>R = 80 m, szum GPS 20 m</td><td class="n">100%</td><td class="n">3,5 s</td><td class="n">20 s</td><td class="n">96,0%</td></tr>
+        <tr><td>R = 30 m (wcześniej), dane jak nagrane</td><td class="n">98,2%</td><td class="n">2 s</td><td class="n">14 s</td><td class="n">96,8%</td></tr>
+        <tr><td>R = 30 m, 10% pobrań ginie</td><td class="n">96,7%</td><td class="n">2 s</td><td class="n">15 s</td><td class="n">96,8%</td></tr>
+        <tr><td>R = 30 m, 30% pobrań ginie</td><td class="n">91,4%</td><td class="n">3 s</td><td class="n">18 s</td><td class="n">96,6%</td></tr>
+        <tr><td>R = 30 m, szum GPS 10 m</td><td class="n">97,9%</td><td class="n">2,5 s</td><td class="n">14 s</td><td class="n">96,8%</td></tr>
+        <tr><td>R = 30 m, szum GPS 20 m</td><td class="n">97,8%</td><td class="n">4 s</td><td class="n">18 s</td><td class="n">96,3%</td></tr>
       </tbody>
     </table></div>
     <p class="note">Przeliczone ponownie 18.10 na obecnym <code>main</code>: wyniki identyczne jak 17.10. Ograniczenie: wzorzec i algorytm używają tych samych pozycji, więc to błąd metody, a nie błąd GPS samego feedu; jeden wieczór, 6 linii.</p>
@@ -182,7 +185,7 @@ tbody tr:last-child td { border-bottom: 0; }
     <dl class="facts">
       <dt>co</dt><dd>R od 20 do 200 m co 10 m, potem co 1 m między dwoma najlepszymi sąsiadami (<code>search_delay_radius.py</code>)</dd>
       <dt>ocena</dt><dd>udział wszystkich przejazdów, dla których pokazujemy opóźnienie różniące się od wzorca najwyżej o 30 s</dd>
-      <dt>wynik</dt><dd>20 m: 93,3% · 30 m: 95,0% · 50 m: 96,3% · od 80 m: 96,5% (płasko). Najlepszy: 80 m. Domyślnie zostaje 30 m (<code>DELAY_RADIUS_M</code>).</dd>
+      <dt>wynik</dt><dd>20 m: 93,3% · 30 m: 95,0% · 50 m: 96,3% · od 80 m: 96,5% (płasko). Najlepszy: 80 m i od 18.10 to domyślny <code>DELAY_RADIUS_M</code>. Pełny raport z wykresem i tabelami: <code>artifacts/delays/tests/radius-search.html</code>.</dd>
       <dt>powtórz</dt><dd><code>cd backend &amp;&amp; uv run python ../algorithms/simulation/search_delay_radius.py</code></dd>
     </dl>
   </section>
@@ -192,7 +195,7 @@ tbody tr:last-child td { border-bottom: 0; }
     <dl class="facts">
       <dt>co</dt><dd>czy prawdziwy endpoint <code>GET /api/live/delay</code> daje to samo co symulacja</dd>
       <dt>na czym</dt><dd>co 30 s zapytanie o każdy pojazd 6 linii w czasie nagrania (2760 odpowiedzi); pierwsze 5 min pominięte, bo bufor się zapełniał; 599 przejazdów porównanych z wzorcem</dd>
-      <dt>wynik</dt><dd>98,2% dostępne, mediana błędu 2 s, 90% do 13 s, 98,6% z błędem ≤ 30 s</dd>
+      <dt>wynik</dt><dd>98,2% dostępne, mediana błędu 2 s, 90% do 13 s, 98,6% z błędem ≤ 30 s (serwer działał wtedy z R = 30 m)</dd>
     </dl>
   </section>
 

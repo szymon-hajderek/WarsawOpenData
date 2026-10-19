@@ -29,9 +29,22 @@ const MESSAGES: Record<number, string> = {
 };
 const messageFor = (status: number) => MESSAGES[status] ?? 'Serwer tras nie działa';
 
+/** The user's pace for a street trip (km/h, from the preferences); absent = the backend's profile speed. */
+export interface StreetPace {
+  walkKmh?: number;
+  bikeKmh?: number;
+}
+
 /** A street trip, also through intermediate stops (the backend chains the parts and orders the stops). */
 export async function fetchStreetTrip(
-  { from, to, via = [], order = 'given', when }: { from: Place; to: Place; via?: Place[]; order?: StopOrder; when?: string },
+  {
+    from,
+    to,
+    via = [],
+    order = 'given',
+    when,
+    pace = {},
+  }: { from: Place; to: Place; via?: Place[]; order?: StopOrder; when?: string; pace?: StreetPace },
   mode: StreetMode,
   signal?: AbortSignal,
 ): Promise<RouteOption[]> {
@@ -42,7 +55,16 @@ export async function fetchStreetTrip(
       signal,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to, travel: ROUTER_MODE[mode], ...(via.length ? { via, order } : {}), ...(when ? { when } : {}) }),
+      body: JSON.stringify({
+        from,
+        to,
+        travel: ROUTER_MODE[mode],
+        // the same pace as the public transport search, so "Rower" and "Komunikacja + Z własnym rowerem" agree
+        ...(pace.walkKmh ? { walkKmh: pace.walkKmh } : {}),
+        ...(mode === 'bike' && pace.bikeKmh ? { bikeKmh: pace.bikeKmh } : {}),
+        ...(via.length ? { via, order } : {}),
+        ...(when ? { when } : {}),
+      }),
     });
   } catch (err) {
     if (signal?.aborted) throw err;

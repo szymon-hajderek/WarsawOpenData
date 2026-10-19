@@ -172,7 +172,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   Without `PORTAL_KEY` the poller does not start and `GET /api/live/vehicles` returns 503 (no traceback).
   With the key it calls `fetch_vehicles` directly. `LIVE_BUSES_URL`, when set, is polled over HTTP instead.
   `POST /api/live/nearest-buses` ranks buses by MSE (m^2) between the user's 1-3 points and each bus track
-  (each user point paired with the bus point closest in time), `algorithms/nearest_buses.py`. Returns 4
+  (each user point compared with the vehicle's position at that time: interpolated, or extrapolated along its last movement
+  for at most 30 s, since the feed lags the phone by ~10-20 s; `nearest_buses.position_at`), `algorithms/nearest_buses.py`. Returns 4
   (1 + 3 for the popup), no distance cut-off. Feed time is read as Europe/Warsaw (`clock.warsaw_epoch`).
 - Tests: `cd backend && uv run pytest tests ../algorithms` (integration tests: `uv run pytest ../integration`) (`algorithms/` = pure functions, `backend/tests/` = API-level logic that needs no data files).
 - Simulation (`algorithms/simulation/`): `record_buses.py` records 2 min of live buses (needs `PORTAL_KEY`) to
@@ -193,7 +194,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   buffer (longest scheduled stop-to-stop time of the brigade's current trip + 60 s, else 10 min) with a midpoint between feed
   points (~5 s) unless a poll failed in between or the gap is > 25 s. The vehicle is projected on the GTFS shape of the trip with
   the same line + brigade (running now +- 15 min, < 100 m, timetable at that point closest to now; loops: the stretch nearest the last projection); last stop passed = K-1.
-  Delay = time closest to K-1 within `DELAY_RADIUS_M` (default 30 m) - scheduled departure at K-1, shown at stop K; may be negative.
+  Delay = time closest to K-1 within `DELAY_RADIUS_M` (default 80 m) - scheduled departure at K-1, shown at stop K; may be negative.
   Not found -> `available: false`. `shape_dist_traveled` in `warsaw.zip` is in km; `mkuran._shape_dist` converts
   it to metres. The cache version check rebuilds legacy truncated-kilometre data; `mkuran._trip_static`
   computes metres from coordinates independently. Tuning: `algorithms/simulation/tune_delay_radius.py`, results in `DELAY_RESULTS.md`.
@@ -202,7 +203,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   drop, noise_m)`, for future R searches) compares the replayed estimate with the full-track reference (stop crossing on the shape);
   `export_delay_viz.py` builds `artifacts/delays/delay-statistics.html`. `search_delay_radius.py`: R 20..200 m every 10 m, then every 1 m
   between the two best neighbours; score = share of passes shown within 30 s. On the 2026-10-17 recording: 30 m 95.0%, best 80 m 96.5%
-  (flat from 80 m); default still 30 m.
+  (flat from 80 m); default is 80 m since 2026-10-18 (was 30 m). Report: `artifacts/delays/tests/radius-search.html`
+  (`search_delay_radius.py --report`).
 - Delays of suggested routes (`POST /api/live/route-delays`, `algorithms/route_delays.py`): a transit option id is
   `pt-<trip id>-<trip id>...` (built in `real_engine.py`; the endpoint depends on that format, the engine is not changed).
   Trip -> GTFS line + brigade -> live vehicle with the same Lines + Brigade -> the `/delay` estimate (`_delay_for`).
@@ -242,7 +244,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   the case as strict xfail with the issue number, and tell the user. Simulation mode does not touch the engine either:
   tests send the simulated time as `when`.
 - Engine bugs found so far: #63 (options leave hours after the query, night buses for 08:30), #64 (no option or no
-  transit option at all), #65 (direct bus / tram options dropped after PR #56), #66 (`lateness.py` shows 4 min as 3).
+  transit option at all), #65 (direct bus / tram options dropped after PR #56), #66 (`lateness.py` shows 4 min as 3), #118 (two options
+  with the same id: metro frequency trips share a trip id, both cards show as selected).
 - Walking-only route totals and arrival times come from the walking leg; never pass a zero-second total override
   to `_option`. Regression tests: `backend/tests/test_walk_duration.py` (including arrival after midnight; #72).
 - The router returns 422 when a point is more than `MAX_SNAP_M` (1000 m, `osm.py`, stored in the graph file and
@@ -257,6 +260,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   Known gap: a pedestrian crosses a road only where OSM connects the two sidewalks (e.g. Wolica 01 / 02: 59 m apart, 695 m walk).
 - ZTM posts in OSM: `public_transport=platform` nodes with `ref` = ZTM stop_id (`Grójecka 02` = `ref=435102`);
   90% of posts match, median 7 m from the GTFS point.
+- **One walk is one leg:** the router splits a trip at every station it passes, so a ride ending at one post of a stop, the short transfer walk to the next post and the street walk to the destination
+  came as two or three neighbouring walk legs. `backend/app/routing/merge.py` (`merge_street_legs`, used for the plan options in `RealRouteEngine._plan_option`) joins neighbouring `walk` legs and
+  neighbouring own-bike `bike` legs into one: same points (the shared point once), minutes and metres are the sums, ids / names / segments / elevators / steps / street totals carried over; a leg that
+  ends at an intermediate stop, a ride, a different mode and a rented `veturilo` leg are never joined. `legs_from_router` itself is unchanged.
 - Street modes (`osm.SPEED`): `walk`, `bike` (riding + pushing along the stroller graph where riding is not
   allowed), `accessible` (wheelchair: walk without steps, with `highway=elevator` ways; steps with
   `ramp:wheelchair=yes` count as step-free, plain `ramp=yes` does not), `stroller` (as accessible, plus steps with
@@ -301,7 +308,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   metro frequency runs expanded, rebuilt by `street_router.start()` when stale, ~10 s); C++ builds route patterns
   per service day (route + exact stop sequence, FIFO split, D−1 trips after midnight at −24 h; `transit.hpp`),
   footpaths = **dense matrix rows of the query's mode, no cut** (user decision; mmap, `matrix.hpp`), Veturilo = dock to
-  dock from `bike.bin`, +1 leg, walk mode only, pickup 30 s / return 15 s, always available. Every limit unlimited by
+  dock from `bike.bin`, +1 leg, walk mode only, pickup 30 s / return 15 s; `min_bikes` (per query, default 0 = every dock)
+  rents only at docks with that many bikes in the live state (`POST /state`, pushed by `street_router.push_state()` every
+  30 s); a query reads the state once at its start and keeps it frozen (RAPTOR needs availability independent of time).
+  Free places at the return dock are not checked. Every limit unlimited by
   default (`max_legs`, `access_s`, `egress_s`, `footpath_s`, `veturilo_s`); `exclude_modes` skips transit modes / Veturilo.
   From the vehicle: `from` = next stop id, `time` = arrival there (same trip, `wait_s` 0). Backend relies on `/health`
   `timetable.status` and `plan.<mode>`: keep them stable. Answer = ids only (no positions, shapes,
@@ -338,14 +348,25 @@ Everything in this repo (files, commits, PRs) is written in English.
 - **Routing seam.** `src/api/routes.ts` (`fetchRouteOptions`) calls the backend (`POST /api/routes`).
   If the backend is switched off (`VITE_API_URL=""`), unreachable or answers badly, the call throws `BackendOfflineError` and the app says "Nie połączono z serwerem".
   There is no in-browser mock (removed in `feature/no-mocks`): the app never shows made-up routes or vehicles. Types in `src/types.ts`.
-- Backend URL: `src/config.ts` reads `VITE_API_URL` (default `http://localhost:8000`;
-  `VITE_API_URL=""` in `frontend/.env` = backend off, the app says "Nie połączono z serwerem"). On a phone, `localhost` is the phone itself: set it to
-  the page's own origin (`VITE_API_URL=https://<laptop-ip>:5173 npm run dev:https`); Vite then proxies `/api`.
-- Place search: `src/api/geocode.ts` (`searchPlaces`, `MIN_QUERY`), debounced (300 ms), limited to Warsaw. Calls the backend (`GET /api/geocode`) when `API_URL` is set
-  (from 2 characters; sends the user's position as `lat` / `lon`), else Nominatim directly (3 characters, ≈1 request/second limit). The backend answers with our own
-  stops and Veturilo stations first (`algorithms/place_search.py`: start-of-word match, accents folded, distance as a tie-break), then Nominatim; stops still come when Nominatim is down.
-  Without the backend the same search runs in the browser on `src/data/places.json` (about 3300 stop names and stations, 130 KB, a separate chunk loaded on first use;
-  `src/utils/placeSearch.ts` is the TypeScript twin of `place_search.py`). Regenerate the file after a timetable or station change: `cd backend && uv run python export_places.py`.
+- Backend URL: `src/config.ts` reads `VITE_API_URL`. Default in the Vite dev server: the page's own origin (Vite proxies `/api`
+  to port 8000), so the app works from localhost, the laptop's IP or a phone without CORS; in a build and in tests `http://localhost:8000`.
+  `VITE_API_URL=""` = backend off, the app says "Nie połączono z serwerem". (A fixed `VITE_API_URL=https://<ip>:5173` broke every other
+  address: the browser blocked the cross-origin calls and the app said "not connected".)
+- Place search: `src/api/geocode.ts` (`searchPlaces`, `MIN_QUERY`), limited to Warsaw. `PlaceField` debounces 150 ms; `searchPlaces` first asks
+  `GET /api/geocode?source=local` (well-known places, stops, Veturilo; ~8 ms) and hands them to `onLocal` at once, then, from 3 characters and after 350 ms more
+  without a new query, `source=nominatim`, and merges (Nominatim first only for a street address, `looksLikeAddress`). Without the backend: `src/data/places.json`
+  in the browser + Nominatim directly. Matching (`algorithms/place_search.py` = `src/utils/placeSearch.ts`, keep the twins in sync): every query word at a word
+  start in any order, numbers whole, accents folded, abbreviations both ways (ds, pl, al, dw, os, uw, pw), `nr` / `ul` ignored, aliases; ties: well-known places,
+  then distance. Well-known places are a hand-made list `data/places/landmarks.json` (name, aliases, category + address, coordinates from OSM); add entries there.
+  Backend Nominatim: 1.5 s timeout, 1 h cache, calls >= 1 s apart (skipped when the wait would be > 1 s), 30 s pause after a 429. The Nominatim public server
+  answers 429 for a while after a burst of requests (seen in testing), so never loop over it. `places.json` (about 3400 rows, 136 KB, a separate chunk) is
+  regenerated after a timetable, station or landmark change: `cd backend && uv run python export_places.py`.
+- Pick on map: every `PlaceField` lists "Wybierz na mapie" (when not typing; `SearchCard` `onPickOnMap(target)`, target =
+  origin / destination / stop index). `App.tsx` then shows `PickBanner` ("Dotknij mapy, aby wybrać punkt", "Anuluj", Escape)
+  instead of the search card and sheets; a tap / click on the map (crosshair cursor) -> `api/pickPlace.ts` `placeAt`: the nearest
+  stop / Veturilo station within 60 m (`GET /api/stations?bbox`, its id and name) else `map:<lat>,<lon>` "Punkt na mapie"; the
+  search then runs as usual. Long press / right click on the map (`MapView` `onContextPick`) offers "Stąd" / "Dotąd".
+  `map:` ids are not accepted by `POST /api/journeys` (no journey statistics for such a trip).
 - Colours: one palette, the Warsaw colours (red + yellow): `src/map/palette.ts` (`PALETTE`, light / dark). Red is the main
   colour in light mode, yellow the accent at night. It sets the map colours, the round map buttons / markers AND the accent
   of the whole UI (the MUI theme in `src/theme.ts` is built from it). The old lavender look and the look switch were removed.
@@ -355,10 +376,17 @@ Everything in this repo (files, commits, PRs) is written in English.
   markers and route in `src/components/MapView.tsx`. The old OSM raster map was removed. CARTO basemaps return
   "API KEY REQUIRED", so do not use them. OpenFreeMap has no SLA; there is no fallback.
 - Two map looks: "flat" (default) and "liquid glass" (`createGlassStyle` in `src/map/mapStyle.ts`, colours `GLASS` in `src/map/palette.ts`, same red + yellow, light and dark).
-  A layers button on the map switches them (`src/map/mapLook.ts`, `useMapLook`, localStorage `map-look`). Glass = glowing blurred roads, glass building tiles with a
+  The look is chosen in Preferences, section "Widok" (`components/preferences/ViewSection.tsx`; `src/map/mapLook.ts`: one shared value, `setMapLook` / `useMapLook`, localStorage `map-look`), no longer by a button on the map. Glass = glowing blurred roads, glass building tiles with a
   bright edge and a soft red shadow (`fill-translate`, no 3D: the Leaflet + MapLibre layer cannot tilt), light shores on water. Round buttons and markers get frosted glass
   (`src/map/glass.ts`, `backdrop-filter`); `src/map/glass.css` has the slowly drifting light over the map (`.glass-sheen`) and the pulse of the "me" / destination markers
   (both off with `prefers-reduced-motion`), plus bright sweeping bands, twinkling glints, a light running around the rim of round glass (`.glass-rim`) and a breathing glow of the road / shore layers (`VectorBasemap` animates `line-opacity`). Cards, sheets and the rest of the UI are not glass. Labels are shared (`labelLayers`).
+- **3D map (prototype, easy to remove):** the "3D" button in the map controls (`onOpen3d` of `MapView`) switches to `src/components/MapView3D.tsx`, a separate map drawn with MapLibre GL
+  directly (the Leaflet map cannot tilt). Tilted (pitch 55, bearing -17, `src/map/style3d.ts`), buildings extruded from `render_height` (`with3dBuildings` replaces the flat building
+  layers of the current look, flat or glass, light or dark), the route as GeoJSON lines (`src/map/route3d.ts`, uses `legLines`), markers for the user, start, stops and destination.
+  Both maps use the same buttons in the same order (`src/components/MapControls.tsx`): 2D / 3D switch, theme, stop layers ("Warstwy przystanków", `useOverlayIds`,
+  on the 3D map as GeoJSON circles in `src/map/overlay3d.ts`), vehicle detection, my location; the 3D map adds "Obracanie mapy palcem" (rotate mode: one finger turns and tilts the
+  map instead of moving it; two fingers also rotate / tilt by default). There are no zoom buttons (pinch / wheel). Chosen state is remembered (`useMap3d`, localStorage `map-3d`); `App` loads it lazily. Missing in 3D: picking a point on the map, the stops of the chosen route, popups of the stop layers, the follow mode of an active trip (picking switches back to 2D). To remove the prototype: delete `MapView3D.tsx`, `map/style3d.ts`, `map/route3d.ts`, `map/map3d.ts` (+ tests), the
+  `onOpen3d` prop / button in `MapView` and the lazy switch in `App`.
 - Corner radii: use the `RADIUS` tokens from `src/layout.ts` (sheet 28 px, card 20, tile / row / input 16, control 12,
   pill 999). **Pitfall:** in MUI `sx` a numeric `borderRadius` is multiplied by `theme.shape.borderRadius` (12), so
   `borderRadius: 4` is 48 px and swallows the content. Nested corners: inner radius = outer radius - padding.
@@ -368,7 +396,14 @@ Everything in this repo (files, commits, PRs) is written in English.
   the middle, Enter / arrow keys work too). Props: `header` (drag zone), `toolbar` and `footer` (pinned), scrolling `children`, per-sheet `middleHeight`; `useSnapHeights`
   gives the heights so `App.tsx` can keep the map visible above the sheet. Used by the vehicle popup (middle 258 px), the route list (352 px: header, filters, the selected
   route, pinned "Wybierz tę trasę") and the route details (292 px: start / destination, leg bar, time and distance; full = tiles, trip recorder, steps).
-- "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): shown on the start screen, starts in the middle (suggested vehicle + confirm), about 1/3 of the screen.
+- "Which vehicle am I in?" window (`src/components/VehicleSheet.tsx`): the automatic detection at start opens it only when it found
+  something plausible (`src/utils/vehicleConfidence.ts`, `autoVehicleView`), and then never as the big sheet but as a small
+  collapsed bar the user can expand: nothing / no location / 503 / offline / best RMSE > 60 m (`PLAUSIBLE_MAX_RMSE_M`; the
+  backend has no distance cut-off; a real match is ~40-50 m, the error is mostly the feed's lag) = nothing; one confident
+  vehicle (top-1 RMSE <= 60 m and the 2nd >= 2.5x worse, tuned on the recorded buses: right in 97.5%) = "Wykryliśmy, że
+  jedziesz linią 131 → Sadyba ⌃ Zmień"; otherwise = "Czy jedziesz tym pojazdem? Autobus 131 ⌃". Speed is not used: a bus
+  standing in a jam at the user's position (RMSE ~0) is the best match.
+  A detection the user asked for (bus button) always opens the sheet, with an explanation when nothing was found.
   Content below the visible height is `inert`. Shows the suggested vehicle (mode + line, direction and distance when known)
   and 3 others; "Inna linia" (autocomplete over all live lines) adds a hand-picked card; "Wykryj ponownie" (in the window)
   and the bus button on the map (start screen only, also brings the window back after "Nie jadę komunikacją") detect again;
@@ -378,9 +413,18 @@ Everything in this repo (files, commits, PRs) is written in English.
   an empty `API_URL` also counts as offline (no mock data).
   Delay: after "Jadę tą linią" `useVehicleDetection` starts `src/api/delay.ts` `watchDelay`, which polls `GET /api/live/delay` every 10 s and sends a `bus-delay`
   event on `window` (`BusDelayDetail` in `types.ts`); stops on a new detection or "Nie jadę komunikacją". No UI shows it yet.
-  Detection runs once after start and on `requestLinePopup()`. Each detection also sends a `bus-popup` event on `window`
+  Detection runs automatically every 5 s once the track has 2 points, until a vehicle is confirmed ("Nie jadę komunikacją" pauses it
+  for 5 min), on the start screen and in the active trip, and at once on `requestLinePopup()`. No distance limit: the best match is
+  always offered ("Wykryliśmy" when the 2nd is 2.5x worse). "Jadę tą linią" on the start screen sets the start to "Z pojazdu: <line>".
+  Field check: the server must reach the City Hall feed (a non-PL server gets 503 for every detection). Each detection also sends a `bus-popup` event on `window`
   (`{ candidates, lines, points }`). Direction is the GTFS `trip_headsign` for that line and brigade.
   The poller reads buses and trams. Concept: `ui/concept-art/current-line-popup.paint`.
+- Map overlays ("Warstwy przystanków", a signpost button in the right map bar, popover with checkboxes): Stacje Veturilo (from zoom 13,
+  teal pill with the live bike count, grey at 0, `/api/veturilo/status` every 60 s, `src/api/veturilo.ts`), Autobusy i tramwaje and
+  Metro i kolej (from zoom 14, every post as a canvas dot in the mode colour). Data: `GET /api/stations?bbox=` for the view + 30 % margin,
+  reloaded only when the view leaves it (`src/hooks/useMapOverlays.ts`, ids / zooms / storage in `src/map/overlays.ts`, localStorage
+  `map-overlays`, all off by default). Popup: name + post code, Veturilo bikes / free docks, "Stąd" / "Dotąd" set the station as start /
+  destination (`onPlacePick`, `stationPlace` in `src/components/MapOverlays.tsx`; no buttons during an active trip).
 - Navigation: bottom bar (`src/components/BottomNav.tsx`) with tabs Mapa and Preferencje; floating panels sit above it
   (`src/layout.ts`: `BOTTOM_NAV_HEIGHT`, `PANEL_BOTTOM`). The Preferences page is an overlay, the map stays mounted below.
 - Trips with intermediate stops (up to 5, `MAX_STOPS` / `MAX_VIA`): `SearchCard.tsx` has "Dodaj przystanek", a drag handle on every row (⋮⋮, shown once there is at least one stop; start and destination too, so a stop can be exchanged with them: the rows `[start, ...stops, destination]` are reordered together;
@@ -390,12 +434,17 @@ Everything in this repo (files, commits, PRs) is written in English.
   (start, stops in visiting order, destination), `RouteLeg.stop` (1-based number of the stop the leg ends at); `backend/app/routing/multi.py` asks the
   engine once per segment and chains the n-th best option of every segment (max 3 options); "optimal" = `algorithms/stop_order.py` (exact, a walk under 700 m otherwise a wait plus transit time,
   start and destination fixed). The next segment starts at the previous arrival plus 2 minutes.
-- Preferences are sent with the search (`walkKmh`, `bikeKmh`, `stepFree`, `maxTransfers`, excluded areas, `excludeModes`, `body`). Only max walking time still filters the list in the browser. Model, level tables (default speeds), time
+- Preferences are sent with the search (`walkKmh`, `bikeKmh`, `stepFree`, `minBikes`, `maxTransfers`, excluded areas, `excludeModes`, `body`).
+  `minBikes` = `cycling.minBikes` ("Rowery na stacji" chips in the Veturilo section, default 1, 0 = any dock) -> `real_engine` ->
+  `/plan` `min_bikes` (live Nextbike state in the router, frozen per search). Only max walking time still filters the list in the browser. Model, level tables (default speeds), time
   rules and list filtering: `src/preferences/model.ts`; storage in localStorage key `preferences`
   (`src/preferences/PreferencesProvider.tsx`). Preferences page: `src/components/PreferencesPage.tsx`; reusable fields
   (levels + custom km/h, wheelchair, priorities, excluded districts / own points): `src/components/preferences/`.
   Time rules (`RuleDialog.tsx`) override any section for given days and hours (may cross midnight); the latest started
-  active rule wins. `FilterSheet.tsx` = filters for the current search only (sorting, max transfers, vehicles, max walking
+  active rule wins. `FilterSheet.tsx` = filters of the session, sticky (memory only, not saved): a new search, a new origin / departure or a travel
+  mode switch keeps them, only the picked / chosen route resets; "Wyczyść filtry" resets them. Transit-only chips (sort, vehicles,
+  transfers, max walk) are hidden on street trips but kept. The route list header has "Odśwież trasy" (`useRouteSearch().refresh`:
+  the same query again; "Teraz" sends no `when`, so the backend uses a new now; the selected route stays if its id is still there) (sorting, max transfers, vehicles, max walking
   time, step-free, pace / wheelchair, excluded areas, and "Zaawansowane" = all preferences as overrides). Max walking
   time still filters the list in the browser (`applyListFilters`); vehicles do not any more.
   "Środki transportu" (`Preferences.excludedModes`: bus / tram / metro / rail / veturilo, `TransportModesSection`, time rules may
@@ -419,11 +468,18 @@ Everything in this repo (files, commits, PRs) is written in English.
   walk / accessible / stroller / bike for street-only trips without timetable/live queries; default is transit.
   Stroller is a profile; stepFree/wheelchair uses the accessible graph. Route totals include pushed-bike metres
   in walkDistance and ridden metres in bikeDistance, including multi-stop trips.
-- The C++ router never returns transit shapes. Transit geometry comes from GTFS in `real_engine` (`_ride_path`: `shape_slice`,
-  then `shape_by_stops`); without any shape, a polyline through the stops with `approximatePath: true`.
+- Transit with the own bike: `RouteRequest.access` = `walk` (default) | `bike`. `bike` runs `/plan` in mode `bike` (no
+  Veturilo; `bikeKmh` 0 keeps the default speed), street legs are `bike`, titles "Rower + 525 + Rower" (ridden legs only,
+  repeats merged), street-only = "Własny rower" (id `bike`). 422 with a wheelchair / stroller (profile, travel, stepFree,
+  body.wheelchair). Frontend: the switch "Z własnym rowerem" (off by default) (`TransitAccessToggle.tsx`, `TransitAccess` in `travel.ts`) under
+  Komunikacja; Rowerem hides the accessibility toggle and sends profile `standard` + `access: "bike"`.
+- The C++ router never returns transit shapes. Transit geometry comes from GTFS in `geometry.py` (`_ride_path`: `shape_slice`,
+  then `shape_by_stops`); without any shape, a polyline through the stops with `approximatePath: true`. The shape is cut at
+  the projections of the first / last stop's mapped (`stations.json`) positions and joined to them, so rides start / end on
+  the stop markers and meet the walks (the raw GTFS slice was median 11 m, up to 94 m off: metro platforms).
 - **Active trip** (`activeTrip` + `replanning` in `App.tsx`, `ActiveTripSheet.tsx`): "Rozpocznij przejazd" starts the recorder
   and enters the mode; "Zakończ" leaves it and saves the pace recording (recorder unchanged). The map follows the user
-  (`MapView` `follow`). Progress = `src/utils/progress.ts` (`routeProgress`: projection on the leg paths, forward only;
+  (`MapView` `follow`) and zooms to the current leg when it changes (`MapView` `focus`, 2D map). Progress = `src/utils/progress.ts` (`routeProgress`: projection on the leg paths, forward only;
   `nextStepText`: "Wysiadasz na: X", "Przesiadka: 175 z X", "Idź do: X"; > 150 m = "Zboczyłeś z trasy" + "Zmień trasę"),
   kept per route by `useTripProgress`. "W jakim pojeździe jestem?" opens `VehicleSheet` with the trip's own track
   (`tracker.track()` -> `detectionPoints`: last 3 recorder points >= 8 s apart). The confirmed vehicle lives in
@@ -451,9 +507,22 @@ Everything in this repo (files, commits, PRs) is written in English.
   Dziś / Jutro / a date + a time, or "Teraz". State `departure` in `App.tsx` (`null` = now, not saved). A chosen time is sent as
   `when` = `YYYY-MM-DDTHH:MM` with every search (transit, `via`, street-only); now sends no `when`. A past time is allowed (chip muted).
   The route list header shows "Wyjazd 14:30" when not now.
-- Travel modes (`src/travel.ts`): chips in the search card (Komunikacja | Pieszo | Wózek inwalidzki | Wózek dziecięcy | Własny rower, not saved). `Komunikacja` is the
-  normal `POST /api/routes` search. The other four are street-only trips: `src/api/streetRoute.ts` (`fetchStreetTrip`, also with `via` / `order`; `fetchStreetRoute` = no stops)
-  posts to the same `POST /api/routes` with `travel` (`ROUTER_MODE`: `walk`, `accessible`, `stroller`, `bike`) and shows the one `RouteOption` of the answer as it is
+- **Collapsible search card (phone):** by default `SearchCard` shows only "Dokąd jedziesz?" and a chevron (`collapsed` / `onToggleCollapsed`, state `searchOpen` in `App`); the chevron opens the
+  whole card (start, stops, travel modes, ...), and a chevron inside folds it again. If a destination is set but there is no start, the collapsed card offers "Ustaw start" (opens the card).
+  On a wide screen (side panel), in the ride demo (no `onToggleCollapsed`) and during a new search in an active trip (it holds "Wróć do przejazdu") the card is always open. The map buttons
+  move with the card (`mapControlsOffset` in `App`). Tests that need the start field call `openSearchCard()` (`src/test/searchCard.ts`) first.
+- **Bus button of the map** (`vehicle.toggle` in `useVehicleDetection`, `aria-pressed` = window shown): the first click detects and shows the vehicle window, the next click hides it (the confirmed
+  vehicle stays), the next one brings it back without detecting again; with nothing to bring back it detects.
+  The bus button and the vehicle window exist in every step (search, route list, route details), not only in the search step: after a route is found the window replaces the route sheet while it is
+  open (the sheet comes back when it is closed or a vehicle is confirmed, `vehicle.hide()` keeps the confirmed vehicle), and the window that was found by itself at the start is closed when a route list
+  appears. A confirmed vehicle shows as a dot on the bus button; it is the vehicle the trip starts with. Not available in an active trip (it has its own detection) and while picking a point on the map.
+- Travel modes (`src/travel.ts`, not saved): three main chips in the search card (Komunikacja | Pieszo | Rower) and, for Komunikacja and Pieszo only,
+  a small toggle row "Dostępność": Pieszo | Na wózku | Z wózkiem dziecięcym (`Access`, per search; a wheelchair in the preferences preselects
+  "Wózek inwalidzki"). Komunikacja = the normal search with `profile` (`TRANSIT_PROFILE`: standard / accessible / stroller); a picked accessibility
+  wins over the stepFree / wheelchair preferences (`routeSearchBody(p, modes, access)`: "Pieszo" (standard) sends `stepFree: false` and wheelchair `none`,
+  wheelchair / stroller leave out `walkKmh` unless the wheelchair speed is known). Vehicle exclusions only go with Komunikacja. Pieszo = `travel`
+  walk / accessible / stroller, Rower = `travel` bike (`streetMode(mode, access)`). Street-only trips: `src/api/streetRoute.ts` (`fetchStreetTrip`, also with `via` / `order`; `fetchStreetRoute` = no stops)
+  posts to the same `POST /api/routes` with `travel` (`ROUTER_MODE`: `walk`, `accessible`, `stroller`, `bike`) and the user's pace (`walkKmh`, and `bikeKmh` for the bike, from the same preferences as the transit search, so "Rower" and "Komunikacja + Z własnym rowerem" ride at the same speed) and shows the one `RouteOption` of the answer as it is
   (checked by `isRouteOptions`; `GET /api/osm/route` is gone, the frontend no longer parses raw router answers). Errors are said in Polish: 422 "Punkt poza zasięgiem mapy",
   404 (or an empty list) "Brak trasy", 503 "Serwer tras nie działa", 400 "Ten tryb nie jest jeszcze dostępny na serwerze". **No mock and no straight line** for street trips:
   a wheelchair user must know the path was really checked. Filters and sorting do not apply to a street trip.
@@ -483,7 +552,11 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Vite proxies `/api` to the backend at http://localhost:8000.
 - Geolocation works only on HTTPS or `localhost`. On a phone the plain `http://<laptop-ip>:5173` fails, so use `npm run dev:https` (vite `--mode https`, self-signed
   certificate from `@vitejs/plugin-basic-ssl`, accept the warning once). The app then shows a specific message (`geoErrorText`) when the page is not secure.
-- Layout is mobile first; from 600 px (`sm`) the panels sit on the left side.
+- Layout is mobile first. From 600 px (`sm`) a side panel layout (`src/components/SidePanel.tsx`): one scrollable column on the left
+  (`PANEL_WIDTH`: 360 px, 420 px from `md` 900 px) with the search card and the sheets stacked below it; the map starts right of the panel
+  (so `MAP_PADDING.desktop` is only small margins) and the bottom bar sits under the panel only. Inside the panel `SheetDock` is true:
+  `SnapSheet` renders plain cards (no drag handle, everything shown, `footer` sticky at the panel bottom; `snap: 'bar'` = a one-line
+  card that opens on a click), `SearchCard` / the route details title row are static. Below 600 px nothing changed.
 - Design references (user's screenshots): ride-choice list (selected card outlined), dark map with
   a clean route and round stop markers, light map with a bottom sheet.
 - Run: `npm install`, `npm run dev` (http://localhost:5173), `npm run build` (type-check + build).

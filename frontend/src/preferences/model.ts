@@ -103,7 +103,18 @@ export interface CyclingSetting {
   level: BikeLevel;
   customKmh: number | null;
   autoSpeed: boolean;
+  /** Rent only at docks with at least this many bikes now (live data). 0 = any dock. */
+  minBikes: number;
 }
+
+/** Choices of "Rowery na stacji" (CyclingSetting.minBikes). */
+export const MIN_BIKES_CHOICES: { value: number; label: string }[] = [
+  { value: 0, label: 'Dowolnie' },
+  { value: 1, label: '1+' },
+  { value: 2, label: '2+' },
+  { value: 3, label: '3+' },
+  { value: 5, label: '5+' },
+];
 
 export interface WheelchairSetting {
   type: WheelchairType;
@@ -157,7 +168,7 @@ export interface Preferences {
 
 export const DEFAULT_PREFERENCES: Preferences = {
   walking: { level: 'normal', customKmh: null, autoSpeed: false },
-  cycling: { enabled: true, level: 'recreational', customKmh: null, autoSpeed: false },
+  cycling: { enabled: true, level: 'recreational', customKmh: null, autoSpeed: false, minBikes: 1 },
   wheelchair: {
     type: 'none',
     level: 'normal',
@@ -175,14 +186,30 @@ export const DEFAULT_PREFERENCES: Preferences = {
 /**
  * Fields `POST /api/routes` uses to pace and filter the search. `allowedModes` = the vehicle chips of the trip
  * filters (null = follow the preferences); when given, they replace the preference's excluded modes.
+ * `access` = the accessibility picked in the search card for this search (null = not picked: follow the preferences).
+ * A picked one wins over the wheelchair / step-free preferences: "Pieszo" (standard) drops them, a stroller is not a wheelchair,
+ * and wheelchair / stroller leave out `walkKmh` (the backend then uses its profile's walking speed) unless the user's
+ * wheelchair speed is known.
  */
-export function routeSearchBody(p: Preferences, allowedModes: ExcludableMode[] | null = null) {
-  const chair = p.wheelchair.type !== 'none';
+export function routeSearchBody(
+  p: Preferences,
+  allowedModes: ExcludableMode[] | null = null,
+  access: 'standard' | 'wheelchair' | 'stroller' | null = null,
+) {
+  const chair = access === null ? p.wheelchair.type !== 'none' : access === 'wheelchair';
+  const chairType = access === null || access === 'wheelchair' ? p.wheelchair.type : 'none';
+  const walkKmh: number | undefined =
+    access === 'stroller' || (access === 'wheelchair' && wheelchairKmh(p.wheelchair) === null)
+      ? undefined
+      : chair
+        ? (wheelchairKmh(p.wheelchair) ?? walkingKmh(p.walking))
+        : walkingKmh(p.walking);
   return {
     excludeModes: allowedModes ? FILTER_MODES.filter((m) => !allowedModes.includes(m)) : p.excludedModes,
-    walkKmh: chair ? (wheelchairKmh(p.wheelchair) ?? walkingKmh(p.walking)) : walkingKmh(p.walking),
-    bikeKmh: !p.cycling.enabled || chair ? 0 : cyclingKmh(p.cycling),
-    stepFree: p.wheelchair.stepFree || chair,
+    walkKmh,
+    bikeKmh: !p.cycling.enabled || chair || access === 'stroller' ? 0 : cyclingKmh(p.cycling),
+    stepFree: access === null ? p.wheelchair.stepFree || chair : chair,
+    minBikes: p.cycling.minBikes,
     maxTransfers: p.priorities.maxTransfers,
     excludedDistricts: p.priorities.excluded.districts,
     excludedPoints: p.priorities.excluded.points.map((pt) => ({ position: pt.position, radiusM: pt.radiusM })),
@@ -191,7 +218,7 @@ export function routeSearchBody(p: Preferences, allowedModes: ExcludableMode[] |
       heightCm: p.body.heightCm,
       age: p.body.age,
       sex: p.body.sex,
-      wheelchair: p.wheelchair.type,
+      wheelchair: chairType,
     },
   };
 }

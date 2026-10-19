@@ -304,7 +304,7 @@ Answer:
 
 | Field | Meaning |
 |---|---|
-| `candidates` | up to 4 vehicles, lowest error first: `id`, `vehicle`, `line`, `brigade`, `mode` (`"bus"` or `"tram"`), `direction` (GTFS headsign, empty when no trip matches), `rmse_m` |
+| `candidates` | up to 4 vehicles, lowest error first (each user point is compared with the vehicle's position at that point's time: interpolated between its feed positions, or extrapolated along its last movement for at most 30 s when the point is newer than the feed, which lags ~10-20 s): `id`, `vehicle`, `line`, `brigade`, `mode` (`"bus"` or `"tram"`), `direction` (GTFS headsign, empty when no trip matches), `rmse_m` |
 | `lines` | all lines seen in the live feed, sorted |
 | `updated_at` | Unix time (seconds) of the last poll |
 
@@ -324,7 +324,7 @@ for the longest scheduled time between two stops of its trip (+ 60 s; 10 min whe
 point in the middle of every two feed points (about every 5 s) when no poll failed between them and they are at most
 25 s apart. The vehicle's position is projected on the GTFS shape of its trip (same line + brigade, running now ± 15 min,
 shape closer than 100 m; of those, the trip whose timetable at that point is closest to now); the last stop passed is K-1, the next one K. Delay = time the vehicle was closest to K-1
-(within `DELAY_RADIUS_M`, default 30 m) - scheduled departure at K-1. It is shown as the expected delay at K.
+(within `DELAY_RADIUS_M`, default 80 m) - scheduled departure at K-1. It is shown as the expected delay at K.
 
 | Query | Type | Meaning |
 |---|---|---|
@@ -353,7 +353,8 @@ Answer:
  "radiusM": 30.0, "updatedAt": 1792249203.8}
 ```
 
-Not available (the vehicle passed K-1 but no buffered point was within the radius):
+Not available (the vehicle passed K-1 but no buffered point was within the radius). Both examples were recorded on
+2026-10-17 with the earlier default R = 30 m:
 
 ```json
 {"vehicleId": "bus-1862", "vehicle": "1862", "line": "117", "brigade": "1", "mode": "bus",
@@ -634,20 +635,28 @@ Route options between two places. Transit trips are planned by RAPTOR in the C++
 GTFS timetable, see `algorithms/router/README.md`): the street-only walk (dropped when longer than 50 minutes), then
 for each number of counted legs (a ride or a Veturilo rental) the earliest arrival that beats the options with fewer
 legs, plus the same for one later query (60 s after the earliest transit departure) for the next departures. Options
-are deduplicated, sorted by `durationMin`, at most 6; the first gets the tag `Najszybsza`. `title` = the lines in
+are deduplicated (the same rides arriving at the same time are one option: the one leaving latest stays), sorted by
+`durationMin`, at most 6; the first gets the tag `Najszybsza`. `title` = the lines in
 order joined by ` + ` (a Veturilo rental as `Veturilo`); `Pieszo` for the walk. `id` = `pt-<trip id>-<trip id>...`
 when the option rides transit (`POST /api/live/route-delays` reads it), `bike` for Veturilo only, `walk` otherwise.
+Ids are unique in one answer: a later option with an id already used (another run of a metro frequency trip, which
+shares the trip id) gets `@HHMM` of its departure appended (`pt-ztm:M1:NdM:KAB@0608`); `route-delays` ignores it.
 `departure` / `arrival` come from the router's `dep_s` / `arr_s` on the service day (leaving home just in time);
 `transfers` = counted legs - 1 (a Veturilo rental counts). Every limit of `/plan` is left unlimited; `max_legs` =
 `maxTransfers` + 1 (default 3); `bikeKmh` 0 sends `veturilo_s: 0`. Timetable times only: no live delay shifts
-the times (live delays of suggested rides: `POST /api/live/route-delays`). Veturilo docks are assumed to have a
-bike and a free place. A line in the current ZTM alerts gets the tag `Zmiana na trasie`. Options whose path enters an
+the times (live delays of suggested rides: `POST /api/live/route-delays`). `minBikes` > 0 is sent as `min_bikes`:
+a bike is rented only at docks that have at least that many bikes in the router's live state (Nextbike status,
+pushed every 30 s, frozen for the whole search); without it every dock is assumed to have a bike. Free places at
+the return dock are not checked. A line in the current ZTM alerts gets the tag `Zmiana na trasie`. Options whose path enters an
 excluded district or point are dropped after planning.
 
 No Python fallback: while the router's `/health` says the timetable or the plan of the mode is not ready
 (`timetable.status`, `plan.<mode>`), or `/plan` answers 501 / 503, the answer is `503`
 `{"detail": "transit timetable not ready"}` (or the router's own message). `/plan` does not read trip
-wheelchair accessibility yet. If `/plan` gives no street-only trip, the walk is asked from `POST /route`.
+wheelchair accessibility yet. If `/plan` gives no street-only trip, the walk is asked from `POST /route` (shown next to
+transit options only when it is at most 5 km and 50 min). When no transit option exists at all (e.g. every mode in
+`excludeModes`, or nothing runs), the answer is the street-only trip of the profile (walk, wheelchair, stroller; ridden
+with `access: "bike"`) however long, tagged `Bez komunikacji`, instead of an empty list.
 The clock is Europe/Warsaw. Before 04:00 the search uses the previous GTFS service day
 (times at 24:00 and later). Accessible and stroller searches (and `stepFree` / a wheelchair) plan on that mode's
 graph and matrices; Veturilo only in the walk mode.
@@ -655,7 +664,8 @@ graph and matrices; Veturilo only in the walk mode.
 Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow`, `accessible` or `stroller`, default `standard`),
 `when` (optional, Warsaw local `HH:MM` or an ISO datetime; empty means now),
 `via` (optional list of `Place`, at most 5) and `order` (`given` or `optimal`).
-Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Veturilo), `stepFree` (bool),
+Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Veturilo), `minBikes` (0–50, integer;
+rent Veturilo only at docks with at least this many bikes now; empty / 0 = every dock), `stepFree` (bool),
 `maxTransfers` (`0`, `1`, `2` or `null` = up to two), `excludedDistricts` (Warsaw district names),
 `excludedPoints` (`position`, `radiusM`) and `body` (`wheelchair` `none` | `manual` | `electric`; a wheelchair
 implies `accessible` routing and no Veturilo; `weightKg`, `heightCm`, `age` and `sex` are accepted but not used by the route search).
@@ -664,6 +674,20 @@ those modes (a GTFS trolleybus counts as `bus`); `veturilo` drops rented bikes, 
 (own bike). Sent to `/plan` as `exclude_modes`; any option that still has a leg of an excluded mode is dropped. Any other value → `422`.
 `onboard` (optional `{"vehicleId"}`): plan from the vehicle the user is in, see "From the vehicle" below. A trip with stops plans the next leg from the
 previous arrival plus 2 minutes at the stop. `order` `optimal` minimises a time estimate, not straight-line distance.
+
+Optional `access` (transit only): `walk` (default) or `bike`. `bike` = the user's own bike to the first stop, from
+the last stop and between stops, carried on transit: `/plan` runs in its `bike` mode with the user's speeds
+(`bikeKmh` 0 then keeps the default 15 km/h: it only means "no Veturilo"). Street legs are `mode: "bike"` (pushed
+parts are `push` segments; ridden metres go to `bikeDistance`, pushed ones to `walkDistance`), transit legs are as
+usual, and there are no Veturilo legs. `excludeModes` still applies. The title names the ridden bike legs:
+`"Rower + 502 + Rower"` (a transfer only walked with the bike, e.g. inside a metro station, is not named); the
+street-only trip is `"Własny rower"` (id `bike`). `access: "bike"` with a wheelchair or stroller (`profile`
+`accessible` / `stroller`, `travel` `accessible` / `stroller`, `stepFree: true` or `body.wheelchair` other than
+`none`) → `422`. Ignored by the street-only `travel` values `walk` and `bike`.
+Verified on the repository data, Centrum [52.2297, 21.0122] → Wawer [52.1966, 21.1772], `when` 2026-10-19T08:00:
+`access: "bike"` gives `"Rower + 525 + Rower"` 08:05–08:48 (43 min, `bikeDistance` 1901.1, `walkDistance` 65.1,
+`waitS` 80.0, legs bike / bus / bike with `push` + `ride` segments); the default transit search's best is
+`"525 + 521"` (50 min); `travel: "bike"` alone takes 61 min.
 
 Optional `travel`: `transit` (default, the usual mixed options), `walk`, `accessible`, `stroller` or `bike`.
 The other values return a street-only option without requiring GTFS or live feeds; `bike` means the user's own bike.
@@ -675,7 +699,9 @@ Accessible options carry `bez schodów`; stroller options carry `schody tylko z 
 (with stroller rails), else `bez schodów`; routes with elevators carry `windy: N`.
 
 Answer: list of `RouteOption`. Public-transport geometry follows the GTFS shape between the stops
-boarded and alighted (by stop distances, else the shape with the stops projected on it). A trip without any shape
+boarded and alighted (by stop distances, else the shape with the stops projected on it), cut at the projections of
+the two mapped stop positions and joined to them: a transit `path` starts and ends exactly at the `fromId` / `toId`
+positions of `GET /api/stations`. A trip without any shape
 is still offered: its `path` joins every stop of the ride in order and the leg has `approximatePath: true`. Walk and bike geometry comes only from the street router, using StationLocations IDs
 at stop and Veturilo endpoints (metro access includes the entrances). A missing street path drops the mixed
 candidate. The result may be empty. No straight lines replace missing street paths.
@@ -816,25 +842,51 @@ Another option of the same answer stays on tram 15 to PKP Rakowiec (one merged r
 
 ### `GET /api/geocode`
 
-Place search for the start and destination fields, limited to Warsaw. The answer lists our own places first: up to 4 stops
-(one per stop name, at the centre of its posts, `sublabel` `Przystanek`, `id` `stop-<gtfs id>`) and Veturilo stations
-(`sublabel` `Stacja Veturilo`, `id` `veturilo-<station id>`), matched on the start of any word without regard to case or Polish
-accents (`marszalk` finds `Marszałkowska`). Then come OpenStreetMap Nominatim results (addresses and other places, up to 6, duplicates
-and places already listed removed), only for texts of 3 or more characters.
-Nominatim place IDs use `osm:<osm_type>:<osm_id>`; Nominatim results without an OSM object reference are omitted.
+Place search for the start and destination fields, limited to Warsaw. Two parts:
+
+- **Local places** (in memory, a few ms): up to 5 of well-known places (`data/places/landmarks.json`: universities,
+  dormitories, malls, stations, landmarks; `sublabel` = category and address, `id` `place-<name words>`, e.g.
+  `place-ds-2-uw`), stops (one per stop name, at the centre of its posts, `sublabel` `Przystanek`, `id` `stop-<gtfs id>`)
+  and Veturilo stations (`sublabel` `Stacja Veturilo`, `id` `veturilo-<station id>`). Every query word must match the
+  start of a word of the name or of an alias, in any order, without regard to case or Polish accents (`marszalk` finds
+  `Marszałkowska`); a number matches only the same number (`2` finds `DS 2 UW`, not `DS 21`); abbreviations match both
+  ways (`ds` = dom studenta, `pl` = plac, `al` = aleja, `dw` = dworzec, `os` = osiedle, `uw` = Uniwersytet Warszawski,
+  `pw` = Politechnika Warszawska); `nr`, `ul`, `ulica` are ignored. Order: the whole name, the start of the name, all words
+  whole, all words at word starts, inside the name; then well-known places first, then distance from `lat` / `lon`.
+  Rules in `algorithms/place_search.py`.
+- **Nominatim** (OpenStreetMap, 0.3-2 s): addresses and other places, up to 6, duplicates and places already listed
+  removed, only for texts of 3 or more characters. IDs `osm:<osm_type>:<osm_id>`; results without an OSM object reference
+  are omitted. The server waits at most 1.5 s for it, keeps answers for 1 hour, keeps calls at least 1 s apart (a request
+  that would wait more than 1 s for its turn is not sent) and does not call it for 30 s after a `429`.
+
+With `source=all` (default) the answer is both lists merged: local places first, but Nominatim's first when the text looks
+like a street address (`Marszałkowska 1`, `Grójecka 17/19`). The frontend asks `source=local` and then
+`source=nominatim`, so local places show at once.
 
 | Query | Type | Default | Meaning |
 |---|---|---|---|
 | `q` | string, at least 1 character | required | search text |
 | `lat`, `lon` | number | none | the user's position; equally good local matches are ordered by distance from it |
+| `source` | `all`, `local`, `nominatim` | `all` | which part to answer with |
 
 ```json
-[{"id": "osm:way:126234965", "label": "Koneser", "sublabel": "Praga-Północ",
-  "position": [52.2555027, 21.0452825], "isCurrentLocation": null}, "..."]
+[{"id": "place-ds-2-uw", "label": "DS 2 UW", "sublabel": "Dom studenta, Żwirki i Wigury 95/97",
+  "position": [52.21187, 20.98746], "isCurrentLocation": null}]
 ```
 
-Errors: `422` for an empty `q`, a `q` longer than 200 characters or a position out of range; `502 {"detail": "Geocoding service failed"}`
-when Nominatim fails and no stop or station matched (when some matched, they are returned alone). The server keeps answers for 10 minutes, so a repeated search does not reach Nominatim.
+`GET /api/geocode?q=pl.%20zbawiciela&source=local`:
+
+```json
+[{"id": "stop-ztm:701002", "label": "Pl. Zbawiciela", "sublabel": "Przystanek", "position": [52.219598, 21.018074],
+  "isCurrentLocation": null},
+ {"id": "veturilo-2585731", "label": "Plac Zbawiciela", "sublabel": "Stacja Veturilo", "position": [52.220223, 21.0179],
+  "isCurrentLocation": null}]
+```
+
+Errors: `422` for an empty `q`, a `q` longer than 200 characters, a position out of range or an unknown `source`;
+`502 {"detail": "Geocoding service failed"}` when Nominatim fails or is skipped and no local place matched (when some
+matched, they are returned alone). `source=local` never fails this way; `source=nominatim` returns `502` whenever
+Nominatim fails or is skipped.
 
 ### `GET /health`
 

@@ -14,12 +14,33 @@ def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * EARTH_RADIUS_M * math.asin(math.sqrt(a))
 
 
+EXTRAPOLATE_MAX_S = 30.0  # how far past its last feed point a vehicle is moved along its last movement
+
+
+def position_at(bus_points: list[dict], t: float) -> tuple[float, float]:
+    """Where the vehicle was at time `t`: interpolated between its points (oldest first); after the last one moved on
+    along the last movement for at most EXTRAPOLATE_MAX_S (the feed lags the phone by ~10-20 s); before the first one
+    its first point."""
+    first, last = bus_points[0], bus_points[-1]
+    if t <= first["t"] or len(bus_points) == 1:
+        p = first if t <= first["t"] else last
+        return p["lat"], p["lon"]
+    for a, b in zip(bus_points, bus_points[1:]):
+        if a["t"] <= t <= b["t"]:
+            f = (t - a["t"]) / ((b["t"] - a["t"]) or 1.0)
+            return a["lat"] + f * (b["lat"] - a["lat"]), a["lon"] + f * (b["lon"] - a["lon"])
+    a, b = bus_points[-2], last
+    dt = (b["t"] - a["t"]) or 1.0
+    ahead = min(t - b["t"], EXTRAPOLATE_MAX_S)
+    return b["lat"] + (b["lat"] - a["lat"]) / dt * ahead, b["lon"] + (b["lon"] - a["lon"]) / dt * ahead
+
+
 def track_mse(user_points: list[dict], bus_points: list[dict]) -> float:
-    """Mean of squared distances (m^2). Each user point is paired with the bus point closest in time."""
+    """Mean of squared distances (m^2) between each user point and the vehicle's position at that point's time."""
     total = 0.0
     for u in user_points:
-        b = min(bus_points, key=lambda p: abs(p["t"] - u["t"]))
-        total += haversine_m(u["lat"], u["lon"], b["lat"], b["lon"]) ** 2
+        lat, lon = position_at(bus_points, u["t"])
+        total += haversine_m(u["lat"], u["lon"], lat, lon) ** 2
     return total / len(user_points)
 
 

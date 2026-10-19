@@ -73,7 +73,7 @@ def complexity(calls: list, run_s: float, points: int) -> dict:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sample", type=Path, default=sd.SAMPLE)
-    ap.add_argument("--radius", type=float, default=30)
+    ap.add_argument("--radius", type=float, default=80)
     a = ap.parse_args()
     sample = sd.load(a.sample)
     lines = sample["lines"]

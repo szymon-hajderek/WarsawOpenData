@@ -232,7 +232,7 @@ pre { margin: 0; background: var(--surface); border: 1px solid var(--grid); bord
       </div>
       <div>
         <h3>Zmiana promienia R</h3>
-        <p class="sub-lead">R jest parametrem (domyślnie 30 m, zmienna <code>DELAY_RADIUS_M</code>). <code>evaluate_many(sample, radii)</code> w <code>simulate_delay.py</code> liczy wiele promieni w jednym przebiegu; <code>search_delay_radius.py</code> szuka najlepszego.</p>
+        <p class="sub-lead">R jest parametrem (domyślnie 80 m, wybrane wyszukiwaniem: <code>artifacts/delays/tests/radius-search.html</code>; zmienna <code>DELAY_RADIUS_M</code>). <code>evaluate_many(sample, radii)</code> w <code>simulate_delay.py</code> liczy wiele promieni w jednym przebiegu; <code>search_delay_radius.py</code> szuka najlepszego.</p>
         <pre>cd backend
 uv run python ../algorithms/simulation/search_delay_radius.py
 uv run python ../algorithms/simulation/export_delay_viz.py --radius 40</pre>
@@ -440,7 +440,7 @@ document.getElementById("skipped").textContent = `${base.skipped_n} przypadków`
 // live
 document.getElementById("live-lead").textContent =
   `W czasie nagrania co 30 s pytaliśmy prawdziwy serwer (GET /api/live/delay) o pojazdy tych linii. Pierwsze ${m.warmup_s / 60} minut pominęliśmy, bo bufor serwera dopiero się zapełniał. ` +
-  `Odpowiedzi porównaliśmy z tym samym wzorcem z pełnego toru.`;
+  `Odpowiedzi porównaliśmy z tym samym wzorcem z pełnego toru. Serwer działał wtedy z wcześniejszym R = 30 m.`;
 document.getElementById("live-tiles").innerHTML = [
   [`${D.live.answers}`, "przejazdów sprawdzonych", "jedna odpowiedź na pojazd i przystanek K-1"],
   [pct(D.live.available), "opóźnienie dostępne", "odpowiedź serwera miała delaySec"],

@@ -1,19 +1,49 @@
-/**
- * How the user wants to get there. `transit` is the normal search (public transport + Veturilo through
- * `POST /api/routes`); the others are street-only trips: the same endpoint with `travel` (see `ROUTER_MODE`), answered by the street router.
- */
-export type TravelMode = 'transit' | 'walk' | 'wheelchair' | 'stroller' | 'bike';
-export type StreetMode = Exclude<TravelMode, 'transit'>;
+import type { Profile } from './types';
 
-export const TRAVEL_MODES: TravelMode[] = ['transit', 'walk', 'wheelchair', 'stroller', 'bike'];
+/**
+ * How the user wants to get there: three main modes. `transit` is the normal search (public transport + Veturilo through
+ * `POST /api/routes`); `walk` and `bike` are street-only trips: the same endpoint with `travel` (see `ROUTER_MODE`),
+ * answered by the street router. `transit` and `walk` also take an accessibility choice (`Access`).
+ */
+export type TravelMode = 'transit' | 'walk' | 'bike';
+
+export const TRAVEL_MODES: TravelMode[] = ['transit', 'walk', 'bike'];
 
 export const TRAVEL_LABELS: Record<TravelMode, string> = {
   transit: 'Komunikacja',
   walk: 'Pieszo',
-  wheelchair: 'Wózek inwalidzki',
-  stroller: 'Wózek dziecięcy',
-  bike: 'Własny rower',
+  bike: 'Rower',
 };
+
+/** Accessibility of a transit or walking search: plain, wheelchair (step-free) or stroller (steps only with rails). */
+export type Access = 'standard' | 'wheelchair' | 'stroller';
+
+export const ACCESS_OPTIONS: Access[] = ['standard', 'wheelchair', 'stroller'];
+
+export const ACCESS_LABELS: Record<Access, string> = {
+  standard: 'Pieszo',
+  wheelchair: 'Na wózku',
+  stroller: 'Z wózkiem dziecięcym',
+};
+
+/**
+ * How a transit trip reaches, leaves and changes between stops (`access` of `POST /api/routes`): on foot, or by the
+ * user's own bike carried on transit (no Veturilo then, and no wheelchair / stroller choice).
+ */
+export type TransitAccess = 'walk' | 'bike';
+
+export const TRANSIT_ACCESS_OPTIONS: TransitAccess[] = ['walk', 'bike'];
+
+export const TRANSIT_ACCESS_LABELS: Record<TransitAccess, string> = {
+  walk: 'Pieszo',
+  bike: 'Rowerem',
+};
+
+/** Only public transport and walking have an accessibility choice; the own bike has none. */
+export const hasAccess = (m: TravelMode) => m !== 'bike';
+
+/** A street-only trip, keyed by what the user picked (main mode + accessibility). */
+export type StreetMode = 'walk' | 'wheelchair' | 'stroller' | 'bike';
 
 /** `travel` of `POST /api/routes` for a street-only trip. */
 export const ROUTER_MODE: Record<StreetMode, 'walk' | 'accessible' | 'stroller' | 'bike'> = {
@@ -23,4 +53,16 @@ export const ROUTER_MODE: Record<StreetMode, 'walk' | 'accessible' | 'stroller' 
   bike: 'bike',
 };
 
-export const isStreetMode = (m: TravelMode): m is StreetMode => m !== 'transit';
+/** The street trip of a main mode + accessibility, or null for public transport. */
+export function streetMode(mode: TravelMode, access: Access): StreetMode | null {
+  if (mode === 'bike') return 'bike';
+  if (mode === 'walk') return access === 'standard' ? 'walk' : access;
+  return null;
+}
+
+/** `profile` of a transit search: wheelchair and stroller plan every walking part on that mode's step-free graph. */
+export const TRANSIT_PROFILE: Record<Access, Profile> = {
+  standard: 'standard',
+  wheelchair: 'accessible',
+  stroller: 'stroller',
+};

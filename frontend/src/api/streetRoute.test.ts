@@ -134,4 +134,18 @@ describe('fetchStreetTrip', () => {
     expect(sentBody(fetchMock).body).toEqual({ from, to, travel: 'walk', via: [stop], order: 'optimal' });
     expect(options).toHaveLength(1);
   });
+
+  it('sends the pace from the preferences (the bike speed only for the own bike)', async () => {
+    const cases: [Parameters<typeof fetchStreetTrip>[0]['pace'], 'bike' | 'walk', object][] = [
+      [{ walkKmh: 4.8, bikeKmh: 13 }, 'bike', { walkKmh: 4.8, bikeKmh: 13 }],
+      [{ walkKmh: 4.8, bikeKmh: 13 }, 'walk', { walkKmh: 4.8 }],
+      [{ bikeKmh: 0 }, 'bike', {}],
+    ];
+    for (const [pace, mode, extra] of cases) {
+      const fetchMock = reply(WALK_ANSWER);
+      vi.stubGlobal('fetch', fetchMock);
+      await fetchStreetTrip({ from, to, pace }, mode);
+      expect(sentBody(fetchMock).body).toEqual({ from, to, travel: mode, ...extra });
+    }
+  });
 });

@@ -45,3 +45,15 @@ def test_own_bike_is_not_excluded_by_veturilo(router):
     options = engine.RealRouteEngine().query_routes(START, END, "standard", when="2026-10-18T08:00",
                                                     search=request(travel="bike", excludeModes=["veturilo"]))
     assert [leg.mode for leg in options[0].legs] == ["bike"]
+
+
+def test_plan_receives_min_bikes(plan):
+    sent, _ = plan
+    query(minBikes=3)
+    assert sent[0]["min_bikes"] == 3
+    query(minBikes=0)
+    assert "min_bikes" not in sent[-1]
+    query()
+    assert "min_bikes" not in sent[-1]
+    with pytest.raises(ValidationError):
+        RouteRequest(from_=START, to=END, minBikes=-1)

@@ -45,3 +45,15 @@ def test_track_beats_a_bus_that_only_passes_by():
 def test_fewer_vehicles_than_limit_and_no_points():
     assert len(rank_buses([P(52.23, 21.0, 0)], {"x": [P(52.23, 21.0, 0)]}, limit=4)) == 1
     assert rank_buses([], {"x": [P(52.23, 21.0, 0)]}) == []
+
+
+def test_vehicle_moved_to_the_phone_time():
+    from nearest_buses import position_at, track_mse
+    bus = [{"lat": 52.0, "lon": 21.0, "t": 0}, {"lat": 52.001, "lon": 21.0, "t": 10}]  # ~111 m north in 10 s
+    assert position_at(bus, 5) == (52.0005, 21.0)  # between the points
+    lat, _ = position_at(bus, 20)  # 10 s after the last feed point: moved on ~111 m
+    assert abs(lat - 52.002) < 1e-9
+    lat, _ = position_at(bus, 100)  # at most 30 s ahead
+    assert abs(lat - 52.004) < 1e-9
+    # a phone on board, ahead of the lagging feed, matches with ~0 error
+    assert track_mse([{"lat": 52.002, "lon": 21.0, "t": 20}], bus) < 1.0

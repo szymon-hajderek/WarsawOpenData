@@ -22,7 +22,16 @@ export const RADIUS = {
   pill: 999,
 } as const;
 
-/** Parts of the map covered by the floating panels on a wide screen (px), so the route stays in view. */
+/**
+ * Width of the side panel on a wide screen (px): from `sm` (600 px) the search card and the sheets sit in one
+ * scrollable column on the left and the map fills the rest (no overlap); narrower on tablets.
+ */
+export const PANEL_WIDTH = { sm: 360, md: 420 } as const;
+
+/**
+ * Margins kept free around a route on a wide screen (px). The map starts right of the side panel, so the panel
+ * never covers it; the right margin leaves room for the map buttons.
+ */
 export const MAP_PADDING = {
-  desktop: { top: 60, left: 500, bottom: 60, right: 90 },
+  desktop: { top: 40, left: 40, bottom: 40, right: 80 },
 } as const;

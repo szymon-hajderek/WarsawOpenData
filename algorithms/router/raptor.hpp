@@ -2,7 +2,8 @@
 // k counts boarded legs: a transit trip = +1, a Veturilo rental (dock to dock) = +1, walking = 0. Round k:
 //   1. every pattern that serves a stop improved in round k-1 is scanned once, forward, from the first such stop;
 //      boarding uses the labels of round k-1 (never ones improved in this round);
-//   2. Veturilo: from every dock improved in round k-1 to every other dock (bike matrix + pickup + return);
+//   2. Veturilo: from every pickup dock improved in round k-1 to every other dock (bike matrix + pickup + return);
+//      the pickup docks are fixed for the whole query (a frozen availability state), so arriving earlier is never worse;
 //   3. footpaths from every location improved by 1 or 2, read from the mode's dense matrix row (one footpath per
 //      round: the matrix is already a shortest-path closure).
 // Labels that cannot beat the best arrival at the destination found so far are pruned.
@@ -23,7 +24,8 @@ struct RaptorQuery {
     Speeds foot_speeds{1.3, 4.2};
     const Matrix* bike = nullptr;  // Veturilo rides (nullptr: no Veturilo)
     Speeds bike_speeds{1.3, 4.2};
-    std::vector<std::uint32_t> docks;  // locations that are Veturilo stations
+    std::vector<std::uint32_t> docks;   // locations that are Veturilo stations (a bike can be returned at any)
+    std::vector<std::uint32_t> pickup;  // the docks a bike can be rented at (enough bikes in the frozen state)
     std::vector<char> skip_route;      // per timetable route: 1 = its mode is excluded (empty = none)
     std::vector<double> access, egress;  // seconds from the start to each location / from each location to the end
     double start = 0;                    // departure time (s after midnight of the service day)
@@ -111,7 +113,7 @@ public:
             }
             // 2. Veturilo from the docks improved in the previous round
             if (q.bike)
-                for (const auto u : q.docks) {
+                for (const auto u : q.pickup) {
                     if (!is_marked[u]) continue;
                     for (const auto v : q.docks) {
                         if (v == u) continue;

@@ -1,3 +1,4 @@
+import { isConfident } from '../utils/vehicleConfidence';
 import {
   alpha,
   Autocomplete,
@@ -28,6 +29,14 @@ const directionText = (v: VehicleCandidate) => (v.direction ? `kier. ${v.directi
 /** Distance of the vehicle from the user, when the backend sent it. */
 const distanceText = (v: VehicleCandidate) =>
   v.distanceM !== undefined ? `ok. ${formatDistance(v.distanceM)} od Ciebie` : '';
+/**
+ * The collapsed bar of a detected (not yet confirmed) vehicle: sure of one vehicle = "Wykryliśmy, że jedziesz linią
+ * 131 → Sadyba"; not sure = a question "Czy jedziesz tym pojazdem? Autobus 131".
+ */
+const detectedText = (v: VehicleCandidate, sure: boolean) =>
+  sure
+    ? `Wykryliśmy, że jedziesz linią ${v.line}${v.direction ? ` → ${v.direction}` : ''}`
+    : `Czy jedziesz tym pojazdem? ${vehicleName(v)}`;
 
 /** Heights the popup settles on: a bar, the middle (suggested vehicle + confirm) and the full popup. */
 export type VehicleSnap = SheetSnap;
@@ -64,6 +73,8 @@ interface Props {
   loading: boolean;
   /** The backend could not be reached, so nothing was detected. */
   offline?: boolean;
+  /** The server has no live vehicle data now (not a connection problem). */
+  liveUnavailable?: boolean;
   snap: VehicleSnap;
   selectedId: string | null;
   /** The vehicle the user confirmed (shown in the hidden bar). */
@@ -89,6 +100,7 @@ export default function VehicleSheet({
   manual,
   loading,
   offline = false,
+  liveUnavailable = false,
   snap,
   selectedId,
   confirmed,
@@ -116,13 +128,17 @@ export default function VehicleSheet({
   });
   const pressable = (c: VehicleCandidate) => pressableProps(c.id === selectedId, () => onSelect(c.id));
 
+  // A tap on the bar of a detected vehicle opens the whole sheet (other lines, "Inna linia", confirm) at once.
+  const changeSnap = (next: VehicleSnap) =>
+    onSnapChange(snap === 'bar' && next === 'middle' && !confirmed && suggested ? 'full' : next);
+
   return (
     <SnapSheet
       snap={snap}
-      onSnapChange={onSnapChange}
+      onSnapChange={changeSnap}
       middleHeight={258}
       ariaLabel="Okienko pojazdu"
-      header={({ barLike, full }) => (
+      header={({ barLike, full, docked }) => (
         <>
         {!barLike ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -134,7 +150,7 @@ export default function VehicleSheet({
                 Sugerujemy na podstawie lokalizacji.
               </Typography>
             </Box>
-            {full ? <ExpandMore color="action" /> : <ExpandLess color="action" />}
+            {!docked && (full ? <ExpandMore color="action" /> : <ExpandLess color="action" />)}
           </Box>
         ) : (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -146,24 +162,46 @@ export default function VehicleSheet({
             ) : shown ? (
               <>
                 <ModeBadge vehicle={shown} size={40} />
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography noWrap sx={{ fontWeight: 700 }}>
-                    {confirmed ? `Jedziesz: ${vehicleName(shown)}` : vehicleName(shown)}
-                  </Typography>
-                  {directionText(shown) && (
-                    <Typography variant="body2" color="text.secondary" noWrap>
-                      {directionText(shown)}
+                {confirmed ? (
+                  <>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography noWrap sx={{ fontWeight: 700 }}>
+                        {`Jedziesz: ${vehicleName(shown)}`}
+                      </Typography>
+                      {directionText(shown) && (
+                        <Typography variant="body2" color="text.secondary" noWrap>
+                          {directionText(shown)}
+                        </Typography>
+                      )}
+                    </Box>
+                    <Typography variant="body2" color="primary" sx={{ fontWeight: 700 }}>
+                      Zmień
                     </Typography>
-                  )}
-                </Box>
-                <Typography variant="body2" color="primary" sx={{ fontWeight: 700 }}>
-                  {confirmed ? 'Zmień' : 'Pokaż'}
-                </Typography>
+                  </>
+                ) : (
+                  <>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" color="text.secondary" noWrap>
+                        {isConfident(candidates) ? 'Wykryliśmy, że jedziesz linią' : 'Czy jedziesz tym pojazdem?'}
+                      </Typography>
+                      <Typography noWrap sx={{ fontWeight: 700 }} aria-label={detectedText(shown, isConfident(candidates))}>
+                        {isConfident(candidates)
+                          ? `${shown.line}${shown.direction ? ` → ${shown.direction}` : ''}`
+                          : `${vehicleName(shown)}${shown.direction ? ` → ${shown.direction}` : ''}`}
+                      </Typography>
+                    </Box>
+                    {isConfident(candidates) && (
+                      <Typography variant="body2" color="primary" sx={{ fontWeight: 700 }}>
+                        Zmień
+                      </Typography>
+                    )}
+                  </>
+                )}
                 <ExpandLess color="primary" />
               </>
             ) : (
               <>
-                <Typography sx={{ flex: 1 }}>{offline ? 'Nie połączono z serwerem' : 'Nie wykryto pojazdu'}</Typography>
+                <Typography sx={{ flex: 1 }}>{offline ? 'Nie połączono z serwerem' : liveUnavailable ? 'Dane na żywo niedostępne' : 'Nie wykryto pojazdu'}</Typography>
                 <ExpandLess color="action" />
               </>
             )}
@@ -181,12 +219,32 @@ export default function VehicleSheet({
             </Box>
           )}
 
+          {liveUnavailable && !offline && !loading && candidates.length === 0 && (
+            <Box sx={{ py: 2, textAlign: 'center' }}>
+              <Typography color="text.secondary">
+                Dane o pojazdach na żywo są teraz niedostępne, więc nie wykryję pojazdu. Wybierz linię ręcznie.
+              </Typography>
+              <Button onClick={onRedetect} sx={{ mt: 1 }}>
+                Spróbuj ponownie
+              </Button>
+            </Box>
+          )}
+
           {offline && !loading && candidates.length === 0 && (
             <Box sx={{ py: 2, textAlign: 'center' }}>
               <Typography color="text.secondary">Nie połączono z serwerem, więc nie wykryję pojazdu.</Typography>
               <Button onClick={onRedetect} sx={{ mt: 1 }}>
                 Spróbuj ponownie
               </Button>
+            </Box>
+          )}
+
+          {!offline && !liveUnavailable && !loading && candidates.length === 0 && (
+            <Box sx={{ py: 1.5, textAlign: 'center' }}>
+              <Typography color="text.secondary">
+                Nie wykryto pojazdu w pobliżu. Wykrywanie potrzebuje Twojej lokalizacji podczas jazdy. Możesz wybrać linię
+                ręcznie (przesuń w górę).
+              </Typography>
             </Box>
           )}
 

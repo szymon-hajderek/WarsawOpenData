@@ -27,6 +27,7 @@ from ..models import Place, Profile, RouteLeg, RouteOption, RouteSegment
 from . import geometry
 from .engine import RouteEngine
 from .geo import format_time, round_half_up
+from .merge import merge_street_legs
 
 OSM_SPEED = {"walk": 1.3, "bike": 4.2}
 PROFILE_SPEED = {
@@ -38,6 +39,7 @@ PROFILE_SPEED = {
 _SPEED = contextvars.ContextVar("route_speed", default=None)
 _BLOCK = contextvars.ContextVar("route_block", default=None)
 _EXCLUDE = contextvars.ContextVar("route_exclude", default=frozenset())
+_MIN_BIKES = contextvars.ContextVar("route_min_bikes", default=0)
 _WALK_MODE = contextvars.ContextVar("route_walk_mode", default=None)
 
 
@@ -81,9 +83,14 @@ class RealRouteEngine(RouteEngine):
         dest = tuple(to.position)
         graph = "accessible" if accessible else "stroller" if profile == "stroller" else "walk"
         exclude = frozenset(getattr(search, "excludeModes", None) or ())
-        if travel == "transit" and "veturilo" in exclude:
+        if travel == "transit" and getattr(search, "access", "walk") == "bike":
+            graph = "bike"  # own bike to, from and between stops, carried on transit; /plan has no Veturilo then
+            if speed["bike"] <= 0:
+                speed["bike"] = OSM_SPEED["bike"]  # bikeKmh 0 only switches Veturilo off
+        elif travel == "transit" and "veturilo" in exclude:
             speed["bike"] = 0.0  # no rented bike; an own-bike trip (travel=bike) is not affected
-        tokens = (_SPEED.set(speed), _BLOCK.set(block), _WALK_MODE.set(graph), _EXCLUDE.set(exclude))
+        tokens = (_SPEED.set(speed), _BLOCK.set(block), _WALK_MODE.set(graph), _EXCLUDE.set(exclude),
+                  _MIN_BIKES.set(getattr(search, "minBikes", None) or 0))
         try:
             if travel != "transit":
                 option = self._street_option(frm, to, origin, dest, profile, now, travel)
@@ -103,6 +110,7 @@ class RealRouteEngine(RouteEngine):
             _BLOCK.reset(tokens[1])
             _WALK_MODE.reset(tokens[2])
             _EXCLUDE.reset(tokens[3])
+            _MIN_BIKES.reset(tokens[4])
 
     def _plan(self, frm, to, profile, now, origin, dest, mode, speed, max_transfers) -> list[RouteOption]:
         """Transit options planned by RAPTOR in the router (POST /plan), plus one later query for more departures."""
@@ -115,13 +123,22 @@ class RealRouteEngine(RouteEngine):
         built = [self._plan_option(raw, frm.label, to.label, origin, dest, date, profile) for raw in raws]
         if all(_counted(raw) for raw in raws) and not isinstance(origin, str):  # no street-only trip: walk
             built.append(self._walk_option(frm, to, origin, dest, profile, now))
-        return _finish(built)
+        result = _finish(built)
+        if not result and not isinstance(origin, str):
+            # No transit option at all (every mode excluded, or nothing runs): the street-only trip is the answer,
+            # however long, instead of an empty list.
+            fallback = self._walk_option(frm, to, origin, dest, profile, now, limit=False)
+            if fallback is not None:
+                fallback.tags.append("Bez komunikacji")
+                result = [fallback]
+        return result
 
     def _plan_option(self, raw, from_label, to_label, origin, dest, date, profile) -> Optional[RouteOption]:
         """One /plan option -> RouteOption (None for an empty or too long street-only trip)."""
         if not raw.get("legs") or (not _counted(raw) and raw["seconds"] > 50 * 60):
             return None
-        legs = legs_from_router(raw, from_name=from_label, to_name=to_label, points=(origin, dest))
+        # A short transfer walk at a stop and the street walk after it are one walk for the person on the street.
+        legs = merge_street_legs(legs_from_router(raw, from_name=from_label, to_name=to_label, points=(origin, dest)))
         leave = datetime.strptime(date, "%Y%m%d") + timedelta(seconds=raw["dep_s"])
         option = _option(_plan_id(legs), _plan_title(legs), legs, leave, raw["seconds"])
         option.transfers = int(raw.get("transfers", option.transfers))
@@ -131,14 +148,18 @@ class RealRouteEngine(RouteEngine):
             option.tags.append("Zmiana na trasie")
         return option
 
-    def _walk_option(self, frm, to, origin, dest, profile, now) -> Optional[RouteOption]:
-        if _distance(origin, dest) > 5000:
+    def _walk_option(self, frm, to, origin, dest, profile, now, limit=True) -> Optional[RouteOption]:
+        """The street-only trip next to transit options. `limit`: only when it is short (<= 5 km, <= 50 min), so it
+        does not crowd the list; without a limit it is the fallback when no transit option exists at all."""
+        if limit and _distance(origin, dest) > 5000:
             return None
-        street = _street(origin, dest, "walk", profile)
-        if street is None or _seconds(street) > 50 * 60:
+        bike = _WALK_MODE.get() == "bike"  # transit with the own bike: the street-only trip is ridden
+        street = _street(origin, dest, "bike" if bike else "walk", profile)
+        if street is None or (limit and _seconds(street) > 50 * 60):
             return None
         legs = legs_from_router(street, from_name=frm.label, to_name=to.label, points=(origin, dest))
-        return _street_tags(_option("walk", "Pieszo", legs, now, _seconds(street)), street, profile)
+        option_id, title = ("bike", "Własny rower") if bike else ("walk", "Pieszo")
+        return _street_tags(_option(option_id, title, legs, now, _seconds(street)), street, profile)
 
     def _street_option(self, frm, to, origin, dest, profile, now, travel):
         mode = "bike" if travel == "bike" else "walk"
@@ -166,12 +187,14 @@ def _plan_ready(mode: str) -> bool:
 
 
 def _plan_options(speed, max_transfers, profile) -> dict:
-    """The /plan keys from the preferences: speeds, counted legs, no Veturilo when cycling is off."""
+    """The /plan keys from the preferences: speeds, counted legs, no Veturilo when cycling is off, min_bikes."""
     options = {"speeds": _router_speeds(profile), "max_legs": max_transfers + 1}
     if speed["bike"] <= 0:
         options["veturilo_s"] = 0
     if _EXCLUDE.get():
         options["exclude_modes"] = sorted(_EXCLUDE.get())
+    if _MIN_BIKES.get():
+        options["min_bikes"] = _MIN_BIKES.get()
     return options
 
 
@@ -180,32 +203,46 @@ def _counted(raw: dict) -> bool:
     return any(leg["mode"] not in ("walk", "bike") for leg in raw.get("legs") or [])
 
 
+def _ridden(leg: RouteLeg) -> bool:
+    """An own-bike leg that is really ridden (not only pushed, e.g. an in-station metro transfer)."""
+    return leg.mode == "bike" and bool(leg._street_distances and leg._street_distances[1] > 0)
+
+
 def _plan_title(legs: list[RouteLeg]) -> str:
-    parts = [("Veturilo" if leg.mode == "veturilo" else leg.line or leg.mode) for leg in legs
-             if leg.mode not in ("walk", "bike")]
+    """Rides and rentals ("16 + M1", "Veturilo + 502"); with the own bike its ridden legs too ("Rower + 502 + Rower")."""
+    counted = any(leg.mode not in ("walk", "bike") for leg in legs)
+    parts = [("Veturilo" if leg.mode == "veturilo" else "Rower" if leg.mode == "bike" else leg.line or leg.mode)
+             for leg in legs if leg.mode != "walk" and (leg.mode != "bike" or (counted and _ridden(leg)))]
+    parts = [part for i, part in enumerate(parts) if part != "Rower" or i == 0 or parts[i - 1] != "Rower"]
     return " + ".join(parts) or ("Własny rower" if any(leg.mode == "bike" for leg in legs) else "Pieszo")
 
 
 def _plan_id(legs: list[RouteLeg]) -> str:
-    """`pt-<trip id>-...` (POST /api/live/route-delays reads it), else `bike` (Veturilo only) or `walk`."""
+    """`pt-<trip id>-...` (POST /api/live/route-delays reads it), else `bike` (Veturilo or own bike only) or `walk`."""
     trips = [leg.tripId for leg in legs if leg.tripId]
     if trips:
         return "pt-" + "-".join(trips)
-    return "bike" if any(leg.mode == "veturilo" for leg in legs) else "walk"
+    return "bike" if any(leg.mode in ("veturilo", "bike") for leg in legs) else "walk"
 
 
 def _finish(built: list[Optional[RouteOption]]) -> list[RouteOption]:
     """Drop empty options and those crossing an excluded area, dedupe, sort by duration, keep MAX_OPTIONS, tag."""
     out, seen = [], set()
     for option in sorted((o for o in built if o is not None), key=lambda o: o.durationMin):
-        key = tuple((leg.mode, leg.line, leg.fromId, leg.toId, leg.tripId) for leg in option.legs)
-        if any(leg.tripId for leg in option.legs):
-            key += (option.departure,)  # frequency-based metro runs share the template's trip id
+        # The same rides arriving at the same time are one trip: only the one leaving latest (shortest) stays. The
+        # arrival also keeps apart the runs of a metro frequency trip, which share the template's trip id.
+        rides = tuple((leg.mode, leg.line, leg.fromId, leg.toId, leg.tripId) for leg in option.legs if leg.tripId)
+        key = (rides, option.arrival) if rides else tuple((leg.mode, leg.line, leg.fromId, leg.toId) for leg in option.legs)
         if key in seen or not _option_clear(option):
             continue
         seen.add(key)
         out.append(option)
     out = out[:MAX_OPTIONS]
+    ids: set[str] = set()
+    for option in out:  # ids are unique in one answer (the list selects by id)
+        if option.id in ids:
+            option.id = f"{option.id}@{option.departure.replace(':', '')}"
+        ids.add(option.id)
     _tag(out)
     return out
 

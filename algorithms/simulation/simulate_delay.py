@@ -188,7 +188,7 @@ def evaluate_many(sample: dict, radii, drop: float = 0.0, noise_m: float = 0.0, 
     return out
 
 
-def evaluate(sample: dict, radius_m: float = 30, drop: float = 0.0, noise_m: float = 0.0, seed: int = 42,
+def evaluate(sample: dict, radius_m: float = 80, drop: float = 0.0, noise_m: float = 0.0, seed: int = 42,
              lines: set | None = None, keep_pairs: bool = False) -> dict:
     """Metrics of one radius (see evaluate_many)."""
     return evaluate_many(sample, [radius_m], drop, noise_m, seed, lines, keep_pairs)[0]
@@ -197,7 +197,7 @@ def evaluate(sample: dict, radius_m: float = 30, drop: float = 0.0, noise_m: flo
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sample", type=Path, default=SAMPLE)
-    ap.add_argument("--radius", type=float, default=30)
+    ap.add_argument("--radius", type=float, default=80)
     ap.add_argument("--drop", type=float, default=0.0)
     ap.add_argument("--noise", type=float, default=0.0)
     ap.add_argument("--all-lines", action="store_true", help="every recorded line, not only the sample's LINES")

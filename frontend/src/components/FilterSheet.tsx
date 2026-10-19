@@ -214,8 +214,8 @@ export default function FilterSheet({ open, onClose, filters, onChange, effectiv
       </Box>
 
       <Box sx={{ px: 2.5, py: 1.5, display: 'flex', gap: 1.5, borderTop: 1, borderColor: 'divider', pb: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
-        <Button color="inherit" onClick={() => onChange(DEFAULT_FILTERS)}>
-          Wyczyść
+        <Button color="inherit" onClick={() => onChange(DEFAULT_FILTERS)} sx={{ flexShrink: 0, whiteSpace: "nowrap" }}>
+          Wyczyść filtry
         </Button>
         <Button variant="contained" fullWidth onClick={onClose}>
           Pokaż trasy ({resultCount})

@@ -6,8 +6,10 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
-import { Box, Button, Chip, IconButton, Paper, ToggleButton, ToggleButtonGroup, useTheme } from '@mui/material';
+import { Box, Button, Chip, IconButton, Paper, ToggleButton, ToggleButtonGroup, useTheme, type SxProps, type Theme } from '@mui/material';
 import SwapVert from '@mui/icons-material/SwapVert';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 import TripOriginIcon from '@mui/icons-material/TripOrigin';
 import PlaceIcon from '@mui/icons-material/Place';
 import Add from '@mui/icons-material/Add';
@@ -15,11 +17,13 @@ import Close from '@mui/icons-material/Close';
 import DragIndicator from '@mui/icons-material/DragIndicator';
 import PlaceField from './PlaceField';
 import DepartureControl from './DepartureControl';
+import { useSheetDock } from './SnapSheet';
 import type { Departure } from '../utils/departure';
 import { MAX_STOPS } from '../api/routes';
 import type { Place, StopOrder } from '../types';
 import { RADIUS } from '../layout';
-import { TRAVEL_LABELS, TRAVEL_MODES, type TravelMode } from '../travel';
+import { ACCESS_LABELS, ACCESS_OPTIONS, hasAccess, TRAVEL_LABELS, TRAVEL_MODES, type Access, type TransitAccess, type TravelMode } from '../travel';
+import TransitAccessToggle from './TransitAccessToggle';
 import { PALETTE } from '../map/palette';
 
 /** Colour between `a` and `b` (hex), `t` in 0..1. */
@@ -29,6 +33,9 @@ function mix(a: string, b: string, t: number): string {
   const c = pa.map((v, i) => Math.round(v + (pb[i] - v) * t));
   return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
+
+/** Which field a point picked on the map fills: the start, the destination or stop `n` (0-based). */
+export type PickTarget = 'origin' | 'destination' | number;
 
 interface Props {
   origin: Place | null;
@@ -40,6 +47,12 @@ interface Props {
   travel?: TravelMode;
   /** Without it the row of travel modes is not shown (the ride demo). */
   onTravelChange?: (mode: TravelMode) => void;
+  /** Accessibility of a transit or walking search ("Pieszo" / "Na wózku" / "Z wózkiem dziecięcym"); not shown for the bike. */
+  access?: Access;
+  onAccessChange?: (access: Access) => void;
+  /** Public transport only: the "Z własnym rowerem" switch (own bike to / from / between stops; hides the accessibility choice). */
+  transitAccess?: TransitAccess;
+  onTransitAccessChange?: (access: TransitAccess) => void;
   /** Departure time (`null` = now). Without `onDepartureChange` the control is not shown (the ride demo). */
   departure?: Departure;
   onDepartureChange?: (d: Departure) => void;
@@ -51,8 +64,13 @@ interface Props {
   /** Reverses the whole trip (start <-> destination, stops in reverse). */
   onSwap: () => void;
   onLocate: () => void;
+  /** Phone: the card shows only "Dokąd jedziesz?" until the chevron opens it. Without `onToggleCollapsed` it is always open. */
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   /** Active trip: a "Wróć do przejazdu" button on top leaves the new search without changing the route. */
   onBackToTrip?: () => void;
+  /** Offers "Wybierz na mapie" in every place field. */
+  onPickOnMap?: (target: PickTarget) => void;
 }
 
 /** One row of the timeline column: a gradient segment above and below the icon. */
@@ -103,6 +121,10 @@ export default function SearchCard({
   order,
   travel = 'transit',
   onTravelChange,
+  access = 'standard',
+  onAccessChange,
+  transitAccess = 'walk',
+  onTransitAccessChange,
   departure = null,
   onDepartureChange,
   currentLocation,
@@ -112,7 +134,10 @@ export default function SearchCard({
   onOrderChange,
   onSwap,
   onLocate,
+  collapsed = false,
+  onToggleCollapsed,
   onBackToTrip,
+  onPickOnMap,
 }: Props) {
   const { routeStart, routeEnd } = PALETTE[useTheme().palette.mode];
   const count = stops.length + 2; // rows: start, stops, destination
@@ -250,24 +275,59 @@ export default function SearchCard({
     </Box>
   );
 
+  // In the desktop side panel the card is the first block of the panel's column, not a floating card.
+  const docked = useSheetDock();
+
+  const paperSx: SxProps<Theme> = {
+    position: 'absolute',
+    zIndex: 1000,
+    top: 'calc(env(safe-area-inset-top) + 12px)',
+    left: { xs: 12, sm: 16 },
+    right: { xs: 12, sm: 'auto' },
+    width: { sm: 440 },
+    maxHeight: 'calc(100vh - 220px)',
+    overflowY: 'auto',
+    p: 1.5,
+    borderRadius: RADIUS.sheet,
+    display: 'flex',
+    alignItems: 'stretch',
+    gap: 1,
+    ...(docked && { position: 'static', width: 'auto', maxHeight: 'none', flexShrink: 0, borderRadius: RADIUS.card }),
+  };
+
+  // Collapsed: only "Dokąd jedziesz?" (phone). The chevron opens the whole card.
+  if (collapsed && onToggleCollapsed && !onBackToTrip) {
+    return (
+      <Paper
+        elevation={docked ? 0 : 4}
+        variant={docked ? 'outlined' : 'elevation'}
+        sx={{ ...paperSx, p: 1.25, alignItems: 'center' }}
+      >
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <PlaceField
+            value={destination}
+            onChange={onDestinationChange}
+            placeholder="Dokąd jedziesz?"
+            currentLocation={currentLocation}
+          />
+          {destination && !origin && (
+            <Button size="small" onClick={onToggleCollapsed} sx={{ mt: 0.5 }}>
+              Ustaw start
+            </Button>
+          )}
+        </Box>
+        <IconButton aria-label="Rozwiń wyszukiwanie: start, przystanki, sposób podróży" aria-expanded={false} onClick={onToggleCollapsed}>
+          <ExpandMore />
+        </IconButton>
+      </Paper>
+    );
+  }
+
   return (
     <Paper
-      elevation={4}
-      sx={{
-        position: 'absolute',
-        zIndex: 1000,
-        top: 'calc(env(safe-area-inset-top) + 12px)',
-        left: { xs: 12, sm: 16 },
-        right: { xs: 12, sm: 'auto' },
-        width: { sm: 440 },
-        maxHeight: 'calc(100vh - 220px)',
-        overflowY: 'auto',
-        p: 1.5,
-        borderRadius: RADIUS.sheet,
-        display: 'flex',
-        alignItems: 'stretch',
-        gap: 1,
-      }}
+      elevation={docked ? 0 : 4}
+      variant={docked ? 'outlined' : 'elevation'}
+      sx={paperSx}
     >
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {onBackToTrip && (
@@ -285,6 +345,7 @@ export default function SearchCard({
             currentLocation={currentLocation}
             showLocateButton
             onLocate={onLocate}
+            onPickOnMap={onPickOnMap && (() => onPickOnMap('origin'))}
           />,
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {handle(0)}
@@ -318,6 +379,7 @@ export default function SearchCard({
               currentLocation={currentLocation}
               // eslint-disable-next-line jsx-a11y/no-autofocus -- the field is added by the user's own click
               autoFocus={stop === null}
+              onPickOnMap={onPickOnMap && (() => onPickOnMap(i))}
             />,
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               {handle(i + 1)}
@@ -341,6 +403,7 @@ export default function SearchCard({
             onChange={onDestinationChange}
             placeholder="Dokąd jedziesz?"
             currentLocation={currentLocation}
+            onPickOnMap={onPickOnMap && (() => onPickOnMap('destination'))}
           />,
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {handle(count - 1)}
@@ -391,9 +454,37 @@ export default function SearchCard({
           ))}
         </Box>
         )}
+
+        {onTravelChange && travel === 'transit' && onTransitAccessChange && (
+          <TransitAccessToggle value={transitAccess} onChange={onTransitAccessChange} />
+        )}
+
+        {onTravelChange && onAccessChange && hasAccess(travel) && !(travel === 'transit' && transitAccess === 'bike') && (
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={access}
+            aria-label="Dostępność"
+            onChange={(_, v: Access | null) => v && onAccessChange(v)}
+            sx={{ mt: 0.75, '& .MuiToggleButton-root': { py: 0.25, px: 1.25, fontSize: 12 } }}
+          >
+            {ACCESS_OPTIONS.map((a) => (
+              <ToggleButton key={a} value={a}>
+                {ACCESS_LABELS[a]}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        )}
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between' }}>
+        {onToggleCollapsed ? (
+          <IconButton aria-label="Zwiń wyszukiwanie" aria-expanded onClick={onToggleCollapsed}>
+            <ExpandLess />
+          </IconButton>
+        ) : (
+          <span />
+        )}
         <IconButton
           aria-label={stops.length ? 'Odwróć trasę' : 'Zamień start z celem'}
           onClick={onSwap}
@@ -401,6 +492,7 @@ export default function SearchCard({
         >
           <SwapVert />
         </IconButton>
+        <span />
       </Box>
     </Paper>
   );

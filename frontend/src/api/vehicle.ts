@@ -58,6 +58,8 @@ function trackOrPosition(track: TrackPoint[], position: LatLng | null): TrackPoi
 export interface DetectionResult {
   /** The backend is switched off, could not be reached or sent a bad answer: nothing was detected. */
   offline: boolean;
+  /** The server answered, but has no live vehicle data now (503: no live feed / key on the server). Not "offline". */
+  liveUnavailable?: boolean;
   /** The most likely vehicle first, then up to 3 other possible ones. */
   candidates: VehicleCandidate[];
   /** All lines in the live data, for choosing the line by hand. */
@@ -88,6 +90,7 @@ export async function detectVehicle(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ points }),
       });
+      if (r.status === 503) return { candidates: [], lines: [], offline: false, liveUnavailable: true };
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data: unknown = await r.json();
       if (!isNearestBuses(data)) throw new Error('Unexpected answer shape');
