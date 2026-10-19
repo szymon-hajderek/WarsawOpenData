@@ -428,6 +428,11 @@ export default function App() {
               vehicleOpen={vehicle.open}
               vehicleConfirmed={vehicle.confirmed !== null}
           follow={inTrip}
+          focus={
+            inTrip && activeTrip.started && progress
+              ? { key: `${activeTrip.route.id}:${progress.legIndex}`, path: activeTrip.route.legs[progress.legIndex]?.path ?? [] }
+              : null
+          }
           onMapPick={picking !== null && !pickBusy ? (p) => void pickAt(picking, p) : undefined}
           onContextPick={!inTrip && picking === null ? (target, p) => void pickAt(target, p) : undefined}
           onOpen3d={() => setMap3d(true)}

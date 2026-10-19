@@ -472,7 +472,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   the stop markers and meet the walks (the raw GTFS slice was median 11 m, up to 94 m off: metro platforms).
 - **Active trip** (`activeTrip` + `replanning` in `App.tsx`, `ActiveTripSheet.tsx`): "Rozpocznij przejazd" starts the recorder
   and enters the mode; "Zakończ" leaves it and saves the pace recording (recorder unchanged). The map follows the user
-  (`MapView` `follow`). Progress = `src/utils/progress.ts` (`routeProgress`: projection on the leg paths, forward only;
+  (`MapView` `follow`) and zooms to the current leg when it changes (`MapView` `focus`, 2D map). Progress = `src/utils/progress.ts` (`routeProgress`: projection on the leg paths, forward only;
   `nextStepText`: "Wysiadasz na: X", "Przesiadka: 175 z X", "Idź do: X"; > 150 m = "Zboczyłeś z trasy" + "Zmień trasę"),
   kept per route by `useTripProgress`. "W jakim pojeździe jestem?" opens `VehicleSheet` with the trip's own track
   (`tracker.track()` -> `detectionPoints`: last 3 recorder points >= 8 s apart). The confirmed vehicle lives in

@@ -64,6 +64,8 @@ interface Props {
   gpsPosition?: LatLng | null;
   /** Active trip: the map keeps the user's position in view. */
   follow?: boolean;
+  /** Active trip: the part of the route being travelled now (zoomed to when it changes). */
+  focus?: { key: string; path: LatLng[] } | null;
   /** Picking a point ("Wybierz na mapie"): a tap / click on the map gives its position, the cursor is a crosshair. */
   onMapPick?: (position: LatLng) => void;
   /** Long press / right click on the map offers "Stąd" / "Dotąd" at that point. */
@@ -110,7 +112,8 @@ function MapController({
   userPosition,
   padding,
   follow = false,
-}: Pick<Props, 'origin' | 'destination' | 'route' | 'userPosition' | 'padding' | 'follow'>) {
+  focus = null,
+}: Pick<Props, 'origin' | 'destination' | 'route' | 'userPosition' | 'padding' | 'follow' | 'focus'>) {
   const map = useMap();
   const centeredOnUser = useRef(false);
 
@@ -139,8 +142,21 @@ function MapController({
     }
   }, [map, userPosition, origin, destination]);
 
+  // Active trip: zoom to the leg being travelled (and the user) whenever the current leg changes.
   useEffect(() => {
-    if (follow && userPosition) map.panTo(userPosition, { animate: true, duration: 0.5 });
+    if (!focus || focus.path.length === 0) return;
+    const pts = userPosition ? [...focus.path, userPosition] : focus.path;
+    map.flyToBounds(L.latLngBounds(pts), {
+      paddingTopLeft: [padding.left + 24, padding.top + 24],
+      paddingBottomRight: [padding.right + 24, padding.bottom + 24],
+      maxZoom: 17,
+      duration: 0.8,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, focus?.key]);
+
+  useEffect(() => {
+    if (follow && userPosition && !map.getBounds().pad(-0.15).contains(userPosition)) map.panTo(userPosition, { animate: true, duration: 0.5 });
   }, [map, follow, userPosition]);
 
   return null;
@@ -232,13 +248,13 @@ function RouteLayer({
     const out: { key: string; position: [number, number]; icon: L.DivIcon }[] = [];
     overlay?.markers.forEach((m) => {
       const color = m.station.kind === 'metro_platform' ? MODE_META.metro[palette] : m.station.kind === 'tram_post' ? MODE_META.tram[palette] : m.station.kind === 'veturilo' ? MODE_META.veturilo[palette] : m.station.kind.startsWith('rail') ? MODE_META.rail[palette] : MODE_META.bus[palette];
-      out.push({ key: `stop-${m.station.id}`, position: m.station.position, icon: dot(16, '', color, m.underground ? 0.6 : 1) });
+      out.push({ key: `stop-${m.station.id}`, position: m.station.position, icon: dot(12, '', color, m.underground ? 0.6 : 1) });
     });
     overlay?.entrances.forEach((e, i) => {
-      out.push({ key: `entrance-${i}`, position: e, icon: dot(22, iconHtml(ICON_PATH.stairs, 14, MODE_META.metro[palette]), MODE_META.metro[palette]) });
+      out.push({ key: `entrance-${i}`, position: e, icon: dot(18, iconHtml(ICON_PATH.stairs, 11, MODE_META.metro[palette]), MODE_META.metro[palette]) });
     });
     accessPoints(route).forEach(({ key, kind, position }) =>
-      out.push({ key, position, icon: dot(24, iconHtml(kind === 'elevator' ? ICON_PATH.elevator : ICON_PATH.stairs, 16, colors.accent), colors.accent) }),
+      out.push({ key, position, icon: dot(20, iconHtml(kind === 'elevator' ? ICON_PATH.elevator : ICON_PATH.stairs, 13, colors.accent), colors.accent) }),
     );
     return out;
   }, [overlay, route, colors, palette]);
@@ -254,15 +270,15 @@ function RouteLayer({
               position: leg.path[0],
               icon: L.divIcon({
                 className: 'app-div-icon',
-                iconSize: [38, 38],
-                iconAnchor: [19, 19],
-                html: `<div style="width:38px;height:38px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${
+                iconSize: [26, 26],
+                iconAnchor: [13, 13],
+                html: `<div style="width:26px;height:26px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${
                   look === 'glass'
                     ? glassCss(palette)
-                    : `border:3px solid ${colors.surface};background:${colors.markerTint};box-shadow:${colors.shadow}`
+                    : `border:2px solid ${colors.surface};background:${colors.markerTint};box-shadow:${colors.shadow}`
                 }">${iconHtml(
                   MODE_META[leg.mode].path,
-                  20,
+                  15,
                   modeColor(leg.mode, palette),
                 )}</div>`,
               }),
@@ -330,9 +346,9 @@ function stopIcon(n: number, colors: (typeof PALETTE)['light'], look: MapLook, m
       : `border:3px solid ${colors.surface};background:${colors.accent};box-shadow:${colors.shadow}`;
   return L.divIcon({
     className: 'app-div-icon',
-    html: `<div style="width:30px;height:30px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${fill};color:${colors.theme.primary.contrastText};font:700 13px/1 Roboto,sans-serif">${n}</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
+    html: `<div style="width:24px;height:24px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${fill};color:${colors.theme.primary.contrastText};font:700 12px/1 Roboto,sans-serif">${n}</div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
   });
 }
 
@@ -357,6 +373,7 @@ export default function MapView({
   onContextPick,
   onPlacePick,
   onOpen3d,
+  focus = null,
 }: Props) {
   const [map, setMap] = useState<L.Map | null>(null);
   const [overlayIds, toggleOverlay] = useOverlayIds();
@@ -376,13 +393,13 @@ export default function MapView({
       return {
         user: L.divIcon({
           className: 'app-div-icon',
-          html: `<div class="glass-pulse glass-rim" style="--pulse-color:${accent};position:relative;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;${gl()}">${iconHtml(
+          html: `<div class="glass-pulse glass-rim" style="--pulse-color:${accent};position:relative;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;${gl()}">${iconHtml(
             ICON_PATH.navigation,
-            24,
+            18,
             accent,
           )}</div>`,
-          iconSize: [42, 42],
-          iconAnchor: [21, 21],
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
         }),
         origin: L.divIcon({
           className: 'app-div-icon',
@@ -392,13 +409,13 @@ export default function MapView({
         }),
         destination: L.divIcon({
           className: 'app-div-icon',
-          html: `<div class="glass-pulse glass-rim" style="--pulse-color:${accent};position:relative;width:44px;height:44px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${gl(red)}">${iconHtml(
+          html: `<div class="glass-pulse glass-rim" style="--pulse-color:${accent};position:relative;width:32px;height:32px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${gl(red)}">${iconHtml(
             ICON_PATH.place,
-            24,
+            18,
             colors.theme.primary.contrastText,
           )}</div>`,
-          iconSize: [44, 44],
-          iconAnchor: [22, 22],
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
         }),
       };
     }
@@ -406,13 +423,13 @@ export default function MapView({
       // white circle with a navigation arrow
       user: L.divIcon({
         className: 'app-div-icon',
-        html: `<div style="width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:${surface};box-shadow:${shadow}">${iconHtml(
+        html: `<div style="width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:${surface};box-shadow:${shadow}">${iconHtml(
           ICON_PATH.navigation,
-          24,
+          18,
           accent,
         )}</div>`,
-        iconSize: [42, 42],
-        iconAnchor: [21, 21],
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
       }),
       origin: L.divIcon({
         className: 'app-div-icon',
@@ -423,13 +440,13 @@ export default function MapView({
       // round accent circle with a white pin
       destination: L.divIcon({
         className: 'app-div-icon',
-        html: `<div style="width:44px;height:44px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;border:3px solid ${surface};background:${accent};box-shadow:${shadow}">${iconHtml(
+        html: `<div style="width:32px;height:32px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;border:2px solid ${surface};background:${accent};box-shadow:${shadow}">${iconHtml(
           ICON_PATH.place,
-          24,
+          18,
           colors.theme.primary.contrastText,
         )}</div>`,
-        iconSize: [44, 44],
-        iconAnchor: [22, 22],
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
       }),
     };
   }, [colors, glass, paletteMode]);
@@ -460,6 +477,7 @@ export default function MapView({
             userPosition={userPosition}
             padding={padding}
             follow={follow}
+            focus={focus}
           />
           <MapOverlays
             stations={overlayData.stations}
