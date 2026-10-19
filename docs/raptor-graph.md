@@ -44,15 +44,18 @@ planner: keep it in sync with the code. The API (body, answer, errors) is in `al
    own bike (`bike.bin`), carried on transit.
 5. **Veturilo `B`** (walk mode only): every ordered pair of docks; `arrival = t + pickup (30 s) + ride (bike.bin, the
    query's bike speed) + return (15 s)`, an `O(1)` lookup, no timetable. The walk to and from a dock is a footpath.
-   Every dock is assumed to have a bike and a free place: live availability is not proof of future availability and
-   is not used yet. `veturilo_s` limits the ride (default unlimited).
+   With `min_bikes` > 0 a bike is rented only at docks that have at least that many bikes in the live state
+   (`POST /state`). The state is **frozen at the start of the query**: the set of pickup docks is fixed for the whole
+   search, so it does not depend on the arrival time and arriving earlier is never worse (the FIFO property the
+   rounds rely on). Returning is allowed at every dock (free places are not checked). `veturilo_s` limits the ride
+   (default unlimited).
 6. **First / last mile.** The origin and the destination are not vertices: one street Dijkstra from the origin to
    every location (`access_s`), one on the reversed graph from every location to the destination (`egress_s`), both
    unlimited by default (the whole graph, ~0.3 s each). A location id as origin / destination costs 0 there.
 7. **No live data.** Pathfinding uses the GTFS timetable only (decision of the router owner, no time for more):
    there is no delay input. Live delays are shown in the UI only (`POST /api/live/route-delays`). Planning "from the
    vehicle I am in" calls `/plan` from one of the next stops of the vehicle's GTFS trip at its **scheduled** arrival;
-   staying on the same trip is an ordinary result (`wait_s` ≈ 0). Veturilo dock availability is not used either.
+   staying on the same trip is an ordinary result (`wait_s` ≈ 0). The only live input is the Veturilo state (5.).
 
 ### 2A. The matrix artifact
 
@@ -80,7 +83,8 @@ Round `k = 1, 2, …` (until nothing improves or `k = max_legs`, default unlimit
    active, relax `τ[k][p_i]` with its arrival (predecessor: pattern, trip, boarding index, alighting index); then
    `candidate = next_trip(i, τ[k − 1][p_i])` and switch only when it is earlier than the active trip. Boarding always
    uses the previous round's labels.
-4. Veturilo: from every dock marked in round `k − 1` to every other dock: `τ[k − 1][u] + pickup + ride + return`.
+4. Veturilo: from every pickup dock (all docks, or those with ≥ `min_bikes` in the frozen state) marked in round
+   `k − 1` to every other dock: `τ[k − 1][u] + pickup + ride + return`.
 5. Footpaths from every location improved by 3 or 4, starting from that transit / Veturilo arrival (so a footpath
    never follows a footpath). The new `marked` = every location improved in round `k`, walking included.
 6. Destination: `min_p τ[k][p] + egress[p]`. A journey with `k` legs is kept when it arrives **at least 1 s**
@@ -114,7 +118,8 @@ Measured (2026-10-18, real data, 4 server threads): ~0.7 s per query with the un
   the day before after midnight; Pareto sets with 0–3 legs.
 - Named cases: an overtaking trip is found; yesterday's late trip and the service day; boarding fields, waits and
   `stops`; `null` ends with snap distances; Veturilo = +1 leg, only in walk mode, 30 / 15 s and their overrides;
-  `max_legs`, `footpath_s`, query speeds, bike mode; errors (400 / 404 / 501), a timetable or matrix of another
+  `max_legs`, `footpath_s`, query speeds, bike mode; `min_bikes` with a posted state (also against the brute force
+  with only those pickup docks) and `POST /state` errors; errors (400 / 404 / 501), a timetable or matrix of another
   overlay or a truncated matrix → 503 for that mode only.
 - Known gaps: GTFS pickup / drop-off restrictions are not kept (every call can be boarded and left), trip
   `wheelchair_accessible` is not used in accessible / stroller, no live data.

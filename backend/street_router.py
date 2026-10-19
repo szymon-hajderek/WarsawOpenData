@@ -7,6 +7,7 @@ a router that runs elsewhere; then nothing is started. API and file formats: alg
 import logging
 import os
 import subprocess
+import threading
 import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -90,12 +91,41 @@ def service_time(when: datetime) -> tuple[str, int]:
 def plan(a, b, mode: str = "walk", when: datetime | None = None, **options) -> list[dict]:
     """Transit trips from a to b ((lat, lon) or a location id) leaving at `when` (naive = Warsaw local time; default
     now), planned by RAPTOR in the router. Options are relayed (speeds, max_legs, access_s, egress_s, footpath_s,
-    veturilo_s, veturilo_pickup_s, veturilo_return_s; date / time instead of `when`). Returns the options:
+    veturilo_s, veturilo_pickup_s, veturilo_return_s, exclude_modes, min_bikes; date / time instead of `when`). Returns the options:
     [{seconds, dep_s, arr_s, transfers, walk_m, bike_m, wait_s, legs}], times in seconds after midnight of the
     service day. Format: algorithms/router/README.md ("POST /plan")."""
     if "date" not in options:
         options["date"], options["time"] = service_time(when or datetime.now(ZoneInfo("Europe/Warsaw")))
     return _post("/plan", {"from": _place(a), "to": _place(b), "mode": mode, **options})["options"]
+
+
+STATE_EVERY_S = 30  # as the Veturilo status cache (sources/nextbike.py)
+_state_thread: threading.Thread | None = None
+
+
+def push_state() -> dict:
+    """Send the live bikes per Veturilo dock to the router (POST /state; `min_bikes` of /plan reads it). A dock that
+    does not rent counts as 0 bikes. Returns {"veturilo": {"docks", "unknown"}}."""
+    from sources import nextbike
+
+    bikes = {f"vet:{s['station_id']}": 0 if s["renting"] in (False, 0) else s["bikes"] for s in nextbike.status()}
+    return _post("/state", {"veturilo": bikes})
+
+
+def _state_loop() -> None:
+    while True:
+        try:
+            push_state()
+        except Exception as e:  # the feed or the router is down: try again next time
+            log.warning("street router: Veturilo state not sent: %s", e)
+        time.sleep(STATE_EVERY_S)
+
+
+def _start_state_loop() -> None:
+    global _state_thread
+    if _state_thread is None:
+        _state_thread = threading.Thread(target=_state_loop, daemon=True, name="router-state")
+        _state_thread.start()
 
 
 def health() -> dict:
@@ -118,6 +148,7 @@ def start(timeout_s: float = 120) -> None:
     global _proc
     if URL:
         log.info("street router: using %s", URL)
+        _start_state_loop()
         return
     import preprocess_street  # imported here: it loads GTFS and OSM
     import preprocess_transit
@@ -136,6 +167,7 @@ def start(timeout_s: float = 120) -> None:
         raise RouterUnavailable(f"{BINARY} not built, see algorithms/router/README.md")
     if healthy():
         log.warning("street router: something already answers on port %s; using it", PORT)
+        _start_state_loop()
         return
     _proc = subprocess.Popen([str(BINARY), "serve", str(GRAPHS), "--port", str(PORT)], stdout=open(LOG, "ab"),
                              stderr=subprocess.STDOUT)
@@ -145,6 +177,7 @@ def start(timeout_s: float = 120) -> None:
             raise RouterUnavailable(f"street router did not start, see {LOG}")
         time.sleep(0.5)
     log.info("street router: serving on %s (%.0f s)", base_url(), time.time() - t0)
+    _start_state_loop()
 
 
 def stop() -> None:

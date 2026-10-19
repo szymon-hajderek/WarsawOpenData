@@ -47,10 +47,13 @@ export function useRouteSearch({ origin, destination, via, order, search, travel
     }
     const ac = new AbortController();
     setLoading(true);
-    // Street trips send only `travel`: the vehicle exclusions and the search preferences are about public transport.
+    // Street trips send `travel` and the user's pace only: the vehicle exclusions are about public transport.
     const street = streetMode(travel, access);
+    const pace = { walkKmh: search?.walkKmh, bikeKmh: search?.bikeKmh };
     const request = street
-      ? fetchStreetTrip({ from: origin, to: destination, via, order, when }, street, ac.signal).then((found) => ({ options: found }))
+      ? fetchStreetTrip({ from: origin, to: destination, via, order, when, pace }, street, ac.signal).then((found) => ({
+          options: found,
+        }))
       : fetchRouteOptions(
           {
             from: origin,

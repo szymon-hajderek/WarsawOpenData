@@ -304,7 +304,7 @@ Answer:
 
 | Field | Meaning |
 |---|---|
-| `candidates` | up to 4 vehicles, lowest error first: `id`, `vehicle`, `line`, `brigade`, `mode` (`"bus"` or `"tram"`), `direction` (GTFS headsign, empty when no trip matches), `rmse_m` |
+| `candidates` | up to 4 vehicles, lowest error first (each user point is compared with the vehicle's position at that point's time: interpolated between its feed positions, or extrapolated along its last movement for at most 30 s when the point is newer than the feed, which lags ~10-20 s): `id`, `vehicle`, `line`, `brigade`, `mode` (`"bus"` or `"tram"`), `direction` (GTFS headsign, empty when no trip matches), `rmse_m` |
 | `lines` | all lines seen in the live feed, sorted |
 | `updated_at` | Unix time (seconds) of the last poll |
 
@@ -324,7 +324,7 @@ for the longest scheduled time between two stops of its trip (+ 60 s; 10 min whe
 point in the middle of every two feed points (about every 5 s) when no poll failed between them and they are at most
 25 s apart. The vehicle's position is projected on the GTFS shape of its trip (same line + brigade, running now ± 15 min,
 shape closer than 100 m; of those, the trip whose timetable at that point is closest to now); the last stop passed is K-1, the next one K. Delay = time the vehicle was closest to K-1
-(within `DELAY_RADIUS_M`, default 30 m) - scheduled departure at K-1. It is shown as the expected delay at K.
+(within `DELAY_RADIUS_M`, default 80 m) - scheduled departure at K-1. It is shown as the expected delay at K.
 
 | Query | Type | Meaning |
 |---|---|---|
@@ -353,7 +353,8 @@ Answer:
  "radiusM": 30.0, "updatedAt": 1792249203.8}
 ```
 
-Not available (the vehicle passed K-1 but no buffered point was within the radius):
+Not available (the vehicle passed K-1 but no buffered point was within the radius). Both examples were recorded on
+2026-10-17 with the earlier default R = 30 m:
 
 ```json
 {"vehicleId": "bus-1862", "vehicle": "1862", "line": "117", "brigade": "1", "mode": "bus",
@@ -634,14 +635,19 @@ Route options between two places. Transit trips are planned by RAPTOR in the C++
 GTFS timetable, see `algorithms/router/README.md`): the street-only walk (dropped when longer than 50 minutes), then
 for each number of counted legs (a ride or a Veturilo rental) the earliest arrival that beats the options with fewer
 legs, plus the same for one later query (60 s after the earliest transit departure) for the next departures. Options
-are deduplicated, sorted by `durationMin`, at most 6; the first gets the tag `Najszybsza`. `title` = the lines in
+are deduplicated (the same rides arriving at the same time are one option: the one leaving latest stays), sorted by
+`durationMin`, at most 6; the first gets the tag `Najszybsza`. `title` = the lines in
 order joined by ` + ` (a Veturilo rental as `Veturilo`); `Pieszo` for the walk. `id` = `pt-<trip id>-<trip id>...`
 when the option rides transit (`POST /api/live/route-delays` reads it), `bike` for Veturilo only, `walk` otherwise.
+Ids are unique in one answer: a later option with an id already used (another run of a metro frequency trip, which
+shares the trip id) gets `@HHMM` of its departure appended (`pt-ztm:M1:NdM:KAB@0608`); `route-delays` ignores it.
 `departure` / `arrival` come from the router's `dep_s` / `arr_s` on the service day (leaving home just in time);
 `transfers` = counted legs - 1 (a Veturilo rental counts). Every limit of `/plan` is left unlimited; `max_legs` =
 `maxTransfers` + 1 (default 3); `bikeKmh` 0 sends `veturilo_s: 0`. Timetable times only: no live delay shifts
-the times (live delays of suggested rides: `POST /api/live/route-delays`). Veturilo docks are assumed to have a
-bike and a free place. A line in the current ZTM alerts gets the tag `Zmiana na trasie`. Options whose path enters an
+the times (live delays of suggested rides: `POST /api/live/route-delays`). `minBikes` > 0 is sent as `min_bikes`:
+a bike is rented only at docks that have at least that many bikes in the router's live state (Nextbike status,
+pushed every 30 s, frozen for the whole search); without it every dock is assumed to have a bike. Free places at
+the return dock are not checked. A line in the current ZTM alerts gets the tag `Zmiana na trasie`. Options whose path enters an
 excluded district or point are dropped after planning.
 
 No Python fallback: while the router's `/health` says the timetable or the plan of the mode is not ready
@@ -658,7 +664,8 @@ graph and matrices; Veturilo only in the walk mode.
 Body (JSON): `from` (`Place`), `to` (`Place`), `profile` (`standard`, `slow`, `accessible` or `stroller`, default `standard`),
 `when` (optional, Warsaw local `HH:MM` or an ISO datetime; empty means now),
 `via` (optional list of `Place`, at most 5) and `order` (`given` or `optimal`).
-Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Veturilo), `stepFree` (bool),
+Optional pace and filters: `walkKmh` (1–10), `bikeKmh` (0–45; 0 means no Veturilo), `minBikes` (0–50, integer;
+rent Veturilo only at docks with at least this many bikes now; empty / 0 = every dock), `stepFree` (bool),
 `maxTransfers` (`0`, `1`, `2` or `null` = up to two), `excludedDistricts` (Warsaw district names),
 `excludedPoints` (`position`, `radiusM`) and `body` (`wheelchair` `none` | `manual` | `electric`; a wheelchair
 implies `accessible` routing and no Veturilo; `weightKg`, `heightCm`, `age` and `sex` are accepted but not used by the route search).

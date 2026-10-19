@@ -1,4 +1,5 @@
 # WarsawOpenData
+https://canva.link/vovbml3ezw723k3
 
 Route planner for Warsaw. It combines Veturilo (city bikes) with public transport at every stage of a trip.
 A 24-hour hackathon project built on Warsaw open data.
@@ -80,6 +81,26 @@ cd backend && uv sync && uv run uvicorn main:app --reload   # http://localhost:8
 
 Details, ID links and graph sizes: `data/REPORT.md`.
 
+## Deploy on a server (reproducible)
+
+On a fresh Ubuntu 24.04 machine (tested on a RunPod CPU pod), as root, with git access to this repo:
+
+```sh
+git clone git@github.com:szymon-hajderek/WarsawOpenData.git /root/WarsawOpenData
+cp <your .env with PORTAL_KEY etc.> /root/WarsawOpenData/.env     # optional: live vehicles / delays
+bash /root/WarsawOpenData/deploy/setup.sh      # toolchain (g++-14, node 20, git-lfs, uv), builds, all data (~20 min)
+bash /root/WarsawOpenData/deploy/run.sh        # backend + router on 127.0.0.1:8000, the app on 0.0.0.0:8080
+```
+
+On a RunPod pod (only mapped ports reach it, and editing the pod's ports wipes the container disk) the simplest public
+HTTPS link is a Cloudflare tunnel, which needs no open port: `cloudflared tunnel --url http://localhost:8080`
+prints a `https://<words>.trycloudflare.com` address (changes on every start). For your own domain use a named tunnel
+on a Cloudflare-managed zone. On a normal server with a domain (an A record to the server, ports 80 + 443 open): `bash deploy/nginx.sh app.example.pl` puts nginx in
+front of port 8080 and gets an HTTPS certificate from Let's Encrypt (re-run it once DNS works). Without a domain:
+expose port 8080 as an HTTP port of the pod; the app is then at `https://<pod-id>-8080.proxy.runpod.net` (HTTPS, so
+geolocation works). `deploy/run.sh stop` stops it; logs in `logs/`. Run `setup.sh` again after pulling new code.
+Keep the repo on the local disk (data and matrices need ~5 GB; a network volume is slow for the memory-mapped matrices).
+
 ## Environment setup (for agents)
 
 Follow these steps to get a working environment. Run them from the repo root.
@@ -146,14 +167,15 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
      user/device identifier or precise journey timestamp is kept in this database. See `data/API.md`.
    - bus detection simulation: `uv run python ../algorithms/simulation/simulate_nearest_buses.py`
      (uses the committed sample; record a new one with `uv run python ../algorithms/simulation/record_buses.py`, needs `PORTAL_KEY`)
-   - rebuild the results page `artifacts/bus-detection/bus-detection-simulation.html`: `uv run python ../algorithms/simulation/export_viz.py`
+   - bus + tram recording for the hard cases: `uv run python ../algorithms/simulation/record_buses.py --trams` (writes `data/live/vehicle_track_sample.json`, needs `PORTAL_KEY`)
+   - rebuild the result pages in `artifacts/bus-detection/` (simulation, fraction, hotspots): `uv run python ../algorithms/simulation/export_viz.py` (the hotspots page needs the GTFS caches)
    - optional `.env` setting `LIVE_BUSES_URL`: where bus detection reads live bus positions (default: the City Hall feed via `PORTAL_KEY`). Without `PORTAL_KEY` the live-vehicle poller stays off and `GET /api/live/vehicles` returns 503.
    - Veturilo station siting (`GET /api/veturilo/siting`): the server builds the hex grid at start (first run ~2.5 min:
      one extra OSM pass, cached in `data/derived/siting_*.npz`). Trial report + map page:
      `uv run python siting_report.py` (writes `data/SITING_REPORT.md`, `data/siting_report.json`, `artifacts/veturilo-siting/veturilo-siting.html`;
      `--rebuild` recomputes the grid, `--mocks` regenerates the mock data in `data/mock/`). The Warsaw boundary
      `data/geojson/warsaw.geojson` is committed; `uv run python download.py siting` fetches it again from Nominatim
-   - optional `.env` setting `DELAY_RADIUS_M`: radius for the delay estimate `GET /api/live/delay` (default `30`)
+   - optional `.env` setting `DELAY_RADIUS_M`: radius for the delay estimate `GET /api/live/delay` (default `80`, picked by `search_delay_radius.py`)
    - delay simulation on the committed recording `data/live/delay_sample.json.gz`: `uv run python ../algorithms/simulation/simulate_delay.py --radius 30`;
      rebuild the report `artifacts/delays/delay-statistics.html`: `uv run python ../algorithms/simulation/export_delay_viz.py`;
      search the best radius (20-200 m every 10 m, then every 1 m): `uv run python ../algorithms/simulation/search_delay_radius.py`;

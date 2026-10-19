@@ -2,7 +2,7 @@
 
 A transit route option id is "pt-" + "-".join(trip ids) (backend/app/routing/real_engine.py). Trip ids have a feed
 prefix and may contain "-" themselves (ztm:2026-10-18:504:NdS:1:0519), so the id is split only where "-" is followed
-by a feed prefix. A trip's line + brigade (GTFS route_short_name + block_short_name) is the same pair as Lines +
+by a feed prefix; an "@HHMM" suffix (a second run of the same trip in one answer) is ignored. A trip's line + brigade (GTFS route_short_name + block_short_name) is the same pair as Lines +
 Brigade in the live feed, which points at one vehicle.
 """
 import re
@@ -16,7 +16,7 @@ def trip_ids_from_option(option_id: str) -> list[str]:
     """Trip ids of a transit option id, in ride order. [] for other ids (walk, bike, multi-N)."""
     if not option_id.startswith("pt-"):
         return []
-    parts = _SPLIT.split(option_id[3:])
+    parts = _SPLIT.split(option_id[3:].split("@", 1)[0])  # "@0608" keeps ids unique, not a trip
     return parts if all(p.split(":", 1)[0] in FEEDS for p in parts) else []
 
 

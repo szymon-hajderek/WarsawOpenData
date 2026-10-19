@@ -8,6 +8,7 @@ import RestartAlt from '@mui/icons-material/RestartAlt';
 import HistoryIcon from '@mui/icons-material/History';
 import PreferenceFields, { Section } from './preferences/PreferenceFields';
 import BodySection from './preferences/BodySection';
+import ViewSection from './preferences/ViewSection';
 import RuleDialog from './preferences/RuleDialog';
 import { usePreferences } from '../preferences/PreferencesProvider';
 import { useFrequentPlaces } from '../places/FrequentPlacesProvider';
@@ -72,6 +73,10 @@ export default function PreferencesPage() {
 
         <Box sx={{ mt: 1.5 }}>
           <BodySection value={base.body} onChange={(body) => setBase({ ...base, body })} />
+        </Box>
+
+        <Box sx={{ mt: 1.5 }}>
+          <ViewSection />
         </Box>
 
         <Box sx={{ mt: 1.5 }}>

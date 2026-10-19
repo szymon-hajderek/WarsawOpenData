@@ -6,6 +6,7 @@ import { ColorModeProvider } from './colorMode';
 import { HistoryProvider } from './history/HistoryProvider';
 import { PreferencesProvider } from './preferences/PreferencesProvider';
 import { DESTINATION, NEAREST_BUSES, ROUTE_119, WALK_START } from './test/tripFixtures';
+import { openSearchCard } from './test/searchCard';
 
 // The map (Leaflet + MapLibre) does not run in jsdom and is not what is tested here.
 vi.mock('./components/MapView', () => ({ default: () => null }));
@@ -63,6 +64,7 @@ function renderApp() {
 }
 
 async function searchDestination() {
+  await openSearchCard();
   await waitFor(() => expect((screen.getByPlaceholderText('Skąd jedziesz?') as HTMLInputElement).value).toBe('Twoja lokalizacja'));
   const user = userEvent.setup();
   await user.type(screen.getByPlaceholderText('Dokąd jedziesz?'), 'Cel');

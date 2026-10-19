@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Promień R: wyszukiwanie</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one experiment report. Verdict tiles -> the two-step method -> one chart (score and availability vs R)
+   -> why the curve goes flat -> full tables -> data and how to repeat. Same family as the other delay pages. */
+:root {
+  --bg: #f4f6f8; --surface: #ffffff; --code-bg: #eef1f5; --ink: #12161c; --ink-2: #4a5361; --muted: #6e7887;
+  --grid: #e1e5ea; --accent: #1f4f8a; --score: #1f4f8a; --avail: #e0861a; --fine: #c8322b; --band: #f6e3b4;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1216; --surface: #171b21; --code-bg: #1d232b; --ink: #eef1f5; --ink-2: #b9c1cc; --muted: #8b95a4;
+  --grid: #2a3038; --accent: #8cb8f0; --score: #8cb8f0; --avail: #f0a54a; --fine: #ef5a52; --band: #3a3220; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1216; --surface: #171b21; --code-bg: #1d232b; --ink: #eef1f5; --ink-2: #b9c1cc; --muted: #8b95a4;
+  --grid: #2a3038; --accent: #8cb8f0; --score: #8cb8f0; --avail: #f0a54a; --fine: #ef5a52; --band: #3a3220; color-scheme: dark }
+
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--f-body); }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 40px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 44px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(30px, 5vw, 44px); }
+h2 { font-size: 23px; }
+p, li { max-width: 72ch; }
+p { margin: 0; }
+ol, ul { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+section { display: grid; gap: 14px; min-width: 0; }
+.eyebrow { font: 500 12px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+header { display: grid; gap: 14px; }
+.lead { color: var(--ink-2); font-size: 18px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 13px/1.4 var(--f-mono); color: var(--ink-2); }
+.meta b { color: var(--ink); font-weight: 500; }
+.note { color: var(--ink-2); font-size: 15px; }
+code { font: 0.88em var(--f-mono); background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+pre { margin: 0; background: var(--code-bg); border: 1px solid var(--grid); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font: 13px/1.55 var(--f-mono); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 14px; }
+.tile { background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; padding: 16px 18px; display: grid; gap: 4px; align-content: start; }
+.tile .big { font: 700 38px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.tile .lbl { font-weight: 700; }
+.tile .sub { color: var(--ink-2); font-size: 14px; }
+.panel { background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; padding: 18px; display: grid; gap: 10px; min-width: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+svg text { fill: var(--muted); font: 12px var(--f-mono); }
+svg .val { fill: var(--ink); font-weight: 500; }
+#chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 14px; }
+.steps > div { background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; padding: 16px 18px; display: grid; gap: 6px; align-content: start; }
+.steps b { font-family: var(--f-display); font-size: 18px; }
+.tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 14px; align-items: start; }
+.tbl { overflow-x: auto; background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+caption { text-align: left; padding: 10px 14px; font: 500 12px var(--f-mono); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+th, td { padding: 6px 12px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; font-variant-numeric: tabular-nums; }
+th { font: 500 12px var(--f-mono); color: var(--muted); }
+th:first-child, td:first-child { text-align: left; }
+tbody tr:last-child td { border-bottom: 0; }
+tr.best td { font-weight: 700; color: var(--fine); }
+tr.pair td { background: var(--band); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">WarsawOpenData · opóźnienia · test promienia R</span>
+    <h1>Jaki promień R wybrać?</h1>
+    <p class="lead" id="lead"></p>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <section><div class="tiles" id="tiles"></div></section>
+
+  <section>
+    <h2>Metoda: wyszukiwanie w dwóch krokach</h2>
+    <div class="steps">
+      <div><b>1. Siatka co 10 m</b><p class="note" id="step1"></p></div>
+      <div><b>2. Dwa najlepsze obok siebie</b><p class="note" id="step2"></p></div>
+      <div><b>3. Co 1 m między nimi</b><p class="note" id="step3"></p></div>
+    </div>
+    <p class="note" id="score-note"></p>
+  </section>
+
+  <section>
+    <h2>Wynik w funkcji R</h2>
+    <div class="panel">
+      <div id="chart"></div>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--score)"></i>wynik (opóźnienie dokładne do 30 s, wśród wszystkich przejazdów)</span>
+        <span><i class="sw" style="background:var(--avail)"></i>opóźnienie dostępne</span>
+        <span><i class="dot" style="background:var(--fine)"></i>krok co 1 m</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Dlaczego od pewnego R wykres się wypłaszcza</h2>
+    <ul>
+      <li>Algorytm zawsze bierze punkt z bufora <b>najbliższy</b> przystankowi. Promień R nie zmienia, który to punkt; decyduje tylko, czy wynik pokazać.</li>
+      <li>Mały R odrzuca przejazdy, w których najbliższy punkt był dalej od przystanku (np. przystanek kilkanaście metrów od jezdni albo odczyty rzadsze). Spada dostępność, a z nią wynik.</li>
+      <li>Gdy R obejmuje już wszystkie przejazdy, dostępność ma 100% i większy R niczego nie zmienia. Przy remisie wybieramy mniejszy promień.</li>
+      <li>Duży R mógłby w teorii pokazać czas z punktu daleko od przystanku. Na tym nagraniu mediana błędu zostaje 2 s przy każdym R.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Wszystkie wyniki</h2>
+    <div class="tables">
+      <div class="tbl"><table id="coarse"></table></div>
+      <div class="tbl"><table id="fine"></table></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Dane i jak to powtórzyć</h2>
+    <p class="note" id="data-note"></p>
+    <pre>cd backend
+uv run python ../algorithms/simulation/search_delay_radius.py            # tabela w terminalu
+uv run python ../algorithms/simulation/search_delay_radius.py --report   # ta strona</pre>
+    <p class="note">Kod: <code>algorithms/simulation/search_delay_radius.py</code> (wyszukiwanie), <code>simulate_delay.py</code> (<code>evaluate_many</code>: wiele promieni z jednego odtworzenia). Opis funkcji: <code>artifacts/delays/delay-docs.html</code>, dziennik testów: <code>artifacts/delays/tests/delay-tests.html</code>.</p>
+  </section>
+</div>
+
+<script>
+const D = /*__DATA__*/null;
+const NS = "http://www.w3.org/2000/svg";
+const pct = (x) => `${(x * 100).toFixed(1).replace(".", ",")}%`;
+const sec = (x) => (x == null ? "–" : `${String(Math.round(x * 10) / 10).replace(".", ",")} s`);
+const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+const text = (s, x, y, t, attrs = {}) => { const e = el("text", { x, y, ...attrs }, s); e.textContent = t; return e; };
+const best = D.best, cur = D.coarse.find((m) => m.radius_m === D.previous_radius_m);
+const m = D.meta;
+
+document.getElementById("lead").textContent =
+  `Promień R decyduje, czy pojazd „minął” przystanek wystarczająco blisko, żeby pokazać opóźnienie. ` +
+  `Na ${m.minutes} minutach prawdziwych danych najlepszy jest R = ${best.radius_m} m: ${pct(best.score)} przejazdów ma dokładne opóźnienie. ` +
+  `Wcześniej używaliśmy ${D.previous_radius_m} m (${pct(cur.score)}). Od ${m.computed} domyślnie jest ${D.default_radius_m} m.`;
+document.getElementById("meta").innerHTML = [
+  ["nagranie", `${m.date}, ${m.from}–${m.to}`], ["linie", m.lines.join(", ")], ["przejazdy", best.pairs_n],
+  ["przeliczone", m.computed], ["R", `${D.coarse[0].radius_m}–${D.coarse.at(-1).radius_m} m`],
+].map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join("");
+
+document.getElementById("tiles").innerHTML = [
+  [`${best.radius_m} m`, "najlepszy promień", `wybrany w kroku co 1 m między ${D.pair[0]} i ${D.pair[1]} m`],
+  [pct(best.score), "wynik przy najlepszym R", `dostępne ${pct(best.available)}, mediana błędu ${sec(best.abs_err_median)}`],
+  [pct(cur.score), `wynik przy ${D.previous_radius_m} m`, `dostępne ${pct(cur.available)}, mediana błędu ${sec(cur.abs_err_median)}`],
+  [`+${((best.score - cur.score) * 100).toFixed(1).replace(".", ",")} pp.`, "zysk", `${Math.round((best.score - cur.score) * best.pairs_n)} przejazdów więcej z dokładnym opóźnieniem`],
+].map(([b, l, s]) => `<div class="tile"><span class="big">${b}</span><span class="lbl">${l}</span><span class="sub">${s}</span></div>`).join("");
+
+document.getElementById("step1").textContent = `Wynik dla R = ${D.coarse.map((c) => c.radius_m).join(", ")} m: ${D.coarse.length} wartości z jednego odtworzenia nagrania.`;
+document.getElementById("step2").textContent = `Para sąsiednich promieni o największej sumie wyników: ${D.pair[0]} i ${D.pair[1]} m (przy remisie mniejsze).`;
+document.getElementById("step3").textContent = `R = ${D.pair[0]}, ${D.pair[0] + 1}, … ${D.pair[1]} m. Najlepszy: ${best.radius_m} m (przy remisie mniejszy).`;
+document.getElementById("score-note").textContent =
+  `Wynik promienia = udział wszystkich ${best.pairs_n} przejazdów obok przystanku, dla których pokazujemy opóźnienie różniące się od wzorca najwyżej o ${D.accurate_s} s. ` +
+  `Wzorzec to chwila, w której pełny nagrany tor pojazdu przecina przystanek na trasie kursu.`;
+document.getElementById("data-note").textContent =
+  `Nagranie data/live/delay_sample.json.gz: ${m.date}, ${m.from}–${m.to}, ${m.vehicles_all} pojazdów, ${m.points_all.toLocaleString("pl-PL")} odczytów; ` +
+  `liczone dla linii ${m.lines.join(", ")} (${best.pairs_n} przejazdów, ${best.skipped_n} pominiętych, bo pojazd minął dwa przystanki między odczytami).`;
+
+// chart: score and availability vs R
+(() => {
+  const host = document.getElementById("chart");
+  const W = 900, H = 380, L = 56, R = 20, T = 16, B = 44;
+  const all = [...D.coarse, ...D.fine];
+  const lo = Math.floor(Math.min(...all.map((x) => x.score)) * 100 - 1) / 100, hi = 1.0;
+  const r0 = D.coarse[0].radius_m, r1 = D.coarse.at(-1).radius_m;
+  const x = (v) => L + ((v - r0) / (r1 - r0)) * (W - L - R), y = (v) => H - B - ((v - lo) / (hi - lo)) * (H - T - B);
+  const s = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Wynik i dostępność w funkcji promienia R" }, host);
+  el("rect", { x: x(D.pair[0]), y: T, width: x(D.pair[1]) - x(D.pair[0]), height: H - T - B, fill: "var(--band)" }, s);
+  for (let v = Math.ceil(lo * 100); v <= 100; v += 1) {
+    el("line", { x1: L, x2: W - R, y1: y(v / 100), y2: y(v / 100), stroke: "var(--grid)" }, s);
+    text(s, L - 8, y(v / 100) + 4, `${v}%`, { "text-anchor": "end" });
+  }
+  for (let v = r0; v <= r1; v += 20) text(s, x(v), H - B + 18, `${v}`, { "text-anchor": "middle" });
+  text(s, (L + W - R) / 2, H - 6, "R, m", { "text-anchor": "middle" });
+  const line = (key, color) => el("polyline", { points: D.coarse.map((c) => `${x(c.radius_m)},${y(c[key])}`).join(" "), fill: "none", stroke: color, "stroke-width": 3, "stroke-linejoin": "round" }, s);
+  line("available", "var(--avail)");
+  line("score", "var(--score)");
+  for (const c of D.coarse) el("circle", { cx: x(c.radius_m), cy: y(c.score), r: 3.5, fill: "var(--score)" }, s);
+  for (const f of D.fine) el("circle", { cx: x(f.radius_m), cy: y(f.score), r: 2.5, fill: "var(--fine)" }, s);
+  el("circle", { cx: x(best.radius_m), cy: y(best.score), r: 8, fill: "none", stroke: "var(--fine)", "stroke-width": 2 }, s);
+  text(s, x(best.radius_m) + 10, y(best.score) + 22, `najlepszy ${best.radius_m} m: ${pct(best.score)}`, { class: "val" });
+  el("circle", { cx: x(cur.radius_m), cy: y(cur.score), r: 8, fill: "none", stroke: "var(--muted)", "stroke-width": 2 }, s);
+  text(s, x(cur.radius_m) + 12, y(cur.score) + 18, `wcześniej ${cur.radius_m} m: ${pct(cur.score)}`, { class: "val" });
+})();
+
+const rows = (list, caption, mark) =>
+  `<caption>${caption}</caption><thead><tr><th>R</th><th>wynik</th><th>dostępne</th><th>med. |błędu|</th><th>90% do</th></tr></thead><tbody>` +
+  list.map((r) => `<tr class="${r.radius_m === best.radius_m && mark ? "best" : D.pair.includes(r.radius_m) && !mark ? "pair" : ""}"><td>${r.radius_m} m</td><td>${pct(r.score)}</td><td>${pct(r.available)}</td><td>${sec(r.abs_err_median)}</td><td>${sec(r.abs_err_p90)}</td></tr>`).join("") + "</tbody>";
+document.getElementById("coarse").innerHTML = rows(D.coarse, "krok 1: co 10 m (zaznaczona para z kroku 2)", false);
+document.getElementById("fine").innerHTML = rows(D.fine, `krok 3: co 1 m między ${D.pair[0]} i ${D.pair[1]} m`, true);
+</script>
+</body>
+</html>
