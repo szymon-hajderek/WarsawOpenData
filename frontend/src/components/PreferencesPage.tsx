@@ -11,6 +11,7 @@ import BodySection from './preferences/BodySection';
 import ViewSection from './preferences/ViewSection';
 import RuleDialog from './preferences/RuleDialog';
 import { usePreferences } from '../preferences/PreferencesProvider';
+import { useFrequentPlaces } from '../places/FrequentPlacesProvider';
 import { useHistory } from '../history/HistoryProvider';
 import { tripsLabel } from './preferences/HistoryHint';
 import { DEFAULT_PREFERENCES, describeRule, type PreferenceOverrides, type TimeRule } from '../preferences/model';
@@ -29,6 +30,7 @@ const OVERRIDE_LABELS: Record<keyof PreferenceOverrides, string> = {
 export default function PreferencesPage() {
   const { base, rules, activeRule, autoUsed, setBase, setRules, reset } = usePreferences();
   const { summary, records, clear, shareJourneys, setShareJourneys } = useHistory();
+  const { places: frequent, clear: clearFrequent } = useFrequentPlaces();
   const [editing, setEditing] = useState<TimeRule | 'new' | null>(null);
 
   const saveRule = (rule: TimeRule) => {
@@ -161,6 +163,15 @@ export default function PreferencesPage() {
             </Typography>
             <Button variant="outlined" color="inherit" disabled={records.length === 0} onClick={clear}>
               Wyczyść historię przejazdów
+            </Button>
+            <Button
+              variant="outlined"
+              color="inherit"
+              disabled={frequent.length === 0}
+              onClick={clearFrequent}
+              sx={{ ml: 1, mt: { xs: 1, sm: 0 } }}
+            >
+              Wyczyść częste miejsca
             </Button>
           </Section>
         </Box>

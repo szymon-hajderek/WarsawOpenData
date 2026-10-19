@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Autocomplete,
   Box,
@@ -8,10 +8,13 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import History from '@mui/icons-material/History';
 import MyLocation from '@mui/icons-material/MyLocation';
 import PlaceOutlined from '@mui/icons-material/PlaceOutlined';
 import AddLocationAlt from '@mui/icons-material/AddLocationAlt';
 import { MIN_QUERY, searchPlaces } from '../api/geocode';
+import { topPlaces } from '../places/frequentPlaces';
+import { useFrequentPlaces } from '../places/FrequentPlacesProvider';
 import type { Place } from '../types';
 import { RADIUS } from '../layout';
 
@@ -83,9 +86,17 @@ export default function PlaceField({
   }, [input, value]);
 
   const typing = input.trim().length > 0 && input !== value?.label;
+  const { places: frequentList } = useFrequentPlaces();
+  // Frequent places come first: up to 3 in an empty field, the matching ones while typing.
+  const frequent = useMemo(
+    () => topPlaces(frequentList, Date.now(), 3, typing ? input.trim() : undefined),
+    [frequentList, typing, input],
+  );
+  const frequentIds = new Set(frequent.map((p) => p.id));
   const options: Place[] = [
     ...(currentLocation && !typing ? [currentLocation] : []),
-    ...(typing ? results : []),
+    ...frequent.filter((p) => p.id !== currentLocation?.id && (typing || p.id !== value?.id)),
+    ...(typing ? results.filter((p) => !frequentIds.has(p.id)) : []),
     ...(value && !typing && value.id !== currentLocation?.id ? [value] : []),
     ...(onPickOnMap && !typing ? [PICK_ON_MAP] : []),
   ];
@@ -131,6 +142,8 @@ export default function PlaceField({
               <AddLocationAlt color="primary" fontSize="small" />
             ) : option.isCurrentLocation ? (
               <MyLocation color="primary" fontSize="small" />
+            ) : frequentIds.has(option.id) ? (
+              <History color="action" fontSize="small" />
             ) : (
               <PlaceOutlined color="action" fontSize="small" />
             )}
@@ -138,9 +151,11 @@ export default function PlaceField({
               <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
                 {option.label}
               </Typography>
-              {option.sublabel && (
+              {(option.sublabel || frequentIds.has(option.id)) && (
                 <Typography variant="caption" color="text.secondary" noWrap component="div">
-                  {option.sublabel}
+                  {frequentIds.has(option.id)
+                    ? ['Często wybierane', option.sublabel].filter(Boolean).join(' · ')
+                    : option.sublabel}
                 </Typography>
               )}
             </Box>

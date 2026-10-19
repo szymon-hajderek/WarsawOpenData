@@ -27,6 +27,7 @@ import { departureSummary, departureWhen, type Departure } from './utils/departu
 import { useVehicleDetection } from './hooks/useVehicleDetection';
 import { usePreferences } from './preferences/PreferencesProvider';
 import { useHistory } from './history/HistoryProvider';
+import { useFrequentPlaces } from './places/FrequentPlacesProvider';
 import {
   applyListFilters,
   applyOverrides,
@@ -102,6 +103,7 @@ export default function App() {
   }, []);
   const { effective, activeRule } = usePreferences();
   const { tracker } = useHistory();
+  const { record: recordFrequent } = useFrequentPlaces();
   // Filters are sticky for the session (memory only): they stay across new searches and travel-mode switches until
   // the user changes them or taps "Wyczyść filtry". They start from the saved preferences.
   const [filters, setFilters] = useState<TripFilters>(DEFAULT_FILTERS);
@@ -205,6 +207,11 @@ export default function App() {
     setPickedId(null);
     setChosenId(null);
   }, [origin, destination, via, stopOrder, travel, access, byBike, departure]);
+
+  // Every searched trip teaches the frequent places on this device (the search fields suggest them).
+  useEffect(() => {
+    if (origin && destination) recordFrequent([origin, ...via, destination]);
+  }, [origin, destination, via, recordFrequent]);
 
   // The backend is switched off or could not be reached: say so each time it happens (no made-up data is shown).
   const offlineShown = routesOffline || vehicle.offline;

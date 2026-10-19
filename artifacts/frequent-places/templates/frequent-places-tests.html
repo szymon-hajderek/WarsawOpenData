@@ -1,0 +1,101 @@
+<!--title:Częste miejsca: testy-->
+<div class="wrap">
+  <header>
+    <span class="eyebrow">WarsawOpenData · częste miejsca · dziennik testów</span>
+    <h1>Częste miejsca: testy</h1>
+    <p class="lead">Co sprawdziłem w funkcji częstych miejsc, na jakich danych, z jakim wynikiem i jak to powtórzyć. Opis funkcji: <code>artifacts/frequent-places/frequent-places-docs.html</code>.</p>
+    <div class="meta"><span>stan na <b>18.10.2026</b></span><span>gałąź <b>feature/frequent-places</b></span><span>komputer <b>Windows 11</b></span><span>Node <b>24.20 LTS</b></span></div>
+  </header>
+
+  <section>
+    <h2>Podsumowanie</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>test</th><th>dane</th><th>wynik</th></tr></thead>
+      <tbody>
+        <tr><td>1. Testy jednostkowe logiki (7)</td><td>sztuczne miejsca i czasy w kodzie testów</td><td><span class="r pass">7/7</span></td></tr>
+        <tr><td>2. Test komponentu pola</td><td>zapis w <code>localStorage</code> + render <code>PlaceField</code></td><td><span class="r pass">1/1</span></td></tr>
+        <tr><td>3. Cały frontend: lint, testy, build</td><td>kod <code>frontend/</code></td><td><span class="r pass">lint OK · 136/136 · build OK</span> <span class="r pass">po scaleniu main: 221/221</span></td></tr>
+        <tr><td>4. Przebieg w aplikacji</td><td>Vite dev server, lista przystanków offline, backend wyłączony</td><td><span class="r pass">zapis, próg, podpowiedzi, czyszczenie</span></td></tr>
+        <tr><td>5. Wyszukanie trasy z backendem</td><td>—</td><td><span class="r skip">nie uruchomione</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>1. Testy jednostkowe logiki</h2>
+    <dl class="facts">
+      <dt>co</dt><dd>czyste funkcje z <code>frontend/src/places/frequentPlaces.ts</code>, czas podawany jawnie (bez zegara)</dd>
+      <dt>na czym</dt><dd>miejsca z samym id i nazwą w Śródmieściu; czasy w minutach i dniach od zera</dd>
+      <dt>wynik</dt><dd><span class="r pass">7/7</span></dd>
+      <dt>powtórz</dt><dd><code>cd frontend &amp;&amp; npx vitest run src/places</code></dd>
+    </dl>
+    <div class="tbl"><table>
+      <thead><tr><th>test</th><th>sprawdza</th></tr></thead>
+      <tbody>
+        <tr><td><code>suggests a place from two searches</code></td><td>po 1 wyszukaniu brak podpowiedzi, po 2 (11 min później) jest</td></tr>
+        <tr><td><code>counts the same place once per 10 minutes</code></td><td>drugie wyszukanie po 5 min nie dodaje punktu</td></tr>
+        <tr><td><code>never stores the current location</code></td><td>„Moja lokalizacja” jest pomijana</td></tr>
+        <tr><td><code>halves the points after 30 days</code></td><td>wygaszanie: 1 punkt po 30 dniach = 0,5</td></tr>
+        <tr><td><code>ranks recent searches above old ones with the same count</code></td><td>2 wyszukania sprzed 40 dni spadają pod próg, 2 świeże są podpowiadane</td></tr>
+        <tr><td><code>keeps at most MAX_PLACES</code></td><td>55 miejsc → zostaje 50</td></tr>
+        <tr><td><code>filters by the typed text</code></td><td>„poli” zwraca Politechnikę, a nie Dworzec Centralny; „xyz” nic</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>2. Test komponentu pola</h2>
+    <dl class="facts">
+      <dt>co</dt><dd><code>PlaceField</code> w <code>FrequentPlacesProvider</code>, puste pole, otwarcie listy</dd>
+      <dt>na czym</dt><dd>jedno miejsce „Politechnika” (3 punkty, teraz) w <code>localStorage</code></dd>
+      <dt>wynik</dt><dd><span class="r pass">1/1</span>: widać „Politechnika” i „Często wybierane · Przystanek”</dd>
+      <dt>powtórz</dt><dd><code>cd frontend &amp;&amp; npx vitest run src/components/PlaceField.test.tsx</code></dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>3. Cały frontend</h2>
+    <dl class="facts">
+      <dt>co</dt><dd>ESLint, wszystkie testy Vitest, kontrola typów i build Vite</dd>
+      <dt>wynik</dt><dd><span class="r pass">lint bez uwag</span> <span class="r pass">25 plików, 136 testów</span> <span class="r pass">build OK</span> (stare ostrzeżenie o rozmiarze paczki &gt; 500 kB, nie z tej zmiany)</dd>
+      <dt>po scaleniu</dt><dd>po scaleniu najnowszego <code>main</code> (31 commitów, m.in. zmiany w <code>PlaceField</code> i wyszukiwarce): <span class="r pass">32 pliki, 221 testów</span> <span class="r pass">lint i build OK</span></dd>
+      <dt>powtórz</dt><dd><code>cd frontend &amp;&amp; npm run lint &amp;&amp; npx vitest run &amp;&amp; npm run build</code></dd>
+    </dl>
+    <p class="note">Pierwszy przebieg wykrył błąd progu: przy progu dokładnie 2 punkty drugie wyszukanie po 11 minutach dawało 1,9998 (wygaszanie zdążyło zadziałać), więc nic nie było podpowiadane. Próg zmieniony na 1,5 = „dwa wyszukania w ciągu 30 dni”.</p>
+  </section>
+
+  <section>
+    <h2>4. Przebieg w aplikacji</h2>
+    <dl class="facts">
+      <dt>co</dt><dd>prawdziwa aplikacja w przeglądarce, kliknięcia i wpisywanie jak użytkownik</dd>
+      <dt>na czym</dt><dd>Vite dev server, backend wyłączony (lista tras pokazuje „Nie połączono z serwerem”, ale zapis działa przy samym wyborze startu i celu); miejsca z listy przystanków offline</dd>
+      <dt>powtórz</dt><dd><code>cd frontend &amp;&amp; npm run dev</code>, potem kroki z tabeli; podgląd zapisu: <code>localStorage.getItem('frequent-places')</code> w konsoli</dd>
+    </dl>
+    <div class="tbl"><table>
+      <thead><tr><th>krok</th><th>oczekiwane</th><th>wynik</th></tr></thead>
+      <tbody>
+        <tr><td>Politechnika → Dworzec Centralny</td><td>2 wpisy, po 1 punkcie</td><td><span class="r pass">2 wpisy, wynik 1</span></td></tr>
+        <tr><td>Kliknięcie pustego pola</td><td>brak podpowiedzi (poniżej progu)</td><td><span class="r pass">„Wpisz adres lub miejsce”</span></td></tr>
+        <tr><td>Przesunięcie zapisu o 11 min wstecz w konsoli, to samo wyszukanie</td><td>po 2 punkty</td><td><span class="r pass">2,000 i 2,000</span></td></tr>
+        <tr><td>Kliknięcie pustego „Dokąd”</td><td>2 podpowiedzi z zegarem</td><td><span class="r pass">widoczne</span></td></tr>
+        <tr><td>Wpisanie „dwo”</td><td>Dworzec Centralny na górze, bez duplikatu</td><td><span class="r pass">tak</span></td></tr>
+        <tr><td>Preferencje → „Wyczyść częste miejsca”</td><td>klucz usunięty</td><td><span class="r pass"><code>null</code></span></td></tr>
+      </tbody>
+    </table></div>
+    <div class="shots">
+      <figure><img src="img/1-first-search.jpg" alt="Pierwsze wyszukanie Politechnika do Dworzec Centralny"><figcaption>Pierwsze wyszukanie (backend wyłączony).</figcaption></figure>
+      <figure><img src="img/2-after-one-search.jpg" alt="Puste pole po jednym wyszukaniu, bez podpowiedzi"><figcaption>Po jednym wyszukaniu: nic, próg nieosiągnięty.</figcaption></figure>
+      <figure><img src="img/3-suggestions.jpg" alt="Dwie podpowiedzi po drugim wyszukaniu"><figcaption>Po drugim: dwie podpowiedzi.</figcaption></figure>
+      <figure><img src="img/4-typing.jpg" alt="Wpisane dwo"><figcaption>„dwo”: częste miejsce pierwsze, bez powtórki.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. Czego nie sprawdziłem</h2>
+    <ul>
+      <li>Wyszukania z działającym backendem (miejsca z Nominatim, id <code>osm:…</code>): backend wymaga danych z Git LFS i routera C++, nie uruchamiałem go. Logika jest ta sama, zmienia się tylko źródło id.</li>
+      <li>Telefonu: widok mobilny w podglądzie przeglądarki ucinał obraz, więc zrzuty są z szerokiego okna.</li>
+      <li>Przechodzenia 30 dni w czasie rzeczywistym: wygaszanie sprawdzają testy jednostkowe z podanym czasem.</li>
+    </ul>
+  </section>
+</div>
