@@ -1,105 +1,201 @@
 # WarsawOpenData
-https://canva.link/vovbml3ezw723k3
 
-Route planner for Warsaw. It combines Veturilo (city bikes) with public transport at every stage of a trip.
-A 24-hour hackathon project built on Warsaw open data.
+Route planner for Warsaw that combines public transport with **Veturilo** (city bikes) and the **own bike** at any
+stage of a trip, and plans step-free trips for **wheelchair** and **stroller** users. Built in a 24-hour hackathon on
+Warsaw open data. Presentation: https://canva.link/vovbml3ezw723k3 (PDF: `ui/concept-art/canva-presentation.pdf`).
 
-> **Status:** proof of concept. The backend downloads and parses the data, serves it through FastAPI and answers
-> route searches from the GTFS timetable, live data and street paths of the C++ street router. Transit routing
-> (RAPTOR) in C++ is the next step.
+> **Status: working.** The whole chain runs on real data: GTFS timetables (ZTM, WKD, trains), OpenStreetMap streets,
+> live Veturilo docks and live bus / tram positions. Every transit search is planned by **our own RAPTOR-based router
+> in C++**, on street networks and stop-to-stop matrices that are precomputed for each travel mode. The app (React)
+> shows the options, the route on a 2D or 3D map, and guides the user during the trip. Tests: 262 frontend and 518
+> backend / algorithm tests pass on `main`.
 
-## Goal
+## What the app does
 
-1. The user sets a start (own location or typed) and a destination.
-2. The app shows n connection options that use Veturilo at any stage.
-3. The user picks one and sees the route on the map, with a summary and steps.
+**Planning**
+- Start (own location, typed, or picked on the map) and destination; up to 5 intermediate stops, in the given or the
+  optimal order. Departure now or at a chosen date and time.
+- Up to 6 options per search, sorted by time; per search: sort (fastest, fewest transfers, most active), vehicles,
+  max transfers, max walking time; a refresh button.
+- Three main modes: **Komunikacja** (public transport), **Pieszo** (walking only), **Rower** (own bike only).
+- **Veturilo inside transit trips**: rent a bike at any dock, ride, return it at any dock, and continue by bus, tram,
+  metro or train ("190 + Veturilo + 17"). Live dock state: rent only where at least N bikes are available now
+  ("Rowery na stacji": any / 1+ / 2+ / 3+ / 5+, default 1+).
+- **Own bike with transit** ("Z własnym rowerem"): ride to a stop, take the bike on board, ride between two lines,
+  ride to the destination ("Rower + 184 + Rower + R80 + Rower").
+- **Accessibility** for transit and walking: Pieszo / Na wózku / Z wózkiem dziecięcym. The wheelchair graph has no
+  steps (elevators instead, `ramp:wheelchair` allowed); the stroller graph also allows steps with stroller rails.
+  Elevators and steps of a route are drawn on the map.
+- Exclude means of transport (bus, tram, metro, rail, Veturilo) for good or for one search; exclude districts or own
+  points; walking and cycling pace (levels or km/h); time rules ("on weekday mornings ...").
+- **Plan from the vehicle you are in**: the next stops of its trip are the start, at their timetable times.
 
-The project aims at inclusivity (walking, cycling and stroller pace), safety, privacy and scalability to other cities.
+**Live data and the trip**
+- "Which vehicle am I in?": the app matches the last GPS points with live buses and trams (every 5 s until the user
+  confirms; the vehicle is moved to the time of each GPS point, because the feed lags ~10-20 s).
+- Live delays of the buses and trams in the suggested routes ("+3 min", "punktualnie").
+- **Active trip**: progress along the route, next step ("Wysiadasz na: ...", "Przesiadka: ..."), off-route warning,
+  waiting for a later departure, change of destination or route on the way (from the confirmed vehicle), the map
+  zooms to the current leg.
+- Alerts of ZTM lines are tagged on the options ("Zmiana na trasie").
 
-## Features
+**Map and look**
+- Flat vector map (OpenFreeMap / OSM) or a tilted **3D map** with buildings; light / dark mode; "liquid glass" look.
+- Map layers: Veturilo docks with the live number of bikes, bus / tram posts, metro and rail; "Stąd" / "Dotąd" from a stop.
+- Phone layout with draggable sheets and a collapsible search card; desktop layout with a side panel.
 
-Done:
+**Privacy-first extras (on the device)**
+- Calories of a route (MET tables, the user's weight / height / age if given).
+- Own speed history from recorded trips; the average can replace the pace setting.
+- Frequent places suggested in the search fields (learned on the device only).
+- Opt-in anonymous journey statistics for the city (only start / destination anchors and daily counts, off by default).
 
-- Map UI in Polish: start / destination fields, list of options, route preview, route details.
-- Route options from real data (`POST /api/routes`): RAPTOR trips from the C++ router (GTFS timetable, Veturilo), alerts; trips with
-  up to 5 intermediate stops.
-- Street-only trips on foot, by wheelchair, with a stroller or by own bike, from the C++ street router
-  (`algorithms/router/`, `POST /api/routes` with `travel`).
-- Transit trips planned by RAPTOR in the C++ router (`POST /plan`, `docs/raptor-graph.md`): GTFS patterns, Veturilo
-  as a leg, street matrices of every mode. Not yet used by `POST /api/routes`.
-- Two map looks (flat, liquid glass), light and dark mode.
-- "Which vehicle am I in?" window: nearest live buses by MSE (`POST /api/live/nearest-buses`), delay estimate
-  (`GET /api/live/delay`).
-- Preferences and filters, calories, speed history from the user's own trips (stored on the device).
-- Data download and parsers for GTFS, City Hall live APIs, Veturilo (GBFS) and the OSM street graph.
-- FastAPI endpoints for every data source; simulation mode with integration tests and a ride demo.
+**City tools (API + reports)**
+- Veturilo station siting: best hexagons for new docks (`GET /api/veturilo/siting`, report in
+  `artifacts/veturilo-siting/`). Its traffic and e-scooter inputs are **mock data** for now.
 
-Planned:
+## How the routing works
 
-- **Transit routing in C++ for the app:** `POST /api/routes` uses the router's RAPTOR (#94). It plans on the GTFS
-  timetable; live delays are shown in the UI only (`POST /api/live/route-delays`), not used for pathfinding.
-- **Online route planning.** Change the route while the user travels.
-- Small gaps of the RAPTOR POC: GTFS pickup / drop-off rules, and the trips' `wheelchair_accessible` flag in the
-  wheelchair and stroller modes (stop access is already step-free).
+```mermaid
+flowchart LR
+  subgraph Data
+    G[GTFS: ZTM, WKD, trains] --- O[OSM streets] --- V[Veturilo GBFS] --- L[Live buses / trams]
+  end
+  subgraph Preprocessing
+    S[StationLocations: 7 542 stops, platforms, docks mapped to OSM]
+    SG[Street graphs per mode: walk / bike / wheelchair / stroller]
+    M[Stop-to-stop matrices per mode, 7 542 x 7 542]
+    T[Timetable binary: 277k trips]
+  end
+  subgraph "C++ router (in memory)"
+    R[RAPTOR /plan] --- ST[street search /route, /access]
+  end
+  B[FastAPI backend: options, shapes, live data] --> F[React app]
+  Data --> Preprocessing --> R
+  R --> B
+  V -- live dock state every 30 s --> R
+```
+
+### Preprocessing (built once, checked by hash)
+
+1. **StationLocations** (`backend/stations.py`, `algorithms/station_map.py`): one list of transport nodes shared by
+   the router, the backend and the app: 6 244 bus posts, 610 tram posts, 39 metro platforms, 207 rail platforms,
+   93 rail stations, 349 Veturilo docks. GTFS decides what exists; an exact OpenStreetMap match moves the point to the
+   real post / platform (post `ref` = ZTM id within 50 m: ~90%; metro platforms join through their entrances). GTFS feeds
+   are merged without duplicates (SKM from the train feed, rail stations merged only rail-to-rail).
+2. **Street graphs** (`backend/sources/osm.py`, `algorithms/street_model.py`): 1.86 M nodes, ~4.1-4.2 M edges per mode.
+   Cost = length / speed + the expected wait at crossings (signal waits from the HCM formula, signal nodes within 30 m
+   paid once as one junction) + 60 s per elevator. Modes: walk; bike (ride, push where riding is not allowed);
+   wheelchair (no steps); stroller (steps only with rails). Points join the graph through up to 6 nearest nodes.
+3. **Stop-to-stop matrices** (`backend/preprocess_street.py` → C++ `street_router matrix`): for every pair of the
+   7 542 nodes and every mode, the walked metres, ridden metres and waiting seconds of the shortest street path
+   (float32, 683 MB per mode, memory-mapped). Because time is re-computed from metres per query, the user's own pace
+   is applied without recomputing anything. A hash of the nodes and the model guards against stale matrices.
+4. **Timetable** (`backend/preprocess_transit.py`, `algorithms/timetable_file.py`): all trips as calls at the node
+   indexes (277 636 trips, 7.7 M calls, 364 days); metro frequency runs expanded to single trips.
+
+### RAPTOR, adapted (`algorithms/router/raptor.hpp`, `transit.hpp`, design: `docs/raptor-graph.md`)
+
+- **Rounds = counted legs.** A ride or a Veturilo rental counts as a leg; walking and the own bike do not. The answer
+  is the Pareto set of (legs, arrival): an option with more legs is kept only if it arrives earlier.
+- **Route patterns per service day** (built on first use, cached): trips grouped by line and exact stop sequence,
+  split so that no trip overtakes another (FIFO), so the next departure is a binary search. Trips of the previous day
+  that run after midnight are included.
+- **Footpaths from the matrices** of the query's mode, with no distance cut: any stop can be reached on foot (or by
+  own bike, or by wheelchair) from any other, timed at the user's pace.
+- **Veturilo as a leg**: dock → dock with 30 s for the rental and 15 s for the return, timed at the user's cycling
+  pace; only docks with at least `min_bikes` bikes in the live state (pushed every 30 s, frozen for one query so
+  RAPTOR's "earlier is never worse" holds).
+- **Access and egress**: one street search from the start to all nodes and one reversed search to the destination.
+- **Options**: excluded modes, max legs (= max transfers + 1), limits for access / egress / footpaths / Veturilo.
+- Speed on real data: ~0.7 s per query with no limits (most of it the two whole-city street searches).
+- The backend (`backend/app/routing/real_engine.py`) turns the router's ids into options: GTFS shapes cut at the real
+  stop positions, street paths with elevators and steps, titles ("16 + M1"), a second query 60 s later for more
+  departures, duplicates removed, a walk-only option when transit cannot help, live delays and alerts added for display.
+  **The router plans on the timetable only**: live delays are shown, not used for planning.
+- **From the vehicle** (`backend/app/routing/onboard.py`): the live feed identifies the trip; its next 2 stops at their
+  scheduled times are the start points; the ride to them is prepended.
+
+### Evidence
+
+- Bus / tram detection: simulations on recorded live traffic (`algorithms/simulation/RESULTS.md`,
+  `artifacts/bus-detection/`): the own vehicle is among the 4 offered in 100% of cases and first in 96-100% with 3 GPS
+  points; crowded places are the hard case (78-94% first with 3 points, always offered).
+- Delay estimate: 80 m radius chosen by a search on a 32-minute recording, delay shown for 96.5% of stop passes within
+  30 s of the reference (`artifacts/delays/`).
+- RAPTOR is tested against a brute force on random timetables (`algorithms/test_raptor.py`).
+
+## Known limitations
+
+- Live delays and vehicle positions are not used for planning (timetable only, by decision); the delay is shown.
+- Free places at the Veturilo return dock are not checked; Veturilo is offered only in the walking mode (not with
+  the own bike, wheelchair or stroller).
+- GTFS pickup / drop-off rules and the trips' `wheelchair_accessible` flag are not used yet; stops are step-free,
+  vehicles are not checked. Metro: an elevator is assumed at every entrance.
+- Street model: average signal waits (no timing data), no kerbs, surface or slope.
+- Excluded areas remove options after planning (the search does not route around them).
+- The matrices must be rebuilt by hand after a change of the stops, OSM or the street model.
+- Live vehicle data needs `PORTAL_KEY` and a server that can reach the City Hall API from Poland.
+- The 3D map is a prototype (no picking on the map, no stop markers of the route).
+- Issues #63-#66 were opened for the old Python planner (now removed) and still need a re-check on RAPTOR;
+  open: #124 (router crash under concurrent requests), #129 (two bike legs in a row), #95 (dock availability ideas).
 
 ## Tech stack
 
-- Frontend: React + TypeScript + Vite, Material UI, Leaflet + MapLibre (OpenFreeMap tiles)
-- Backend: Python + FastAPI (data layer managed with uv; routing API in `backend/app/` uses venv)
-- Routing: C++ street router (`algorithms/router/`) with RAPTOR (`POST /plan`), the only transit planner;
-  `backend/app/routing/` turns its answers into route options
-- Database: SQLite for opt-in journey counters; source datasets remain raw files in `data/`
+- Frontend: React 18 + TypeScript + Vite 5, Material UI 6, Leaflet + MapLibre GL (OpenFreeMap tiles), 3D map in MapLibre
+- Backend: Python 3.12 + FastAPI, managed with uv; SQLite for the opt-in journey counters
+- Router: C++23 (`algorithms/router/`, cpp-httplib, nlohmann/json): street search + RAPTOR, started by the backend
+- Data: raw files in `data/` (GTFS and the OSM cut in Git LFS), caches in `data/derived/`
 
 ## Folder structure
 
 - `frontend/` — React app
 - `backend/` — FastAPI app, data download and parsers (see `backend/README.md`)
-- `data/` — datasets, the API reference `data/API.md` and the data report `data/REPORT.md`
-- `algorithms/` — pure algorithm functions with their tests, the C++ street router (`algorithms/router/`) and the
-  simulation scripts (`algorithms/simulation/`)
+- `algorithms/` — pure algorithm functions with their tests, the C++ router (`algorithms/router/`, see its README) and
+  the simulation scripts (`algorithms/simulation/`)
+- `data/` — datasets, the API reference `data/API.md` (the contract) and the data report `data/REPORT.md`
+- `docs/` — design of the RAPTOR graph (`docs/raptor-graph.md`)
 - `integration/` — integration tests in simulation mode (see `integration/README.md`)
-- `db/` — the SQLite journey statistics file (git-ignored); `routing/` — empty placeholder
-- `ui/` — UI concept art
-- `artifacts/` — HTML pages with results (open in a browser), e.g. the bus detection simulation
-- `changes/` — one change note per branch
+- `deploy/` — reproducible server setup (`setup.sh`, `run.sh`, `nginx.sh`)
+- `artifacts/` — HTML pages with results (detection, delays, siting, frequent places)
+- `ui/` — concept art and the presentation; `changes/` — one change note per branch; `db/` — SQLite file (git-ignored)
 
 ## Quick start
 
 Full steps are in "Environment setup (for agents)" below. In short:
 
 ```bash
-cd frontend && npm install && npm run dev          # http://localhost:5173
-cd backend && uv sync && uv run uvicorn main:app --reload   # http://localhost:8000/docs
+cd frontend && npm install && npm run dev                      # http://localhost:5173
+cd backend && uv sync && uv run uvicorn main:app --reload      # http://localhost:8000/docs
+# once: build the C++ router and the matrices (see step 4 below)
 ```
 
 ## Data
 
-- [Warsaw city API portal](https://api.um.warszawa.pl/) — live vehicle positions and timetables
-- GTFS from [mkuran.pl](https://mkuran.pl/gtfs/) — ZTM, WKD and other trains
-- Veturilo stations and bikes (Nextbike GBFS)
-- OpenStreetMap street graph (Geofabrik `mazowieckie`, cut to the ZTM area)
+- GTFS from [mkuran.pl](https://mkuran.pl/gtfs/) — ZTM (bus, tram, metro), WKD and trains incl. SKM
+- [Warsaw City Hall APIs](https://api.um.warszawa.pl/) — live bus and tram positions (`PORTAL_KEY`, see `ACCESS.md`)
+- Veturilo stations and live dock state (Nextbike GBFS)
+- OpenStreetMap (Geofabrik `mazowieckie`, cut to the ZTM area); ZTM alerts from mkuran.pl
 
 Details, ID links and graph sizes: `data/REPORT.md`.
 
 ## Deploy on a server (reproducible)
 
-On a fresh Ubuntu 24.04 machine (tested on a RunPod CPU pod), as root, with git access to this repo:
+On a fresh Ubuntu 24.04 machine, as root, with git access to this repo:
 
 ```sh
 git clone git@github.com:szymon-hajderek/WarsawOpenData.git /root/WarsawOpenData
-cp <your .env with PORTAL_KEY etc.> /root/WarsawOpenData/.env     # optional: live vehicles / delays
-bash /root/WarsawOpenData/deploy/setup.sh      # toolchain (g++-14, node 20, git-lfs, uv), builds, all data (~20 min)
+cp <your .env with PORTAL_KEY etc.> /root/WarsawOpenData/.env     # live vehicles / delays
+bash /root/WarsawOpenData/deploy/setup.sh      # toolchain (g++-14, node 20, git-lfs, uv), builds, all data (~20-30 min)
 bash /root/WarsawOpenData/deploy/run.sh        # backend + router on 127.0.0.1:8000, the app on 0.0.0.0:8080
 ```
 
-On a RunPod pod (only mapped ports reach it, and editing the pod's ports wipes the container disk) the simplest public
-HTTPS link is a Cloudflare tunnel, which needs no open port: `cloudflared tunnel --url http://localhost:8080`
-prints a `https://<words>.trycloudflare.com` address (changes on every start). For your own domain use a named tunnel
-on a Cloudflare-managed zone. On a normal server with a domain (an A record to the server, ports 80 + 443 open): `bash deploy/nginx.sh app.example.pl` puts nginx in
-front of port 8080 and gets an HTTPS certificate from Let's Encrypt (re-run it once DNS works). Without a domain:
-expose port 8080 as an HTTP port of the pod; the app is then at `https://<pod-id>-8080.proxy.runpod.net` (HTTPS, so
-geolocation works). `deploy/run.sh stop` stops it; logs in `logs/`. Run `setup.sh` again after pulling new code.
-Keep the repo on the local disk (data and matrices need ~5 GB; a network volume is slow for the memory-mapped matrices).
+Public HTTPS (needed for geolocation): with a domain pointing at the server and ports 80 + 443 open,
+`bash deploy/nginx.sh app.example.pl` puts nginx with a Let's Encrypt certificate in front of port 8080. Without open
+ports (e.g. a RunPod pod) a Cloudflare tunnel works: `cloudflared tunnel --url http://localhost:8080`.
+`deploy/run.sh stop` stops the app; logs are in `logs/`. Run `setup.sh` again after pulling new code. Keep the repo on
+the local disk (data and matrices need ~5 GB and are memory-mapped). Live vehicle data needs a server that can reach the
+City Hall API (it does not answer servers outside Poland).
 
 ## Environment setup (for agents)
 
@@ -137,15 +233,15 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
    - **street router (C++)**: needs CMake 3.20+ and a C++23 compiler (GCC 14+ or Clang 19+); the first configure
      downloads cpp-httplib and nlohmann/json. Build once:
      `cmake -S ../algorithms/router -B ../algorithms/router/build -DCMAKE_BUILD_TYPE=Release &&
-     cmake --build ../algorithms/router/build`. The backend then starts it by itself (port 8090; it writes
-     `data/derived/street/graph_*.bin` first if needed, ~30 s, and the RAPTOR timetable `timetable.bin`, ~10 s, by
-     hand: `uv run python preprocess_transit.py`; log: `data/derived/street/router.log`). Without it,
+     cmake --build ../algorithms/router/build`. The backend then starts it by itself (port 8090) and first rebuilds what is stale:
+     `stations.json`, the street graphs `data/derived/street/graph_*.bin` (~30 s) and the RAPTOR timetable `timetable.bin`
+     (~10 s; by hand: `uv run python preprocess_transit.py`). Log: `data/derived/street/router.log`. Without it,
      walk / bike legs and `/api/stations/health` answer 503. Optional `.env`: `ROUTER_URL` (use a router that runs elsewhere), `ROUTER_PORT`.
    - the first start also builds `data/derived/stations.json` (transport nodes mapped to OSM, a few seconds;
      `uv run python stations.py` rebuilds it and prints the match report)
    - street matrices for every pair of stops (needed by the router's RAPTOR `POST /plan`; without them `/plan` answers
-     503 and `/health` → `plan` says why): `uv run python preprocess_street.py` (four modes, ~18 min on 16 threads,
-     ~2.7 GB). Details: `algorithms/router/README.md`, design: `docs/raptor-graph.md`
+     503 and `/health` → `plan` says why): `uv run python preprocess_street.py` (four modes, 5-7 min each on 12-16 threads,
+     4 x 683 MB). They are **not** rebuilt automatically: run it again after a change of the stops, OSM or the street model. Details: `algorithms/router/README.md`, design: `docs/raptor-graph.md`
    - `uv run pytest tests ../algorithms` runs the tests (pytest is in the `dev` group, installed by `uv sync`)
    - `uv run pytest ../integration` runs the integration tests: synthetic trips on real data in simulation mode,
      about 6 minutes, no keys needed (`-m recorded` / `-m gtfs` for one kind). Results: `integration/RESULTS.md`.
