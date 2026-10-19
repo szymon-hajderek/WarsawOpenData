@@ -24,3 +24,7 @@ data/**/*.pb
 data/derived/
 # Integration test output (tracks for the replay page), rebuilt by each run
 integration/report/
+
+# worktrees of agent sessions
+.claude/worktrees/
+logs/

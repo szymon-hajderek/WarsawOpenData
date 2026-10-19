@@ -1,0 +1,500 @@
+<title>Nowe stacje Veturilo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: same system as the other pages in artifacts/ (no external scripts, the map is our own canvas). One reading column: verdict -> map with layers and the
+   greedy step slider -> top-10 table -> cost formula + P(d) chart -> data and method. Accent = Warsaw red. */
+:root {
+  --bg: #f5f4f2; --surface: #ffffff; --ink: #17130f; --ink-2: #4f4740; --muted: #7a7068;
+  --grid: #e5e0da; --accent: #b3123b; --accent-ink: #ffffff; --yellow: #f2b400;
+  --good: #0c8f2e; --warn: #c98a00; --bad: #c8322b; --none: #c9c3bc; --station: #1d5fa8; --map-bg: #ebe7e2;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12100e; --surface: #1b1815; --ink: #f3efea; --ink-2: #c4bbb2; --muted: #93897f;
+  --grid: #302b26; --accent: #ff5577; --accent-ink: #1b0a0f; --yellow: #ffc933;
+  --good: #3cc160; --warn: #f0b429; --bad: #ef5a52; --none: #4a443e; --station: #6aa8f0; --map-bg: #221e1a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12100e; --surface: #1b1815; --ink: #f3efea; --ink-2: #c4bbb2; --muted: #93897f;
+  --grid: #302b26; --accent: #ff5577; --accent-ink: #1b0a0f; --yellow: #ffc933;
+  --good: #3cc160; --warn: #f0b429; --bad: #ef5a52; --none: #4a443e; --station: #6aa8f0; --map-bg: #221e1a; color-scheme: dark }
+
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--f-body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 44px; }
+h1, h2 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(30px, 5vw, 46px); }
+h2 { font-size: 22px; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font: 500 12px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.lead { color: var(--ink-2); font-size: 18px; }
+header { display: grid; gap: 14px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font: 13px/1.4 var(--f-mono); color: var(--ink-2); }
+.meta b { color: var(--ink); font-weight: 500; }
+.mock { display: inline-flex; align-items: center; gap: 8px; width: fit-content; padding: 6px 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--yellow) 22%, transparent); color: var(--ink); font: 500 13px/1.3 var(--f-mono); }
+section { display: grid; gap: 16px; min-width: 0; }
+.sub-lead { color: var(--ink-2); }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 16px; }
+.tile { background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; padding: 18px 20px; display: grid; gap: 6px; align-content: start; }
+.tile .big { font: 700 40px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.tile .lbl { font-weight: 700; }
+.tile .sub { color: var(--ink-2); font-size: 14px; }
+
+.panel { background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.group > .lbl { font: 500 12px/1 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.chip { font: 500 14px/1 var(--f-body); padding: 8px 12px; border-radius: 999px; border: 1px solid var(--grid);
+  background: var(--bg); color: var(--ink); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.chip:focus-visible, button:focus-visible, input:focus-visible, tr:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.check { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; color: var(--ink-2); cursor: pointer; }
+.stepper { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.stepper input[type=range] { flex: 1 1 220px; accent-color: var(--accent); min-width: 0; }
+.btn { font: 700 14px/1 var(--f-body); padding: 10px 16px; border-radius: 8px; border: 0; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+.step-label { font: 500 14px/1.3 var(--f-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+#map { height: min(72vh, 640px); min-height: 380px; border-radius: 8px; overflow: hidden; background: var(--grid); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 13px; color: var(--ink-2); }
+.ramp { width: 180px; max-width: 40vw; height: 10px; border-radius: 3px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.note { color: var(--muted); font-size: 13px; }
+
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { padding: 9px 12px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { font: 500 12px/1.2 var(--f-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+tr.done td:first-child b { color: var(--accent); }
+.num { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font: 700 12px/1 var(--f-mono); }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 16px; }
+.formula { font: 500 clamp(14px, 2.4vw, 18px)/1.6 var(--f-mono); background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; padding: 16px 18px; overflow-x: auto; }
+.terms { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.terms li { display: grid; grid-template-columns: 64px 1fr; gap: 10px; }
+.terms code { font: 500 14px var(--f-mono); color: var(--accent); }
+svg text { fill: var(--muted); font: 12px var(--f-mono); }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72ch; color: var(--ink-2); }
+table.cx td, table.cx th { text-align: left; white-space: normal; vertical-align: top; }
+table.cx tbody tr { cursor: default; }
+table.cx tbody tr:hover { background: none; }
+
+
+/* canvas map: zoom buttons in the corner, hex values under the map */
+#map { position: relative; touch-action: none; }
+#map canvas { display: block; cursor: grab; }
+#map canvas:active { cursor: grabbing; }
+.zoom { position: absolute; top: max(10px, env(safe-area-inset-top, 0px)); right: 10px; display: grid; gap: 4px; z-index: 1; }
+.zoom button { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--grid); background: var(--surface); color: var(--ink);
+  font: 700 18px/1 var(--f-mono); cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+.zoom button.fit { font-size: 12px; }
+.hexinfo { display: flex; flex-wrap: wrap; gap: 4px 16px; font: 14px/1.4 var(--f-body); color: var(--ink-2); min-height: 22px; font-variant-numeric: tabular-nums; }
+.hexinfo b { color: var(--ink); font-family: var(--f-mono); }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">WarsawOpenData · Veturilo · siatka heksagonalna</span>
+    <h1>Gdzie postawić nowe stacje Veturilo</h1>
+    <p class="lead">Warszawa podzielona na heksagony o promieniu 175 m. Każdy dostaje koszt J: im niższy, tym lepsze miejsce.
+      Stacje wybieramy po kolei: po każdym wyborze stawiamy tam stację i przeliczamy odległości, więc następna propozycja nie ląduje obok.</p>
+    <span class="mock">Ruch samochodowy (T) i zatłoczenie hulajnóg (E) to dane przykładowe (atrapa)</span>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <section aria-label="Podsumowanie">
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section>
+    <h2>Mapa</h2>
+    <p class="sub-lead">Wybierz warstwę, pokaż punkty pomiarowe i przesuń suwak, żeby zobaczyć, jak kolejne stacje zmieniają d<sub>net</sub> i J.
+      Kliknij heksagon, żeby zobaczyć jego wartości. Mapę przesuwasz przeciągnięciem, przybliżasz kółkiem myszy albo przyciskami.</p>
+    <div class="panel">
+      <div class="controls">
+        <div class="group" role="group" aria-label="Warstwa">
+          <span class="lbl">Warstwa</span>
+          <button class="chip" id="layer-j" data-layer="j" aria-pressed="true">J (koszt)</button>
+          <button class="chip" id="layer-t" data-layer="t" aria-pressed="false">T ruch</button>
+          <button class="chip" id="layer-e" data-layer="e" aria-pressed="false">E zatłoczenie hulajnóg</button>
+          <button class="chip" id="layer-s" data-layer="s" aria-pressed="false">S bezpieczeństwo</button>
+          <button class="chip" id="layer-d" data-layer="d" aria-pressed="false">d<sub>net</sub></button>
+        </div>
+        <div class="group">
+          <span class="lbl">Punkty</span>
+          <label class="check"><input type="checkbox" id="show-stations" checked> stacje Veturilo</label>
+          <label class="check"><input type="checkbox" id="show-counters"> liczniki ruchu</label>
+        </div>
+      </div>
+      <div class="stepper">
+        <button class="btn" id="play" type="button">Odtwórz</button>
+        <input type="range" id="step" min="0" max="10" value="10" aria-label="Liczba wstawionych stacji">
+        <span class="step-label" id="step-label"></span>
+      </div>
+      <div id="map" role="region" aria-label="Mapa heksagonów: przeciągnij, żeby przesunąć, kółko myszy przybliża">
+        <div class="zoom"><button id="zoom-in" type="button" aria-label="Przybliż">+</button><button id="zoom-out" type="button" aria-label="Oddal">−</button><button id="zoom-fit" class="fit" type="button" aria-label="Pokaż całe miasto">całe</button></div>
+      </div>
+      <div class="hexinfo" id="hexinfo" aria-live="polite"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Propozycje</h2>
+    <p class="sub-lead">Kolejność wyboru. d<sub>net</sub> i P to wartości w chwili wyboru, czyli już po postawieniu wcześniejszych stacji. Kliknij wiersz, żeby przybliżyć mapę.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Heks / miejsce</th><th>J</th><th>T</th><th>E</th><th>d<sub>net</sub> m</th><th>P</th><th>S</th><th>Zmienione heksy</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="two">
+    <div style="display:grid;gap:14px;min-width:0">
+      <h2>Funkcja kosztu</h2>
+      <div class="formula">J(p) = −α·T(p)·(1 + δ·E(p)) + β·P(d<sub>net</sub>(p)) + γ·S(p)</div>
+      <ul class="terms" id="terms"></ul>
+    </div>
+    <div class="panel chart">
+      <h3 style="margin:0;font:700 16px/1.3 var(--f-body)">Kara P(d) = (1 − d/R)² dla d &lt; R</h3>
+      <div id="pchart"></div>
+      <p class="note">Heks ze stacją ma d = 0, więc P = 1. Od R w górę kara znika.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Złożoność obliczeniowa</h2>
+    <p class="sub-lead" id="cx-lead"></p>
+    <div class="table-wrap">
+      <table class="cx">
+        <thead><tr><th>Krok</th><th>Złożoność</th><th>Przy naszych danych</th></tr></thead>
+        <tbody>
+          <tr><td>Siatka heksów w prostokącie granicy + test punkt w wielokącie</td><td>O(H<sub>box</sub>·G)</td><td id="cx-grid"></td></tr>
+          <tr><td>Przypisanie liczników, wskaźników E i odcinków ulic do heksów (zaokrąglenie współrzędnych heksa, słownik)</td><td>O(L + K + U)</td><td id="cx-assign"></td></tr>
+          <tr><td>Uzupełnienie pustych heksów (IDW, drzewo k-d, 6 sąsiadów)</td><td>O(H log H)</td><td>budowa drzewa + zapytanie dla każdego pustego heksa</td></tr>
+          <tr><td>Przyklejenie heksów i stacji do grafu (najbliższy węzeł)</td><td>O((H + St) log V)</td><td>drzewo k-d węzłów grafu rowerowego</td></tr>
+          <tr><td>d<sub>net</sub>: jedna Dijkstra z wielu źródeł (wszystkie stacje, do 5000 m)</td><td>O(E<sub>5km</sub> log V + V)</td><td id="cx-multi"></td></tr>
+          <tr><td>Jeden krok zachłanny: J dla wszystkich heksów, argmin, Dijkstra od nowej stacji do R, minimum</td><td>O(H + E<sub>R</sub> log V + V)</td><td id="cx-step"></td></tr>
+          <tr><td>Ranking N propozycji (<code>GET /api/veturilo/siting</code>, wynik w pamięci podręcznej dla tych samych parametrów)</td><td>O(N·(H + E<sub>R</sub> log V + V))</td><td id="cx-greedy"></td></tr>
+          <tr><td>Pamięć</td><td>O(V + E + H)</td><td id="cx-mem"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">H = heksy w Warszawie, H<sub>box</sub> = heksy w prostokącie granicy, G = wierzchołki granicy, L = liczniki ruchu, K = heksy z wskaźnikiem E, U = odcinki ulic, St = stacje, V / E = węzły / krawędzie grafu rowerowego, E<sub>R</sub> = krawędzie w zasięgu R od nowej stacji, N = liczba propozycji. Dijkstra z limitem odwiedza tylko otoczenie stacji, ale scipy za każdym razem tworzy tablicę odległości dla całego grafu, stąd składnik V. Gdyby trzeba było szybciej: Dijkstra tylko do węzłów heksów albo osobna funkcja z kopcem i słownikiem.</p>
+  </section>
+
+  <section>
+    <h2>Dane i metoda</h2>
+    <ul class="plain" id="method"></ul>
+  </section>
+</div>
+
+<script>
+const D = /*__DATA__*/null;
+const H = D.hex, N = H.lat.length, P = D.params;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = (v, d = 2) => v == null || !isFinite(v) ? "∞" : v.toFixed(d).replace(".", ",");
+const int = v => Math.round(v).toLocaleString("pl-PL");
+
+// ---------- header ----------
+document.getElementById("meta").innerHTML =
+  `<span>α <b>${P.alpha}</b></span><span>β <b>${P.beta}</b></span><span>γ <b>${P.gamma}</b></span>` +
+  `<span>δ <b>${P.delta}</b></span><span>R <b>${int(P.r)} m</b></span><span>heks <b>${D.hexSize} m</b></span>`;
+const S = D.summary, best = D.steps[0];
+document.getElementById("tiles").innerHTML = [
+  [int(S.hexes), "heksagonów", "w granicach Warszawy"],
+  [int(S.candidates), "kandydatów", `bez ${int(S.station_hexes)} heksów ze stacją i ${int(S.no_streets)} bez ulic`],
+  [int(S.stations), "stacji Veturilo", "z GBFS, także wirtualne"],
+  [fmt(best.j, 3), "najlepsze J", `heks ${best.hex}, d<sub>net</sub> ${best.dNet == null ? "∞" : int(best.dNet) + " m"}`],
+].map(([b, l, s]) => `<div class="tile"><span class="big">${b}</span><span class="lbl">${l}</span><span class="sub">${s}</span></div>`).join("");
+
+// ---------- distance per step ----------
+const dSteps = [H.d.map(v => v < 0 ? Infinity : v)];
+for (const st of D.steps) {
+  const d = dSteps[dSteps.length - 1].slice();
+  for (const [i, v] of st.changed) d[i] = v;
+  d[st.i] = 0;
+  dSteps.push(d);
+}
+const pen = d => d < P.r ? (1 - d / P.r) ** 2 : 0;
+const cost = (i, d) => -P.alpha * H.t[i] * (1 + P.delta * H.e[i]) + P.beta * pen(d[i]) + P.gamma * H.s[i];
+
+// ---------- colour ramp ----------
+const RAMP = ["#fff4d1", "#f7c94b", "#ec8a2f", "#cf3b3b", "#8e1240", "#3d0a2a"];
+const hex2 = h => [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16));
+const RGB = RAMP.map(hex2);
+function ramp(x) {
+  x = Math.max(0, Math.min(1, x)) * (RGB.length - 1);
+  const k = Math.min(Math.floor(x), RGB.length - 2), f = x - k;
+  const c = RGB[k].map((v, j) => Math.round(v + (RGB[k + 1][j] - v) * f));
+  return `rgb(${c})`;
+}
+const rampCss = `linear-gradient(90deg, ${RAMP.join(",")})`;
+
+// ---------- map (own canvas, no external library: works offline and inside the artifact viewer) ----------
+const LAT0 = 52.23, MLAT = Math.PI / 180 * 6371000, MLON = MLAT * Math.cos(LAT0 * Math.PI / 180);
+const mx = lon => (lon - 21.0) * MLON, my = lat => (LAT0 - lat) * MLAT;  // metres, y down
+const HX = H.lon.map(mx), HY = H.lat.map(my);
+const CORN = [0, 1, 2, 3, 4, 5].map(k => [Math.cos((30 + 60 * k) * Math.PI / 180), Math.sin((30 + 60 * k) * Math.PI / 180)]);
+const B = D.boundary.map(ring => ring.map(([la, lo]) => [mx(lo), my(la)]));
+const ST = D.stations.map(([la, lo, nm]) => [mx(lo), my(la), nm]);
+const CO = D.counters.map(([la, lo, v, rd]) => [mx(lo), my(la), v, rd]);
+const xs = B.flat().map(p => p[0]), ys = B.flat().map(p => p[1]);
+const EXT = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+
+const box = document.getElementById("map");
+const cv = document.createElement("canvas");
+box.appendChild(cv);
+const ctx = cv.getContext("2d");
+const view = { s: 0.02, x: 0, y: 0 };  // px per metre, metre at the top-left corner
+let W = 0, Hpx = 0, selected = -1;
+function fit() {
+  const pad = 16, s = Math.min((W - 2 * pad) / (EXT[2] - EXT[0]), (Hpx - 2 * pad) / (EXT[3] - EXT[1]));
+  view.s = s;
+  view.x = (EXT[0] + EXT[2]) / 2 - W / 2 / s;
+  view.y = (EXT[1] + EXT[3]) / 2 - Hpx / 2 / s;
+}
+function resize() {
+  const r = box.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const first = !W;
+  W = r.width; Hpx = r.height;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(Hpx * dpr);
+  cv.style.width = W + "px"; cv.style.height = Hpx + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (first) fit();
+  draw();
+}
+const px = x => (x - view.x) * view.s, py = y => (y - view.y) * view.s;
+
+let layer = "j", step = D.steps.length, fills = new Array(N);
+const LAYERS = {
+  j: { name: "J (koszt)", low: "wyższy koszt", high: "niższy koszt = lepsze miejsce" },
+  t: { name: "T ruch samochodowy", low: "0", high: "1" },
+  e: { name: "E zatłoczenie hulajnóg (wskaźnik miasta, atrapa)", low: "0", high: "1" },
+  s: { name: "S bezpieczeństwo", low: "0 = DDR / CPR", high: "1 = wielopasmówka bez DDR" },
+  d: { name: "d<sub>net</sub>", low: "0 m", high: `≥ ${int(P.r * 2)} m` },
+};
+const show = { stations: true, counters: false };
+const isPicked = i => D.steps.slice(0, step).some(s => s.i === i);
+
+function draw() {
+  if (!W) return;
+  ctx.fillStyle = css("--map-bg");
+  ctx.fillRect(0, 0, W, Hpx);
+  const r = D.hexSize * view.s, x0 = view.x, y0 = view.y, x1 = x0 + W / view.s, y1 = y0 + Hpx / view.s, m = D.hexSize;
+  for (let i = 0; i < N; i++) {
+    if (HX[i] < x0 - m || HX[i] > x1 + m || HY[i] < y0 - m || HY[i] > y1 + m) continue;
+    const cx = px(HX[i]), cy = py(HY[i]);
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) ctx.lineTo(cx + r * CORN[k][0], cy + r * CORN[k][1]);
+    ctx.closePath();
+    ctx.fillStyle = fills[i];
+    ctx.fill();
+    if (r > 6) { ctx.strokeStyle = css("--map-bg"); ctx.lineWidth = 0.6; ctx.stroke(); }
+  }
+  ctx.strokeStyle = css("--ink"); ctx.lineWidth = 1.5; ctx.globalAlpha = 0.75;
+  for (const ring of B) { ctx.beginPath(); ring.forEach(([x, y]) => ctx.lineTo(px(x), py(y))); ctx.closePath(); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  const dots = (arr, rad, color, edge) => {
+    ctx.fillStyle = color;
+    for (const p of arr) {
+      ctx.beginPath(); ctx.arc(px(p[0]), py(p[1]), rad, 0, 2 * Math.PI);
+      ctx.fill();
+      if (edge) { ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke(); }
+    }
+  };
+  if (show.counters) dots(CO, 3.2, "#2f2a25", "#ffffff");
+  if (show.stations) dots(ST, view.s > 0.05 ? 3.5 : 2.5, css("--station"), "#ffffff");
+  if (selected >= 0) {
+    const cx = px(HX[selected]), cy = py(HY[selected]);
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) ctx.lineTo(cx + r * CORN[k][0], cy + r * CORN[k][1]);
+    ctx.closePath(); ctx.strokeStyle = css("--ink"); ctx.lineWidth = 2.5; ctx.stroke();
+  }
+  // numbered pins: picks so far, plus the next pick as "?"
+  ctx.font = "700 12px " + css("--f-mono"); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  D.steps.forEach((s, k) => {
+    if (k > step) return;
+    const next = k === step, cx = px(mx(s.lon)), cy = py(my(s.lat));
+    ctx.beginPath(); ctx.arc(cx, cy, 12, 0, 2 * Math.PI);
+    ctx.fillStyle = next ? css("--surface") : css("--accent"); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = next ? css("--accent") : css("--surface"); ctx.stroke();
+    ctx.fillStyle = next ? css("--accent") : css("--accent-ink");
+    ctx.fillText(next ? "?" : String(k + 1), cx, cy + 0.5);
+  });
+}
+
+function info(i) {
+  const el = document.getElementById("hexinfo");
+  if (i < 0) { el.innerHTML = "Kliknij heksagon, żeby zobaczyć jego wartości."; return; }
+  const d = dSteps[step][i];
+  const why = H.st[i] ? `stacji w heksie: ${H.st[i]}` : H.cand[i] ? "kandydat" : "bez ulic, poza rankingiem";
+  el.innerHTML = `<b>J ${fmt(cost(i, dSteps[step]), 3)}</b> <span>${why}</span>` +
+    `<span>T ${fmt(H.t[i])} (≈ ${int(H.tRaw[i])} aut/h)</span><span>E ${fmt(H.e[i])}</span>` +
+    `<span>S ${fmt(H.s[i])}</span><span>d<sub>net</sub> ${isFinite(d) ? int(d) + " m" : "> " + int(D.maxR) + " m"} · P ${fmt(pen(d), 3)}</span>` +
+    `<span class="note">${H.lat[i].toFixed(5)}, ${H.lon[i].toFixed(5)}</span>`;
+}
+
+function paint() {
+  const d = dSteps[step];
+  let vals, lo = Infinity, hi = -Infinity;
+  if (layer === "j") {
+    vals = new Float64Array(N);
+    for (let i = 0; i < N; i++) { vals[i] = cost(i, d); if (H.cand[i]) { lo = Math.min(lo, vals[i]); hi = Math.max(hi, vals[i]); } }
+  }
+  const none = css("--none");
+  for (let i = 0; i < N; i++) {
+    if (layer === "j") fills[i] = (H.cand[i] && !isPicked(i)) ? ramp((hi - vals[i]) / (hi - lo)) : none;
+    else if (layer === "d") fills[i] = ramp(isFinite(d[i]) ? d[i] / (P.r * 2) : 1);
+    else fills[i] = ramp(H[layer][i]);
+  }
+  const L_ = LAYERS[layer];
+  document.getElementById("legend").innerHTML =
+    `<span><b>${L_.name}</b></span><span>${L_.low} <i class="ramp" style="background:${rampCss}"></i> ${L_.high}</span>` +
+    (layer === "j" ? `<span><i class="sw" style="background:${none}"></i> stacja, bez ulic albo już wybrany</span>` : "") +
+    `<span><i class="dot" style="background:${css("--station")}"></i> stacja Veturilo</span>` +
+    `<span><i class="dot" style="background:#2f2a25"></i> licznik ruchu (atrapa)</span>`;
+  const st = step ? D.steps[step - 1] : null;
+  document.getElementById("step-label").innerHTML = step === 0
+    ? "Stan obecny: tylko istniejące stacje"
+    : `Po ${step} z ${D.steps.length} nowych stacji · ostatnia: heks ${st.hex}, J ${fmt(st.j, 3)}`;
+  document.querySelectorAll("#rows tr").forEach((tr, k) => tr.classList.toggle("done", k < step));
+  info(selected);
+  draw();
+}
+
+// pan (drag), zoom (wheel, pinch via buttons), click = pick a hex
+function zoomAt(f, sx, sy) {
+  const s = Math.max(0.005, Math.min(1.5, view.s * f));
+  view.x += sx / view.s - sx / s; view.y += sy / view.s - sy / s; view.s = s;
+  draw();
+}
+let drag = null;
+cv.addEventListener("pointerdown", e => { drag = { x: e.clientX, y: e.clientY, moved: false }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+  if (drag.moved) { view.x -= dx / view.s; view.y -= dy / view.s; drag.x = e.clientX; drag.y = e.clientY; draw(); }
+});
+cv.addEventListener("pointerup", e => {
+  if (drag && !drag.moved) {
+    const r = cv.getBoundingClientRect(), wx = (e.clientX - r.left) / view.s + view.x, wy = (e.clientY - r.top) / view.s + view.y;
+    let best = -1, bd = D.hexSize * D.hexSize;
+    for (let i = 0; i < N; i++) { const q = (HX[i] - wx) ** 2 + (HY[i] - wy) ** 2; if (q < bd) { bd = q; best = i; } }
+    selected = best; info(best); draw();
+  }
+  drag = null;
+});
+cv.addEventListener("wheel", e => {
+  e.preventDefault();
+  const r = cv.getBoundingClientRect();
+  zoomAt(e.deltaY < 0 ? 1.25 : 0.8, e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
+document.getElementById("zoom-in").addEventListener("click", () => zoomAt(1.5, W / 2, Hpx / 2));
+document.getElementById("zoom-out").addEventListener("click", () => zoomAt(1 / 1.5, W / 2, Hpx / 2));
+document.getElementById("zoom-fit").addEventListener("click", () => { fit(); draw(); });
+function centerOn(lat, lon, s) { view.s = s; view.x = mx(lon) - W / 2 / s; view.y = my(lat) - Hpx / 2 / s; draw(); }
+
+for (const k of Object.keys(show)) document.getElementById("show-" + k).addEventListener("change", e => { show[k] = e.target.checked; draw(); });
+document.querySelectorAll("[data-layer]").forEach(b => b.addEventListener("click", () => {
+  layer = b.dataset.layer;
+  document.querySelectorAll("[data-layer]").forEach(x => x.setAttribute("aria-pressed", x === b));
+  paint();
+}));
+const slider = document.getElementById("step");
+slider.max = D.steps.length; slider.value = step;
+slider.addEventListener("input", () => { step = +slider.value; paint(); });
+let timer = null;
+const playBtn = document.getElementById("play");
+playBtn.addEventListener("click", () => {
+  if (timer) { clearInterval(timer); timer = null; playBtn.textContent = "Odtwórz"; return; }
+  step = 0; slider.value = 0; paint(); playBtn.textContent = "Zatrzymaj";
+  timer = setInterval(() => {
+    if (step >= D.steps.length) { clearInterval(timer); timer = null; playBtn.textContent = "Odtwórz"; return; }
+    step++; slider.value = step; paint();
+  }, matchMedia("(prefers-reduced-motion: reduce)").matches ? 2000 : 1200);
+});
+new ResizeObserver(resize).observe(box);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paint);
+new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+// ---------- table ----------
+document.getElementById("rows").innerHTML = D.steps.map(s =>
+  `<tr tabindex="0" data-lat="${s.lat}" data-lon="${s.lon}"><td><span class="num">${s.rank}</span></td>` +
+  `<td>${s.hex}<br><span class="note">${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}</span></td>` +
+  `<td><b>${fmt(s.j, 3)}</b></td><td>${fmt(s.t)}</td><td>${fmt(s.e)}</td><td>${s.dNet == null ? "∞" : int(s.dNet)}</td>` +
+  `<td>${fmt(s.p, 3)}</td><td>${fmt(s.s)}</td><td>${s.changed.length}</td></tr>`).join("");
+document.querySelectorAll("#rows tr").forEach(tr => {
+  const go = () => { centerOn(+tr.dataset.lat, +tr.dataset.lon, 0.25); document.getElementById("map").scrollIntoView({ behavior: "smooth", block: "center" }); };
+  tr.addEventListener("click", go);
+  tr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+});
+
+// ---------- formula terms ----------
+document.getElementById("terms").innerHTML = [
+  ["T", "natężenie ruchu samochodowego 0..1: średnia z liczników w heksie, puste heksy z interpolacji IDW. Duży ruch = dużo ludzi, którzy mogą przesiąść się na rower."],
+  ["E", "wskaźnik zatłoczenia e-hulajnóg 0..1 dla heksagonu 175 m, w takiej postaci, w jakiej dostaje go miasto. Wzmacnia T o czynnik (1 + δ·E)."],
+  ["d<sub>net</sub>", `odległość po sieci rowerowej OSM do najbliższej stacji (jeden przebieg Dijkstry z wielu źródeł, do ${int(D.maxR)} m).`],
+  ["P", `kara za bliskość istniejącej stacji, (1 − d/R)² dla d &lt; R = ${int(P.r)} m.`],
+  ["S", "bezpieczeństwo infrastruktury: 0 przy DDR / CPR, 0,3 spokojna ulica lub pas rowerowy, 0,6 jednopasmowa główna, 1 wielopasmówka bez DDR."],
+].map(([k, v]) => `<li><code>${k}</code><span>${v}</span></li>`).join("");
+
+// ---------- P(d) chart ----------
+(function () {
+  const W = 420, Hh = 200, l = 40, r = 14, t = 12, b = 30, maxD = P.r * 1.5;
+  const x = d => l + (W - l - r) * d / maxD, y = v => t + (Hh - t - b) * (1 - v);
+  let path = "";
+  for (let k = 0; k <= 120; k++) { const d = maxD * k / 120; path += (k ? "L" : "M") + x(d).toFixed(1) + " " + y(pen(d)).toFixed(1); }
+  const ticks = [0, P.r / 2, P.r, P.r * 1.5].map(d => `<line x1="${x(d)}" x2="${x(d)}" y1="${t}" y2="${Hh - b}" stroke="var(--grid)"/><text x="${x(d)}" y="${Hh - b + 18}" text-anchor="middle">${int(d)} m</text>`).join("");
+  const yt = [0, 0.25, 0.5, 0.75, 1].map(v => `<line x1="${l}" x2="${W - r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${l - 6}" y="${y(v) + 4}" text-anchor="end">${fmt(v)}</text>`).join("");
+  document.getElementById("pchart").innerHTML =
+    `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Wykres kary P od odległości d">${yt}${ticks}` +
+    `<path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>` +
+    `<circle cx="${x(0)}" cy="${y(1)}" r="4" fill="var(--accent)"/><circle cx="${x(P.r)}" cy="${y(0)}" r="4" fill="var(--accent)"/></svg>`;
+})();
+
+// ---------- complexity ----------
+(() => {
+  const c = D.cx;
+  if (!c) return;
+  const sec = v => `${fmt(v, v < 10 ? 2 : 1)} s`;
+  document.getElementById("cx-lead").textContent =
+    `Ile kosztuje każdy krok i ile trwał na naszych danych (Python + numpy / scipy, laptop deweloperski). ` +
+    (c.build_s != null ? `Przebudowa tabeli heksów (z gotowym wycinkiem ulic data/derived/siting_roads.npz): ${sec(c.build_s)}; pierwszy start, z czytaniem ulic z OSM, trwa ok. 2,5 min. Tabela leży potem w data/derived/siting_hexes.npz. `
+                       : "Tabela heksów jest liczona raz przy pierwszym starcie serwera (ok. 2,5 min) i leży w data/derived/siting_hexes.npz. ") +
+    `Zapytanie API liczy tylko ranking.`;
+  document.getElementById("cx-grid").textContent = `H = ${int(c.hexes)} heksów w granicach miasta`;
+  document.getElementById("cx-assign").textContent = `${int(S.counters)} liczników, ${int(S.scooter_hexes)} wartości E, odcinki ulic OSM w granicach`;
+  document.getElementById("cx-multi").textContent = `V = ${int(c.nodes)} węzłów, E = ${int(c.edges)} krawędzi, ${int(c.stations)} stacji: ${sec(c.multi_s)}`;
+  document.getElementById("cx-step").textContent = c.step_ms == null ? "–" : `mediana ${fmt(c.step_ms, 0)} ms na Dijkstrę od nowej stacji (R = ${int(P.r)} m)`;
+  document.getElementById("cx-greedy").textContent = `N = ${c.picks}: ${sec(c.greedy_s)}`;
+  document.getElementById("cx-mem").textContent = `graf rowerowy w CSR (~${int(c.edges)} krawędzi) + ${int(c.hexes)} heksów po kilka liczb`;
+})();
+
+// ---------- method ----------
+document.getElementById("method").innerHTML = [
+  `Granica Warszawy z OpenStreetMap (Nominatim). Heksagony o promieniu ${D.hexSize} m, liczone od środka; w mieście ${int(S.hexes)}.`,
+  `Atrapa T: ${int(S.counters)} sztucznych liczników na drogach OSM (więcej na trasach głównych), 24 odczyty godzinowe z szumem; licznik ma ${int(S.hexes_with_counter)} heksów.`,
+  `Atrapa E: wskaźnik zatłoczenia e-hulajnóg 0..1 dla ${int(S.scooter_hexes)} heksagonów 175 m, bo w takiej postaci miasto dostaje dane od operatorów (bez położeń pojedynczych hulajnóg). Wyższy wzdłuż ulic, w centrum i w ogniskach (Centrum, Politechnika, Bulwary, Praga, Rondo Daszyńskiego…). Na mapie: warstwa E.`,
+  "Pomiary w heksie są uśredniane: T to średnia z liczników, E to średnia wskaźników miasta, które wpadają do heksa (działa też, gdy siatka miasta jest przesunięta względem naszej), S to średnia ważona długością odcinków ulic.",
+  "d<sub>net</sub>: graf rowerowy OSM (jazda + prowadzenie roweru po chodniku), środek heksa przyklejony do najbliższego węzła. Heks ze stacją ma 0.",
+  "Wybór zachłanny: najniższe J wśród kandydatów, stawiamy tam stację, Dijkstra od nowej stacji (do R), minimum z poprzednim d<sub>net</sub>, powtórka.",
+  "Z rankingu wypadają heksy ze stacją i heksy bez ulic. To raport próbny: T i E trzeba zastąpić danymi miasta, zanim wyniki będą coś znaczyć.",
+].map(s => `<li>${s}</li>`).join("");
+
+paint();
+</script>

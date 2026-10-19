@@ -1,21 +1,20 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
-import { CircleMarker, MapContainer, Marker, Polyline, useMap } from 'react-leaflet';
-import { Box, IconButton, type PaletteMode } from '@mui/material';
-import Add from '@mui/icons-material/Add';
-import Remove from '@mui/icons-material/Remove';
-import MyLocation from '@mui/icons-material/MyLocation';
-import DarkMode from '@mui/icons-material/DarkMode';
-import LightMode from '@mui/icons-material/LightMode';
-import DirectionsBus from '@mui/icons-material/DirectionsBus';
-import Layers from '@mui/icons-material/Layers';
+import { CircleMarker, MapContainer, Marker, Polyline, Popup, useMap, useMapEvents } from 'react-leaflet';
+import { Box, Button, type PaletteMode } from '@mui/material';
 import { ICON_PATH, MODE_META, iconHtml, modeColor } from '../modes';
 import { GLASS, PALETTE } from '../map/palette';
 import { MAP_ATTRIBUTION } from '../map/mapStyle';
 import { createLookStyle, useMapLook, type MapLook } from '../map/mapLook';
 import { useRouteStations } from '../hooks/useRouteStations';
-import { buildOverlay, type Overlay } from '../utils/overlay';
-import { glassCss, glassStyle } from '../map/glass';
+import { useMapOverlays } from '../hooks/useMapOverlays';
+import { OVERLAYS } from '../map/overlays';
+import { useOverlayIds } from '../hooks/useOverlayIds';
+import MapControls from './MapControls';
+import { MapOverlays } from './MapOverlays';
+import { accessPoints, buildOverlay, type Overlay } from '../utils/overlay';
+import { legLines, type LineStyle } from '../utils/legStyle';
+import { glassCss } from '../map/glass';
 import '../map/glass.css';
 import type { LatLng, Place as PlaceT, RouteOption } from '../types';
 
@@ -57,8 +56,52 @@ interface Props {
   controlsOffset?: number;
   /** Shows a button that detects the vehicle the user is in (and reopens the vehicle window). */
   onDetectVehicle?: () => void;
+  /** The vehicle window is shown: the bus button is pressed and a second click hides it. */
+  vehicleOpen?: boolean;
+  /** A vehicle is confirmed: a dot on the bus button. */
+  vehicleConfirmed?: boolean;
   /** What the phone reports in the demo (with GPS error), drawn as a small dot next to the real position. */
   gpsPosition?: LatLng | null;
+  /** Active trip: the map keeps the user's position in view. */
+  follow?: boolean;
+  /** Active trip: the part of the route being travelled now (zoomed to when it changes). */
+  focus?: { key: string; path: LatLng[] } | null;
+  /** Picking a point ("Wybierz na mapie"): a tap / click on the map gives its position, the cursor is a crosshair. */
+  onMapPick?: (position: LatLng) => void;
+  /** Long press / right click on the map offers "Stąd" / "Dotąd" at that point. */
+  onContextPick?: (target: 'origin' | 'destination', position: LatLng) => void;
+  /** "Stąd" / "Dotąd" in the popup of a stop or Veturilo station of the map overlays. */
+  onPlacePick?: (target: 'origin' | 'destination', place: PlaceT) => void;
+  /** Opens the 3D map prototype (a button in the map controls). */
+  onOpen3d?: () => void;
+}
+
+/** Map taps while picking, and the long-press / right-click menu "Stąd" / "Dotąd". */
+function MapPicker({ onMapPick, onContextPick }: Pick<Props, 'onMapPick' | 'onContextPick'>) {
+  const [menu, setMenu] = useState<LatLng | null>(null);
+  useMapEvents({
+    click: (e) => onMapPick?.([e.latlng.lat, e.latlng.lng]),
+    contextmenu: (e) => {
+      if (onContextPick && !onMapPick) setMenu([e.latlng.lat, e.latlng.lng]);
+    },
+  });
+  if (!menu || !onContextPick) return null;
+  const pick = (target: 'origin' | 'destination') => {
+    setMenu(null);
+    onContextPick(target, menu);
+  };
+  return (
+    <Popup position={menu} closeButton={false} eventHandlers={{ remove: () => setMenu(null) }}>
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        <Button size="small" variant="outlined" onClick={() => pick('origin')}>
+          Stąd
+        </Button>
+        <Button size="small" variant="contained" onClick={() => pick('destination')}>
+          Dotąd
+        </Button>
+      </Box>
+    </Popup>
+  );
 }
 
 /** Fits the view to what is visible (route / points) and handles the first geolocation fix. */
@@ -68,7 +111,9 @@ function MapController({
   route,
   userPosition,
   padding,
-}: Pick<Props, 'origin' | 'destination' | 'route' | 'userPosition' | 'padding'>) {
+  follow = false,
+  focus = null,
+}: Pick<Props, 'origin' | 'destination' | 'route' | 'userPosition' | 'padding' | 'follow' | 'focus'>) {
   const map = useMap();
   const centeredOnUser = useRef(false);
 
@@ -96,6 +141,23 @@ function MapController({
       map.flyTo(userPosition, 15, { duration: 0.8 });
     }
   }, [map, userPosition, origin, destination]);
+
+  // Active trip: zoom to the leg being travelled (and the user) whenever the current leg changes.
+  useEffect(() => {
+    if (!focus || focus.path.length === 0) return;
+    const pts = userPosition ? [...focus.path, userPosition] : focus.path;
+    map.flyToBounds(L.latLngBounds(pts), {
+      paddingTopLeft: [padding.left + 24, padding.top + 24],
+      paddingBottomRight: [padding.right + 24, padding.bottom + 24],
+      maxZoom: 17,
+      duration: 0.8,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, focus?.key]);
+
+  useEffect(() => {
+    if (follow && userPosition && !map.getBounds().pad(-0.15).contains(userPosition)) map.panTo(userPosition, { animate: true, duration: 0.5 });
+  }, [map, follow, userPosition]);
 
   return null;
 }
@@ -183,19 +245,17 @@ function RouteLayer({
         iconAnchor: [size / 2, size / 2],
         html: `<div style="width:${size}px;height:${size}px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;border:2px solid ${border};background:${colors.surface};opacity:${opacity}">${html}</div>`,
       });
-    const swap = (p: [number, number]): [number, number] => [p[1], p[0]];
     const out: { key: string; position: [number, number]; icon: L.DivIcon }[] = [];
     overlay?.markers.forEach((m) => {
       const color = m.station.kind === 'metro_platform' ? MODE_META.metro[palette] : m.station.kind === 'tram_post' ? MODE_META.tram[palette] : m.station.kind === 'veturilo' ? MODE_META.veturilo[palette] : m.station.kind.startsWith('rail') ? MODE_META.rail[palette] : MODE_META.bus[palette];
-      out.push({ key: `stop-${m.station.id}`, position: m.station.position, icon: dot(16, '', color, m.underground ? 0.6 : 1) });
+      out.push({ key: `stop-${m.station.id}`, position: m.station.position, icon: dot(12, '', color, m.underground ? 0.6 : 1) });
     });
     overlay?.entrances.forEach((e, i) => {
-      out.push({ key: `entrance-${i}`, position: e, icon: dot(22, iconHtml(ICON_PATH.stairs, 14, MODE_META.metro[palette]), MODE_META.metro[palette]) });
+      out.push({ key: `entrance-${i}`, position: e, icon: dot(18, iconHtml(ICON_PATH.stairs, 11, MODE_META.metro[palette]), MODE_META.metro[palette]) });
     });
-    route.legs.forEach((leg, i) => {
-      leg.elevators?.forEach((p, k) => out.push({ key: `lift-${i}-${k}`, position: swap(p), icon: dot(24, iconHtml(ICON_PATH.elevator, 16, colors.accent), colors.accent) }));
-      leg.steps?.forEach((p, k) => out.push({ key: `steps-${i}-${k}`, position: swap(p), icon: dot(24, iconHtml(ICON_PATH.stairs, 16, colors.accent), colors.accent) }));
-    });
+    accessPoints(route).forEach(({ key, kind, position }) =>
+      out.push({ key, position, icon: dot(20, iconHtml(kind === 'elevator' ? ICON_PATH.elevator : ICON_PATH.stairs, 13, colors.accent), colors.accent) }),
+    );
     return out;
   }, [overlay, route, colors, palette]);
 
@@ -210,15 +270,15 @@ function RouteLayer({
               position: leg.path[0],
               icon: L.divIcon({
                 className: 'app-div-icon',
-                iconSize: [38, 38],
-                iconAnchor: [19, 19],
-                html: `<div style="width:38px;height:38px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${
+                iconSize: [26, 26],
+                iconAnchor: [13, 13],
+                html: `<div style="width:26px;height:26px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${
                   look === 'glass'
                     ? glassCss(palette)
-                    : `border:3px solid ${colors.surface};background:${colors.markerTint};box-shadow:${colors.shadow}`
+                    : `border:2px solid ${colors.surface};background:${colors.markerTint};box-shadow:${colors.shadow}`
                 }">${iconHtml(
                   MODE_META[leg.mode].path,
-                  20,
+                  15,
                   modeColor(leg.mode, palette),
                 )}</div>`,
               }),
@@ -234,6 +294,18 @@ function RouteLayer({
         const color = walk ? colors.accent : modeColor(leg.mode, palette);
         const positions = overlay?.paths[i] ?? leg.path;
         const buried = underground && leg.mode === 'metro';
+        // ridden parts solid, pushed parts dashed, steps / elevators / metro access in their own style
+        const lines = legLines(leg, positions);
+        const options = (style: LineStyle) =>
+          style === 'access'
+            ? { color: colors.accent, weight: 8, dashArray: '2 6', opacity: 1, lineCap: 'butt' as const }
+            : {
+                color,
+                weight: style === 'dotted' ? 5 : 6,
+                dashArray: style === 'dotted' ? '1 10' : style === 'dashed' || buried ? '8 8' : undefined,
+                opacity: buried ? 0.55 : 1,
+                lineCap: 'round' as const,
+              };
         return (
           <Fragment key={`${i}-${leg.mode}`}>
             {!walk && !buried && (
@@ -243,18 +315,14 @@ function RouteLayer({
                 pathOptions={{ color: colors.surface, weight: 12, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }}
               />
             )}
-            <Polyline
-              positions={positions}
-              interactive={false}
-              pathOptions={{
-                color,
-                weight: walk ? 5 : 6,
-                dashArray: walk ? '1 10' : buried ? '8 8' : undefined,
-                opacity: buried ? 0.55 : 1,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
+            {lines.map((line, k) => (
+              <Polyline
+                key={k}
+                positions={line.path}
+                interactive={false}
+                pathOptions={{ ...options(line.style), lineJoin: 'round' }}
+              />
+            ))}
           </Fragment>
         );
       })}
@@ -278,9 +346,9 @@ function stopIcon(n: number, colors: (typeof PALETTE)['light'], look: MapLook, m
       : `border:3px solid ${colors.surface};background:${colors.accent};box-shadow:${colors.shadow}`;
   return L.divIcon({
     className: 'app-div-icon',
-    html: `<div style="width:30px;height:30px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${fill};color:${colors.theme.primary.contrastText};font:700 13px/1 Roboto,sans-serif">${n}</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
+    html: `<div style="width:24px;height:24px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${fill};color:${colors.theme.primary.contrastText};font:700 12px/1 Roboto,sans-serif">${n}</div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
   });
 }
 
@@ -297,11 +365,21 @@ export default function MapView({
   stops = [],
   controlsOffset = 0,
   onDetectVehicle,
+  vehicleOpen = false,
+  vehicleConfirmed = false,
   gpsPosition = null,
+  follow = false,
+  onMapPick,
+  onContextPick,
+  onPlacePick,
+  onOpen3d,
+  focus = null,
 }: Props) {
   const [map, setMap] = useState<L.Map | null>(null);
+  const [overlayIds, toggleOverlay] = useOverlayIds();
+  const overlayData = useMapOverlays(map, overlayIds);
   const colors = PALETTE[paletteMode];
-  const [look, toggleLook] = useMapLook();
+  const [look] = useMapLook();
   const stations = useRouteStations(route);
   const overlay = useMemo(() => (route && stations.size > 0 ? buildOverlay(route, stations) : null), [route, stations]);
   const glass = look === 'glass';
@@ -315,13 +393,13 @@ export default function MapView({
       return {
         user: L.divIcon({
           className: 'app-div-icon',
-          html: `<div class="glass-pulse glass-rim" style="--pulse-color:${accent};position:relative;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;${gl()}">${iconHtml(
+          html: `<div class="glass-pulse glass-rim" style="--pulse-color:${accent};position:relative;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;${gl()}">${iconHtml(
             ICON_PATH.navigation,
-            24,
+            18,
             accent,
           )}</div>`,
-          iconSize: [42, 42],
-          iconAnchor: [21, 21],
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
         }),
         origin: L.divIcon({
           className: 'app-div-icon',
@@ -331,13 +409,13 @@ export default function MapView({
         }),
         destination: L.divIcon({
           className: 'app-div-icon',
-          html: `<div class="glass-pulse glass-rim" style="--pulse-color:${accent};position:relative;width:44px;height:44px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${gl(red)}">${iconHtml(
+          html: `<div class="glass-pulse glass-rim" style="--pulse-color:${accent};position:relative;width:32px;height:32px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;${gl(red)}">${iconHtml(
             ICON_PATH.place,
-            24,
+            18,
             colors.theme.primary.contrastText,
           )}</div>`,
-          iconSize: [44, 44],
-          iconAnchor: [22, 22],
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
         }),
       };
     }
@@ -345,13 +423,13 @@ export default function MapView({
       // white circle with a navigation arrow
       user: L.divIcon({
         className: 'app-div-icon',
-        html: `<div style="width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:${surface};box-shadow:${shadow}">${iconHtml(
+        html: `<div style="width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:${surface};box-shadow:${shadow}">${iconHtml(
           ICON_PATH.navigation,
-          24,
+          18,
           accent,
         )}</div>`,
-        iconSize: [42, 42],
-        iconAnchor: [21, 21],
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
       }),
       origin: L.divIcon({
         className: 'app-div-icon',
@@ -362,34 +440,26 @@ export default function MapView({
       // round accent circle with a white pin
       destination: L.divIcon({
         className: 'app-div-icon',
-        html: `<div style="width:44px;height:44px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;border:3px solid ${surface};background:${accent};box-shadow:${shadow}">${iconHtml(
+        html: `<div style="width:32px;height:32px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;border:2px solid ${surface};background:${accent};box-shadow:${shadow}">${iconHtml(
           ICON_PATH.place,
-          24,
+          18,
           colors.theme.primary.contrastText,
         )}</div>`,
-        iconSize: [44, 44],
-        iconAnchor: [22, 22],
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
       }),
     };
   }, [colors, glass, paletteMode]);
 
-  // Round floating button
-  const fab = (child: ReactNode) => (
-    <Box
-      className={glass ? 'glass-rim' : undefined}
-      sx={{
-        borderRadius: '50%',
-        ...(glass ? glassStyle(paletteMode) : { bgcolor: colors.surface, boxShadow: colors.shadow }),
-        '& .MuiIconButton-root': { width: 46, height: 46, color: colors.accent },
-      }}
-    >
-      {child}
-    </Box>
-  );
-
   return (
     <>
-      <Box sx={{ position: 'absolute', inset: 0 }}>
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          ...(onMapPick && { '& .leaflet-container, & .leaflet-container.leaflet-grab': { cursor: 'crosshair' } }),
+        }}
+      >
         <MapContainer
           ref={setMap}
           center={WARSAW}
@@ -399,12 +469,21 @@ export default function MapView({
           style={{ height: '100%', width: '100%' }}
         >
           <VectorBasemap mode={paletteMode} look={look} />
+          <MapPicker onMapPick={onMapPick} onContextPick={onContextPick} />
           <MapController
             origin={origin}
             destination={destination}
             route={route}
             userPosition={userPosition}
             padding={padding}
+            follow={follow}
+            focus={focus}
+          />
+          <MapOverlays
+            stations={overlayData.stations}
+            status={overlayData.status}
+            paletteMode={paletteMode}
+            onPlacePick={onPlacePick}
           />
           {route && <RouteLayer route={route} palette={paletteMode} detailed={detailed} look={look} overlay={overlay} />}
           {gpsPosition && (
@@ -444,57 +523,21 @@ export default function MapView({
         )}
       </Box>
 
-      {/* map controls: theme, location, zoom */}
-      <Box
-        sx={{
-          position: 'absolute',
-          zIndex: 900,
-          right: { xs: 12, sm: 16 },
-          top: { xs: `calc(env(safe-area-inset-top) + ${156 + controlsOffset}px)`, sm: 'calc(env(safe-area-inset-top) + 16px)' },
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 1.25,
-        }}
-      >
-        {fab(
-          <IconButton
-            aria-label={paletteMode === 'dark' ? 'Włącz jasny motyw' : 'Włącz ciemny motyw'}
-            onClick={onToggleMode}
-          >
-            {paletteMode === 'dark' ? <LightMode /> : <DarkMode />}
-          </IconButton>,
-        )}
-        {fab(
-          <IconButton
-            aria-label={glass ? 'Włącz płaską wersję mapy' : 'Włącz szklaną wersję mapy'}
-            aria-pressed={glass}
-            onClick={toggleLook}
-          >
-            <Layers />
-          </IconButton>,
-        )}
-        {onDetectVehicle &&
-          fab(
-            <IconButton aria-label="Wykryj pojazd, w którym jesteś" onClick={onDetectVehicle}>
-              <DirectionsBus />
-            </IconButton>,
-          )}
-        {fab(
-          <IconButton aria-label="Moja lokalizacja" onClick={onLocate}>
-            <MyLocation />
-          </IconButton>,
-        )}
-        {fab(
-          <IconButton aria-label="Przybliż" onClick={() => map?.zoomIn()}>
-            <Add />
-          </IconButton>,
-        )}
-        {fab(
-          <IconButton aria-label="Oddal" onClick={() => map?.zoomOut()}>
-            <Remove />
-          </IconButton>,
-        )}
-      </Box>
+      {/* map controls: the same buttons as on the 3D map */}
+      <MapControls
+        paletteMode={paletteMode}
+        onToggleMode={onToggleMode}
+        view3d={false}
+        onSwitchView={() => onOpen3d?.()}
+        overlayIds={overlayIds}
+        onToggleOverlay={toggleOverlay}
+        overlayZoomedOut={OVERLAYS.some((o) => overlayIds.includes(o.id) && overlayData.zoom < o.minZoom)}
+        onLocate={onLocate}
+        onDetectVehicle={onDetectVehicle}
+        vehicleOpen={vehicleOpen}
+        vehicleConfirmed={vehicleConfirmed}
+        controlsOffset={controlsOffset}
+      />
     </>
   );
 }

@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Opóźnienia ZTM: dokumentacja</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: same family as the other delay pages. One reading column: status, how it works on the server, what the
+   user sees, API, the bus-delay event for UI work, limits, files. Numbers live on delay-simulation.html. */
+:root {
+  --bg: #f4f6f8; --surface: #ffffff; --code-bg: #eef1f5; --ink: #12161c; --ink-2: #4a5361; --muted: #6e7887;
+  --grid: #dde2e8; --accent: #1f4f8a; --late: #c8322b; --early: #0c8f2e; --open: #9a6a00; --done: #0c8f2e;
+  --bus: #2a78d6; --tram: #d65a1f; --metro: #8a3fb8;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1216; --surface: #171b21; --code-bg: #1d232b; --ink: #eef1f5; --ink-2: #b9c1cc; --muted: #8b95a4;
+  --grid: #2a3038; --accent: #8cb8f0; --late: #ef5a52; --early: #3cc160; --open: #f0b429; --done: #3cc160;
+  --bus: #4a95ec; --tram: #f07a45; --metro: #b77ee0; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1216; --surface: #171b21; --code-bg: #1d232b; --ink: #eef1f5; --ink-2: #b9c1cc; --muted: #8b95a4;
+  --grid: #2a3038; --accent: #8cb8f0; --late: #ef5a52; --early: #3cc160; --open: #f0b429; --done: #3cc160;
+  --bus: #4a95ec; --tram: #f07a45; --metro: #b77ee0; color-scheme: dark }
+
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--f-body); }
+.wrap { max-width: 900px; margin: 0 auto; padding-block: 40px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 48px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(30px, 5vw, 44px); }
+h2 { font-size: 24px; }
+h3 { font: 700 17px/1.3 var(--f-body); }
+p, li { max-width: 70ch; }
+p { margin: 0; }
+ul, ol { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+a { color: var(--accent); }
+section { display: grid; gap: 14px; min-width: 0; }
+.eyebrow { font: 500 12px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+header { display: grid; gap: 14px; }
+.lead { color: var(--ink-2); font-size: 18px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 13px/1.4 var(--f-mono); color: var(--ink-2); }
+.meta b { color: var(--ink); font-weight: 500; }
+.note { color: var(--ink-2); font-size: 15px; }
+code { font: 0.88em var(--f-mono); background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+pre { margin: 0; background: var(--code-bg); border: 1px solid var(--grid); border-radius: 8px; padding: 14px 16px;
+  overflow-x: auto; font: 13px/1.55 var(--f-mono); color: var(--ink); }
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+pre.mermaid { background: var(--surface); }
+.code { display: grid; min-width: 0; }
+.code .bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; font: 12px var(--f-mono); color: var(--muted); padding: 0 2px 6px; }
+.code button { font: 500 12px var(--f-mono); color: var(--accent); background: none; border: 1px solid var(--grid); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.code button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.quick { background: var(--surface); border: 1px solid var(--grid); border-left: 4px solid var(--accent); border-radius: 8px; padding: 18px 20px; display: grid; gap: 10px; }
+.warn { background: var(--surface); border: 1px solid var(--grid); border-left: 4px solid var(--open); border-radius: 8px; padding: 14px 18px; display: grid; gap: 8px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 14px; }
+.tile { background: var(--surface); border: 1px solid var(--grid); border-radius: 8px; padding: 14px 16px; display: grid; gap: 4px; }
+.tile .big { font: 700 32px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.tile .sub { color: var(--ink-2); font-size: 14px; }
+
+.tbl { overflow-x: auto; background: var(--surface); border: 1px solid var(--grid); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 9px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--grid); }
+th { font: 500 12px var(--f-mono); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+td:first-child { white-space: nowrap; }
+.cx td:first-child { white-space: normal; }
+tbody tr:last-child td { border-bottom: 0; }
+.state { font: 500 12px/1 var(--f-mono); padding: 4px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.state.done { color: var(--done); } .state.open { color: var(--open); }
+
+.steps { counter-reset: s; list-style: none; padding: 0; display: grid; gap: 10px; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 10px; max-width: none; }
+.steps li::before { content: counter(s); font: 700 15px/28px var(--f-display); width: 28px; height: 28px; text-align: center; border-radius: 50%; border: 1px solid var(--grid); background: var(--surface); color: var(--accent); }
+
+.mock { background: var(--surface); border: 1px solid var(--grid); border-radius: 20px; padding: 16px 18px; display: grid; gap: 8px; max-width: 480px; }
+.mock .t { font-weight: 700; display: flex; justify-content: space-between; gap: 8px; }
+.mock .t span:last-child { font: 700 20px var(--f-display); }
+.mock .s { color: var(--ink-2); font-size: 14px; }
+.chain { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; }
+.leg { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-weight: 700; color: var(--ink);
+  background: color-mix(in srgb, var(--c) 14%, transparent); white-space: nowrap; }
+.leg i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); display: inline-block; }
+.d { font-weight: 700; } .d.late { color: var(--late); } .d.early { color: var(--early); } .d.on { color: var(--ink-2); }
+.sep { color: var(--muted); }
+.mocks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">WarsawOpenData · opóźnienia autobusów i tramwajów · dokumentacja</span>
+    <h1>Opóźnienia ZTM: dokumentacja</h1>
+    <p class="lead">Jak serwer szacuje opóźnienie autobusu lub tramwaju na żywo, gdzie to widać w aplikacji, jak z tego korzystać przy pracy nad UI i czego jeszcze brakuje. Liczby są na <code>artifacts/delays/delay-statistics.html</code>, a co i na czym testowałem: <code>artifacts/delays/tests/delay-tests.html</code>.</p>
+    <div class="meta"><span>stan na <b>18.10.2026</b></span><span>gałąź <b>main</b></span><span>kontrakt API <b>data/API.md</b></span><span>promień <b>R = 80 m</b></span></div>
+  </header>
+
+  <section>
+    <div class="quick">
+      <h3>W skrócie</h3>
+      <ul>
+        <li><b>Lista proponowanych tras:</b> przy każdym autobusie i tramwaju widać jego opóźnienie na żywo, np. „180 · 12′ · +3 min”. Działa dla każdej linii autobusowej i tramwajowej.</li>
+        <li><b>Pojazd, w którym jedziesz</b> (po „Jadę tą linią”): opóźnienie przychodzi co 10 s w evencie <code>bus-delay</code>, ale żaden element ekranu go jeszcze nie pokazuje.</li>
+        <li><b>Dokładność</b> na 32 min prawdziwych danych: przy R = 80 m opóźnienie ma każdy przejazd obok przystanku, połowa wyników różni się od wzorca o 2 s lub mniej.</li>
+      </ul>
+    </div>
+    <div class="tbl"><table>
+      <thead><tr><th>PR</th><th>co wnosi</th><th>stan</th></tr></thead>
+      <tbody>
+        <tr><td><a href="https://github.com/szymon-hajderek/WarsawOpenData/pull/48">#48</a></td><td>algorytm, bufor pozycji na serwerze, <code>GET /api/live/delay</code>, event <code>bus-delay</code></td><td><span class="state done">na main</span></td></tr>
+        <tr><td><a href="https://github.com/szymon-hajderek/WarsawOpenData/pull/54">#54</a></td><td>nagranie 32 min, symulacja, szukanie R, strona statystyk</td><td><span class="state done">na main</span></td></tr>
+        <tr><td><a href="https://github.com/szymon-hajderek/WarsawOpenData/pull/91">#91</a></td><td>opóźnienie na liście tras: <code>POST /api/live/route-delays</code> i napis przy linii</td><td><span class="state done">na main</span></td></tr>
+        <tr><td><a href="https://github.com/szymon-hajderek/WarsawOpenData/pull/93">#93</a> (Szymon)</td><td>pole <code>RouteLeg.tripId</code> w odpowiedzi <code>POST /api/routes</code></td><td><span class="state done">na main</span></td></tr>
+        <tr><td><a href="https://github.com/szymon-hajderek/WarsawOpenData/pull/88">#88</a></td><td>wywołanie <code>/api/live/delay</code> przez <code>apiUrl()</code> i ze sprawdzaniem odpowiedzi</td><td><span class="state open">czeka na scalenie</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Jak to działa na serwerze</h2>
+    <ol class="steps">
+      <li><span><b>Pozycje na żywo.</b> Serwer co 3 s pobiera pozycje wszystkich autobusów i tramwajów z API Urzędu Miasta (feed zmienia się mniej więcej co 10 s). Każdy wpis ma linię, brygadę, numer taborowy, współrzędne i czas.</span></li>
+      <li><span><b>Bufor pojazdu.</b> Dla każdego pojazdu serwer trzyma pozycje z ostatnich minut: najdłuższy planowy przejazd między dwoma przystankami jego kursu + 60 s (10 min, gdy kursu nie da się ustalić). Między dwoma odczytami dopisuje punkt w połowie drogi, więc pozycja jest mniej więcej co 5 s. Nie dopisuje go, gdy pobranie się nie udało albo odczyty dzieli więcej niż 25 s.</span></li>
+      <li><span><b>Kurs z rozkładu.</b> Linia + brygada wskazują kursy z rozkładu GTFS. Serwer rzutuje pozycję na trasę każdego kursu, który jedzie teraz ± 15 min i przebiega bliżej niż 100 m, i wybiera ten, którego rozkład w tym miejscu trasy jest najbliżej „teraz” (brygada jeździ tą samą trasą kilka razy dziennie).</span></li>
+      <li><span><b>Ostatni minięty przystanek (K-1)</b> to ostatni przystanek kursu przed miejscem, w którym jest pojazd. Następny to K.</span></li>
+      <li><span><b>Moment przejazdu:</b> punkt z bufora najbliższy przystankowi K-1, ale tylko w promieniu R = 80 m (<code>DELAY_RADIUS_M</code>; wybrane wyszukiwaniem, patrz <code>artifacts/delays/tests/radius-search.html</code>). Brak takiego punktu = „dane o opóźnieniu niedostępne”.</span></li>
+      <li><span><b>Opóźnienie</b> = moment przejazdu − planowy odjazd z K-1. Może być ujemne (przed czasem). Pokazujemy je jako przewidywane opóźnienie na następnym przystanku K.</span></li>
+    </ol>
+    <pre class="mermaid">
+flowchart LR
+  A["API Urzędu Miasta<br/>co 3 s"] --> B["bufor pojazdu<br/>punkty co ~5 s"]
+  B --> C["kurs z GTFS<br/>linia + brygada"]
+  C --> D["K-1 na trasie"]
+  D --> E["przejazd w promieniu 80 m"]
+  E --> F["opóźnienie<br/>= przejazd − rozkład"]
+    </pre>
+    <p class="note">Pułapka znaleziona po drodze: w <code>warsaw.zip</code> odległość wzdłuż trasy (<code>shape_dist_traveled</code>) jest w kilometrach, a cache ucinał ją do pełnych kilometrów. Kod opóźnień liczy więc metry ze współrzędnych (<code>mkuran._trip_static</code>).</p>
+  </section>
+
+  <section>
+    <h2>Lista proponowanych tras</h2>
+    <ol class="steps">
+      <li><span>Po wyszukaniu trasy <code>useRouteDelays</code> (w <code>RouteOptionsSheet</code>) wysyła listę propozycji do <code>POST /api/live/route-delays</code>: raz po pojawieniu się listy, potem co 30 s, dopóki lista jest na ekranie.</span></li>
+      <li><span>Serwer odczytuje kursy z identyfikatora propozycji (<code>pt-&lt;kurs&gt;-&lt;kurs&gt;</code>), z każdego kursu bierze linię i brygadę i w danych na żywo znajduje pojazd z tą samą linią i brygadą. To ten konkretny autobus, który przyjedzie.</span></li>
+      <li><span>Dla tego pojazdu liczy opóźnienie jak wyżej. Gdy pojazd jeszcze kończy wcześniejszy kurs swojej brygady (np. jedzie do pętli), oddaje jego obecne opóźnienie jako prognozę (<code>sameTrip: false</code>).</span></li>
+      <li><span><code>LegChain</code> dopisuje opóźnienie za linią i czasem jazdy. Etykieta silnika „opóźnienie N min” jest wtedy ukryta, żeby na karcie nie było dwóch różnych liczb.</span></li>
+    </ol>
+    <div class="mocks" aria-label="Przykłady wyglądu karty trasy">
+      <div class="mock">
+        <div class="t"><span>180 + 17</span><span>39 min</span></div>
+        <div class="s">14:02 – 14:41 · 1 przesiadka</div>
+        <div class="chain">
+          <span class="leg" style="--c: var(--muted)"><i></i>4′</span><span class="sep">›</span>
+          <span class="leg" style="--c: var(--bus)"><i></i>180 · 12′ <span class="d late">· +3 min</span></span><span class="sep">›</span>
+          <span class="leg" style="--c: var(--tram)"><i></i>17 · 18′ <span class="d early">· ok. 1 min wcześniej</span></span><span class="sep">›</span>
+          <span class="leg" style="--c: var(--muted)"><i></i>5′</span>
+        </div>
+      </div>
+      <div class="mock">
+        <div class="t"><span>523 + M1</span><span>31 min</span></div>
+        <div class="s">14:05 – 14:36 · 1 przesiadka</div>
+        <div class="chain">
+          <span class="leg" style="--c: var(--bus)"><i></i>523 · 9′ <span class="d on">· punktualnie</span></span><span class="sep">›</span>
+          <span class="leg" style="--c: var(--metro)"><i></i>M1 · 15′</span>
+        </div>
+      </div>
+    </div>
+    <p class="note">Przykłady z wymyślonymi godzinami. Pierwsza karta to ten sam układ, który sprawdziłem w działającej aplikacji z podstawionymi odpowiedziami serwera.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>sytuacja</th><th>napis</th></tr></thead>
+      <tbody>
+        <tr><td>spóźnienie ≥ 60 s</td><td><span class="d late">+3 min</span> (czerwony)</td></tr>
+        <tr><td>różnica &lt; 60 s</td><td><span class="d on">punktualnie</span> (szary)</td></tr>
+        <tr><td>≥ 60 s przed czasem</td><td><span class="d early">2 min wcześniej</span> (zielony)</td></tr>
+        <tr><td>pojazd kończy poprzedni kurs</td><td>to samo z dopiskiem „ok.”; podpowiedź „Prognoza: pojazd kończy jeszcze poprzedni kurs”</td></tr>
+        <tr><td>metro, pociąg, brak pojazdu na żywo, brak przejazdu w promieniu, dane przykładowe, serwer nie odpowiada, trasa z przystankami pośrednimi</td><td>brak napisu</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>API</h2>
+    <p class="note">Pełny kontrakt z prawdziwymi przykładami: <code>data/API.md</code>.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>endpoint</th><th>do czego</th><th>najważniejsze pola odpowiedzi</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /api/live/delay?vehicle=bus-1234</code></td><td>opóźnienie jednego pojazdu (ten, w którym jedziesz)</td><td><code>available</code>, <code>delaySec</code>, <code>reason</code>, <code>prevStop</code> (K-1: <code>scheduled</code>, <code>passedAt</code>), <code>nextStop</code> (K: <code>scheduled</code>, <code>expected</code>)</td></tr>
+        <tr><td><code>POST /api/live/route-delays</code></td><td>opóźnienia autobusów i tramwajów z propozycji tras (max 20)</td><td><code>{"&lt;id trasy&gt;": [{transitIndex, line, vehicleId, available, delaySec, sameTrip, reason}]}</code></td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Powody „niedostępne” (<code>reason</code>): <code>no_trip</code> (brak kursu w rozkładzie), <code>outside_trip</code> (pojazd na pętli), <code>no_pass_in_radius</code> (brak pozycji blisko ostatniego przystanku), <code>no_vehicle</code> (brak pojazdu tej brygady na żywo), <code>not_live</code> (metro, pociąg, nieznany kurs).</p>
+  </section>
+
+  <section>
+    <h2>Event <code>bus-delay</code> dla pracy nad UI</h2>
+    <p class="note">Po kliknięciu „Jadę tą linią” <code>useVehicleDetection</code> uruchamia <code>watchDelay</code> z <code>src/api/delay.ts</code>: co 10 s pyta <code>GET /api/live/delay</code> i wysyła na <code>window</code> event <code>bus-delay</code> z odpowiedzią w <code>event.detail</code> (typ <code>BusDelayDetail</code> w <code>src/types.ts</code>). Polling kończy się przy nowej detekcji i po „Nie jadę komunikacją”. Gdy serwer nie zna pojazdu (404, np. linia wybrana ręcznie), <code>reason</code> to <code>unknown_vehicle</code>; gdy nie odpowiada, <code>backend_unavailable</code>.</p>
+    <div class="code">
+      <div class="bar"><span>gotowy hook: src/hooks/useBusDelay.ts</span><button type="button" data-copy="hook" id="copy-hook">Kopiuj</button></div>
+<pre id="hook"><code>import { useEffect, useState } from 'react';
+import { BUS_DELAY_EVENT } from '../api/delay';
+import type { BusDelayDetail } from '../types';
+
+/** The latest `bus-delay` answer for the confirmed vehicle, or null before the first one. */
+export function useBusDelay(): BusDelayDetail | null {
+  const [delay, setDelay] = useState&lt;BusDelayDetail | null&gt;(null);
+  useEffect(() =&gt; {
+    const onDelay = (e: Event) =&gt; setDelay((e as CustomEvent&lt;BusDelayDetail&gt;).detail);
+    window.addEventListener(BUS_DELAY_EVENT, onDelay);
+    return () =&gt; window.removeEventListener(BUS_DELAY_EVENT, onDelay);
+  }, []);
+  return delay;
+}</code></pre>
+    </div>
+    <p class="note">Przy wyświetlaniu warto użyć istniejących funkcji z listy tras, żeby napisy były takie same: <code>legDelayLabel</code> i <code>legDelayKind</code> w <code>src/api/routeDelays.ts</code> (po przekształceniu <code>delaySec</code> na <code>LegDelay</code>). Sprawdzaj <code>delay.vehicleId === confirmed.id</code>, bo po zmianie pojazdu może jeszcze dojść ostatni event poprzedniego.</p>
+    <div class="code">
+      <div class="bar"><span>test bez serwera: wklej w konsolę przeglądarki</span><button type="button" data-copy="fake" id="copy-fake">Kopiuj</button></div>
+<pre id="fake"><code>window.dispatchEvent(new CustomEvent('bus-delay', { detail: {
+  vehicleId: 'bus-2246', line: '517', brigade: '3', mode: 'bus', headsign: 'Ursus-Niedźwiadek',
+  available: true, reason: null, delaySec: 185,
+  prevStop: { id: 'ztm:703302', name: 'Krucza', scheduled: '18:57:00', passedAt: '19:00:05' },
+  nextStop: { id: 'ztm:701306', name: 'Centrum', scheduled: '18:59:00', expected: '19:02:05' },
+  updatedAt: Date.now() / 1000,
+}}));</code></pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>Jak uruchomić i sprawdzić</h2>
+    <ul>
+      <li>Serwer: <code>cd backend &amp;&amp; uv run uvicorn main:app</code> (potrzebny <code>PORTAL_KEY</code> w <code>.env</code>). Pierwsze minuty po starcie: bufor się zapełnia, odpowiedzi <code>503</code> albo <code>no_pass_in_radius</code>.</li>
+      <li>Jeden pojazd: <code>curl "localhost:8000/api/live/delay?vehicle=bus-5914"</code> (id z okna „W jakim pojeździe jestem”).</li>
+      <li>Testy: <code>cd backend &amp;&amp; uv run pytest tests ../algorithms</code>; frontend: <code>npm run lint</code>, <code>npm test</code>, <code>npm run build</code>.</li>
+      <li>Statystyki od nowa z nagrania: <code>uv run python ../algorithms/simulation/export_delay_viz.py</code>; najlepszy promień i jego raport: <code>search_delay_radius.py --report</code>; nowe nagranie (serwer włączony, 30 min): <code>record_delay_sample.py 30</code>.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Ograniczenia i do zrobienia</h2>
+    <div class="warn">
+      <ul>
+        <li><b>Przejście na <code>RouteLeg.tripId</code>.</b> Lista tras bierze kursy z identyfikatora propozycji. Szymon prosi o czytanie ich z nowego pola <code>tripId</code> odcinka (już na <code>main</code>, PR #93). Dziś działa poprawnie; chodzi o odporność na zmiany w silniku.</li>
+        <li><b>Zawijanie napisu.</b> Dłuższy napis („ok. 1 min wcześniej”) łamie się w dwie linie i rozbija napis linii na karcie. Do poprawki w <code>LegChain.tsx</code> (np. <code>white-space: nowrap</code> na napisie odcinka).</li>
+        <li><b>Brak widoku dla pojazdu, w którym jedziesz:</b> dane płyną w evencie <code>bus-delay</code>, nikt ich jeszcze nie pokazuje.</li>
+        <li>Trasy z przystankami pośrednimi (identyfikator <code>multi-N</code>), metro i pociągi nie mają opóźnień.</li>
+        <li>Opóźnienie zmienia się skokowo, gdy pojazd minie kolejny przystanek (co 1–3 minuty).</li>
+        <li>Router C++ nie buduje się na Windowsie (kod używa <code>pwrite</code>), więc na takim komputerze nie zadziała pełne wyszukiwanie trasy komunikacją.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Statystyki w skrócie</h2>
+    <div class="tiles">
+      <div class="tile"><span class="big">100%</span><span class="sub">przejazdów z opóźnieniem przy R = 80 m (1130 z 1130); 96,5% dokładnych do 30 s</span></div>
+      <div class="tile"><span class="big">2 s</span><span class="sub">mediana błędu; 90% do 14 s</span></div>
+      <div class="tile"><span class="big">97,8%</span><span class="sub">dostępne, gdy ginie 30% pobrań danych</span></div>
+      <div class="tile"><span class="big">80 m</span><span class="sub">promień R wybrany wyszukiwaniem (wcześniej 30 m: 95,0%)</span></div>
+      <div class="tile"><span class="big">0,41 ms</span><span class="sub">mediana obliczenia jednego opóźnienia; 90% do 0,54 ms</span></div>
+    </div>
+    <p class="note">Szczegóły, wykresy, mapy linii, wyniki per linia i przystanek oraz testy: <code>artifacts/delays/delay-statistics.html</code>.</p>
+  </section>
+
+  <section>
+    <h2>Złożoność obliczeniowa</h2>
+    <div class="tbl"><table class="cx">
+      <thead><tr><th>krok</th><th>złożoność</th><th>na nagraniu</th></tr></thead>
+      <tbody>
+        <tr><td>odpytanie feedu co 3 s + dopisanie punktów do buforów</td><td>O(V)</td><td>wszystkie autobusy i tramwaje naraz</td></tr>
+        <tr><td>pamięć buforów</td><td>O(V·B)</td><td>B: mediana 49, maks. 123 punkty na pojazd</td></tr>
+        <tr><td>jedno <code>GET /api/live/delay</code> (<code>estimate</code>)</td><td>O(C·(S + P) + B)</td><td>mediana 0,27 ms, 90% do 0,49 ms; C = 1 (maks. 2), C·S = 788 punktów trasy (maks. 1909)</td></tr>
+        <tr><td><code>POST /api/live/route-delays</code></td><td>O(Σ odcinków · (C·(S + P) + B))</td><td>do 20 propozycji, po jednym <code>estimate</code> na odcinek autobusu / tramwaju</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">V = pojazdy na żywo, B = punkty w buforze pojazdu, C = kursy tej linii i brygady jadące teraz ± 15 min, S = punkty trasy kursu, P = przystanki kursu. C, S, P i B zależą od rozkładu, a nie od wielkości miasta, więc koszt jednego zapytania jest stały; z liczbą pojazdów rośnie tylko odpytywanie feedu. Pomiar: 11 992 oszacowania w symulacji na nagraniu, Python na laptopie. Szczegóły: <code>artifacts/delays/delay-statistics.html</code>, sekcja „Złożoność obliczeniowa”.</p>
+  </section>
+
+  <section>
+    <h2>Pliki</h2>
+    <ul>
+      <li><code>algorithms/bus_delay.py</code>: algorytm (bufor, kurs, K-1, przejazd, opóźnienie)</li>
+      <li><code>algorithms/route_delays.py</code>: kursy z identyfikatora trasy, pojazd dla każdego odcinka</li>
+      <li><code>backend/bus_detect.py</code>: pobieranie pozycji, bufor, oba endpointy</li>
+      <li><code>backend/sources/mkuran.py</code>: <code>max_segment_for</code>, <code>brigade_trips</code>, <code>_trip_static</code></li>
+      <li><code>frontend/src/api/routeDelays.ts</code>, <code>hooks/useRouteDelays.ts</code>, <code>components/LegChain.tsx</code>, <code>components/RouteOptionsSheet.tsx</code>: lista tras</li>
+      <li><code>frontend/src/api/delay.ts</code>, <code>hooks/useVehicleDetection.ts</code>: event <code>bus-delay</code></li>
+      <li><code>algorithms/simulation/</code>: nagranie, symulacja, szukanie R; dane: <code>data/live/delay_sample.json.gz</code></li>
+    </ul>
+  </section>
+</div>
+
+<script>
+document.querySelectorAll('button[data-copy]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const pre = document.getElementById(btn.dataset.copy);
+    const done = () => { btn.textContent = 'Skopiowano'; setTimeout(() => (btn.textContent = 'Kopiuj'), 1500); };
+    const select = () => { const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); btn.textContent = 'Zaznaczono, Ctrl+C'; };
+    try { navigator.clipboard.writeText(pre.innerText).then(done, select); } catch (e) { select(); }
+  });
+});
+</script>
+</body>
+</html>

@@ -4,6 +4,7 @@ import DirectionsWalk from '@mui/icons-material/DirectionsWalk';
 import DirectionsBike from '@mui/icons-material/DirectionsBike';
 import Accessible from '@mui/icons-material/Accessible';
 import SwapHoriz from '@mui/icons-material/SwapHoriz';
+import DirectionsBus from '@mui/icons-material/DirectionsBus';
 import LevelSelector from './LevelSelector';
 import HistoryHint, { type HistoryInfo } from './HistoryHint';
 import AreaPicker from './AreaPicker';
@@ -11,6 +12,10 @@ import type { SpeedSummary } from '../../history/types';
 import {
   BIKE_LEVELS,
   cyclingKmh,
+  MIN_BIKES_CHOICES,
+  FILTER_MODES,
+  modeName,
+  type ExcludableMode,
   SPEED_RANGE,
   walkingKmh,
   wheelchairKmh,
@@ -124,6 +129,28 @@ export function CyclingSection({
               onUse={(kmh) => onChange({ ...value, customKmh: kmh })}
             />
           )}
+          <Typography variant="body2" sx={{ fontWeight: 600, mt: 2, mb: 0.75 }}>
+            Rowery na stacji
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Wypożyczaj tylko tam, gdzie teraz stoi co najmniej tyle rowerów.
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }} role="group" aria-label="Najmniej rowerów na stacji">
+            {MIN_BIKES_CHOICES.map((c) => {
+              const selected = value.minBikes === c.value;
+              return (
+                <Chip
+                  key={c.value}
+                  label={c.label}
+                  clickable
+                  color={selected ? 'primary' : 'default'}
+                  variant={selected ? 'filled' : 'outlined'}
+                  aria-pressed={selected}
+                  onClick={() => onChange({ ...value, minBikes: c.value })}
+                />
+              );
+            })}
+          </Box>
         </>
       )}
     </Section>
@@ -253,6 +280,30 @@ export function PrioritiesSection({
   );
 }
 
+/** "Środki transportu": the vehicles the search may use (the unchecked ones are sent as `excludeModes`). */
+export function TransportModesSection({ value, onChange }: { value: ExcludableMode[]; onChange: (excluded: ExcludableMode[]) => void }) {
+  return (
+    <Section icon={<DirectionsBus />} title="Środki transportu" hint="Którymi pojazdami chcesz jeździć. Odznaczone pomijamy w wyszukiwaniu.">
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }} role="group" aria-label="Środki transportu">
+        {FILTER_MODES.map((m) => {
+          const on = !value.includes(m);
+          return (
+            <Chip
+              key={m}
+              label={modeName(m)}
+              clickable
+              color={on ? 'primary' : 'default'}
+              variant={on ? 'filled' : 'outlined'}
+              aria-pressed={on}
+              onClick={() => onChange(on ? [...value, m] : value.filter((x) => x !== m))}
+            />
+          );
+        })}
+      </Box>
+    </Section>
+  );
+}
+
 /** All preference sections. Used on the Preferences page and (as overrides) in the trip filters. */
 export default function PreferenceFields({
   value,
@@ -276,6 +327,7 @@ export default function PreferenceFields({
         onChange={(wheelchair) => onChange({ ...value, wheelchair })}
         history={value.wheelchair.type === 'none' ? undefined : info('wheelchair')}
       />
+      <TransportModesSection value={value.excludedModes} onChange={(excludedModes) => onChange({ ...value, excludedModes })} />
       <PrioritiesSection value={value.priorities} onChange={(priorities) => onChange({ ...value, priorities })} />
     </Box>
   );

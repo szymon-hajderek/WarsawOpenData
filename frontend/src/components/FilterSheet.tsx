@@ -67,10 +67,12 @@ export default function FilterSheet({ open, onClose, filters, onChange, effectiv
   const [advanced, setAdvanced] = useState(false);
 
   const setTrip = (next: Preferences) => onChange({ ...filters, overrides: diffOverrides(effective, next) });
-  const selectedModes = filters.modes ?? FILTER_MODES;
+  // The chips start from the preference ("Środki transportu") and override it for this search only.
+  const preferred = FILTER_MODES.filter((m) => !trip.excludedModes.includes(m));
+  const selectedModes = filters.modes ?? preferred;
   const toggleMode = (m: FilterMode) => {
-    const next = selectedModes.includes(m) ? selectedModes.filter((x) => x !== m) : [...selectedModes, m];
-    onChange({ ...filters, modes: next.length === FILTER_MODES.length ? null : next });
+    const next = FILTER_MODES.filter((x) => (x === m ? !selectedModes.includes(x) : selectedModes.includes(x)));
+    onChange({ ...filters, modes: next.length === preferred.length && next.every((x) => preferred.includes(x)) ? null : next });
   };
 
   return (
@@ -212,8 +214,8 @@ export default function FilterSheet({ open, onClose, filters, onChange, effectiv
       </Box>
 
       <Box sx={{ px: 2.5, py: 1.5, display: 'flex', gap: 1.5, borderTop: 1, borderColor: 'divider', pb: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
-        <Button color="inherit" onClick={() => onChange(DEFAULT_FILTERS)}>
-          Wyczyść
+        <Button color="inherit" onClick={() => onChange(DEFAULT_FILTERS)} sx={{ flexShrink: 0, whiteSpace: "nowrap" }}>
+          Wyczyść filtry
         </Button>
         <Button variant="contained" fullWidth onClick={onClose}>
           Pokaż trasy ({resultCount})

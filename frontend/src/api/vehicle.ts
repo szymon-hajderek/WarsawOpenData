@@ -31,37 +31,35 @@ export interface BusPopupDetail {
 export const BUS_POPUP_EVENT = 'bus-popup';
 export const BUS_POPUP_REQUEST_EVENT = 'bus-popup-request';
 
+/** Spacing of the detection points, ms (the live feed changes about every 10 s). */
+const DETECTION_SPACING_MS = 8_000;
+
+/**
+ * The last 1-3 points of a trip recording (`{lat, lon, t}` with `t` in seconds, one every 4 s), at least 8 s apart,
+ * oldest first: the input `detectVehicle` expects.
+ */
+export function detectionPoints(track: { lat: number; lon: number; t: number }[]): TrackPoint[] {
+  const out: TrackPoint[] = [];
+  for (let i = track.length - 1; i >= 0 && out.length < 3; i--) {
+    const p = { lat: track[i].lat, lon: track[i].lon, time_ms: Math.round(track[i].t * 1000) };
+    if (out.length === 0 || out[0].time_ms - p.time_ms >= DETECTION_SPACING_MS) out.unshift(p);
+  }
+  return out;
+}
+
 /** The user's track: the last 1-3 positions, or just the current one when there is no track yet. */
 function trackOrPosition(track: TrackPoint[], position: LatLng | null): TrackPoint[] {
   if (track.length > 0) return track;
   return position ? [{ lat: position[0], lon: position[1], time_ms: Date.now() }] : [];
 }
 
-// ---------------------------------------------------------------- fallback (backend not running)
-
-const POOL: VehicleCandidate[] = [
-  { id: 'tram-17', mode: 'tram', line: '17', direction: 'Annopol' },
-  { id: 'bus-175', mode: 'bus', line: '175', direction: 'Lotnisko Chopina' },
-  { id: 'metro-m1', mode: 'metro', line: 'M1', direction: 'Kabaty' },
-  { id: 'rail-s1', mode: 'rail', line: 'S1', direction: 'Otwock' },
-  { id: 'bus-523', mode: 'bus', line: '523', direction: 'Dw. Wschodni' },
-  { id: 'tram-33', mode: 'tram', line: '33', direction: 'Okęcie' },
-  { id: 'metro-m2', mode: 'metro', line: 'M2', direction: 'Bemowo' },
-  { id: 'bus-186', mode: 'bus', line: '186', direction: 'Wilanów' },
-];
-
-function mockCandidates(position: LatLng | null): VehicleCandidate[] {
-  const start = position ? Math.abs(Math.round((position[0] + position[1]) * 1000)) % POOL.length : 0;
-  return [0, 3, 5, 7].map((step) => POOL[(start + step) % POOL.length]);
-}
-
 // ---------------------------------------------------------------- API
 
 export interface DetectionResult {
-  /** True when the candidates are made-up example data (only when the backend is switched off on purpose). */
-  mock: boolean;
-  /** The backend is switched on but could not be reached (or sent a bad answer): nothing was detected. */
+  /** The backend is switched off, could not be reached or sent a bad answer: nothing was detected. */
   offline: boolean;
+  /** The server answered, but has no live vehicle data now (503: no live feed / key on the server). Not "offline". */
+  liveUnavailable?: boolean;
   /** The most likely vehicle first, then up to 3 other possible ones. */
   candidates: VehicleCandidate[];
   /** All lines in the live data, for choosing the line by hand. */
@@ -80,14 +78,10 @@ export async function detectVehicle(
 ): Promise<DetectionResult> {
   const points = trackOrPosition(track, position);
   let detail: BusPopupDetail;
-  let mock = false;
   if (!API_URL) {
-    // The backend is switched off on purpose: example data.
-    mock = true;
-    const candidates = mockCandidates(position);
-    detail = { candidates, lines: candidates.map((c) => c.line), points };
+    return { candidates: [], lines: [], offline: true }; // the backend is switched off on purpose
   } else if (points.length === 0) {
-    return { candidates: [], lines: [], mock: false, offline: false }; // no location, nothing to detect
+    return { candidates: [], lines: [], offline: false }; // no location, nothing to detect
   } else {
     try {
       const r = await fetch(apiUrl('/api/live/nearest-buses'), {
@@ -96,6 +90,7 @@ export async function detectVehicle(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ points }),
       });
+      if (r.status === 503) return { candidates: [], lines: [], offline: false, liveUnavailable: true };
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data: unknown = await r.json();
       if (!isNearestBuses(data)) throw new Error('Unexpected answer shape');
@@ -115,11 +110,11 @@ export async function detectVehicle(
     } catch (e) {
       if (signal?.aborted) throw e;
       console.warn('Bus detection unavailable:', e);
-      return { candidates: [], lines: [], mock: false, offline: true };
+      return { candidates: [], lines: [], offline: true };
     }
   }
   window.dispatchEvent(new CustomEvent<BusPopupDetail>(BUS_POPUP_EVENT, { detail }));
-  return { candidates: detail.candidates, lines: detail.lines, mock, offline: false };
+  return { candidates: detail.candidates, lines: detail.lines, offline: false };
 }
 
 /** Detect again with the last 1-3 positions and reopen the popup (wire a "choose my line" button to it). */

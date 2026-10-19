@@ -1,0 +1,67 @@
+<!--title:Częste miejsca-->
+<div class="wrap">
+  <header>
+    <span class="eyebrow">WarsawOpenData · wyszukiwarka · raport funkcji</span>
+    <h1>Częste miejsca</h1>
+    <p class="lead">Aplikacja po cichu uczy się, dokąd użytkownik jeździ najczęściej, i podpowiada te miejsca jako pierwsze w polach wyszukiwania. Wszystko dzieje się na telefonie: nic nie trafia na serwer. Testy: <code>artifacts/frequent-places/tests/frequent-places-tests.html</code>.</p>
+    <div class="meta"><span>stan na <b>18.10.2026</b></span><span>gałąź <b>feature/frequent-places</b></span><span>zakres <b>tylko frontend</b></span><span>API <b>bez zmian</b></span></div>
+  </header>
+
+  <section>
+    <h2>Co widzi użytkownik</h2>
+    <p>Po dwóch wyszukaniach trasy z tym samym miejscem pole „Skąd” / „Dokąd” / „Przystanek N” pokazuje je od razu po kliknięciu, z ikoną zegara i podpisem „Często wybierane”. Funkcja nie ma ekranu ustawień; jedyny ślad w interfejsie to przycisk „Wyczyść częste miejsca” w Preferencjach.</p>
+    <div class="shots">
+      <figure><img src="img/3-suggestions.jpg" alt="Puste pole Dokąd z dwiema podpowiedziami Często wybierane"><figcaption>Puste pole: do 3 częstych miejsc.</figcaption></figure>
+      <figure><img src="img/4-typing.jpg" alt="Wpisane dwo: Dworzec Centralny jako częste miejsce na górze, pod nim przystanki"><figcaption>Wpisywanie „dwo”: pasujące częste miejsce na górze, bez duplikatu w wynikach.</figcaption></figure>
+      <figure><img src="img/5-dark-three-places.jpg" alt="Tryb ciemny, trzy podpowiedzi"><figcaption>Tryb ciemny, trzy miejsca (dane wpisane ręcznie do pokazu).</figcaption></figure>
+      <figure><img src="img/6-preferences.jpg" alt="Preferencje z przyciskiem Wyczyść częste miejsca"><figcaption>Preferencje: przycisk czyszczenia obok historii przejazdów.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Jak to działa</h2>
+    <ol>
+      <li><b>Zapis.</b> Gdy start i cel są wybrane (czyli rusza wyszukiwanie trasy), każde miejsce wyprawy (start, przystanki pośrednie, cel) dostaje 1 punkt. „Moja lokalizacja” nie jest zapisywana.</li>
+      <li><b>Bez nabijania.</b> To samo miejsce liczy się najwyżej raz na 10 minut, więc filtry, zamiana start ↔ cel czy ponowne wyszukanie nie podbijają wyniku.</li>
+      <li><b>Wygaszanie.</b> Punkty tracą połowę wagi co 30 dni: <code>wynik = punkty · 0,5^(dni od ostatniego wyszukania / 30)</code>. Stare miejsca same spadają w dół.</li>
+      <li><b>Próg.</b> Podpowiadamy od 1,5 punktu, czyli od dwóch wyszukań w odstępie do 30 dni. Jedno przypadkowe wyszukanie niczego nie podpowiada.</li>
+      <li><b>Podpowiedzi.</b> Puste pole: „Moja lokalizacja”, a pod nią do 3 najlepszych miejsc. Przy pisaniu: pasujące częste miejsca na górze (ta sama zasada dopasowania co wyszukiwarka przystanków: początek nazwy, początki słów, bez polskich znaków), potem zwykłe wyniki bez powtórek.</li>
+      <li><b>Limit.</b> Najwyżej 50 miejsc; przy nadmiarze wypada to z najniższym wynikiem.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Prywatność</h2>
+    <dl class="facts">
+      <dt>gdzie</dt><dd><code>localStorage</code>, klucz <code>frequent-places</code>, tylko w tej przeglądarce</dd>
+      <dt>co</dt><dd>id miejsca, nazwa, podpis, współrzędne miejsca z wyszukiwarki, wynik, czas ostatniego wyszukania; bez śladu GPS i bez godzin podróży</dd>
+      <dt>serwer</dt><dd>nic nie jest wysyłane; API (<code>data/API.md</code>) bez zmian</dd>
+      <dt>usunięcie</dt><dd>Preferencje → „Wyczyść częste miejsca” (usuwa klucz w całości)</dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Pliki</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>plik</th><th>rola</th></tr></thead>
+      <tbody>
+        <tr><td><code>frontend/src/places/frequentPlaces.ts</code></td><td>czyste funkcje: <code>recordPlaces</code>, <code>topPlaces</code>, <code>decayed</code>, zapis / odczyt</td></tr>
+        <tr><td><code>frontend/src/places/FrequentPlacesProvider.tsx</code></td><td>kontekst React <code>{ places, record, clear }</code>, podpięty w <code>main.tsx</code></td></tr>
+        <tr><td><code>frontend/src/App.tsx</code></td><td>po wybraniu startu i celu: <code>record([start, ...przystanki, cel])</code></td></tr>
+        <tr><td><code>frontend/src/components/PlaceField.tsx</code></td><td>podpowiedzi w każdym polu, ikona zegara, „Często wybierane”</td></tr>
+        <tr><td><code>frontend/src/components/PreferencesPage.tsx</code></td><td>przycisk „Wyczyść częste miejsca”</td></tr>
+        <tr><td><code>frontend/src/places/frequentPlaces.test.ts</code>, <code>components/PlaceField.test.tsx</code></td><td>testy (opis w dzienniku testów)</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Ograniczenia i dalsze kroki</h2>
+    <ul>
+      <li>Miejsca łączone są po <code>id</code>. Ten sam adres z Nominatim i z listy przystanków to dwa różne miejsca.</li>
+      <li>Bez backendu id przystanków z listy offline (<code>stop-local-N</code>) zależą od wersji <code>places.json</code>; po jej przebudowie stare wpisy przestają się łączyć z wynikami (ale dalej są podpowiadane).</li>
+      <li>Nie ma usuwania pojedynczego miejsca ani rankingu zależnego od pory dnia (np. „dom” wieczorem). To naturalne następne kroki.</li>
+      <li>Liczymy wyszukania, nie odbyte przejazdy: sprawdzenie trasy „na próbę” też się liczy.</li>
+    </ul>
+  </section>
+</div>

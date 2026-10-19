@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildOverlay, stationIds } from './overlay';
+import { accessPoints, buildOverlay, stationIds } from './overlay';
 import type { Station } from '../api/stations';
 import type { RouteLeg, RouteOption } from '../types';
 
@@ -83,5 +83,24 @@ describe('buildOverlay', () => {
     const o = buildOverlay(r, new Map());
     expect(o.markers).toEqual([]);
     expect(o.paths[0]).toEqual(r.legs[0].path);
+  });
+});
+
+describe('accessPoints', () => {
+  it('elevator and steps markers come from the legs, kept as [lat, lon]', () => {
+    const r = route([
+      leg({ elevators: [[52.2294, 21.01142]], steps: [[52.2302, 21.01023]] }),
+      leg({ mode: 'bus' }),
+      leg({ elevators: [[52.21944, 20.96608]] }),
+    ]);
+    expect(accessPoints(r)).toEqual([
+      { key: 'lift-0-0', kind: 'elevator', position: [52.2294, 21.01142] },
+      { key: 'steps-0-0', kind: 'steps', position: [52.2302, 21.01023] },
+      { key: 'lift-2-0', kind: 'elevator', position: [52.21944, 20.96608] },
+    ]);
+  });
+
+  it('a route without them has no markers', () => {
+    expect(accessPoints(route([leg({})]))).toEqual([]);
   });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { alpha, Badge, Box, Button, Chip, CircularProgress, Typography } from '@mui/material';
+import { alpha, Badge, Box, Button, Chip, CircularProgress, IconButton, Typography } from '@mui/material';
+import Refresh from '@mui/icons-material/Refresh';
 import Tune from '@mui/icons-material/Tune';
 import Schedule from '@mui/icons-material/Schedule';
 import LocalFireDepartment from '@mui/icons-material/LocalFireDepartment';
@@ -8,15 +9,19 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import SnapSheet, { type SheetSnap } from './SnapSheet';
 import LegChain from './LegChain';
 import { pressableProps } from './pressable';
-import { formatDuration, stopsLabel, transfersLabel } from '../utils/format';
+import { formatDuration, formatTotalWait, stopsLabel, transfersLabel } from '../utils/format';
 import { routeKcal, type FilterChip, type TimeRule } from '../preferences/model';
 import { usePreferences } from '../preferences/PreferencesProvider';
 import type { RouteOption } from '../types';
 import { RADIUS } from '../layout';
+import { useRouteDelays } from '../hooks/useRouteDelays';
+import { delaysByLeg } from '../api/routeDelays';
 
 interface Props {
   /** Routes after filtering and sorting. */
   options: RouteOption[];
+  /** "Wyjazd 14:30" when the search was for a chosen departure; nothing for now. */
+  departure?: string | null;
   /** How many routes were found before filtering. */
   foundCount: number;
   loading: boolean;
@@ -26,8 +31,6 @@ interface Props {
   offline?: boolean;
   /** A specific, readable reason of the failure (street routes: "Brak trasy", ...). */
   errorMessage?: string | null;
-  /** The routes are made-up example data. */
-  mock: boolean;
   selectedId: string | null;
   /** Short summary of the preferences the routes follow. */
   summary: string[];
@@ -42,17 +45,19 @@ interface Props {
   onClearChip: (id: FilterChip['id']) => void;
   onClearAll: () => void;
   onConfirm: () => void;
+  /** Runs the same search again ("Odśwież trasy"). */
+  onRefresh?: () => void;
 }
 
 /** List of connections - "Choose your route" - with the preference summary and filters. */
 export default function RouteOptionsSheet({
   options,
+  departure = null,
   foundCount,
   loading,
   error,
   offline = false,
   errorMessage = null,
-  mock,
   selectedId,
   summary,
   activeRule,
@@ -64,9 +69,11 @@ export default function RouteOptionsSheet({
   onClearChip,
   onClearAll,
   onConfirm,
+  onRefresh,
 }: Props) {
   const noScrollbar = { scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } } as const;
   const { effective } = usePreferences();
+  const delays = useRouteDelays(options);
   const content = useRef<HTMLDivElement>(null);
   const fastest = options.length ? Math.min(...options.map((o) => o.durationMin)) : null;
 
@@ -90,13 +97,14 @@ export default function RouteOptionsSheet({
       middleHeight={352}
       ariaLabel="Lista tras"
       contentRef={content}
-      header={({ barLike, full }) => (
+      header={({ barLike, full, docked }) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.25 }}>
               Wybierz trasę
             </Typography>
             <Typography variant="body2" color="text.secondary" noWrap>
+              {departure && `${departure} · `}
               {loading
                 ? 'Szukam połączeń…'
                 : options.length === 0
@@ -104,7 +112,23 @@ export default function RouteOptionsSheet({
                   : `${options.length} ${options.length === 1 ? 'trasa' : 'tras'}${fastest !== null ? ` · najszybsza ${formatDuration(fastest)}` : ''}`}
             </Typography>
           </Box>
-          {barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />}
+          {onRefresh && (
+            // inside the drag zone: the button's own presses must not drag or step the sheet
+            <IconButton
+              size="small"
+              aria-label="Odśwież trasy"
+              title="Odśwież trasy"
+              disabled={loading}
+              onClick={onRefresh}
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              sx={{ flexShrink: 0 }}
+            >
+              {loading ? <CircularProgress size={20} aria-label="Odświeżam" /> : <Refresh />}
+            </IconButton>
+          )}
+          {!docked && (barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />)}
         </Box>
       )}
       toolbar={
@@ -125,7 +149,6 @@ export default function RouteOptionsSheet({
               sx={{ flexShrink: 0 }}
             />
           )}
-          {mock && <Chip label="Dane przykładowe" size="small" color="warning" sx={{ flexShrink: 0 }} />}
           {chips.map((c) => (
             <Chip
               key={c.id}
@@ -176,6 +199,9 @@ export default function RouteOptionsSheet({
         {!loading &&
           options.map((o) => {
             const selected = o.id === selectedId;
+            const legDelays = delaysByLeg(o, delays);
+            // Our live delay per ride replaces the engine's own "opóźnienie N min" tag, so there are not two numbers.
+            const tags = legDelays.some(Boolean) ? o.tags.filter((tag) => !tag.startsWith('opóźnienie')) : o.tags;
             return (
               <Box
                 key={o.id}
@@ -199,7 +225,7 @@ export default function RouteOptionsSheet({
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                     <Typography sx={{ fontWeight: 700 }}>{o.title}</Typography>
-                    {o.tags.map((tag) => (
+                    {tags.map((tag) => (
                       <Chip key={tag} label={tag} size="small" color="secondary" variant="outlined" />
                     ))}
                   </Box>
@@ -207,13 +233,18 @@ export default function RouteOptionsSheet({
                     {o.departure} – {o.arrival} · {transfersLabel(o.transfers)}
                     {o.waypoints && o.waypoints.length > 2 && ` · ${stopsLabel(o.waypoints.length - 2)}`}
                   </Typography>
-                  <LegChain legs={o.legs} />
+                  <LegChain legs={o.legs} delays={legDelays} />
                 </Box>
 
                 <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
                     {formatDuration(o.durationMin)}
                   </Typography>
+                  {formatTotalWait(o.waitS) && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'nowrap' }}>
+                      {formatTotalWait(o.waitS)}
+                    </Typography>
+                  )}
                   {routeKcal(o, effective) > 0 && (
                     <Typography
                       variant="caption"

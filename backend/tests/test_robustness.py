@@ -175,7 +175,6 @@ def test_gtfs_cache_without_the_marker_file_is_rebuilt(tmp_path, monkeypatch):
     "/api/gtfs/stops/ztm:700901/departures?date=tomorrow",
     "/api/gtfs/stops/ztm:700901/departures?limit=0",
     "/api/osm/nearest?lat=999&lon=21",
-    "/api/osm/route?from_lat=52&from_lon=21&to_lat=52&to_lon=400",
     "/api/live/vehicles?type=bus&max_age_s=0",
 ])
 def test_bad_parameters_give_422(url):
@@ -250,7 +249,7 @@ def test_bus_detect_forgets_vehicles_that_left_the_feed(monkeypatch):
 def test_geocode_answers_from_the_cache():
     from app.models import Place
     geocode._cache.put("rondo daszyńskiego", [Place(id="osm-1", label="Rondo", position=(52.2, 21.0))])
-    r = client.get("/api/geocode", params={"q": "Rondo   Daszyńskiego"})  # same key after normalising
+    r = client.get("/api/geocode", params={"q": "Rondo   Daszyńskiego", "source": "nominatim"})  # same key
     assert r.status_code == 200
     assert r.json()[0]["id"] == "osm-1"
     assert client.get("/api/geocode", params={"q": "x" * 201}).status_code == 422

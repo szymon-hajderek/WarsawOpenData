@@ -6,7 +6,7 @@ FastAPI serializes responses by alias, so the output matches the TypeScript type
 """
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 # [lat, lng] pair, same as the frontend `LatLng`.
 LatLng = tuple[float, float]
@@ -18,7 +18,9 @@ MAX_VIA = 5
 
 # `bike` = the rider's own bike, `veturilo` = a rented Veturilo bike.
 TransportMode = Literal["walk", "bike", "veturilo", "bus", "tram", "metro", "rail"]
-Profile = Literal["standard", "slow", "accessible"]
+Profile = Literal["standard", "slow", "accessible", "stroller"]
+# Modes a search can exclude (`RouteRequest.excludeModes`).
+ExcludableMode = Literal["bus", "tram", "metro", "rail", "veturilo"]
 
 
 class Place(BaseModel):
@@ -27,6 +29,12 @@ class Place(BaseModel):
     sublabel: Optional[str] = None
     position: LatLng
     isCurrentLocation: Optional[bool] = None
+
+
+class RouteSegment(BaseModel):
+    kind: Literal["ride", "push", "walk", "steps", "elevator", "metro_access"]
+    path: list[LatLng]
+    lengthM: float
 
 
 class RouteLeg(BaseModel):
@@ -42,8 +50,23 @@ class RouteLeg(BaseModel):
     # Where the leg starts and ends, `[lon, lat]`. Filled from `path` when not given.
     start: Optional[LonLat] = None
     end: Optional[LonLat] = None
+    fromId: Optional[str] = None
+    toId: Optional[str] = None
+    segments: list[RouteSegment] = Field(default_factory=list)
+    # Router totals remain exact even when optional drawing segments are absent.
+    _street_distances: Optional[tuple[float, float]] = PrivateAttr(default=None)
     # 1-based number of the intermediate stop this leg ends at (multi-stop trips), else None.
     stop: Optional[int] = None
+    # True when GTFS has no shape for the trip and `path` only joins the stops in order.
+    approximatePath: bool = False
+    # Street legs: where the path boards an elevator / starts a flight of steps, `[lat, lon]`.
+    elevators: Optional[list[LatLng]] = None
+    steps: Optional[list[LatLng]] = None
+    # Transit legs: seconds standing at the boarding stop (`fromId`) before departure, and the GTFS trip id.
+    waitS: Optional[float] = None
+    tripId: Optional[str] = None
+    # Street legs: expected waits (signals, crossings, elevators), part of `RouteOption.waitS`.
+    _street_wait: float = PrivateAttr(default=0.0)
 
     @model_validator(mode="after")
     def _fill_ends(self) -> "RouteLeg":
@@ -63,18 +86,34 @@ class RouteOption(BaseModel):
     arrival: str
     durationMin: int
     distanceM: float
-    # Metres on foot (`walk` legs) and by bike (`bike` + `veturilo` legs). Calories are worked out from the legs.
+    # Metres walked (including a pushed bike) and ridden (own bike + Veturilo).
     walkDistance: float = 0
     bikeDistance: float = 0
     transfers: int
     tags: list[str]
+    # Total standing: transit `waitS` at boarding stops plus street waits (signals, crossings, elevators).
+    waitS: float = 0
 
     @model_validator(mode="after")
     def _fill_distances(self) -> "RouteOption":
-        if not self.walkDistance:
-            self.walkDistance = round(sum(l.distanceM for l in self.legs if l.mode == "walk"), 1)
-        if not self.bikeDistance:
-            self.bikeDistance = round(sum(l.distanceM for l in self.legs if l.mode in ("bike", "veturilo")), 1)
+        walked = ridden = 0.0
+        for leg in self.legs:
+            if leg._street_distances is not None:
+                walk_m, bike_m = leg._street_distances
+            elif leg.segments:
+                bike_m = sum(s.lengthM for s in leg.segments if s.kind == "ride")
+                walk_m = sum(s.lengthM for s in leg.segments if s.kind != "ride")
+            else:
+                walk_m = leg.distanceM if leg.mode == "walk" else 0
+                bike_m = leg.distanceM if leg.mode in ("bike", "veturilo") else 0
+            walked += walk_m
+            ridden += bike_m
+        if "walkDistance" not in self.model_fields_set:
+            self.walkDistance = round(walked, 1)
+        if "bikeDistance" not in self.model_fields_set:
+            self.bikeDistance = round(ridden, 1)
+        if "waitS" not in self.model_fields_set:
+            self.waitS = round(sum((leg.waitS or 0) + leg._street_wait for leg in self.legs), 1)
         return self
     # Start, the intermediate stops in the order they are visited, destination (multi-stop trips only).
     waypoints: list[Place] = Field(default_factory=list)
@@ -83,6 +122,10 @@ class RouteOption(BaseModel):
 class ExcludedPoint(BaseModel):
     position: LatLng
     radiusM: float = Field(default=300, ge=50, le=5000)
+
+
+class Onboard(BaseModel):
+    vehicleId: str = Field(min_length=1, max_length=40)  # as in POST /api/live/nearest-buses, e.g. "bus-5914"
 
 
 class RouteBody(BaseModel):
@@ -105,6 +148,10 @@ class RouteRequest(BaseModel):
     from_: Place = Field(alias="from")
     to: Place
     profile: Profile = "standard"
+    travel: Literal["transit", "walk", "accessible", "stroller", "bike"] = "transit"
+    # How a transit trip reaches, leaves and changes between stops: on foot (default) or by the user's own bike,
+    # carried on transit (no Veturilo then). Not combinable with a wheelchair / stroller (422).
+    access: Literal["walk", "bike"] = "walk"
     # Warsaw local departure. "HH:MM" or an ISO datetime. Empty = now.
     when: Optional[str] = None
     # Intermediate stops (at most MAX_VIA). `order` says whether to keep them as given or reorder
@@ -115,11 +162,26 @@ class RouteRequest(BaseModel):
     walkKmh: Optional[float] = Field(None, ge=1, le=10)
     bikeKmh: Optional[float] = Field(None, ge=0, le=45)
     stepFree: bool = False
+    # Rent a Veturilo bike only at docks with at least this many bikes now (live state). None / 0 = every dock.
+    minBikes: Optional[int] = Field(None, ge=0, le=50)
     # None = up to two transfers. 0 = direct rides only.
     maxTransfers: Optional[int] = Field(None, ge=0, le=2)
     excludedDistricts: list[str] = Field(default_factory=list, max_length=18)
     excludedPoints: list[ExcludedPoint] = Field(default_factory=list, max_length=20)
     body: Optional[RouteBody] = None
+    # Modes the search must not use (a GTFS trolleybus counts as bus; veturilo = no rented bike, own bike stays).
+    excludeModes: list[ExcludableMode] = Field(default_factory=list, max_length=5)
+    # Plan from the vehicle the user is in (timetable only): its next stops are the origins; `from` is ignored.
+    onboard: Optional[Onboard] = None
+
+    @model_validator(mode="after")
+    def _bike_access_alone(self) -> "RouteRequest":
+        if self.access == "bike" and (
+            self.profile in ("accessible", "stroller") or self.travel in ("accessible", "stroller")
+            or self.stepFree or (self.body is not None and self.body.wheelchair != "none")
+        ):
+            raise ValueError("access 'bike' cannot be combined with a wheelchair or stroller")
+        return self
 
 
 # ---- speed history (stateless: nothing is stored, tracks are not kept) --------------------------

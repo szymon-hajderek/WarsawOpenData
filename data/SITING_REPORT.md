@@ -23,7 +23,7 @@ Parameters: α = 1.0, β = 1.0, γ = 0.5, δ = 0.5, R = 1000 m, hex radius 175 m
 | T | 0.00 | 0.15 | 0.26 | 0.42 | 1.00 | 0.31 |
 | E | 0.00 | 0.00 | 0.22 | 0.42 | 1.00 | 0.26 |
 | S | 0.00 | 0.30 | 0.30 | 0.31 | 0.91 | 0.31 |
-| d_net (m) | 0 | 563 | 1129 | 2134 | 5382 | 1448 |
+| d_net (m) | 0 | 561 | 1128 | 2134 | 5382 | 1447 |
 
 ## Top proposals
 
@@ -41,4 +41,4 @@ Parameters: α = 1.0, β = 1.0, γ = 0.5, δ = 0.5, R = 1000 m, hex radius 175 m
 | 10 | -6319:22119 | 52.21675, 21.09777 | -1.029 | 1.00 | 0.54 | 1193 | 0.000 | 0.48 |
 
 d_net is the distance at the moment of the pick (after the earlier picks).
-Interactive map: `artifacts/veturilo-siting.html`. API: `GET /api/veturilo/siting` (`data/API.md`).
+Interactive map: `artifacts/veturilo-siting/veturilo-siting.html`. API: `GET /api/veturilo/siting` (`data/API.md`).

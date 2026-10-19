@@ -32,4 +32,4 @@ curl -s -H "X-API-Key: $PLK_KEY" "https://pdp-api.plk-sa.pl/api/v1/operations?ca
 - PLK docs: https://pdp-api.plk-sa.pl/api-documentation. Contact: pdp-api@plk-sa.pl.
 - Without a PLK key, SKM and KM live data is available from `https://mkuran.pl/gtfs/polish_trains/updates.pb` (unofficial mirror, can stall).
 - A bad `apikey` on `api.um.warszawa.pl` returns `Bledny apikey lub jego brak`.
-- `.env` is excluded through `.git/info/exclude`. If you clone the repo elsewhere, add `.env` to `.gitignore` first.
+- `.env` (and `.env.*` except `.env.example`) is git-ignored through `.gitignore`.

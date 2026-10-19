@@ -4,17 +4,18 @@ import FiberManualRecord from '@mui/icons-material/FiberManualRecord';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
-import SnapSheet, { type SheetSnap } from './SnapSheet';
+import SnapSheet, { useSheetDock, type SheetSnap } from './SnapSheet';
 import LegChain from './LegChain';
 import { MODE_META, modeColor } from '../modes';
 import { useHistory } from '../history/HistoryProvider';
 import { usePreferences } from '../preferences/PreferencesProvider';
 import { routeKcal } from '../preferences/model';
-import { formatDistance, formatDuration, stopsLabel, transfersLabel } from '../utils/format';
+import { formatDistance, formatDuration, formatTotalWait, formatWait, stopsLabel, transfersLabel } from '../utils/format';
+import { legNotes } from '../utils/legStyle';
 import type { Place, RouteLeg, RouteOption } from '../types';
 import { RADIUS } from '../layout';
 
-function instruction(leg: RouteLeg): string {
+export function instruction(leg: RouteLeg): string {
   const dist = formatDistance(leg.distanceM);
   switch (leg.mode) {
     case 'walk':
@@ -42,7 +43,7 @@ function Tile({ label, value }: { label: string; value: string }) {
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 /** Records the ride with GPS so the app can learn the user's real pace (see `src/history/`). */
-function TripRecorder({ route, origin, destination, mock }: { route: RouteOption; origin: Place; destination: Place; mock: boolean }) {
+function TripRecorder({ route, origin, destination, onStart }: { route: RouteOption; origin: Place; destination: Place; onStart?: (begin: () => void) => void }) {
   const { tracker } = useHistory();
   const { effective } = usePreferences();
   const walkAs = effective.wheelchair.type !== 'none' ? 'wheelchair' : 'walking';
@@ -74,7 +75,12 @@ function TripRecorder({ route, origin, destination, mock }: { route: RouteOption
             fullWidth
             variant="outlined"
             startIcon={<FiberManualRecord sx={{ color: 'error.main' }} />}
-            onClick={() => tracker.start(legs, walkAs, { from: origin, to: destination, mock })}
+            onClick={() => {
+              const begin = () => tracker.start(legs, walkAs, { from: origin, to: destination });
+              // The app decides when the recording begins (a later departure waits for its time).
+              if (onStart) onStart(begin);
+              else begin();
+            }}
           >
             Rozpocznij przejazd
           </Button>
@@ -107,10 +113,11 @@ interface Props {
   route: RouteOption;
   origin: Place;
   destination: Place;
-  mock: boolean;
   snap: SheetSnap;
   onSnapChange: (snap: SheetSnap) => void;
   onBack: () => void;
+  /** "Rozpocznij przejazd": the app enters the active trip mode and calls `begin` (starts the recording) when the trip really starts. */
+  onStart?: (begin: () => void) => void;
 }
 
 /** The chosen route: a header at the top and a summary + steps panel at the bottom. */
@@ -118,10 +125,10 @@ export default function RouteDetailsSheet({
   route,
   origin,
   destination,
-  mock,
   snap,
   onSnapChange,
   onBack,
+  onStart,
 }: Props) {
   const theme = useTheme();
   const palette = theme.palette.mode;
@@ -132,6 +139,8 @@ export default function RouteDetailsSheet({
   const MainIcon = MODE_META[mainLeg.mode].icon;
   // intermediate stops: waypoints without the start and the destination
   const stopCount = Math.max(0, (route.waypoints?.length ?? 0) - 2);
+  // In the desktop side panel the back button + title row sits at the top of the panel's column.
+  const docked = useSheetDock();
 
   return (
     <>
@@ -146,6 +155,7 @@ export default function RouteDetailsSheet({
           display: 'flex',
           alignItems: 'center',
           gap: 1,
+          ...(docked && { position: 'static', width: 'auto', flexShrink: 0 }),
         }}
       >
         <IconButton
@@ -171,17 +181,18 @@ export default function RouteDetailsSheet({
         onSnapChange={onSnapChange}
         middleHeight={292}
         ariaLabel="Szczegóły trasy"
-        header={({ barLike, full }) => (
+        header={({ barLike, full, docked }) => (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography variant="h6" noWrap sx={{ fontWeight: 700, lineHeight: 1.25 }}>
                 {barLike ? route.title : 'Szczegóły trasy'}
               </Typography>
               <Typography variant="body2" color="text.secondary" noWrap>
-                {formatDuration(route.durationMin)} · {formatDistance(route.distanceM)} · {route.departure} – {route.arrival}
+                {formatDuration(route.durationMin)}
+                {formatTotalWait(route.waitS) && ` (${formatTotalWait(route.waitS)})`} · {formatDistance(route.distanceM)} · {route.departure} – {route.arrival}
               </Typography>
             </Box>
-            {barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />}
+            {!docked && (barLike || !full ? <ExpandLess color="action" /> : <ExpandMore color="action" />)}
           </Box>
         )}
       >
@@ -249,7 +260,7 @@ export default function RouteDetailsSheet({
             <Tile label="Spalone kalorie" value={`${routeKcal(route, effective)} kcal`} />
           </Box>
 
-          <TripRecorder route={route} origin={origin} destination={destination} mock={mock} />
+          <TripRecorder route={route} origin={origin} destination={destination} onStart={onStart} />
 
           {/* steps */}
           <Typography variant="subtitle2" sx={{ mt: 2.5, mb: 1, fontWeight: 700 }}>
@@ -285,7 +296,7 @@ export default function RouteDetailsSheet({
                       {instruction(leg)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {formatDuration(leg.durationMin)} · {formatDistance(leg.distanceM)}
+                      {[formatWait(leg.waitS), formatDuration(leg.durationMin), formatDistance(leg.distanceM), ...legNotes(leg)].filter(Boolean).join(' · ')}
                     </Typography>
                   </Box>
                 </Box>
