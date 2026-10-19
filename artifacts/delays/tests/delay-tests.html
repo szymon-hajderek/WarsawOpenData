@@ -83,7 +83,8 @@ tbody tr:last-child td { border-bottom: 0; }
         <tr><td>7. Serwer na żywo w czasie nagrania</td><td>2760 odpowiedzi <code>/api/live/delay</code></td><td><span class="r pass">98,2% dostępne · mediana 2 s</span></td></tr>
         <tr><td>8. Lista tras: endpoint na żywo</td><td>prawdziwe kursy nocne, 18.10 ok. 03:15</td><td><span class="r pass">N37 +112 s, N24 +102 s</span></td></tr>
         <tr><td>9. Lista tras: wygląd w aplikacji</td><td>frontend z podstawionymi odpowiedziami serwera</td><td><span class="r pass">napisy widoczne</span> <span class="r fail">1 błąd wyglądu</span></td></tr>
-        <tr><td>10. Pełne wyszukiwanie trasy</td><td>—</td><td><span class="r skip">nie da się na Windowsie</span></td></tr>
+        <tr><td>10. Czas obliczeń</td><td>to samo nagranie, 11 992 oszacowania</td><td><span class="r pass">mediana 0,27 ms · 90% do 0,49 ms</span></td></tr>
+        <tr><td>11. Pełne wyszukiwanie trasy</td><td>—</td><td><span class="r skip">nie da się na Windowsie</span></td></tr>
       </tbody>
     </table></div>
   </section>
@@ -226,7 +227,17 @@ tbody tr:last-child td { border-bottom: 0; }
   </section>
 
   <section>
-    <h2>10. Czego nie dało się sprawdzić</h2>
+    <h2>10. Czas obliczeń</h2>
+    <dl class="facts">
+      <dt>co</dt><dd>ile trwa jedno oszacowanie (<code>estimate</code>, czyli praca <code>GET /api/live/delay</code>) i od czego zależy</dd>
+      <dt>na czym</dt><dd>symulacja z punktu 5: po każdym odczycie pojazdu badanych linii jedno wywołanie <code>estimate</code>, 11 992 wywołań; Python na laptopie deweloperskim, 18.10.2026</dd>
+      <dt>wynik</dt><dd>mediana 0,27 ms, 90% do 0,49 ms, maks. 1,5 ms. Kursów-kandydatów C: mediana 1, maks. 2; punktów tras do rzutowania C·S: mediana 788, maks. 1909; punktów w buforze B: mediana 49, maks. 123. Złożoność O(C·(S + P) + B): nie zależy od liczby pojazdów w mieście. Cała symulacja z oceną: ok. 12,5 s.</dd>
+      <dt>powtórz</dt><dd><code>cd backend &amp;&amp; uv run python ../algorithms/simulation/export_delay_viz.py</code> (wypisuje <code>complexity: {...}</code> i wstawia sekcję „Złożoność obliczeniowa” na <code>delay-statistics.html</code>)</dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>11. Czego nie dało się sprawdzić</h2>
     <ul>
       <li><b>Pełne wyszukiwanie trasy komunikacją</b> (<code>POST /api/routes</code>) na tym komputerze: trasy wymagają routera C++, a jego kod używa funkcji dostępnych tylko na Linuksie i macOS (<code>pwrite</code>), więc na Windowsie się nie buduje. Dlatego test 9 używa podstawionych odpowiedzi.</li>
       <li><b>Widok dla pojazdu, w którym jedziesz</b>: nie istnieje jeszcze, są tylko dane w evencie <code>bus-delay</code>.</li>

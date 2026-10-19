@@ -182,6 +182,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   3 points, 80-89% with 1 point.
 - Second run (`artifacts/bus-detection/bus-detection-fraction.html`): point at u * L, u ~ U(0, 1), 10 points per line; same results.
   `rank_buses` is O(V*K*H + V log V), ~2 ms per request for ~880 buses.
+- Third run (`artifacts/bus-detection/bus-detection-hotspots.html`, `algorithms/simulation/hotspots.py`): bus + tram recording
+  `data/live/vehicle_track_sample.json` (`record_buses.py --trams`), 10 most crowded places (moving vehicles only) and the 10 lines
+  with the most GTFS trips; crowded places are the hard case (1 point top-1 52-70%, 3 points 78-94%).
 - Visualization: `artifacts/bus-detection/bus-detection-simulation.html` (charts, one mini map per line, table), rebuilt with
   `uv run python ../algorithms/simulation/export_viz.py` (same seed, so the same numbers as RESULTS.md).
 - Time zone: feed times and GTFS service midnights are Europe/Warsaw (`sim/clock.py`: `warsaw_epoch`,
@@ -221,6 +224,9 @@ Everything in this repo (files, commits, PRs) is written in English.
   With these defaults T saturates at 1 in many hexes, so picks are mostly ranked by E and P; a weak quadratic P lets picks sit
   ~750 m (network) apart. Report: `uv run python siting_report.py` -> `data/SITING_REPORT.md`, `artifacts/veturilo-siting/veturilo-siting.html`
   (own canvas map with pan / zoom, no external scripts: Leaflet from a CDN failed to load for the user and broke the page).
+- Every result page in `artifacts/` has a "Złożoność obliczeniowa" section with measured times on our data:
+  one delay `estimate` ~0.27 ms (O(C·(S + P) + B), C = 1-2 candidate trips), `rank_buses` ~2 ms for ~880 buses,
+  siting: multi-source Dijkstra ~0.2 s, one greedy step ~30 ms (scipy allocates an O(V) array, V = 1.85 M bike nodes).
 - Feed without a key: mkuran GTFS-RT `vehicles.pb` refreshes about every 20 s; the City Hall feed is the main source.
 - **Ride demo** (`./demo.sh [scenario]`): Demo tab in the frontend, shown only when `GET /api/sim/state` answers (backend in
   simulation mode). `POST /api/sim/ride` (`backend/sim/api.py`, `backend/sim/journey.py`) computes the whole ride (30-60 s), the page
