@@ -352,7 +352,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   to port 8000), so the app works from localhost, the laptop's IP or a phone without CORS; in a build and in tests `http://localhost:8000`.
   `VITE_API_URL=""` = backend off, the app says "Nie połączono z serwerem". (A fixed `VITE_API_URL=https://<ip>:5173` broke every other
   address: the browser blocked the cross-origin calls and the app said "not connected".)
-- Place search: `src/api/geocode.ts` (`searchPlaces`, `MIN_QUERY`), limited to Warsaw. `PlaceField` debounces 150 ms; `searchPlaces` first asks
+- Place search: `src/api/geocode.ts` (`searchPlaces`, `MIN_QUERY`), limited to the ZTM area (Nominatim viewbox = `config.BBOX`, the routing
+  area, so Piaseczno, Janki, Legionowo... are found; `VIEWBOX` in `geocode.ts` mirrors it). Nominatim itself answers in ~1 s (measured 2026-10-19), our places in ~25 ms. `PlaceField` debounces 150 ms; `searchPlaces` first asks
   `GET /api/geocode?source=local` (well-known places, stops, Veturilo; ~8 ms) and hands them to `onLocal` at once, then, from 3 characters and after 350 ms more
   without a new query, `source=nominatim`, and merges (Nominatim first only for a street address, `looksLikeAddress`). Without the backend: `src/data/places.json`
   in the browser + Nominatim directly. Matching (`algorithms/place_search.py` = `src/utils/placeSearch.ts`, keep the twins in sync): every query word at a word
@@ -587,7 +588,7 @@ Everything in this repo (files, commits, PRs) is written in English.
 - Models (`app/models.py`) mirror `frontend/src/types.ts` exactly (camelCase JSON keys; `from`
   via a Pydantic alias). FastAPI serializes responses by alias, so the output matches the UI types.
 - Endpoints: `POST /api/routes` -> `RouteOption[]` (backend side of `fetchRouteOptions`),
-  `GET /api/geocode?q=` -> `Place[]` (Nominatim proxy, Warsaw-limited), `GET /health` on `app.main`.
+  `GET /api/geocode?q=` -> `Place[]` (Nominatim proxy, limited to the ZTM area), `GET /health` on `app.main`.
 - Routing is behind a `RouteEngine` seam (`app/routing/engine.py`): `query_routes(...)` and
   `update_state(...)`. Current impl is `RealRouteEngine` (GTFS + OSM + Veturilo); the old
   `StubRouteEngine` mock was removed. A `CppRouteEngine` can replace the real engine later; nothing else changes.

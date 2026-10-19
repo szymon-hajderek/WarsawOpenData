@@ -13,8 +13,9 @@ interface NominatimItem {
   address?: Record<string, string>;
 }
 
-// Bounding box of Warsaw (left, top, right, bottom).
-const WARSAW_VIEWBOX = '20.85,52.37,21.28,52.10';
+// The ZTM area (left, top, right, bottom) = the routing area, backend `config.BBOX`: Warsaw and the suburbs
+// ZTM serves (e.g. Piaseczno). Keep the two in sync.
+export const VIEWBOX = '20.57,52.51,21.48,51.91';
 
 /** Shortest text to search: our own places are found from 2 characters, Nominatim needs 3. */
 export const MIN_QUERY = 2;
@@ -63,7 +64,7 @@ export function mergePlaces(query: string, local: Place[], remote: Place[]): Pla
 }
 
 /**
- * Place search, limited to Warsaw. Call it debounced.
+ * Place search, limited to the ZTM area (Warsaw and its suburbs). Call it debounced.
  *
  * Two steps. First our own places (well-known places, stops, Veturilo stations): a few ms on the backend, or the
  * bundled list when the backend is disabled or unreachable; they are handed to `onLocal` at once. Then, from
@@ -112,7 +113,7 @@ async function searchPlacesNominatim(query: string, signal?: AbortSignal): Promi
     q: query,
     limit: '6',
     addressdetails: '1',
-    viewbox: WARSAW_VIEWBOX,
+    viewbox: VIEWBOX,
     bounded: '1',
     countrycodes: 'pl',
     'accept-language': 'pl',
