@@ -23,6 +23,8 @@ interface Input {
 export const AUTO_DETECT_EVERY_MS = 5_000;
 /** After "Nie jadę komunikacją" the automatic detection waits this long (the bus button still works). */
 export const AUTO_PAUSE_AFTER_DISMISS_MS = 5 * 60_000;
+/** A confirmed vehicle farther than this (or not among the candidates) in 2 checks in a row: the user got off. */
+export const LEFT_VEHICLE_M = 150;
 
 /**
  * State of the "which vehicle am I in?" window. Detects automatically every AUTO_DETECT_EVERY_MS once the track has at
@@ -59,10 +61,12 @@ export function useVehicleDetection({ position, getTrack }: Input) {
   const openRef = useRef(false);
   openRef.current = open;
   const dismissedAt = useRef(-Infinity);
+  const misses = useRef(0);
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      if (confirmedRef.current || Date.now() - dismissedAt.current < AUTO_PAUSE_AFTER_DISMISS_MS) return;
+      // after "Jadę tą linią" the same detection checks that the user is still in that vehicle (a typed line cannot be checked)
+      if (confirmedRef.current?.manual || (!confirmedRef.current && Date.now() - dismissedAt.current < AUTO_PAUSE_AFTER_DISMISS_MS)) return;
       if (getTrackRef.current().length < 2) return;
       setRun((n) => n + 1);
     }, AUTO_DETECT_EVERY_MS);
@@ -88,6 +92,20 @@ export function useVehicleDetection({ position, getTrack }: Input) {
     // Reads the position at the moment of the run (not a dependency: a new fix must not detect again).
     detectVehicle(getTrackRef.current(), position, ac.signal)
       .then((found) => {
+        const mine = confirmedRef.current;
+        if (mine && !requested.current) {
+          // checking the confirmed vehicle: keep everything as it is unless the user clearly left it
+          if (found.offline || found.liveUnavailable) return setLoading(false);
+          const me = found.candidates.find((v) => v.id === mine.id);
+          misses.current = me && me.distanceM !== undefined && me.distanceM <= LEFT_VEHICLE_M ? 0 : misses.current + 1;
+          if (misses.current >= 2) {
+            misses.current = 0;
+            setConfirmed(null);
+            setDelayVehicleId(null);
+            setOpen(false);
+          }
+          return setLoading(false);
+        }
         setVehicles(found.candidates);
         setLines(found.lines);
         setOffline(found.offline);
@@ -126,6 +144,8 @@ export function useVehicleDetection({ position, getTrack }: Input) {
     const all = manual ? [...vehicles, manual] : vehicles;
     const picked = all.find((v) => v.id === selectedId) ?? null;
     setConfirmed(picked);
+    misses.current = 0;
+    requested.current = false; // from now on the automatic runs check that the user is still in it
     setDelayVehicleId(picked?.id ?? null);
     setSnap('bar');
     return picked;
@@ -156,6 +176,13 @@ export function useVehicleDetection({ position, getTrack }: Input) {
       setDelayVehicleId(null);
     },
     redetect: requestLinePopup,
+    /** Forgets the confirmed vehicle (a new route that does not start from it, the end of the trip). */
+    forget: () => {
+      setConfirmed(null);
+      setDelayVehicleId(null);
+      setOpen(false);
+      misses.current = 0;
+    },
     /** Hides the window and keeps the confirmed vehicle (the active trip shows it in its own sheet). */
     hide: () => {
       setOpen(false);

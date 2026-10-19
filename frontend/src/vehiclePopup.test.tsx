@@ -222,4 +222,22 @@ describe('vehicle popup at start', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Jadę tą linią: Autobus 131/ }));
     await waitFor(() => expect(screen.getByLabelText('Skąd jedziesz?')).toHaveValue('Z pojazdu: 131 (następne przystanki)'));
   });
+
+  it('the confirmed vehicle is forgotten once the user has left it (2 checks without it)', async () => {
+    install(true);
+    answer = () =>
+      json({ candidates: [candidate('bus-1', '106', 'Mariensztat', 15), candidate('bus-2', '175', 'Lotnisko', 300)], lines: ['106'], updated_at: 1 });
+    renderApp();
+    await ride();
+    fireEvent.keyDown(await screen.findByRole('button', { name: HANDLE }), { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('button', { name: /Jadę tą linią: Autobus 106/ }));
+    expect(await screen.findByText('Jedziesz: Autobus 106')).toBeInTheDocument();
+    await ride(6_000); // still on board: kept
+    expect(screen.getByText('Jedziesz: Autobus 106')).toBeInTheDocument();
+    answer = () => json({ candidates: [candidate('bus-2', '175', 'Lotnisko', 40)], lines: ['175'], updated_at: 1 });
+    await ride(6_000); // got off: the first check without bus 106 keeps it ...
+    expect(screen.getByText('Jedziesz: Autobus 106')).toBeInTheDocument();
+    await ride(6_000); // ... the second one forgets it
+    await waitFor(() => expect(screen.queryByText('Jedziesz: Autobus 106')).toBeNull());
+  }, 15_000);
 });

@@ -12,3 +12,4 @@ Field test (tram 24, 2026-10-18): no vehicle bar. Causes and fixes:
 - The 60 m limit is removed (user decision): the best match is always offered; "Wykryliśmy" only when the second
   candidate is 2.5x worse.
 - "Jadę tą linią" on the start screen sets the start to "Z pojazdu: <line> (następne przystanki)", so the next search plans from the vehicle (before, only "Zmień cel" in the active trip did).
+- The confirmed vehicle ("Jedziesz: ...") is forgotten when the user has left it (2 checks in a row without it within 150 m), when a new route in the active trip is planned from the GPS position, and at "Zakończ".

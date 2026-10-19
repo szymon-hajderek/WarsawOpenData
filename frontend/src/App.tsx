@@ -303,6 +303,7 @@ export default function App() {
     setActiveTrip(null);
     setReplanning(false);
     setTripVehicleOpen(false);
+    vehicle.forget(); // the trip is over: no "Jedziesz: ..." left behind
   };
 
   /** "Zmień cel" / "Zmień trasę": the full search card; the start = the confirmed vehicle, else the GPS position. */
@@ -328,7 +329,9 @@ export default function App() {
     if (activeTrip && replanning) {
       const picked = visible.find((o) => o.id === selectedId);
       if (!picked || !origin || !destination) return;
-      // The new route replaces the old one; the trip (and its recording) goes on.
+      // The new route replaces the old one; the trip (and its recording) goes on. Planned from the GPS position
+      // (not "Z pojazdu"), it does not continue on the confirmed vehicle: forget it.
+      if (!origin.id.startsWith(ONBOARD_PREFIX)) vehicle.forget();
       setActiveTrip({ ...activeTrip, route: picked, origin, destination });
       setReplanning(false);
       setTripSnap('middle');
