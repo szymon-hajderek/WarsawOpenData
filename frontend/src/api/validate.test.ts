@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isNearestBuses, isRouteOptions } from './validate';
+import { isBusDelay, isNearestBuses, isRouteOptions } from './validate';
 
 const leg = { mode: 'walk', durationMin: 5, distanceM: 300, path: [[52.2, 21.0], [52.21, 21.01]] };
 const option = { id: 'walk', legs: [leg], tags: [] };
@@ -103,6 +103,40 @@ describe('isNearestBuses', () => {
 
   it('rejects a missing lines list', () => {
     expect(isNearestBuses({ candidates: [] })).toBe(false);
+  });
+});
+
+describe('isBusDelay', () => {
+  const delay = {
+    vehicleId: 'bus-2246',
+    line: '517',
+    available: true,
+    reason: null,
+    delaySec: 8,
+    prevStop: { id: 'ztm:703302', name: 'Krucza', scheduled: '18:57:00', passedAt: '18:57:08' },
+    nextStop: { id: 'ztm:701306', name: 'Centrum', scheduled: '18:59:00', expected: '18:59:08' },
+    radiusM: 30,
+    updatedAt: 1792249203.8,
+  };
+
+  it('accepts an available and an unavailable delay', () => {
+    expect(isBusDelay(delay)).toBe(true);
+    expect(isBusDelay({ ...delay, available: false, reason: 'no_trip', delaySec: null, prevStop: null, nextStop: null })).toBe(true);
+  });
+
+  it('rejects an available delay without seconds', () => {
+    expect(isBusDelay({ ...delay, delaySec: null })).toBe(false);
+  });
+
+  it('rejects broken fields', () => {
+    expect(isBusDelay({ ...delay, delaySec: '8' })).toBe(false);
+    expect(isBusDelay({ ...delay, prevStop: { name: 'Krucza' } })).toBe(false);
+    expect(isBusDelay({ ...delay, vehicleId: undefined })).toBe(false);
+  });
+
+  it('rejects an error answer', () => {
+    expect(isBusDelay({ detail: 'unknown vehicle' })).toBe(false);
+    expect(isBusDelay(null)).toBe(false);
   });
 });
 

@@ -1,4 +1,6 @@
+import { API_URL, apiUrl } from '../config';
 import type { BusDelayDetail } from '../types';
+import { isBusDelay } from './validate';
 
 /**
  * VEHICLE DELAY.
@@ -19,11 +21,14 @@ function unavailable(vehicleId: string, reason: string): BusDelayDetail {
 }
 
 export async function fetchDelay(vehicleId: string): Promise<BusDelayDetail> {
+  if (!API_URL) return unavailable(vehicleId, 'backend_unavailable');
   try {
-    const r = await fetch(`/api/live/delay?vehicle=${encodeURIComponent(vehicleId)}`);
+    const r = await fetch(apiUrl(`/api/live/delay?vehicle=${encodeURIComponent(vehicleId)}`));
     if (r.status === 404) return unavailable(vehicleId, 'unknown_vehicle');
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return (await r.json()) as BusDelayDetail;
+    const data: unknown = await r.json();
+    if (!isBusDelay(data)) throw new Error('Unexpected delay answer');
+    return data;
   } catch (e) {
     console.warn('Delay unavailable:', e);
     return unavailable(vehicleId, 'backend_unavailable');

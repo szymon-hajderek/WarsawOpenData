@@ -412,7 +412,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   `rmse_m`, `vehicleNo`, `brigade`); when the backend is down it returns `offline: true` (the window says "Nie połączono z serwerem" with a retry button), with no location it returns nothing;
   an empty `API_URL` also counts as offline (no mock data).
   Delay: after "Jadę tą linią" `useVehicleDetection` starts `src/api/delay.ts` `watchDelay`, which polls `GET /api/live/delay` every 10 s and sends a `bus-delay`
-  event on `window` (`BusDelayDetail` in `types.ts`); stops on a new detection or "Nie jadę komunikacją". No UI shows it yet.
+  event on `window` (`BusDelayDetail` in `types.ts`, answer checked by `isBusDelay`; empty `API_URL` = `backend_unavailable` without a request); stops on a new detection or "Nie jadę komunikacją". No UI shows it yet.
   Detection runs automatically every 5 s once the track has 2 points, until a vehicle is confirmed ("Nie jadę komunikacją" pauses it
   for 5 min), on the start screen and in the active trip, and at once on `requestLinePopup()`. No distance limit: the best match is
   always offered ("Wykryliśmy" when the 2nd is 2.5x worse). "Jadę tą linią" on the start screen sets the start to "Z pojazdu: <line>".
@@ -537,7 +537,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   returns the markers, the leg paths with their ends moved onto the stops and the metro entrances. The map draws small stop markers, joins the legs at them, draws metro rides
   dashed and muted, shows the entrance where a walk goes down, and elevator / steps icons on street trips. Without answers the overlay is empty (nothing is made up).
 - Backend calls build their URL with `apiUrl(path)` from `src/config.ts` (routes, geocode, history, vehicle, street routes,
-  stations, journeys, sim); `src/api/delay.ts` still uses a relative `/api/live/delay`. An empty `API_URL` = backend off: routes and
+  stations, journeys, sim, the vehicle delay `src/api/delay.ts`). An empty `API_URL` = backend off: routes and
   vehicles say "Nie połączono z serwerem"; only place search (Nominatim / `places.json`) and the local speed summary still work.
   Answers are checked in `src/api/validate.ts`; a wrong shape counts as "backend down".
 - **A missing backend is said out loud.** An empty `API_URL`, a network error, a 5xx or a wrong shape means "not connected": a red snackbar "Nie połączono z serwerem. Sprawdź, czy backend działa."
