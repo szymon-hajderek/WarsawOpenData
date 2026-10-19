@@ -95,7 +95,7 @@ Everything in this repo (files, commits, PRs) is written in English.
 - **Jury criteria (design for them):** inclusivity / accessibility / diversity, scalability to
   other cities, safety, privacy, evidence-based, technical correctness, business model.
 - **Time frame:** 24h hackathon, so keep everything simple.
-- **Status:** the frontend UI exists. `uv run uvicorn main:app` serves the data and
+- **Status:** working end to end on real data (README "Status"). `uv run uvicorn main:app` serves the data and
   `POST /api/routes`. The route engine (`backend/app/routing/real_engine.py`) builds options from the router's
   RAPTOR trips (`POST /plan`) and street paths; the old Python transit planner is removed. Street paths (walk, bike, accessible, stroller) come from
   the C++ street router (`algorithms/router/`), which the backend starts. The router also plans transit trips with
@@ -593,7 +593,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   `StubRouteEngine` mock was removed. A `CppRouteEngine` can replace the real engine later; nothing else changes.
 - The street protocol is owned by the C++ team: `/route` returns `legs` with optional `segments`,
   while `/access` returns station costs without paths. Python preprocessing writes the graph files once;
-  the long-running street router loads them and keeps them in memory. Python still plans GTFS combinations.
+  the long-running street router loads them and keeps them in memory. Transit is planned only by the router's RAPTOR (`/plan`).
   A future C++ RAPTOR engine can return whole trips in the same leg shape. `update_state` remains unused;
   it is reserved for live data and derivatives, not graph uploads.
 - Config via env vars (all optional): `CORS_ORIGINS`, `NOMINATIM_URL`, `NOMINATIM_USER_AGENT`.
