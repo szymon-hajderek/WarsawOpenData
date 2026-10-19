@@ -1,5 +1,6 @@
 """Place search for the start / destination fields: well-known places, our own stops and Veturilo stations first,
-then OpenStreetMap Nominatim (limited to Warsaw) for addresses and other places.
+then OpenStreetMap Nominatim (limited to the ZTM area, `config.BBOX`: Warsaw and the suburbs ZTM serves, e.g. Piaseczno)
+for addresses and other places.
 
 Two parts with very different speeds:
 - local (`source=local`): an in-memory index, a few ms. Matches words in any order, abbreviations ("ds 2 uw",
@@ -20,7 +21,7 @@ from typing import Annotated, Literal
 import httpx
 from fastapi import APIRouter, HTTPException, Query
 
-from config import REPO, TTLCache
+from config import BBOX, REPO, TTLCache
 
 from ..config import settings
 from ..models import Place
@@ -35,7 +36,8 @@ log = logging.getLogger(__name__)
 _cache = TTLCache(ttl=3600, maxsize=1024)
 
 # Bounding box of Warsaw (left, top, right, bottom).
-WARSAW_VIEWBOX = "20.85,52.37,21.28,52.10"
+# Nominatim viewbox (left, top, right, bottom) = the routing area, so every place the router can reach is found.
+VIEWBOX = f"{BBOX[1]},{BBOX[2]},{BBOX[3]},{BBOX[0]}"
 LANDMARKS = REPO / "data" / "places" / "landmarks.json"
 
 LOCAL_LIMIT = 5
@@ -170,7 +172,7 @@ async def _nominatim(q: str) -> list[Place] | None:
         "q": q,
         "limit": "6",
         "addressdetails": "1",
-        "viewbox": WARSAW_VIEWBOX,
+        "viewbox": VIEWBOX,
         "bounded": "1",
         "countrycodes": "pl",
         "accept-language": "pl",

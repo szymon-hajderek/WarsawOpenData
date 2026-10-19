@@ -842,7 +842,8 @@ Another option of the same answer stays on tram 15 to PKP Rakowiec (one merged r
 
 ### `GET /api/geocode`
 
-Place search for the start and destination fields, limited to Warsaw. Two parts:
+Place search for the start and destination fields, limited to the ZTM area (`config.BBOX`: Warsaw and the suburbs ZTM
+serves, e.g. Piaseczno; the same area as routing). Two parts:
 
 - **Local places** (in memory, a few ms): up to 5 of well-known places (`data/places/landmarks.json`: universities,
   dormitories, malls, stations, landmarks; `sublabel` = category and address, `id` `place-<name words>`, e.g.
