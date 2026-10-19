@@ -36,17 +36,21 @@ export function useLocationTrack() {
       setGeoError(true);
       return;
     }
+    const updateHeading = () => {
+      const h = movementHeading(fixes.current, Date.now());
+      setMoveHeading(h == null ? null : Math.round(h));
+    };
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
-        const kept = addFix(fixes.current, { pos: [latitude, longitude], accuracy: accuracy ?? 0 });
-        if (kept !== fixes.current) {
-          fixes.current = kept;
-          const h = movementHeading(kept);
-          if (h != null) setMoveHeading(Math.round(h));
-        }
         latest.current = { lat: latitude, lon: longitude, time_ms: Date.now() };
         if (track.current.length === 0) track.current.push(latest.current);
+        fixes.current = addFix(fixes.current, {
+          pos: [latitude, longitude],
+          accuracy: accuracy ?? 0,
+          time: Date.now(),
+        });
+        updateHeading();
         setPosition((prev) =>
           prev && haversine(prev, [latitude, longitude]) < MOVE_M ? prev : [latitude, longitude],
         );
@@ -55,6 +59,7 @@ export function useLocationTrack() {
       { enableHighAccuracy: true, timeout: 10_000 },
     );
     const timer = setInterval(() => {
+      updateHeading(); // the user stopped: back to the dot
       if (!latest.current) return;
       track.current.push({ ...latest.current, time_ms: Date.now() });
       track.current.splice(0, track.current.length - MAX_POINTS);

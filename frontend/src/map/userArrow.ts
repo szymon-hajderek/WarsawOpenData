@@ -6,7 +6,7 @@ import { unwrapRotation } from '../utils/heading';
  * and a plain dot (when it is not), so a still arrow never points the wrong way.
  */
 export const userArrowHtml = (color: string, size = 24) =>
-  `<div class="user-heading" style="display:none;transition:transform 0.3s ease-out">${iconHtml(ICON_PATH.navigation, size, color)}</div>` +
+  `<div class="user-heading" style="display:none">${iconHtml(ICON_PATH.navigation, size, color)}</div>` +
   `<div class="user-dot" style="width:${Math.round(size * 0.55)}px;height:${Math.round(size * 0.55)}px;border-radius:50%;background:${color}"></div>`;
 
 /**
@@ -20,7 +20,10 @@ export function applyHeading(root: HTMLElement | null | undefined, heading: numb
   arrow.style.display = heading == null ? 'none' : 'block';
   dot.style.display = heading == null ? 'block' : 'none';
   if (heading == null) return;
+  const first = arrow.dataset.rotation == null;
   const next = unwrapRotation(Number(arrow.dataset.rotation ?? 0), heading - mapBearing);
   arrow.dataset.rotation = String(next);
+  // a new icon (theme change) starts at its heading, later turns are animated
+  arrow.style.transition = first ? 'none' : 'transform 0.3s ease-out';
   arrow.style.transform = `rotate(${next}deg)`;
 }

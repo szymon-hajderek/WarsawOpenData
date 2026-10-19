@@ -46,6 +46,11 @@ describe('useLocationTrack', () => {
     expect(result.current.moveHeading).toBeNull();
     act(() => success({ coords: { latitude: 52.2002, longitude: 21.0, accuracy: 5 } })); // 22 m north
     expect(result.current.moveHeading).toBe(0);
+    // standing still for 30 s: back to the dot
+    act(() => {
+      vi.advanceTimersByTime(40_000);
+    });
+    expect(result.current.moveHeading).toBeNull();
   });
 
   it('stops watching and clears the timer when it unmounts', () => {

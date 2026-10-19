@@ -16,6 +16,7 @@ import { accessPoints, buildOverlay, type Overlay } from '../utils/overlay';
 import { legLines, type LineStyle } from '../utils/legStyle';
 import { glassCss } from '../map/glass';
 import { applyHeading, userArrowHtml } from '../map/userArrow';
+import { useHeading } from '../hooks/useHeading';
 import '../map/glass.css';
 import type { LatLng, Place as PlaceT, RouteOption } from '../types';
 
@@ -43,8 +44,8 @@ interface Props {
   paletteMode: PaletteMode;
   onToggleMode: () => void;
   userPosition: LatLng | null;
-  /** Where the user faces (degrees from north, compass or movement); null = a dot instead of the arrow. */
-  heading?: number | null;
+  /** Direction of movement from GPS (degrees from north); the compass wins when there is one. */
+  moveHeading?: number | null;
   onLocate: () => void;
   origin: PlaceT | null;
   destination: PlaceT | null;
@@ -341,8 +342,12 @@ function RouteLayer({
   );
 }
 
-/** The "me" marker; the arrow inside is turned in place (no new icon, so the turn is animated). */
-function UserMarker({ position, icon, heading }: { position: LatLng; icon: L.DivIcon; heading: number | null }) {
+/**
+ * The "me" marker; the arrow inside is turned in place (no new icon, so the turn is animated).
+ * The compass lives here, so its updates re-render only this marker, not the app.
+ */
+function UserMarker({ position, icon, moveHeading }: { position: LatLng; icon: L.DivIcon; moveHeading: number | null }) {
+  const heading = useHeading(moveHeading);
   const ref = useRef<L.Marker>(null);
   useEffect(() => {
     applyHeading(ref.current?.getElement(), heading);
@@ -368,7 +373,7 @@ export default function MapView({
   paletteMode,
   onToggleMode,
   userPosition,
-  heading = null,
+  moveHeading = null,
   onLocate,
   origin,
   destination,
@@ -499,7 +504,7 @@ export default function MapView({
               interactive={false}
             />
           )}
-          {userPosition && <UserMarker position={userPosition} icon={icons.user} heading={heading} />}
+          {userPosition && <UserMarker position={userPosition} icon={icons.user} moveHeading={moveHeading} />}
           {origin && !origin.isCurrentLocation && (
             <Marker position={origin.position} icon={icons.origin} interactive={false} />
           )}

@@ -45,31 +45,48 @@ export function compassHeading(e: OrientationLike, screenAngle: number, absolute
   return norm(360 - e.alpha + screenAngle);
 }
 
-/** A kept GPS fix for the movement direction. */
+/** A kept GPS fix for the movement direction (`time` in ms). */
 export interface Fix {
   pos: LatLng;
   accuracy: number;
+  time: number;
 }
 
-/** A new fix counts only this far (m) from the last kept one: max(accuracy, MIN), at most MAX. */
+/** Fixes worse than this (network / Wi-Fi location, the first coarse fix) never give a direction. */
+export const MAX_ACCURACY_M = 30;
+/** A new fix counts only this far (m) from the last kept one: max(accuracy of both, MIN). */
 export const STEP_MIN_M = 10;
-export const STEP_MAX_M = 30;
 export const MOVE_POINTS = 3;
+/** Fixes older than this are forgotten: an old fix plus new drift is not a direction. */
+export const FIX_TTL_MS = 60_000;
+/** No new kept fix for this long = the user stopped: the direction is unknown again. */
+export const MOVE_STALE_MS = 30_000;
+/** A zigzag (the path turns by more than this between the 3 fixes) is drift, not walking. */
+export const MAX_TURN_DEG = 120;
 
 /**
- * Adds a fix to the last 3 well-spaced fixes. A fix closer to the last kept one than the GPS
- * error (10-30 m) is GPS jitter, not movement, and is dropped, so standing still never turns the arrow.
+ * Adds a fix to the last 3 well-spaced, recent fixes. A coarse fix is ignored and a fix closer to the last
+ * kept one than the GPS error is jitter, not movement, so standing still never turns the arrow.
  */
 export function addFix(kept: Fix[], fix: Fix): Fix[] {
-  const last = kept[kept.length - 1];
-  const step = Math.min(STEP_MAX_M, Math.max(STEP_MIN_M, fix.accuracy || 0, last?.accuracy || 0));
-  if (last && haversine(last.pos, fix.pos) < step) return kept;
-  return [...kept, fix].slice(-MOVE_POINTS);
+  if (!(fix.accuracy > 0) || fix.accuracy > MAX_ACCURACY_M) return kept;
+  const fresh = kept.filter((f) => fix.time - f.time <= FIX_TTL_MS);
+  const last = fresh[fresh.length - 1];
+  const step = Math.max(STEP_MIN_M, fix.accuracy, last?.accuracy ?? 0);
+  if (last && haversine(last.pos, fix.pos) < step) return fresh.length === kept.length ? kept : fresh;
+  return [...fresh, fix].slice(-MOVE_POINTS);
 }
 
-/** Direction of movement from the oldest to the newest kept fix, null with fewer than 2. */
-export function movementHeading(kept: Fix[]): number | null {
-  if (kept.length < 2) return null;
+/**
+ * Direction of movement from the oldest to the newest kept fix, or null: fewer than 2 fixes, the newest
+ * older than `MOVE_STALE_MS` (the user stopped) or a zigzag of 3 fixes.
+ */
+export function movementHeading(kept: Fix[], now: number): number | null {
+  if (kept.length < 2 || now - kept[kept.length - 1].time > MOVE_STALE_MS) return null;
+  if (kept.length === 3) {
+    const turn = angleDiff(bearing(kept[0].pos, kept[1].pos), bearing(kept[1].pos, kept[2].pos));
+    if (Math.abs(turn) > MAX_TURN_DEG) return null;
+  }
   return bearing(kept[0].pos, kept[kept.length - 1].pos);
 }
 

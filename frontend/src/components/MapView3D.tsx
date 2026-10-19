@@ -3,6 +3,7 @@ import type { GeoJSONSource, LngLatBoundsLike, Map as MlMap, Marker as MlMarker 
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Box, type PaletteMode } from '@mui/material';
 import { applyHeading, userArrowHtml } from '../map/userArrow';
+import { useHeading } from '../hooks/useHeading';
 import { ICON_PATH, iconHtml } from '../modes';
 import { PALETTE } from '../map/palette';
 import { MAP_ATTRIBUTION } from '../map/mapStyle';
@@ -23,8 +24,8 @@ interface Props {
   paletteMode: PaletteMode;
   onToggleMode: () => void;
   userPosition: LatLng | null;
-  /** Where the user faces (degrees from north); null = a dot instead of the arrow. */
-  heading?: number | null;
+  /** Direction of movement from GPS (degrees from north); the compass wins when there is one. */
+  moveHeading?: number | null;
   onLocate: () => void;
   origin: Place | null;
   destination: Place | null;
@@ -61,7 +62,7 @@ export default function MapView3D({
   paletteMode,
   onToggleMode,
   userPosition,
-  heading = null,
+  moveHeading = null,
   onLocate,
   origin,
   destination,
@@ -82,6 +83,7 @@ export default function MapView3D({
   const [map, setMap] = useState<MlMap | null>(null);
   const markers = useRef<MlMarker[]>([]);
   const userEl = useRef<HTMLElement | null>(null);
+  const heading = useHeading(moveHeading);
   const headingRef = useRef(heading);
   // MapLibre zoom is one lower than the Leaflet zoom the stop layers' thresholds are written for.
   const overlayData = useMapOverlays(map as ViewMap | null, overlayIds, 1);

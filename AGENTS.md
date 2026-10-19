@@ -427,7 +427,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   destination (`onPlacePick`, `stationPlace` in `src/components/MapOverlays.tsx`; no buttons during an active trip).
 - "Me" arrow (`src/hooks/useHeading.ts`, `src/utils/heading.ts`, `src/map/userArrow.ts`): turned to the compass when there is one
   (Android `deviceorientationabsolute`, iOS `webkitCompassHeading` after a permission asked on the first tap), else to `moveHeading`
-  from `useLocationTrack` (last 3 GPS fixes at least max(accuracy, 10 m), at most 30 m, apart); unknown = a dot. Smoothed, >= 3 degrees, shortest turn.
+  from `useLocationTrack` (last 3 fixes with accuracy <= 30 m, at least max(accuracy, 10 m) apart, < 60 s old; none for 30 s or a zigzag = unknown);
+  unknown = a dot. Smoothed, >= 3 degrees, shortest turn. `useHeading` is called in the marker, not in `App.tsx` (no app re-render per reading).
 - Navigation: bottom bar (`src/components/BottomNav.tsx`) with tabs Mapa and Preferencje; floating panels sit above it
   (`src/layout.ts`: `BOTTOM_NAV_HEIGHT`, `PANEL_BOTTOM`). The Preferences page is an overlay, the map stays mounted below.
 - Trips with intermediate stops (up to 5, `MAX_STOPS` / `MAX_VIA`): `SearchCard.tsx` has "Dodaj przystanek", a drag handle on every row (⋮⋮, shown once there is at least one stop; start and destination too, so a stop can be exchanged with them: the rows `[start, ...stops, destination]` are reordered together;
