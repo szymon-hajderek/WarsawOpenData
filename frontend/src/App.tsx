@@ -19,6 +19,7 @@ import SidePanel from './components/SidePanel';
 import { useColorMode } from './colorMode';
 import { detectionPoints } from './api/vehicle';
 import { geoErrorText, useLocationTrack } from './hooks/useLocationTrack';
+import { useHeading } from './hooks/useHeading';
 import { useRouteSearch } from './hooks/useRouteSearch';
 import { useTripProgress } from './hooks/useTripProgress';
 import { countdownText, mustWait, secondsUntil, tripStartAt } from './utils/tripStart';
@@ -77,7 +78,8 @@ export default function App() {
   // From 600 px: the side panel layout (search + sheets in one column on the left, the map on the right).
   const desktop = useMediaQuery(theme.breakpoints.up('sm'));
 
-  const { position: userPosition, geoError, clearGeoError, locate, getTrack } = useLocationTrack();
+  const { position: userPosition, moveHeading, geoError, clearGeoError, locate, getTrack } = useLocationTrack();
+  const heading = useHeading(moveHeading);
   const [origin, setOrigin] = useState<Place | null>(null);
   const [destination, setDestination] = useState<Place | null>(null);
   // Intermediate stops (`null` = an empty field the user has just added) and how they are ordered.
@@ -408,6 +410,7 @@ export default function App() {
               paletteMode={mode}
               onToggleMode={toggle}
               userPosition={userPosition}
+              heading={heading}
               onLocate={locate}
               origin={inTrip ? activeTrip.origin : origin}
               destination={inTrip ? activeTrip.destination : destination}
@@ -426,6 +429,7 @@ export default function App() {
           paletteMode={mode}
           onToggleMode={toggle}
           userPosition={userPosition}
+          heading={heading}
           onLocate={locate}
           origin={inTrip ? activeTrip.origin : origin}
           destination={inTrip ? activeTrip.destination : destination}
