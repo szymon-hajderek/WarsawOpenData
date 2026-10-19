@@ -6,6 +6,7 @@ import { HistoryProvider } from './history/HistoryProvider';
 import { PreferencesProvider } from './preferences/PreferencesProvider';
 import { requestLinePopup } from './api/vehicle';
 import { NEAREST_BUSES } from './test/tripFixtures';
+import { openSearchCard } from './test/searchCard';
 
 // The map (Leaflet + MapLibre) does not run in jsdom; the bus button is reached through `requestLinePopup`.
 vi.mock('./components/MapView', () => ({ default: () => null }));
@@ -220,7 +221,8 @@ describe('vehicle popup at start', () => {
     const handle = await screen.findByRole('button', { name: HANDLE });
     fireEvent.keyDown(handle, { key: 'Enter' });
     fireEvent.click(await screen.findByRole('button', { name: /Jadę tą linią: Autobus 131/ }));
-    await waitFor(() => expect(screen.getByLabelText('Skąd jedziesz?')).toHaveValue('Z pojazdu: 131 (następne przystanki)'));
+    await openSearchCard();
+    await waitFor(() => expect(screen.getByPlaceholderText('Skąd jedziesz?')).toHaveValue('Z pojazdu: 131 (następne przystanki)'));
   });
 
   it('the confirmed vehicle is forgotten once the user has left it (2 checks without it)', async () => {

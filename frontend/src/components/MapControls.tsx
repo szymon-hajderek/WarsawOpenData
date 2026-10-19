@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Box, Checkbox, FormControlLabel, IconButton, Popover, Typography, type PaletteMode } from '@mui/material';
+import { Badge, Box, Checkbox, FormControlLabel, IconButton, Popover, Typography, type PaletteMode } from '@mui/material';
 import MyLocation from '@mui/icons-material/MyLocation';
 import DarkMode from '@mui/icons-material/DarkMode';
 import LightMode from '@mui/icons-material/LightMode';
@@ -26,6 +26,10 @@ interface Props {
   onLocate: () => void;
   /** Shows a button that detects the vehicle the user is in (and reopens the vehicle window). */
   onDetectVehicle?: () => void;
+  /** The vehicle window is on screen (the bus button is pressed; a second click hides it). */
+  vehicleOpen?: boolean;
+  /** A vehicle is confirmed ('Jadę tą linią'): a dot on the bus button. */
+  vehicleConfirmed?: boolean;
   /** The 3D map only: the rotate mode (one finger turns and tilts the map instead of moving it). */
   rotate?: { on: boolean; onToggle: () => void };
   /** Extra top offset (px) on phones, when the search card grows. */
@@ -47,6 +51,8 @@ export default function MapControls({
   overlayZoomedOut,
   onLocate,
   onDetectVehicle,
+  vehicleOpen = false,
+  vehicleConfirmed = false,
   rotate,
   controlsOffset = 0,
 }: Props) {
@@ -128,8 +134,10 @@ export default function MapControls({
       </Popover>
       {onDetectVehicle &&
         fab(
-          <IconButton aria-label="Wykryj pojazd, w którym jesteś" onClick={onDetectVehicle}>
-            <DirectionsBus />
+          <IconButton aria-label="Wykryj pojazd, w którym jesteś" aria-pressed={vehicleOpen} onClick={onDetectVehicle}>
+            <Badge color="secondary" variant="dot" invisible={!vehicleConfirmed} overlap="circular">
+              <DirectionsBus />
+            </Badge>
           </IconButton>,
         )}
       {fab(

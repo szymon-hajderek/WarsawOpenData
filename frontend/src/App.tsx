@@ -17,7 +17,7 @@ import { simState } from './api/sim';
 import FilterSheet from './components/FilterSheet';
 import SidePanel from './components/SidePanel';
 import { useColorMode } from './colorMode';
-import { detectionPoints, requestLinePopup } from './api/vehicle';
+import { detectionPoints } from './api/vehicle';
 import { geoErrorText, useLocationTrack } from './hooks/useLocationTrack';
 import { useRouteSearch } from './hooks/useRouteSearch';
 import { useTripProgress } from './hooks/useTripProgress';
@@ -84,6 +84,8 @@ export default function App() {
   const [stopOrder, setStopOrder] = useState<StopOrder>('given');
   // Public transport (default) or a street-only trip: walking or own bike.
   const [travel, setTravel] = useState<TravelMode>('transit');
+  // The search card on a phone shows only "Dokąd jedziesz?" until it is opened (on a wide screen it is always open).
+  const [searchOpen, setSearchOpen] = useState(false);
   // The 3D map prototype (a tilted map with extruded buildings), remembered on the device.
   const [map3d, setMap3d] = useMap3d();
   // Accessibility picked for this search (transit and walking); null = not picked, follow the wheelchair preference.
@@ -362,6 +364,25 @@ export default function App() {
         right: 70,
       };
 
+  // The vehicle window ("W jakim pojeździe jesteś?"): in the search step it sits at the bottom; after a route is
+  // found the bus button of the map still opens it, in place of the route sheet until it is closed.
+  const vehicleWindow = !activeTrip && vehicle.open && picking === null;
+  const vehicleOverStep = vehicleWindow && step !== 'search';
+  // The window found by itself at the start must not hide the route sheet that comes next.
+  const hideVehicle = vehicle.hide;
+  useEffect(() => {
+    if (step !== 'search') hideVehicle();
+  }, [step, hideVehicle]);
+
+  // Where the round map buttons start: below the search card, whatever its height is.
+  const searchCollapsed = !desktop && !searchOpen && !replanning; // a new search during a trip keeps "Wróć do przejazdu" in view
+  const mapControlsOffset =
+    inTrip || step === 'route'
+      ? 0
+      : searchCollapsed
+        ? -56 + (destination && !origin ? 34 : 0)
+        : 84 + stopFields.length * 56 + (hasAccess(travel) && !byBike ? 36 : 0) + (travel === 'transit' ? 36 : 0);
+
   return (
     <Box sx={{ position: 'fixed', inset: 0, bgcolor: 'background.default' }}>
       {/* Under the Preferences page the map and panels cannot take focus or be read by a screen reader. */}
@@ -383,8 +404,10 @@ export default function App() {
               route={preview}
               padding={padding}
               stops={inTrip ? [] : via}
-              controlsOffset={inTrip || step === 'route' ? 0 : 84 + stopFields.length * 56 + (hasAccess(travel) && !byBike ? 36 : 0) + (travel === 'transit' ? 36 : 0)}
-              onDetectVehicle={!activeTrip && step === 'search' ? requestLinePopup : undefined}
+              controlsOffset={mapControlsOffset}
+              onDetectVehicle={!activeTrip && picking === null ? vehicle.toggle : undefined}
+              vehicleOpen={vehicle.open}
+              vehicleConfirmed={vehicle.confirmed !== null}
               onClose3d={() => setMap3d(false)}
             />
           </Suspense>
@@ -400,8 +423,10 @@ export default function App() {
           detailed={inTrip || step === 'route'}
           padding={padding}
           stops={inTrip ? [] : via}
-          controlsOffset={inTrip || step === 'route' ? 0 : 84 + stopFields.length * 56 + (hasAccess(travel) && !byBike ? 36 : 0) + (travel === 'transit' ? 36 : 0)}
-          onDetectVehicle={!activeTrip && step === 'search' ? requestLinePopup : undefined}
+          controlsOffset={mapControlsOffset}
+          onDetectVehicle={!activeTrip && picking === null ? vehicle.toggle : undefined}
+              vehicleOpen={vehicle.open}
+              vehicleConfirmed={vehicle.confirmed !== null}
           follow={inTrip}
           onMapPick={picking !== null && !pickBusy ? (p) => void pickAt(picking, p) : undefined}
           onContextPick={!inTrip && picking === null ? (target, p) => void pickAt(target, p) : undefined}
@@ -417,6 +442,8 @@ export default function App() {
 
         {!inTrip && step !== 'route' && picking === null && (
           <SearchCard
+            collapsed={searchCollapsed}
+            onToggleCollapsed={desktop ? undefined : () => setSearchOpen((o) => !o)}
             origin={origin}
             destination={destination}
             stops={stopFields}
@@ -441,7 +468,7 @@ export default function App() {
           />
         )}
 
-        {!activeTrip && step === 'search' && vehicle.open && picking === null && (
+        {vehicleWindow && (
           <VehicleSheet
             candidates={vehicle.vehicles}
             lines={vehicle.lines}
@@ -458,11 +485,12 @@ export default function App() {
             onClearManual={vehicle.clearManual}
             onRedetect={vehicle.redetect}
             onConfirm={() => {
-              // "Jadę tą linią" on the start screen: plan from that vehicle's next stops (unless a start was typed)
+              // "Jadę tą linią": plan from that vehicle's next stops (unless a start was typed)
               const v = vehicle.confirm();
               if (v && !v.manual && (!origin || origin.isCurrentLocation || origin.id.startsWith(ONBOARD_PREFIX))) {
                 setOrigin(onboardPlace(v, userPosition ?? origin?.position ?? null));
               }
+              if (step !== 'search') vehicle.hide(); // after a route is found the window must not cover its sheet
             }}
             onDismiss={vehicle.dismiss}
           />
@@ -517,7 +545,7 @@ export default function App() {
           />
         )}
 
-        {!inTrip && step === 'options' && picking === null && (
+        {!inTrip && step === 'options' && picking === null && !vehicleOverStep && (
           <RouteOptionsSheet
             options={visible}
             departure={departureSummary(departure)}
@@ -541,7 +569,7 @@ export default function App() {
           />
         )}
 
-        {!activeTrip && step === 'route' && chosen && origin && destination && (
+        {!activeTrip && step === 'route' && chosen && origin && destination && !vehicleOverStep && (
           <RouteDetailsSheet
             route={chosen}
             origin={origin}

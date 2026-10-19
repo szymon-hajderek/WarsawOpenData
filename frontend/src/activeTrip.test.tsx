@@ -8,6 +8,7 @@ import { PreferencesProvider } from './preferences/PreferencesProvider';
 import { BUS_1002_TRACK } from './test/busTrack';
 import { DESTINATION, NEAREST_BUSES, onboardRoute, ROUTE_119, seeded, WALK_START, withNoise } from './test/tripFixtures';
 import type { LatLng } from './types';
+import { openSearchCard } from './test/searchCard';
 
 // The map (Leaflet + MapLibre) does not run in jsdom and is not what is tested here.
 vi.mock('./components/MapView', () => ({ default: () => null }));
@@ -115,6 +116,7 @@ async function chooseDestination(query: string, label: string) {
 async function startTrip() {
   renderApp();
   fix(WALK_START, BUS_1002_TRACK[0].t - 60);
+  await openSearchCard();
   await waitFor(() => expect((screen.getByPlaceholderText('Skąd jedziesz?') as HTMLInputElement).value).toBe('Twoja lokalizacja'));
   await chooseDestination('Cel', 'Cel podróży');
   fireEvent.click(await screen.findByRole('button', { name: /Wybierz tę trasę/ }, { timeout: 3000 }));

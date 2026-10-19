@@ -129,6 +129,11 @@ export function useVehicleDetection({ position, getTrack }: Input) {
 
   useEffect(() => (delayVehicleId ? watchDelay(delayVehicleId) : undefined), [delayVehicleId]);
 
+  const hide = useCallback(() => {
+    setOpen(false);
+    requested.current = false; // a hidden window was not asked for any more: automatic runs may reopen it
+  }, []);
+
   const selectManualLine = useCallback((line: string) => {
     const v = manualCandidate(line);
     setManual(v);
@@ -168,6 +173,19 @@ export function useVehicleDetection({ position, getTrack }: Input) {
     selectManualLine,
     clearManual,
     confirm,
+    /**
+     * The bus button of the map: hides the window while it is shown (the confirmed vehicle stays), brings it back
+     * when it is hidden, and detects first when there is nothing to bring back.
+     */
+    toggle: () => {
+      if (open) setOpen(false);
+      else if (vehicles.length > 0 || confirmed) {
+        setOpen(true);
+        setSnap('bar');
+      } else requestLinePopup();
+    },
+    /** Hides the window; the confirmed vehicle stays (unlike `dismiss`). */
+    hide,
     dismiss: () => {
       setOpen(false);
       requested.current = false;
@@ -182,11 +200,6 @@ export function useVehicleDetection({ position, getTrack }: Input) {
       setDelayVehicleId(null);
       setOpen(false);
       misses.current = 0;
-    },
-    /** Hides the window and keeps the confirmed vehicle (the active trip shows it in its own sheet). */
-    hide: () => {
-      setOpen(false);
-      requested.current = false;
     },
   };
 }

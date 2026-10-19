@@ -253,6 +253,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   Known gap: a pedestrian crosses a road only where OSM connects the two sidewalks (e.g. Wolica 01 / 02: 59 m apart, 695 m walk).
 - ZTM posts in OSM: `public_transport=platform` nodes with `ref` = ZTM stop_id (`Grójecka 02` = `ref=435102`);
   90% of posts match, median 7 m from the GTFS point.
+- **One walk is one leg:** the router splits a trip at every station it passes, so a ride ending at one post of a stop, the short transfer walk to the next post and the street walk to the destination
+  came as two or three neighbouring walk legs. `backend/app/routing/merge.py` (`merge_street_legs`, used for the plan options in `RealRouteEngine._plan_option`) joins neighbouring `walk` legs and
+  neighbouring own-bike `bike` legs into one: same points (the shared point once), minutes and metres are the sums, ids / names / segments / elevators / steps / street totals carried over; a leg that
+  ends at an intermediate stop, a ride, a different mode and a rented `veturilo` leg are never joined. `legs_from_router` itself is unchanged.
 - Street modes (`osm.SPEED`): `walk`, `bike` (riding + pushing along the stroller graph where riding is not
   allowed), `accessible` (wheelchair: walk without steps, with `highway=elevator` ways; steps with
   `ramp:wheelchair=yes` count as step-free, plain `ramp=yes` does not), `stroller` (as accessible, plus steps with
@@ -496,6 +500,15 @@ Everything in this repo (files, commits, PRs) is written in English.
   Dziś / Jutro / a date + a time, or "Teraz". State `departure` in `App.tsx` (`null` = now, not saved). A chosen time is sent as
   `when` = `YYYY-MM-DDTHH:MM` with every search (transit, `via`, street-only); now sends no `when`. A past time is allowed (chip muted).
   The route list header shows "Wyjazd 14:30" when not now.
+- **Collapsible search card (phone):** by default `SearchCard` shows only "Dokąd jedziesz?" and a chevron (`collapsed` / `onToggleCollapsed`, state `searchOpen` in `App`); the chevron opens the
+  whole card (start, stops, travel modes, ...), and a chevron inside folds it again. If a destination is set but there is no start, the collapsed card offers "Ustaw start" (opens the card).
+  On a wide screen (side panel), in the ride demo (no `onToggleCollapsed`) and during a new search in an active trip (it holds "Wróć do przejazdu") the card is always open. The map buttons
+  move with the card (`mapControlsOffset` in `App`). Tests that need the start field call `openSearchCard()` (`src/test/searchCard.ts`) first.
+- **Bus button of the map** (`vehicle.toggle` in `useVehicleDetection`, `aria-pressed` = window shown): the first click detects and shows the vehicle window, the next click hides it (the confirmed
+  vehicle stays), the next one brings it back without detecting again; with nothing to bring back it detects.
+  The bus button and the vehicle window exist in every step (search, route list, route details), not only in the search step: after a route is found the window replaces the route sheet while it is
+  open (the sheet comes back when it is closed or a vehicle is confirmed, `vehicle.hide()` keeps the confirmed vehicle), and the window that was found by itself at the start is closed when a route list
+  appears. A confirmed vehicle shows as a dot on the bus button; it is the vehicle the trip starts with. Not available in an active trip (it has its own detection) and while picking a point on the map.
 - Travel modes (`src/travel.ts`, not saved): three main chips in the search card (Komunikacja | Pieszo | Rower) and, for Komunikacja and Pieszo only,
   a small toggle row "Dostępność": Pieszo | Na wózku | Z wózkiem dziecięcym (`Access`, per search; a wheelchair in the preferences preselects
   "Wózek inwalidzki"). Komunikacja = the normal search with `profile` (`TRANSIT_PROFILE`: standard / accessible / stroller); a picked accessibility
