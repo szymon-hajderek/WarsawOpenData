@@ -172,7 +172,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   Without `PORTAL_KEY` the poller does not start and `GET /api/live/vehicles` returns 503 (no traceback).
   With the key it calls `fetch_vehicles` directly. `LIVE_BUSES_URL`, when set, is polled over HTTP instead.
   `POST /api/live/nearest-buses` ranks buses by MSE (m^2) between the user's 1-3 points and each bus track
-  (each user point paired with the bus point closest in time), `algorithms/nearest_buses.py`. Returns 4
+  (each user point compared with the vehicle's position at that time: interpolated, or extrapolated along its last movement
+  for at most 30 s, since the feed lags the phone by ~10-20 s; `nearest_buses.position_at`), `algorithms/nearest_buses.py`. Returns 4
   (1 + 3 for the popup), no distance cut-off. Feed time is read as Europe/Warsaw (`clock.warsaw_epoch`).
 - Tests: `cd backend && uv run pytest tests ../algorithms` (integration tests: `uv run pytest ../integration`) (`algorithms/` = pure functions, `backend/tests/` = API-level logic that needs no data files).
 - Simulation (`algorithms/simulation/`): `record_buses.py` records 2 min of live buses (needs `PORTAL_KEY`) to
@@ -405,7 +406,10 @@ Everything in this repo (files, commits, PRs) is written in English.
   an empty `API_URL` also counts as offline (no mock data).
   Delay: after "Jadę tą linią" `useVehicleDetection` starts `src/api/delay.ts` `watchDelay`, which polls `GET /api/live/delay` every 10 s and sends a `bus-delay`
   event on `window` (`BusDelayDetail` in `types.ts`); stops on a new detection or "Nie jadę komunikacją". No UI shows it yet.
-  Detection runs once after start and on `requestLinePopup()`. Each detection also sends a `bus-popup` event on `window`
+  Detection runs automatically every 5 s once the track has 2 points, until a vehicle is confirmed ("Nie jadę komunikacją" pauses it
+  for 5 min), on the start screen and in the active trip, and at once on `requestLinePopup()`. No distance limit: the best match is
+  always offered ("Wykryliśmy" when the 2nd is 2.5x worse). "Jadę tą linią" on the start screen sets the start to "Z pojazdu: <line>".
+  Field check: the server must reach the City Hall feed (a non-PL server gets 503 for every detection). Each detection also sends a `bus-popup` event on `window`
   (`{ candidates, lines, points }`). Direction is the GTFS `trip_headsign` for that line and brigade.
   The poller reads buses and trams. Concept: `ui/concept-art/current-line-popup.paint`.
 - Map overlays ("Warstwy przystanków", a signpost button in the right map bar, popover with checkboxes): Stacje Veturilo (from zoom 13,
