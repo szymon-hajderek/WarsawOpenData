@@ -80,6 +80,8 @@ interface Props {
   /** The vehicle the user confirmed (shown in the hidden bar). */
   confirmed: VehicleCandidate | null;
   onSnapChange: (snap: VehicleSnap) => void;
+  /** Extra space (px) below the window: the bar then floats above the route sheet. */
+  bottomOffset?: number;
   onSelect: (id: string) => void;
   onManualLine: (line: string) => void;
   onClearManual: () => void;
@@ -111,6 +113,7 @@ export default function VehicleSheet({
   onRedetect,
   onConfirm,
   onDismiss,
+  bottomOffset,
 }: Props) {
   const suggested = candidates[0];
   const others = candidates.slice(1, 4);
@@ -137,6 +140,7 @@ export default function VehicleSheet({
       snap={snap}
       onSnapChange={changeSnap}
       middleHeight={258}
+      bottomOffset={bottomOffset}
       ariaLabel="Okienko pojazdu"
       header={({ barLike, full, docked }) => (
         <>

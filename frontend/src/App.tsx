@@ -374,12 +374,15 @@ export default function App() {
   // The vehicle window ("W jakim pojeździe jesteś?"): in the search step it sits at the bottom; after a route is
   // found the bus button of the map still opens it, in place of the route sheet until it is closed.
   const vehicleWindow = !activeTrip && vehicle.open && picking === null;
-  const vehicleOverStep = vehicleWindow && step !== 'search';
-  // The window found by itself at the start must not hide the route sheet that comes next.
-  const hideVehicle = vehicle.hide;
+  // After a route is found the small bar (found by itself) floats above the route sheet; expanded (or opened with the
+  // bus button) the window takes the place of the route sheet until it is collapsed or closed.
+  const vehicleOverStep = vehicleWindow && step !== 'search' && vehicle.snap !== 'bar';
+  const vehicleAboveSheet = vehicleWindow && step !== 'search' && vehicle.snap === 'bar';
+  // Moving on to the routes collapses the window to its bar, so it never hides the route sheet that comes next.
+  const collapseVehicle = vehicle.setSnap;
   useEffect(() => {
-    if (step !== 'search') hideVehicle();
-  }, [step, hideVehicle]);
+    if (step !== 'search') collapseVehicle('bar');
+  }, [step, collapseVehicle]);
 
   // Where the round map buttons start: below the search card, whatever its height is.
   const searchCollapsed = !desktop && !searchOpen && !replanning; // a new search during a trip keeps "Wróć do przejazdu" in view
@@ -387,7 +390,7 @@ export default function App() {
     inTrip || step === 'route'
       ? 0
       : searchCollapsed
-        ? -56 + (destination && !origin ? 34 : 0)
+        ? -56 + (destination && !origin ? 34 : 0) + 36 + (travel === 'transit' ? 34 : 0) // the folded card shows the mode chips (+ own-bike switch)
         : 84 + stopFields.length * 56 + (hasAccess(travel) && !byBike ? 36 : 0) + (travel === 'transit' ? 36 : 0);
 
   return (
@@ -489,6 +492,7 @@ export default function App() {
             offline={vehicle.offline}
             liveUnavailable={vehicle.liveUnavailable}
             snap={vehicle.snap}
+            bottomOffset={vehicleAboveSheet ? (step === 'route' ? detailsHeights[detailsSnap] : optionsHeights[optionsSnap]) + 8 : 0}
             selectedId={vehicle.selectedId}
             confirmed={vehicle.confirmed}
             onSnapChange={vehicle.setSnap}
