@@ -149,6 +149,8 @@ interface Props {
   footer?: ReactNode;
   /** Ref of the scrolling content, e.g. to scroll the selected item into view. */
   contentRef?: Ref<HTMLDivElement>;
+  /** Extra space (px) below the panel: it then floats above another sheet (e.g. the vehicle bar above the routes). */
+  bottomOffset?: number;
 }
 
 /**
@@ -165,6 +167,7 @@ export default function SnapSheet({
   toolbar,
   footer,
   contentRef,
+  bottomOffset = 0,
 }: Props) {
   const docked = useSheetDock();
   const heights = useSnapHeights(middleHeight);
@@ -226,7 +229,7 @@ export default function SnapSheet({
       sx={{
         position: 'absolute',
         zIndex: 1000,
-        bottom: PANEL_BOTTOM,
+        bottom: bottomOffset ? `calc(${PANEL_BOTTOM} + ${bottomOffset}px)` : PANEL_BOTTOM,
         left: { xs: 8, sm: 16 },
         right: { xs: 8, sm: 'auto' },
         width: { sm: 440 },

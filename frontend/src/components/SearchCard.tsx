@@ -295,13 +295,35 @@ export default function SearchCard({
     ...(docked && { position: 'static', width: 'auto', maxHeight: 'none', flexShrink: 0, borderRadius: RADIUS.card }),
   };
 
-  // Collapsed: only "Dokąd jedziesz?" (phone). The chevron opens the whole card.
+  // The main travel mode chips and the own-bike switch: in the open card and, so they are never hidden, in the folded one.
+  const travelChips = onTravelChange && (
+    <Box role="group" aria-label="Sposób podróży" sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, pt: 1, pb: 0.25 }}>
+      {TRAVEL_MODES.map((m) => (
+        <Chip
+          key={m}
+          label={TRAVEL_LABELS[m]}
+          size="small"
+          clickable
+          color={travel === m ? 'primary' : 'default'}
+          variant={travel === m ? 'filled' : 'outlined'}
+          aria-pressed={travel === m}
+          onClick={() => onTravelChange(m)}
+        />
+      ))}
+    </Box>
+  );
+  const bikeToggle = onTravelChange && travel === 'transit' && onTransitAccessChange && (
+    <TransitAccessToggle value={transitAccess} onChange={onTransitAccessChange} />
+  );
+
+  // Collapsed (phone): "Dokąd jedziesz?" plus the travel mode chips and the own-bike switch. The chevron opens the
+  // whole card (start, stops, departure, accessibility).
   if (collapsed && onToggleCollapsed && !onBackToTrip) {
     return (
       <Paper
         elevation={docked ? 0 : 4}
         variant={docked ? 'outlined' : 'elevation'}
-        sx={{ ...paperSx, p: 1.25, alignItems: 'center' }}
+        sx={{ ...paperSx, p: 1.25, alignItems: 'flex-start' }}
       >
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <PlaceField
@@ -315,6 +337,8 @@ export default function SearchCard({
               Ustaw start
             </Button>
           )}
+          {travelChips}
+          {bikeToggle}
         </Box>
         <IconButton aria-label="Rozwiń wyszukiwanie: start, przystanki, sposób podróży" aria-expanded={false} onClick={onToggleCollapsed}>
           <ExpandMore />
@@ -434,30 +458,9 @@ export default function SearchCard({
           )}
         </Box>
 
-        {onTravelChange && (
-        <Box
-          role="group"
-          aria-label="Sposób podróży"
-          sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, pt: 1, pb: 0.25 }}
-        >
-          {TRAVEL_MODES.map((m) => (
-            <Chip
-              key={m}
-              label={TRAVEL_LABELS[m]}
-              size="small"
-              clickable
-              color={travel === m ? 'primary' : 'default'}
-              variant={travel === m ? 'filled' : 'outlined'}
-              aria-pressed={travel === m}
-              onClick={() => onTravelChange(m)}
-            />
-          ))}
-        </Box>
-        )}
+        {travelChips}
 
-        {onTravelChange && travel === 'transit' && onTransitAccessChange && (
-          <TransitAccessToggle value={transitAccess} onChange={onTransitAccessChange} />
-        )}
+        {bikeToggle}
 
         {onTravelChange && onAccessChange && hasAccess(travel) && !(travel === 'transit' && transitAccess === 'bike') && (
           <ToggleButtonGroup

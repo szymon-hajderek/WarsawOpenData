@@ -510,15 +510,15 @@ Everything in this repo (files, commits, PRs) is written in English.
   Dziś / Jutro / a date + a time, or "Teraz". State `departure` in `App.tsx` (`null` = now, not saved). A chosen time is sent as
   `when` = `YYYY-MM-DDTHH:MM` with every search (transit, `via`, street-only); now sends no `when`. A past time is allowed (chip muted).
   The route list header shows "Wyjazd 14:30" when not now.
-- **Collapsible search card (phone):** by default `SearchCard` shows only "Dokąd jedziesz?" and a chevron (`collapsed` / `onToggleCollapsed`, state `searchOpen` in `App`); the chevron opens the
+- **Collapsible search card (phone):** by default `SearchCard` shows "Dokąd jedziesz?", the travel mode chips (and "Z własnym rowerem" for Komunikacja) and a chevron (`collapsed` / `onToggleCollapsed`, state `searchOpen` in `App`); the chevron opens the
   whole card (start, stops, travel modes, ...), and a chevron inside folds it again. If a destination is set but there is no start, the collapsed card offers "Ustaw start" (opens the card).
   On a wide screen (side panel), in the ride demo (no `onToggleCollapsed`) and during a new search in an active trip (it holds "Wróć do przejazdu") the card is always open. The map buttons
   move with the card (`mapControlsOffset` in `App`). Tests that need the start field call `openSearchCard()` (`src/test/searchCard.ts`) first.
 - **Bus button of the map** (`vehicle.toggle` in `useVehicleDetection`, `aria-pressed` = window shown): the first click detects and shows the vehicle window, the next click hides it (the confirmed
   vehicle stays), the next one brings it back without detecting again; with nothing to bring back it detects.
-  The bus button and the vehicle window exist in every step (search, route list, route details), not only in the search step: after a route is found the window replaces the route sheet while it is
-  open (the sheet comes back when it is closed or a vehicle is confirmed, `vehicle.hide()` keeps the confirmed vehicle), and the window that was found by itself at the start is closed when a route list
-  appears. A confirmed vehicle shows as a dot on the bus button; it is the vehicle the trip starts with. Not available in an active trip (it has its own detection) and while picking a point on the map.
+  The bus button and the vehicle window exist in every step (search, route list, route details), not only in the search step: after a route is found the collapsed bar floats above the route sheet
+  (`VehicleSheet` / `SnapSheet` `bottomOffset`), and an expanded window (or one opened with the bus button) replaces the route sheet until it is collapsed or closed
+  (`vehicle.hide()` keeps the confirmed vehicle). Moving to the route list collapses the window to its bar, so the automatic detection (every 5 s) never hides the routes. A confirmed vehicle shows as a dot on the bus button; it is the vehicle the trip starts with. Not available in an active trip (it has its own detection) and while picking a point on the map.
 - Travel modes (`src/travel.ts`, not saved): three main chips in the search card (Komunikacja | Pieszo | Rower) and, for Komunikacja and Pieszo only,
   a small toggle row "Dostępność": Pieszo | Na wózku | Z wózkiem dziecięcym (`Access`, per search; a wheelchair in the preferences preselects
   "Wózek inwalidzki"). Komunikacja = the normal search with `profile` (`TRANSIT_PROFILE`: standard / accessible / stroller); a picked accessibility
