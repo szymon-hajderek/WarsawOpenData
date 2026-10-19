@@ -174,7 +174,7 @@ Keep this section current: every PR that adds a dependency or a tool updates it.
      `uv run python siting_report.py` (writes `data/SITING_REPORT.md`, `data/siting_report.json`, `artifacts/veturilo-siting/veturilo-siting.html`;
      `--rebuild` recomputes the grid, `--mocks` regenerates the mock data in `data/mock/`). The Warsaw boundary
      `data/geojson/warsaw.geojson` is committed; `uv run python download.py siting` fetches it again from Nominatim
-   - optional `.env` setting `DELAY_RADIUS_M`: radius for the delay estimate `GET /api/live/delay` (default `30`)
+   - optional `.env` setting `DELAY_RADIUS_M`: radius for the delay estimate `GET /api/live/delay` (default `80`, picked by `search_delay_radius.py`)
    - delay simulation on the committed recording `data/live/delay_sample.json.gz`: `uv run python ../algorithms/simulation/simulate_delay.py --radius 30`;
      rebuild the report `artifacts/delays/delay-statistics.html`: `uv run python ../algorithms/simulation/export_delay_viz.py`;
      search the best radius (20-200 m every 10 m, then every 1 m): `uv run python ../algorithms/simulation/search_delay_radius.py`;

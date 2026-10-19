@@ -324,7 +324,7 @@ for the longest scheduled time between two stops of its trip (+ 60 s; 10 min whe
 point in the middle of every two feed points (about every 5 s) when no poll failed between them and they are at most
 25 s apart. The vehicle's position is projected on the GTFS shape of its trip (same line + brigade, running now ± 15 min,
 shape closer than 100 m; of those, the trip whose timetable at that point is closest to now); the last stop passed is K-1, the next one K. Delay = time the vehicle was closest to K-1
-(within `DELAY_RADIUS_M`, default 30 m) - scheduled departure at K-1. It is shown as the expected delay at K.
+(within `DELAY_RADIUS_M`, default 80 m) - scheduled departure at K-1. It is shown as the expected delay at K.
 
 | Query | Type | Meaning |
 |---|---|---|
@@ -353,7 +353,8 @@ Answer:
  "radiusM": 30.0, "updatedAt": 1792249203.8}
 ```
 
-Not available (the vehicle passed K-1 but no buffered point was within the radius):
+Not available (the vehicle passed K-1 but no buffered point was within the radius). Both examples were recorded on
+2026-10-17 with the earlier default R = 30 m:
 
 ```json
 {"vehicleId": "bus-1862", "vehicle": "1862", "line": "117", "brigade": "1", "mode": "bus",

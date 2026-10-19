@@ -191,7 +191,7 @@ Everything in this repo (files, commits, PRs) is written in English.
   buffer (longest scheduled stop-to-stop time of the brigade's current trip + 60 s, else 10 min) with a midpoint between feed
   points (~5 s) unless a poll failed in between or the gap is > 25 s. The vehicle is projected on the GTFS shape of the trip with
   the same line + brigade (running now +- 15 min, < 100 m, timetable at that point closest to now; loops: the stretch nearest the last projection); last stop passed = K-1.
-  Delay = time closest to K-1 within `DELAY_RADIUS_M` (default 30 m) - scheduled departure at K-1, shown at stop K; may be negative.
+  Delay = time closest to K-1 within `DELAY_RADIUS_M` (default 80 m) - scheduled departure at K-1, shown at stop K; may be negative.
   Not found -> `available: false`. `shape_dist_traveled` in `warsaw.zip` is in km; `mkuran._shape_dist` converts
   it to metres. The cache version check rebuilds legacy truncated-kilometre data; `mkuran._trip_static`
   computes metres from coordinates independently. Tuning: `algorithms/simulation/tune_delay_radius.py`, results in `DELAY_RESULTS.md`.
@@ -200,7 +200,8 @@ Everything in this repo (files, commits, PRs) is written in English.
   drop, noise_m)`, for future R searches) compares the replayed estimate with the full-track reference (stop crossing on the shape);
   `export_delay_viz.py` builds `artifacts/delays/delay-statistics.html`. `search_delay_radius.py`: R 20..200 m every 10 m, then every 1 m
   between the two best neighbours; score = share of passes shown within 30 s. On the 2026-10-17 recording: 30 m 95.0%, best 80 m 96.5%
-  (flat from 80 m); default still 30 m.
+  (flat from 80 m); default is 80 m since 2026-10-18 (was 30 m). Report: `artifacts/delays/tests/radius-search.html`
+  (`search_delay_radius.py --report`).
 - Delays of suggested routes (`POST /api/live/route-delays`, `algorithms/route_delays.py`): a transit option id is
   `pt-<trip id>-<trip id>...` (built in `real_engine.py`; the endpoint depends on that format, the engine is not changed).
   Trip -> GTFS line + brigade -> live vehicle with the same Lines + Brigade -> the `/delay` estimate (`_delay_for`).
