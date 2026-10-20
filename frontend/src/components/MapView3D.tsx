@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { GeoJSONSource, LngLatBoundsLike, Map as MlMap, Marker as MlMarker } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Box, type PaletteMode } from '@mui/material';
+import { applyHeading, userArrowHtml } from '../map/userArrow';
+import { useHeading } from '../hooks/useHeading';
 import { ICON_PATH, iconHtml } from '../modes';
 import { PALETTE } from '../map/palette';
 import { MAP_ATTRIBUTION } from '../map/mapStyle';
@@ -22,6 +24,8 @@ interface Props {
   paletteMode: PaletteMode;
   onToggleMode: () => void;
   userPosition: LatLng | null;
+  /** Direction of movement from GPS (degrees from north); the compass wins when there is one. */
+  moveHeading?: number | null;
   onLocate: () => void;
   origin: Place | null;
   destination: Place | null;
@@ -58,6 +62,7 @@ export default function MapView3D({
   paletteMode,
   onToggleMode,
   userPosition,
+  moveHeading = null,
   onLocate,
   origin,
   destination,
@@ -77,6 +82,9 @@ export default function MapView3D({
   const box = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<MlMap | null>(null);
   const markers = useRef<MlMarker[]>([]);
+  const userEl = useRef<HTMLElement | null>(null);
+  const heading = useHeading(moveHeading);
+  const headingRef = useRef(heading);
   // MapLibre zoom is one lower than the Leaflet zoom the stop layers' thresholds are written for.
   const overlayData = useMapOverlays(map as ViewMap | null, overlayIds, 1);
   const overlayRef = useRef(overlayData);
@@ -246,7 +254,12 @@ export default function MapView3D({
         markers.current.push(new maplibregl.Marker({ element: el }).setLngLat(lonLat(position)).addTo(map));
       };
       const ring = `border:3px solid ${colors.surface};box-shadow:${colors.shadow}`;
-      if (userPosition) add(markerEl(iconHtml(ICON_PATH.navigation, 24, colors.accent), 42, `background:${colors.surface};box-shadow:${colors.shadow}`), userPosition);
+      userEl.current = null;
+      if (userPosition) {
+        userEl.current = markerEl(userArrowHtml(colors.accent, 24), 42, `background:${colors.surface};box-shadow:${colors.shadow}`);
+        add(userEl.current, userPosition);
+        applyHeading(userEl.current, headingRef.current, map.getBearing());
+      }
       if (origin && !origin.isCurrentLocation) add(markerEl('', 20, `border:5px solid ${colors.accent};background:${colors.surface};box-shadow:${colors.shadow}`), origin.position);
       const mid = route?.waypoints?.length ? route.waypoints.slice(1, -1) : stops;
       mid.forEach((p, i) =>
@@ -258,6 +271,18 @@ export default function MapView3D({
       cancelled = true;
     };
   }, [map, userPosition, origin, destination, stops, route, colors]);
+
+  // The arrow follows the heading and the map's own rotation.
+  useEffect(() => {
+    headingRef.current = heading;
+    if (!map) return;
+    const turn = () => applyHeading(userEl.current, headingRef.current, map.getBearing());
+    turn();
+    map.on('rotate', turn);
+    return () => {
+      map.off('rotate', turn);
+    };
+  }, [map, heading]);
 
   // Fit the view to the route (or to the two points), like the 2D map.
   useEffect(() => {

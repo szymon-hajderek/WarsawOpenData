@@ -77,7 +77,7 @@ export default function App() {
   // From 600 px: the side panel layout (search + sheets in one column on the left, the map on the right).
   const desktop = useMediaQuery(theme.breakpoints.up('sm'));
 
-  const { position: userPosition, geoError, clearGeoError, locate, getTrack } = useLocationTrack();
+  const { position: userPosition, moveHeading, geoError, clearGeoError, locate, getTrack } = useLocationTrack();
   const [origin, setOrigin] = useState<Place | null>(null);
   const [destination, setDestination] = useState<Place | null>(null);
   // Intermediate stops (`null` = an empty field the user has just added) and how they are ordered.
@@ -408,6 +408,7 @@ export default function App() {
               paletteMode={mode}
               onToggleMode={toggle}
               userPosition={userPosition}
+              moveHeading={moveHeading}
               onLocate={locate}
               origin={inTrip ? activeTrip.origin : origin}
               destination={inTrip ? activeTrip.destination : destination}
@@ -426,6 +427,7 @@ export default function App() {
           paletteMode={mode}
           onToggleMode={toggle}
           userPosition={userPosition}
+          moveHeading={moveHeading}
           onLocate={locate}
           origin={inTrip ? activeTrip.origin : origin}
           destination={inTrip ? activeTrip.destination : destination}

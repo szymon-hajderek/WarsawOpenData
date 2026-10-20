@@ -15,6 +15,8 @@ import { MapOverlays } from './MapOverlays';
 import { accessPoints, buildOverlay, type Overlay } from '../utils/overlay';
 import { legLines, type LineStyle } from '../utils/legStyle';
 import { glassCss } from '../map/glass';
+import { applyHeading, userArrowHtml } from '../map/userArrow';
+import { useHeading } from '../hooks/useHeading';
 import '../map/glass.css';
 import type { LatLng, Place as PlaceT, RouteOption } from '../types';
 
@@ -42,6 +44,8 @@ interface Props {
   paletteMode: PaletteMode;
   onToggleMode: () => void;
   userPosition: LatLng | null;
+  /** Direction of movement from GPS (degrees from north); the compass wins when there is one. */
+  moveHeading?: number | null;
   onLocate: () => void;
   origin: PlaceT | null;
   destination: PlaceT | null;
@@ -338,6 +342,19 @@ function RouteLayer({
   );
 }
 
+/**
+ * The "me" marker; the arrow inside is turned in place (no new icon, so the turn is animated).
+ * The compass lives here, so its updates re-render only this marker, not the app.
+ */
+function UserMarker({ position, icon, moveHeading }: { position: LatLng; icon: L.DivIcon; moveHeading: number | null }) {
+  const heading = useHeading(moveHeading);
+  const ref = useRef<L.Marker>(null);
+  useEffect(() => {
+    applyHeading(ref.current?.getElement(), heading);
+  }, [heading, icon]);
+  return <Marker ref={ref} position={position} icon={icon} interactive={false} />;
+}
+
 /** Numbered round marker of an intermediate stop. */
 function stopIcon(n: number, colors: (typeof PALETTE)['light'], look: MapLook, mode: PaletteMode): L.DivIcon {
   const fill =
@@ -356,6 +373,7 @@ export default function MapView({
   paletteMode,
   onToggleMode,
   userPosition,
+  moveHeading = null,
   onLocate,
   origin,
   destination,
@@ -393,11 +411,7 @@ export default function MapView({
       return {
         user: L.divIcon({
           className: 'app-div-icon',
-          html: `<div class="glass-pulse glass-rim" style="--pulse-color:${accent};position:relative;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;${gl()}">${iconHtml(
-            ICON_PATH.navigation,
-            18,
-            accent,
-          )}</div>`,
+          html: `<div class="glass-pulse glass-rim" style="--pulse-color:${accent};position:relative;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;${gl()}">${userArrowHtml(accent, 18)}</div>`,
           iconSize: [32, 32],
           iconAnchor: [16, 16],
         }),
@@ -420,14 +434,10 @@ export default function MapView({
       };
     }
     return {
-      // white circle with a navigation arrow
+      // white circle with a navigation arrow (turned to the heading) or a dot
       user: L.divIcon({
         className: 'app-div-icon',
-        html: `<div style="width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:${surface};box-shadow:${shadow}">${iconHtml(
-          ICON_PATH.navigation,
-          18,
-          accent,
-        )}</div>`,
+        html: `<div style="width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:${surface};box-shadow:${shadow}">${userArrowHtml(accent, 18)}</div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 16],
       }),
@@ -494,7 +504,7 @@ export default function MapView({
               interactive={false}
             />
           )}
-          {userPosition && <Marker position={userPosition} icon={icons.user} interactive={false} />}
+          {userPosition && <UserMarker position={userPosition} icon={icons.user} moveHeading={moveHeading} />}
           {origin && !origin.isCurrentLocation && (
             <Marker position={origin.position} icon={icons.origin} interactive={false} />
           )}

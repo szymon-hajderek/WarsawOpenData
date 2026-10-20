@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { haversine } from '../utils/geo';
+import { addFix, movementHeading, type Fix } from '../utils/heading';
 import type { LatLng } from '../types';
 import type { TrackPoint } from '../api/vehicle';
 
@@ -19,24 +20,37 @@ export const geoErrorText = (insecure = isInsecurePage()) =>
 
 /**
  * The user's location: one `watchPosition` stream, cleaned up when the component unmounts.
- * It also keeps the last 1-3 positions (one every 10 s, memory only) for the vehicle detection.
+ * It also keeps the last 1-3 positions (one every 10 s, memory only) for the vehicle detection,
+ * and the direction of movement from the last 3 fixes that are farther apart than the GPS error (`moveHeading`).
  */
 export function useLocationTrack() {
   const [position, setPosition] = useState<LatLng | null>(null);
   const [geoError, setGeoError] = useState(false);
   const latest = useRef<TrackPoint | null>(null);
   const track = useRef<TrackPoint[]>([]);
+  const fixes = useRef<Fix[]>([]);
+  const [moveHeading, setMoveHeading] = useState<number | null>(null);
 
   useEffect(() => {
     if (!navigator.geolocation) {
       setGeoError(true);
       return;
     }
+    const updateHeading = () => {
+      const h = movementHeading(fixes.current, Date.now());
+      setMoveHeading(h == null ? null : Math.round(h));
+    };
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        const { latitude, longitude } = pos.coords;
+        const { latitude, longitude, accuracy } = pos.coords;
         latest.current = { lat: latitude, lon: longitude, time_ms: Date.now() };
         if (track.current.length === 0) track.current.push(latest.current);
+        fixes.current = addFix(fixes.current, {
+          pos: [latitude, longitude],
+          accuracy: accuracy ?? 0,
+          time: Date.now(),
+        });
+        updateHeading();
         setPosition((prev) =>
           prev && haversine(prev, [latitude, longitude]) < MOVE_M ? prev : [latitude, longitude],
         );
@@ -45,6 +59,7 @@ export function useLocationTrack() {
       { enableHighAccuracy: true, timeout: 10_000 },
     );
     const timer = setInterval(() => {
+      updateHeading(); // the user stopped: back to the dot
       if (!latest.current) return;
       track.current.push({ ...latest.current, time_ms: Date.now() });
       track.current.splice(0, track.current.length - MAX_POINTS);
@@ -71,5 +86,5 @@ export function useLocationTrack() {
   /** The last 1-3 positions; empty when there is no fix yet. */
   const getTrack = useCallback((): TrackPoint[] => [...track.current], []);
 
-  return { position, geoError, clearGeoError: () => setGeoError(false), locate, getTrack };
+  return { position, moveHeading, geoError, clearGeoError: () => setGeoError(false), locate, getTrack };
 }
